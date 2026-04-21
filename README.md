@@ -64,6 +64,34 @@ python scripts/train.py \
   --config configs/train_wan21_x2_512.yaml
 ```
 
+如果使用当前训练机上的 LightX2V，可以直接用整合脚本：
+
+```bash
+bash scripts/run_lightx2v_training.sh build
+bash scripts/run_lightx2v_training.sh train
+```
+
+也可以一步执行 latent 构造和训练：
+
+```bash
+bash scripts/run_lightx2v_training.sh all
+```
+
+常用微调参数可以用环境变量覆盖：
+
+```bash
+MAX_STEPS=20000 LR=5e-5 GRAD_ACCUM=16 \
+bash scripts/run_lightx2v_training.sh train
+```
+
+脚本默认路径：
+
+```text
+LIGHTX2V_REPO=/data/yongyang/Jin/LightX2V
+MODEL_ROOT=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B
+VAE_PATH=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth
+```
+
 latent 指标评估：
 
 ```bash
