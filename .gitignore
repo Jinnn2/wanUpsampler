@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Training data and generated outputs
+data/
+datasets/
+checkpoints/
+outputs/
+runs/
+wandb/
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.mp4
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
