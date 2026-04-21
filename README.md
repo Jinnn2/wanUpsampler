@@ -22,6 +22,7 @@
 - 如果 `model_root` 是 Wan 官方 checkpoint 目录，wrapper 会优先查找 `Wan2.1_VAE.pth` 并使用官方 `wan.modules.vae.WanVAE`。
 - 官方 VAE 路径默认查找 `${model_root}/Wan2.1_VAE.pth`，如果文件在别处，用 `--vae_path` 显式传入。
 - 官方 VAE 还需要能导入 Wan 源码里的 `wan.modules.vae`；如果当前环境没有安装官方 Wan repo，用 `--wan_repo /path/to/Wan2.1` 或设置 `WAN_REPO`。
+- 如果当前用 LightX2V 跑 Wan，可以用 `--vae_backend lightx2v`，并把 `--wan_repo` 指向 LightX2V 仓库根目录。
 - 只有当目录包含 diffusers 格式的 `vae/config.json` 时，wrapper 才会使用 `diffusers.AutoencoderKLWan`。
 - 本地只做了语法编译检查；完整 torch 前向和 VAE encode/decode 需要在你的 Linux/H200 环境里验证。
 
@@ -47,7 +48,8 @@ python scripts/build_latent_pairs.py \
   --out_dir data/latent_pairs_wan21_512 \
   --model_root /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B \
   --vae_path /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth \
-  --wan_repo /path/to/Wan2.1 \
+  --wan_repo /path/to/LightX2V \
+  --vae_backend lightx2v \
   --hr_size 512 512 \
   --lr_size 256 256 \
   --num_frames 17 \
@@ -79,7 +81,8 @@ python scripts/eval_decode.py \
   --data_dir data/latent_pairs_wan21_512 \
   --model_root /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B \
   --vae_path /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth \
-  --wan_repo /path/to/Wan2.1 \
+  --wan_repo /path/to/LightX2V \
+  --vae_backend lightx2v \
   --out_dir outputs/eval_decode \
   --use_ema
 ```

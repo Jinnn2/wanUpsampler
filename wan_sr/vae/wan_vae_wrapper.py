@@ -12,10 +12,15 @@ import torch
 class WanVAEWrapper:
     """Thin Wan VAE adapter.
 
-    The official Wan checkpoint directory contains DiT config/weights plus a
+    Supported backends:
+    - official: ``wan.modules.vae.WanVAE``
+    - lightx2v: ``lightx2v.models.video_encoders.hf.wan.vae.WanVAE``
+    - diffusers: ``diffusers.AutoencoderKLWan``
+
+    Official Wan checkpoint directories contain DiT config/weights plus a
     separate ``Wan2.1_VAE.pth`` file. A diffusers-converted checkpoint instead
-    has a ``vae/config.json`` subfolder. The wrapper keeps those two cases
-    separate so the DiT root is never loaded as an AutoencoderKLWan.
+    has a ``vae/config.json`` subfolder. The wrapper keeps those cases separate
+    so the DiT root is never loaded as an AutoencoderKLWan.
     """
 
     def __init__(
@@ -57,6 +62,9 @@ class WanVAEWrapper:
         if self.backend_kind == "official":
             latents = self.backend.encode([sample for sample in x])
             return torch.stack([latent.float().cpu() for latent in latents], dim=0)
+        if self.backend_kind == "lightx2v":
+            latents = [self.backend.encode(sample.unsqueeze(0)).float().cpu() for sample in x]
+            return torch.stack(latents, dim=0)
 
         encoded = self.backend.encode(x)
         if hasattr(encoded, "latent_dist"):
@@ -87,6 +95,10 @@ class WanVAEWrapper:
             decoded = self.backend.decode([sample for sample in z])
             video = torch.stack([sample.float().cpu() for sample in decoded], dim=0)
             return ((video.permute(0, 2, 3, 4, 1) + 1.0) / 2.0).clamp(0, 1)
+        if self.backend_kind == "lightx2v":
+            decoded = [self.backend.decode(sample).squeeze(0).float().cpu() for sample in z]
+            video = torch.stack(decoded, dim=0)
+            return ((video.permute(0, 2, 3, 4, 1) + 1.0) / 2.0).clamp(0, 1)
 
         scaling = getattr(getattr(self.backend, "config", object()), "scaling_factor", None)
         if scaling is not None:
@@ -102,8 +114,8 @@ class WanVAEWrapper:
         return video.permute(0, 2, 3, 4, 1).cpu()
 
     def _load_backend(self) -> tuple[Any, str]:
-        if self.backend_name not in {"auto", "official", "diffusers"}:
-            raise ValueError("backend must be one of: auto, official, diffusers")
+        if self.backend_name not in {"auto", "official", "lightx2v", "diffusers"}:
+            raise ValueError("backend must be one of: auto, official, lightx2v, diffusers")
 
         official_errors: list[str] = []
         vae_path = self._resolve_official_vae_path()
@@ -113,6 +125,14 @@ class WanVAEWrapper:
             except Exception as exc:
                 official_errors.append(str(exc))
                 if self.backend_name == "official":
+                    raise
+
+        if self.backend_name in {"auto", "lightx2v"} and vae_path is not None:
+            try:
+                return self._load_lightx2v_backend(vae_path), "lightx2v"
+            except Exception as exc:
+                official_errors.append(str(exc))
+                if self.backend_name == "lightx2v":
                     raise
 
         if self.backend_name in {"auto", "diffusers"}:
@@ -130,6 +150,7 @@ class WanVAEWrapper:
             "No usable Wan VAE backend was found.",
             "For official Wan checkpoints, pass --vae_path /path/to/Wan2.1_VAE.pth "
             "and make sure the Wan repo is importable, or pass --wan_repo /path/to/Wan2.1.",
+            "For LightX2V, pass --vae_backend lightx2v and --wan_repo /path/to/LightX2V.",
             "For diffusers checkpoints, pass --model_root to a diffusers-converted model "
             "that contains vae/config.json.",
         ]
@@ -167,6 +188,28 @@ class WanVAEWrapper:
                 "or pass --wan_repo /path/to/Wan2.1."
             ) from exc
         return WanVAE(vae_pth=str(vae_path), dtype=self.dtype, device=str(self.device))
+
+    def _load_lightx2v_backend(self, vae_path: Path) -> Any:
+        repo = self.wan_repo or os.environ.get("LIGHTX2V_REPO") or os.environ.get("WAN_REPO")
+        if repo is not None:
+            repo_path = Path(repo)
+            if str(repo_path) not in sys.path:
+                sys.path.insert(0, str(repo_path))
+        try:
+            from lightx2v.models.video_encoders.hf.wan.vae import WanVAE
+        except Exception as exc:
+            raise ImportError(
+                "Found VAE weights, but could not import LightX2V WanVAE. "
+                "Install LightX2V, set LIGHTX2V_REPO, or pass --wan_repo /path/to/LightX2V."
+            ) from exc
+        return WanVAE(
+            vae_path=str(vae_path),
+            dtype=self.dtype,
+            device=str(self.device),
+            parallel=False,
+            use_tiling=False,
+            cpu_offload=False,
+        )
 
     def _resolve_diffusers_vae_target(self) -> tuple[Path, str | None] | None:
         subfolder_config = self.model_root / "vae" / "config.json"
