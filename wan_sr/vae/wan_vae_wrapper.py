@@ -40,10 +40,12 @@ class WanVAEWrapper:
         self.dtype = dtype
         self.backend, self.backend_kind = self._load_backend()
 
-        module = self.backend.model if self.backend_kind == "official" else self.backend
-        module.eval()
-        for param in module.parameters():
-            param.requires_grad_(False)
+        module = getattr(self.backend, "model", self.backend)
+        if hasattr(module, "eval"):
+            module.eval()
+        if hasattr(module, "parameters"):
+            for param in module.parameters():
+                param.requires_grad_(False)
 
     @torch.no_grad()
     def encode(self, video: torch.Tensor) -> torch.Tensor:
