@@ -19,7 +19,10 @@
 待训练机确认：
 
 - 当前 VAE wrapper 默认优先使用 `diffusers.AutoencoderKLWan` 加载 Wan2.1 VAE。
-- 如果训练机使用 Wan 官方仓库里的 `WanVAE` 类，需要只改 `wan_sr/vae/wan_vae_wrapper.py`，训练主干不用改。
+- 如果 `model_root` 是 Wan 官方 checkpoint 目录，wrapper 会优先查找 `Wan2.1_VAE.pth` 并使用官方 `wan.modules.vae.WanVAE`。
+- 官方 VAE 路径默认查找 `${model_root}/Wan2.1_VAE.pth`，如果文件在别处，用 `--vae_path` 显式传入。
+- 官方 VAE 还需要能导入 Wan 源码里的 `wan.modules.vae`；如果当前环境没有安装官方 Wan repo，用 `--wan_repo /path/to/Wan2.1` 或设置 `WAN_REPO`。
+- 只有当目录包含 diffusers 格式的 `vae/config.json` 时，wrapper 才会使用 `diffusers.AutoencoderKLWan`。
 - 本地只做了语法编译检查；完整 torch 前向和 VAE encode/decode 需要在你的 Linux/H200 环境里验证。
 
 默认 Wan2.1 模型根目录：
@@ -43,6 +46,8 @@ python scripts/build_latent_pairs.py \
   --video_dir data/raw_videos \
   --out_dir data/latent_pairs_wan21_512 \
   --model_root /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B \
+  --vae_path /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth \
+  --wan_repo /path/to/Wan2.1 \
   --hr_size 512 512 \
   --lr_size 256 256 \
   --num_frames 17 \
@@ -73,6 +78,8 @@ python scripts/eval_decode.py \
   --checkpoint outputs/wan_traj_upsampler_x2/latest.pt \
   --data_dir data/latent_pairs_wan21_512 \
   --model_root /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B \
+  --vae_path /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth \
+  --wan_repo /path/to/Wan2.1 \
   --out_dir outputs/eval_decode \
   --use_ema
 ```

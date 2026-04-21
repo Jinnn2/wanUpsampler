@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -9,23 +12,32 @@ import torch
 class WanVAEWrapper:
     """Thin Wan VAE adapter.
 
-    This wrapper first tries diffusers' AutoencoderKLWan. If your training
-    environment uses the official Wan repository instead, keep the public
-    encode/decode methods here and replace only the private backend calls.
+    The official Wan checkpoint directory contains DiT config/weights plus a
+    separate ``Wan2.1_VAE.pth`` file. A diffusers-converted checkpoint instead
+    has a ``vae/config.json`` subfolder. The wrapper keeps those two cases
+    separate so the DiT root is never loaded as an AutoencoderKLWan.
     """
 
     def __init__(
         self,
         model_root: str | Path,
+        vae_path: str | Path | None = None,
+        wan_repo: str | Path | None = None,
+        backend: str = "auto",
         device: str | torch.device = "cuda",
         dtype: torch.dtype = torch.bfloat16,
     ) -> None:
         self.model_root = Path(model_root)
+        self.vae_path = Path(vae_path) if vae_path is not None else None
+        self.wan_repo = Path(wan_repo) if wan_repo is not None else None
+        self.backend_name = backend
         self.device = torch.device(device)
         self.dtype = dtype
-        self.backend = self._load_diffusers_backend()
-        self.backend.eval()
-        for param in self.backend.parameters():
+        self.backend, self.backend_kind = self._load_backend()
+
+        module = self.backend.model if self.backend_kind == "official" else self.backend
+        module.eval()
+        for param in module.parameters():
             param.requires_grad_(False)
 
     @torch.no_grad()
@@ -41,6 +53,10 @@ class WanVAEWrapper:
         x = video.to(device=self.device, dtype=self.dtype)
         x = x.permute(0, 4, 1, 2, 3).contiguous()
         x = x * 2.0 - 1.0
+
+        if self.backend_kind == "official":
+            latents = self.backend.encode([sample for sample in x])
+            return torch.stack([latent.float().cpu() for latent in latents], dim=0)
 
         encoded = self.backend.encode(x)
         if hasattr(encoded, "latent_dist"):
@@ -67,6 +83,11 @@ class WanVAEWrapper:
             raise ValueError(f"latents must be [C,T,H,W] or [B,C,T,H,W], got {tuple(latents.shape)}")
 
         z = latents.to(device=self.device, dtype=self.dtype)
+        if self.backend_kind == "official":
+            decoded = self.backend.decode([sample for sample in z])
+            video = torch.stack([sample.float().cpu() for sample in decoded], dim=0)
+            return ((video.permute(0, 2, 3, 4, 1) + 1.0) / 2.0).clamp(0, 1)
+
         scaling = getattr(getattr(self.backend, "config", object()), "scaling_factor", None)
         if scaling is not None:
             z = z / float(scaling)
@@ -80,25 +101,102 @@ class WanVAEWrapper:
         video = ((video.float() + 1.0) / 2.0).clamp(0, 1)
         return video.permute(0, 2, 3, 4, 1).cpu()
 
-    def _load_diffusers_backend(self) -> Any:
+    def _load_backend(self) -> tuple[Any, str]:
+        if self.backend_name not in {"auto", "official", "diffusers"}:
+            raise ValueError("backend must be one of: auto, official, diffusers")
+
+        official_errors: list[str] = []
+        vae_path = self._resolve_official_vae_path()
+        if self.backend_name in {"auto", "official"} and vae_path is not None:
+            try:
+                return self._load_official_backend(vae_path), "official"
+            except Exception as exc:
+                official_errors.append(str(exc))
+                if self.backend_name == "official":
+                    raise
+
+        if self.backend_name in {"auto", "diffusers"}:
+            diffusers_target = self._resolve_diffusers_vae_target()
+            if diffusers_target is not None:
+                try:
+                    return self._load_diffusers_backend(diffusers_target), "diffusers"
+                except Exception as exc:
+                    if self.backend_name == "diffusers":
+                        raise
+                    official_errors.append(str(exc))
+
+        hints = [
+            f"model_root={self.model_root}",
+            "No usable Wan VAE backend was found.",
+            "For official Wan checkpoints, pass --vae_path /path/to/Wan2.1_VAE.pth "
+            "and make sure the Wan repo is importable, or pass --wan_repo /path/to/Wan2.1.",
+            "For diffusers checkpoints, pass --model_root to a diffusers-converted model "
+            "that contains vae/config.json.",
+        ]
+        if official_errors:
+            hints.append("Backend errors:\n" + "\n".join(official_errors))
+        raise RuntimeError("\n".join(hints))
+
+    def _resolve_official_vae_path(self) -> Path | None:
+        candidates = []
+        if self.vae_path is not None:
+            candidates.append(self.vae_path)
+        candidates.extend(
+            [
+                self.model_root / "Wan2.1_VAE.pth",
+                self.model_root / "vae" / "Wan2.1_VAE.pth",
+            ]
+        )
+        for path in candidates:
+            if path.exists():
+                return path
+        return None
+
+    def _load_official_backend(self, vae_path: Path) -> Any:
+        repo = self.wan_repo or os.environ.get("WAN_REPO") or os.environ.get("WAN_CODE_DIR")
+        if repo is not None:
+            repo_path = Path(repo)
+            if str(repo_path) not in sys.path:
+                sys.path.insert(0, str(repo_path))
+        try:
+            from wan.modules.vae import WanVAE
+        except Exception as exc:
+            raise ImportError(
+                "Found official Wan VAE weights, but could not import wan.modules.vae.WanVAE. "
+                "Run from the Wan2.1 repo, install it on PYTHONPATH, set WAN_REPO, "
+                "or pass --wan_repo /path/to/Wan2.1."
+            ) from exc
+        return WanVAE(vae_pth=str(vae_path), dtype=self.dtype, device=str(self.device))
+
+    def _resolve_diffusers_vae_target(self) -> tuple[Path, str | None] | None:
+        subfolder_config = self.model_root / "vae" / "config.json"
+        if subfolder_config.exists():
+            return self.model_root, "vae"
+
+        root_config = self.model_root / "config.json"
+        if not root_config.exists():
+            return None
+
+        with root_config.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+        class_name = str(config.get("_class_name", ""))
+        has_vae_keys = "AutoencoderKLWan" in class_name or "latent_channels" in config
+        is_wan_transformer = config.get("model_type") in {"t2v", "i2v", "ti2v"} or "num_layers" in config
+        if has_vae_keys and not is_wan_transformer:
+            return self.model_root, None
+        return None
+
+    def _load_diffusers_backend(self, target: tuple[Path, str | None]) -> Any:
         try:
             from diffusers import AutoencoderKLWan
         except Exception as exc:
             raise ImportError(
-                "diffusers with AutoencoderKLWan is required for the default VAE wrapper. "
-                "Install requirements.txt or adapt wan_sr/vae/wan_vae_wrapper.py to your Wan checkout."
+                "diffusers with AutoencoderKLWan is required for diffusers VAE loading."
             ) from exc
 
-        errors: list[str] = []
-        for kwargs in ({"subfolder": "vae"}, {}):
-            try:
-                vae = AutoencoderKLWan.from_pretrained(
-                    str(self.model_root),
-                    torch_dtype=self.dtype,
-                    **kwargs,
-                )
-                return vae.to(self.device)
-            except Exception as exc:
-                errors.append(f"kwargs={kwargs}: {exc}")
-        joined = "\n".join(errors)
-        raise RuntimeError(f"Failed to load AutoencoderKLWan from {self.model_root}:\n{joined}")
+        root, subfolder = target
+        kwargs: dict[str, Any] = {"torch_dtype": self.dtype}
+        if subfolder is not None:
+            kwargs["subfolder"] = subfolder
+        vae = AutoencoderKLWan.from_pretrained(str(root), **kwargs)
+        return vae.to(self.device)

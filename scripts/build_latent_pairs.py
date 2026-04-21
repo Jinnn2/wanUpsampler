@@ -23,14 +23,21 @@ DEFAULT_MODEL_ROOT = "/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B"
 
 def main() -> None:
     args = parse_args()
-    model_root = args.model_root or args.vae_path or DEFAULT_MODEL_ROOT
+    model_root = args.model_root or DEFAULT_MODEL_ROOT
     device = torch.device(args.device)
     dtype = torch.bfloat16 if args.precision == "bf16" else torch.float16 if args.precision == "fp16" else torch.float32
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    vae = WanVAEWrapper(model_root, device=device, dtype=dtype)
+    vae = WanVAEWrapper(
+        model_root,
+        vae_path=args.vae_path,
+        wan_repo=args.wan_repo,
+        backend=args.vae_backend,
+        device=device,
+        dtype=dtype,
+    )
     videos = list_videos(args.video_dir)
     if not videos:
         raise FileNotFoundError(f"No videos found under {args.video_dir}")
@@ -79,7 +86,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--video_dir", required=True)
     parser.add_argument("--out_dir", default="data/latent_pairs_wan21_512")
     parser.add_argument("--model_root")
-    parser.add_argument("--vae_path", help="Deprecated alias for --model_root")
+    parser.add_argument("--vae_path", help="Path to official Wan2.1_VAE.pth")
+    parser.add_argument("--wan_repo", help="Path to the official Wan2.1 source repo containing wan/modules/vae.py")
+    parser.add_argument("--vae_backend", choices=["auto", "official", "diffusers"], default="auto")
     parser.add_argument("--hr_size", type=int, nargs=2, default=[512, 512], metavar=("H", "W"))
     parser.add_argument("--lr_size", type=int, nargs=2, default=[256, 256], metavar=("H", "W"))
     parser.add_argument("--num_frames", type=int, default=17)

@@ -51,7 +51,14 @@ def main() -> None:
         ema.copy_to(model)
     model.eval()
 
-    vae = WanVAEWrapper(args.model_root, device=device, dtype=dtype)
+    vae = WanVAEWrapper(
+        args.model_root,
+        vae_path=args.vae_path,
+        wan_repo=args.wan_repo,
+        backend=args.vae_backend,
+        device=device,
+        dtype=dtype,
+    )
     autocast_dtype = torch.bfloat16 if args.precision == "bf16" else torch.float16
     use_autocast = device.type == "cuda" and args.precision in {"bf16", "fp16"}
 
@@ -97,6 +104,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data_dir")
     parser.add_argument("--out_dir", default="outputs/eval_decode")
     parser.add_argument("--model_root", default=DEFAULT_MODEL_ROOT)
+    parser.add_argument("--vae_path", help="Path to official Wan2.1_VAE.pth")
+    parser.add_argument("--wan_repo", help="Path to the official Wan2.1 source repo containing wan/modules/vae.py")
+    parser.add_argument("--vae_backend", choices=["auto", "official", "diffusers"], default="auto")
     parser.add_argument("--sigma_mode", choices=["mid", "uniform", "clean"], default="mid")
     parser.add_argument("--start_index", type=int, default=0)
     parser.add_argument("--num_samples", type=int, default=4)
