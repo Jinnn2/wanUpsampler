@@ -1,0 +1,34 @@
+data_dir: data/latent_pairs_wan21_512
+out_dir: outputs/wan_traj_upsampler_x2
+
+model:
+  in_channels: 16
+  out_channels: 16
+  hidden_channels: 256
+  num_res_blocks: 8
+  sigma_embed_dim: 256
+  scale: 2
+
+train:
+  max_steps: 100000
+  warmup_clean_steps: 5000
+  batch_size: 1
+  num_workers: 8
+  grad_accum: 8
+  lr: 0.0001
+  weight_decay: 0.01
+  precision: bf16
+  ema_decay: 0.9999
+  log_every: 20
+  save_every: 1000
+  seed: 1234
+  grad_clip_norm: 1.0
+
+sigma:
+  mode: mid
+
+loss:
+  latent_weight: 1.0
+  low_freq_weight: 0.2
+  temporal_weight: 0.1
+  charbonnier_eps: 0.001

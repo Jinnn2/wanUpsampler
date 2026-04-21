@@ -1,0 +1,13 @@
+torch>=2.3
+torchvision>=0.18
+diffusers>=0.33
+transformers>=4.45
+accelerate>=0.33
+safetensors>=0.4
+einops>=0.8
+PyYAML>=6.0
+tqdm>=4.66
+numpy>=1.24
+pillow>=10.0
+imageio>=2.34
+imageio-ffmpeg>=0.5

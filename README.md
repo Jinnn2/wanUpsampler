@@ -1,5 +1,82 @@
 # WanTrajectoryUpsampler 项目书
 
+## 当前实现进度
+
+项目已经完成第一版训练闭环的代码骨架，当前状态是**可以开始在 Linux 训练机上安装依赖、构造 latent pair、启动训练并做 latent/解码评估**。
+
+已完成：
+
+- `WanNoisyLatentUpsampler`：3D Conv + sigma conditioning + spatial PixelShuffle 2x。
+- `LatentPairDataset`：读取 `z0_lr.safetensors` / `z0_hr.safetensors`，在线采样 sigma 并构造 `x_t_lr`。
+- sigma/noise 工具：支持简化 flow noising。
+- loss：`latent_loss + 0.2 * low_freq_loss + 0.1 * temporal_loss`。
+- `scripts/train.py`：支持 bf16、梯度累积、AdamW、EMA、断点保存/恢复、clean warm-up。
+- `scripts/build_latent_pairs.py`：从视频构造 HR/LR latent pair。
+- `scripts/eval_latent.py`：输出 latent reconstruction 指标。
+- `scripts/eval_decode.py`：decode 预测结果、GT 和 latent interpolate baseline，导出 mp4。
+- `transition_lr_to_hr`：完成 LR noisy latent 到 HR noisy latent 的第一版转换。
+
+待训练机确认：
+
+- 当前 VAE wrapper 默认优先使用 `diffusers.AutoencoderKLWan` 加载 Wan2.1 VAE。
+- 如果训练机使用 Wan 官方仓库里的 `WanVAE` 类，需要只改 `wan_sr/vae/wan_vae_wrapper.py`，训练主干不用改。
+- 本地只做了语法编译检查；完整 torch 前向和 VAE encode/decode 需要在你的 Linux/H200 环境里验证。
+
+默认 Wan2.1 模型根目录：
+
+```text
+/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B
+```
+
+## 快速开始
+
+安装依赖：
+
+```bash
+pip install -r requirements.txt
+```
+
+构造 latent pair：
+
+```bash
+python scripts/build_latent_pairs.py \
+  --video_dir data/raw_videos \
+  --out_dir data/latent_pairs_wan21_512 \
+  --model_root /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B \
+  --hr_size 512 512 \
+  --lr_size 256 256 \
+  --num_frames 17 \
+  --fps 16 \
+  --precision bf16
+```
+
+开始训练：
+
+```bash
+python scripts/train.py \
+  --config configs/train_wan21_x2_512.yaml
+```
+
+latent 指标评估：
+
+```bash
+python scripts/eval_latent.py \
+  --checkpoint outputs/wan_traj_upsampler_x2/latest.pt \
+  --data_dir data/latent_pairs_wan21_512 \
+  --use_ema
+```
+
+decode 可视化评估：
+
+```bash
+python scripts/eval_decode.py \
+  --checkpoint outputs/wan_traj_upsampler_x2/latest.pt \
+  --data_dir data/latent_pairs_wan21_512 \
+  --model_root /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B \
+  --out_dir outputs/eval_decode \
+  --use_ema
+```
+
 ## 1. 项目目标
 
 WanTrajectoryUpsampler 不是普通视频超分项目，而是一个用于 Wan 视频生成采样中途的 latent 分辨率切换模块。
@@ -175,6 +252,10 @@ WanTrajectoryUpsampler/
     train_wan21_x2_512.yaml
     infer_transition.yaml
   wan_sr/
+    training/
+      checkpoint.py
+      config.py
+      ema.py
     models/
       upsampler.py
       blocks.py

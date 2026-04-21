@@ -1,0 +1,14 @@
+model_root: /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B
+checkpoint: outputs/wan_traj_upsampler_x2/latest.pt
+precision: bf16
+
+model:
+  in_channels: 16
+  out_channels: 16
+  hidden_channels: 256
+  num_res_blocks: 8
+  sigma_embed_dim: 256
+  scale: 2
+
+transition:
+  noise_mode: random
