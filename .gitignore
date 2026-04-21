@@ -8,12 +8,12 @@ __pycache__/
 venv/
 
 # Training data and generated outputs
-data/
-datasets/
-checkpoints/
-outputs/
-runs/
-wandb/
+/data/
+/datasets/
+/checkpoints/
+/outputs/
+/runs/
+/wandb/
 *.safetensors
 *.ckpt
 *.pt
