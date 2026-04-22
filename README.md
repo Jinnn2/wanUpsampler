@@ -102,6 +102,14 @@ VAE_PATH=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth
 bash scripts/download_davis2017.sh
 ```
 
+如果需要代理，先在 shell 里导出代理变量，脚本会直接继承：
+
+```bash
+export http_proxy=http://127.0.0.1:7890
+export https_proxy=http://127.0.0.1:7890
+bash scripts/download_davis2017.sh
+```
+
 默认输出：
 
 ```text
