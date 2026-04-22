@@ -92,6 +92,29 @@ MODEL_ROOT=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B
 VAE_PATH=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth
 ```
 
+## 推荐测试数据集
+
+第一阶段建议先用 DAVIS 2017 TrainVal 480p 做小规模验证。它是公开视频数据集，480p 配置约 794MB，包含 train 60 / validation 30 个视频序列，足够先验证 latent pair 构造、clean warm-up 和 noisy-to-clean loss 是否下降。
+
+下载并转换为 mp4：
+
+```bash
+bash scripts/download_davis2017.sh
+```
+
+默认输出：
+
+```text
+data/raw_videos/davis2017_480p/*.mp4
+```
+
+然后构造 latent pair：
+
+```bash
+RAW_VIDEO_DIR=/data/yongyang/Jin/wanUpsampler/data/raw_videos \
+bash scripts/run_lightx2v_training.sh build
+```
+
 latent 指标评估：
 
 ```bash
