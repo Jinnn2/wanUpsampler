@@ -53,8 +53,27 @@ check_paths() {
   fi
 }
 
+check_raw_videos() {
+  if [[ ! -d "${RAW_VIDEO_DIR}" ]]; then
+    echo "Raw video dir not found: ${RAW_VIDEO_DIR}" >&2
+    echo "Run: bash scripts/download_davis2017.sh" >&2
+    exit 1
+  fi
+
+  local count
+  count="$(find "${RAW_VIDEO_DIR}" -type f \( -iname '*.mp4' -o -iname '*.mov' -o -iname '*.mkv' -o -iname '*.webm' -o -iname '*.avi' \) | head -n 1 | wc -l)"
+  if [[ "${count}" == "0" ]]; then
+    echo "No raw videos found under: ${RAW_VIDEO_DIR}" >&2
+    echo "Expected .mp4/.mov/.mkv/.webm/.avi files." >&2
+    echo "Run: bash scripts/download_davis2017.sh" >&2
+    echo "Or override RAW_VIDEO_DIR=/path/to/videos." >&2
+    exit 1
+  fi
+}
+
 build_latents() {
   check_paths
+  check_raw_videos
   python "${PROJECT_ROOT}/scripts/build_latent_pairs.py" \
     --video_dir "${RAW_VIDEO_DIR}" \
     --out_dir "${LATENT_DIR}" \
@@ -70,6 +89,12 @@ build_latents() {
 }
 
 train_model() {
+  if [[ ! -d "${LATENT_DIR}" ]] || [[ -z "$(find "${LATENT_DIR}" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*' -print -quit 2>/dev/null)" ]]; then
+    echo "No latent samples found under: ${LATENT_DIR}" >&2
+    echo "Run build first: bash scripts/run_lightx2v_training.sh build" >&2
+    exit 1
+  fi
+
   local resume_args=()
   if [[ -n "${RESUME}" ]]; then
     resume_args=(--resume "${RESUME}")

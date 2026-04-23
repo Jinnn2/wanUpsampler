@@ -30,6 +30,14 @@ def main() -> None:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    videos = list_videos(args.video_dir)
+    if not videos:
+        raise FileNotFoundError(
+            f"No videos found under {args.video_dir}. "
+            "Expected files with suffix .mp4/.mov/.mkv/.webm/.avi. "
+            "If you used scripts/download_davis2017.sh, check data/raw_videos/davis2017_480p."
+        )
+
     vae = WanVAEWrapper(
         model_root,
         vae_path=args.vae_path,
@@ -38,9 +46,6 @@ def main() -> None:
         device=device,
         dtype=dtype,
     )
-    videos = list_videos(args.video_dir)
-    if not videos:
-        raise FileNotFoundError(f"No videos found under {args.video_dir}")
 
     next_id = find_next_sample_id(out_dir)
     saved = 0

@@ -25,6 +25,12 @@ if [[ ! -d "${DAVIS_DIR}/JPEGImages/480p" ]]; then
   unzip -q "${DAVIS_ZIP}" -d "${DATASET_ROOT}"
 fi
 
+if [[ ! -d "${DAVIS_DIR}/JPEGImages/480p" ]]; then
+  echo "DAVIS frame directory not found: ${DAVIS_DIR}/JPEGImages/480p" >&2
+  echo "Check extracted layout with: find ${DATASET_ROOT} -maxdepth 4 -type d | head -50" >&2
+  exit 1
+fi
+
 for seq_dir in "${DAVIS_DIR}/JPEGImages/480p"/*; do
   [[ -d "${seq_dir}" ]] || continue
   name="$(basename "${seq_dir}")"
@@ -41,4 +47,10 @@ for seq_dir in "${DAVIS_DIR}/JPEGImages/480p"/*; do
     "${out}"
 done
 
-echo "DAVIS videos are ready: ${OUTPUT_DIR}"
+video_count="$(find "${OUTPUT_DIR}" -type f -name '*.mp4' | wc -l)"
+if [[ "${video_count}" == "0" ]]; then
+  echo "No mp4 files were produced under ${OUTPUT_DIR}. Check ffmpeg and DAVIS frames." >&2
+  exit 1
+fi
+
+echo "DAVIS videos are ready: ${OUTPUT_DIR} (${video_count} mp4 files)"
