@@ -5,7 +5,15 @@ set -euo pipefail
 # Override any variable from the shell when tuning, for example:
 #   MAX_STEPS=20000 LR=5e-5 bash scripts/run_lightx2v_training.sh train
 
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_PATH_CONFIG="${SCRIPT_DIR}/../configs/local_paths.sh"
+PATH_CONFIG="${PATH_CONFIG:-${DEFAULT_PATH_CONFIG}}"
+if [[ -f "${PATH_CONFIG}" ]]; then
+  # shellcheck source=/dev/null
+  source "${PATH_CONFIG}"
+fi
+
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/data/yongyang/Jin/LightX2V}"
 MODEL_ROOT="${MODEL_ROOT:-/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B}"
 VAE_PATH="${VAE_PATH:-${MODEL_ROOT}/Wan2.1_VAE.pth}"
@@ -13,7 +21,7 @@ VAE_PATH="${VAE_PATH:-${MODEL_ROOT}/Wan2.1_VAE.pth}"
 RAW_VIDEO_DIR="${RAW_VIDEO_DIR:-${PROJECT_ROOT}/data/raw_videos}"
 LATENT_DIR="${LATENT_DIR:-${PROJECT_ROOT}/data/latent_pairs_wan21_512}"
 OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/wan_traj_upsampler_x2}"
-CONFIG="${CONFIG:-${PROJECT_ROOT}/configs/train_wan21_x2_512.yaml}"
+CONFIG="${CONFIG:-${TRAIN_CONFIG:-${PROJECT_ROOT}/configs/train_wan21_x2_512.yaml}}"
 
 HR_H="${HR_H:-512}"
 HR_W="${HR_W:-512}"

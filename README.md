@@ -32,6 +32,34 @@
 /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B
 ```
 
+## 本机路径配置
+
+本项目的本机路径集中在：
+
+```text
+configs/local_paths.sh
+```
+
+当前默认按你的远程机目录写死到 `/data/yongyang/Jin`：
+
+```text
+PROJECT_ROOT=/data/yongyang/Jin/wanUpsampler
+WAN_REPO=/data/yongyang/Jin/Wan2.1
+LIGHTX2V_REPO=/data/yongyang/Jin/LightX2V
+MODEL_ROOT=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B
+VAE_PATH=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth
+DAVIS_ZIP=/data/yongyang/Jin/wanUpsampler/datasets/DAVIS-2017-trainval-480p.zip
+RAW_VIDEO_DIR=/data/yongyang/Jin/wanUpsampler/data/raw_videos
+LATENT_DIR=/data/yongyang/Jin/wanUpsampler/data/latent_pairs_wan21_512
+OUT_DIR=/data/yongyang/Jin/wanUpsampler/outputs/wan_traj_upsampler_x2
+```
+
+下载、构造 latent 和训练脚本都会默认读取这个配置文件。需要临时切换路径时，可以用环境变量覆盖，或者指定另一个配置文件：
+
+```bash
+PATH_CONFIG=/path/to/local_paths.sh bash scripts/run_lightx2v_training.sh build
+```
+
 ## 快速开始
 
 安装依赖：
@@ -87,9 +115,7 @@ bash scripts/run_lightx2v_training.sh train
 脚本默认路径：
 
 ```text
-LIGHTX2V_REPO=/data/yongyang/Jin/LightX2V
-MODEL_ROOT=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B
-VAE_PATH=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth
+configs/local_paths.sh
 ```
 
 ## 推荐测试数据集
