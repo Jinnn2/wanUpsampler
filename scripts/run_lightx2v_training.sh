@@ -85,7 +85,8 @@ build_latents() {
     --lr_size "${LR_H}" "${LR_W}" \
     --num_frames "${NUM_FRAMES}" \
     --fps "${FPS}" \
-    --precision "${PRECISION}"
+    --precision "${PRECISION}" \
+    --skip_bad_videos
 }
 
 train_model() {

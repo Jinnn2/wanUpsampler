@@ -50,7 +50,13 @@ def main() -> None:
     next_id = find_next_sample_id(out_dir)
     saved = 0
     for video_path in tqdm(videos, desc="videos", dynamic_ncols=True):
-        frames = read_video_frames(video_path, max_frames=args.max_video_frames)
+        try:
+            frames = read_video_frames(video_path, max_frames=args.max_video_frames)
+        except Exception as exc:
+            if args.skip_bad_videos:
+                print(f"[warn] skip bad video {video_path}: {exc}", file=sys.stderr)
+                continue
+            raise
         for clip_index, clip in enumerate(
             iter_fixed_length_clips(frames, args.num_frames, stride=args.stride, max_clips=args.max_clips_per_video)
         ):
@@ -102,6 +108,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max_video_frames", type=int)
     parser.add_argument("--max_clips_per_video", type=int)
     parser.add_argument("--max_samples", type=int)
+    parser.add_argument("--skip_bad_videos", action="store_true")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--precision", choices=["fp32", "bf16", "fp16"], default="bf16")
     return parser.parse_args()

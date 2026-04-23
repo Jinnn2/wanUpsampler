@@ -35,7 +35,13 @@ for seq_dir in "${DAVIS_DIR}/JPEGImages/480p"/*; do
   [[ -d "${seq_dir}" ]] || continue
   name="$(basename "${seq_dir}")"
   out="${OUTPUT_DIR}/${name}.mp4"
-  [[ -f "${out}" ]] && continue
+  if [[ -f "${out}" ]]; then
+    if ffprobe -v error -select_streams v:0 -show_entries stream=codec_type -of csv=p=0 "${out}" >/dev/null 2>&1; then
+      continue
+    fi
+    echo "Removing invalid video: ${out}" >&2
+    rm -f "${out}"
+  fi
 
   ffmpeg -hide_banner -loglevel error -y \
     -framerate "${FPS}" \
