@@ -1,5 +1,11 @@
 # WanTrajectoryUpsampler 项目书
 
+进度总览请看根目录：
+
+```text
+PROGRESS.md
+```
+
 ## 当前实现进度
 
 项目已经完成第一版训练闭环的代码骨架，当前状态是**可以开始在 Linux 训练机上安装依赖、构造 latent pair、启动训练并做 latent/解码评估**。
