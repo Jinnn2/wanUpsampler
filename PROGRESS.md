@@ -1,143 +1,178 @@
-# 项目进度
+# 理论进度
 
 最后更新：2026-04-29
 
+## 当前阶段
+
+当前已经完成：
+
+```text
+模型 V1 训练
+```
+
+这里的 V1 指第一版最小可验证路线：
+
+- 基于 Wan2.1 latent 空间
+- 只做 spatial 2x upsampling
+- 输入 `x_t_lr + sigma`
+- 输出 `z0_hr`
+- 训练目标为 noisy-to-clean
+
 ## 当前结论
 
-项目代码骨架已经完成，核心训练闭环已具备：
+项目已经从“方案设计阶段”进入“第一轮训练结果评估阶段”。
 
-- latent pair 构造
-- sigma/noise 采样
-- upsampler 模型
-- loss
-- train / eval / transition
-- LightX2V Wan VAE 接入
-- DAVIS 下载与转换脚本
-- 本机路径集中配置
+也就是说，当前重点不再是把训练代码跑通，而是判断：
 
-当前状态不是“从零开始”，而是**已经进入远程机联调和首轮数据构造验证阶段**。
+1. V1 模型是否真正学到了比简单插值更有意义的映射。
+2. noisy-to-clean 目标是否带来了稳定收益。
+3. 该路线是否值得进入 V2。
 
-## 已完成
+## 已完成进度
 
-### 代码结构
+### P0：理论方案确定
 
-- `wan_sr/models/`：3D CNN upsampler、sigma embedding、ResBlock、PixelShuffle
-- `wan_sr/data/`：latent pair dataset、video io、degradation
-- `wan_sr/losses/`：latent / low-freq / temporal loss
-- `wan_sr/schedulers/`：sigma sampler、flow-style add noise
-- `wan_sr/pipelines/transition.py`：LR noisy latent -> HR noisy latent
-- `wan_sr/vae/wan_vae_wrapper.py`：official / lightx2v / diffusers 三类 VAE backend
+已完成：
 
-### 脚本
+- 明确项目不是普通视频超分，而是 Wan 采样中途的 latent 分辨率切换。
+- 明确目标是：
+  ```text
+  U(x_t_lr, sigma) -> z0_hr
+  ```
+- 明确推理链路是：
+  ```text
+  LR noisy latent -> upsampler -> HR clean latent -> re-noise -> HR Wan continue
+  ```
 
-- `scripts/build_latent_pairs.py`
-- `scripts/train.py`
-- `scripts/eval_latent.py`
-- `scripts/eval_decode.py`
-- `scripts/infer_transition_wan.py`
-- `scripts/run_lightx2v_training.sh`
-- `scripts/download_davis2017.sh`
+结论：
 
-### 路径配置
+- 理论方向成立。
+- noisy-to-clean 比 direct noisy-to-noisy 更适合作为第一版起点。
 
-已新增根路径配置：
+### P1：V1 模型定义
 
-```text
-configs/local_paths.sh
-```
+已完成：
 
-当前默认基于：
+- 采用轻量 3D CNN 路线而不是直接上 DiT。
+- 引入 sigma conditioning。
+- 使用 spatial PixelShuffle 2x。
+- loss 采用：
+  - latent reconstruction
+  - low-frequency consistency
+  - temporal consistency
 
-```text
-/data/yongyang/Jin
-```
+结论：
 
-并集中管理：
+- V1 的设计目标是先验证“采样中途 latent 放大”是否可学。
+- 该设计偏保守，优先保证训练稳定性，而不是一开始追求极限画质。
 
-- `PROJECT_ROOT=/data/yongyang/Jin/wanUpsampler`
-- `WAN_REPO=/data/yongyang/Jin/Wan2.1`
-- `LIGHTX2V_REPO=/data/yongyang/Jin/LightX2V`
-- `MODEL_ROOT=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B`
-- `VAE_PATH=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth`
-- `DAVIS_ZIP=/data/yongyang/Jin/wanUpsampler/datasets/DAVIS-2017-trainval-480p.zip`
-- `RAW_VIDEO_DIR=/data/yongyang/Jin/wanUpsampler/data/raw_videos`
-- `LATENT_DIR=/data/yongyang/Jin/wanUpsampler/data/latent_pairs_wan21_512`
-- `OUT_DIR=/data/yongyang/Jin/wanUpsampler/outputs/wan_traj_upsampler_x2`
+### P2：V1 训练
 
-## 已完成的联调修复
+已完成：
 
-### 导入与路径
+- 完成第一版模型训练。
 
-- 修复 `.gitignore` 误忽略 `wan_sr/data/`
-- 修复 `LightX2V` VAE 非 `nn.Module` 包装导致的 `.eval()` 报错
-- 支持从 `configs/local_paths.sh` 统一读取路径
+当前结论：
 
-### VAE backend
+- 训练阶段已经进入可评估状态。
+- 现在最关键的问题不是“能不能训”，而是“训出来的结果到底有没有意义”。
 
-- 避免把 Wan 主模型根目录误当成 diffusers VAE 加载
-- 支持：
-  - `official`
-  - `lightx2v`
-  - `diffusers`
+## 当前关注点
 
-### 数据构造健壮性
+当前只讨论两个核心判断。
 
-- `build_latent_pairs.py` 先检查视频文件，再加载 VAE
-- `run_lightx2v_training.sh` 在 build 前检查 raw videos，在 train 前检查 latent 数据
-- `download_davis2017.sh` 自动探测 DAVIS 解压出的 `JPEGImages/480p`
-- 对损坏 mp4 做 `ffprobe` 检测；坏文件会删掉并重转
-- `build_latent_pairs.py` 可跳过坏视频继续处理
+### 1. 是否优于简单插值
 
-## 当前待验证项
+这是 V1 最关键的判断标准。
 
-以下项**代码已修**，但需要在远程机上再次确认结果：
+需要回答：
 
-1. DAVIS zip 解压目录自动探测是否稳定。
-2. DAVIS 转 mp4 后是否全部可读。
-3. `bash scripts/run_lightx2v_training.sh build` 是否能够完整跑完。
-4. `data/latent_pairs_wan21_512/` 是否成功产出样本。
-5. `bash scripts/run_lightx2v_training.sh train` 是否能启动第一轮训练。
+- decode 后主体是否更稳定
+- 边缘是否比 latent interpolate 更清楚
+- temporal consistency 是否更好
+- 是否减少闪烁或块状伪影
 
-## 最近一次已知阻塞
+如果结果只是接近插值，说明：
 
-最近一次远程机阻塞不是模型本身，而是数据侧：
+- V1 只学到了低频平滑映射
+- noisy-to-clean 的收益还没有被有效学出来
 
-1. 一开始脚本找不到 raw videos。
-2. 之后确认 DAVIS mp4 已生成。
-3. 再之后发现 `cat-girl.mp4` 是损坏文件，ffmpeg 报：
+### 2. 是否适合进入 V2
+
+V1 的使命不是最终效果，而是回答这条路线值不值得继续。
+
+如果 V1 已经表现出：
+
+- 明显优于插值的结构恢复
+- 更好的低频一致性
+- decode 后较稳定的视频主体
+
+那么可以继续进入 V2。
+
+如果 V1 只是“能训通，但效果接近 baseline”，那下一步就要重新判断：
+
+- 是数据问题
+- 是 loss 设计问题
+- 是模型容量不够
+- 还是 noisy-to-clean 本身还没被训练到位
+
+## 当前阶段判断
+
+目前项目所处的合理描述是：
 
 ```text
-moov atom not found
+V1 已训练完成
+当前处于第一轮效果验证与路线判断阶段
 ```
 
-对应修复已经提交：下载脚本会校验并重建坏 mp4，build 默认会跳过坏视频继续处理。
+不是：
+
+```text
+项目已完成
+```
+
+也不是：
+
+```text
+仍停留在基础工程搭建阶段
+```
 
 ## 下一步
 
-按优先级：
+下一阶段目标应聚焦在效果判断，而不是继续扩展功能。
 
-1. 在远程机重新执行：
-   ```bash
-   bash scripts/download_davis2017.sh
-   bash scripts/run_lightx2v_training.sh build
-   ```
-2. 确认 `LATENT_DIR` 下已生成样本目录。
-3. 启动：
-   ```bash
-   bash scripts/run_lightx2v_training.sh train
-   ```
-4. 记录第一轮训练：
-   - loss 是否下降
-   - 首个 checkpoint 是否生成
-   - 是否出现显存 / shape / decode 问题
+优先顺序：
 
-## 维护规则
+1. 系统对比 V1 与 latent interpolate baseline。
+2. 判断 decode 后的视频质量是否有可见提升。
+3. 判断是否值得进入 V2。
+4. 若值得，进入 V2 的方向包括：
+   - 更贴近真实 Wan trajectory 的数据
+   - 更强的 re-noise 设计
+   - 更高质量的数据分布
+   - 更强的模型结构或更高容量
 
-后续统一维护这个文件，按下面方式追加或更新：
+## V2 入口条件
 
-- 更新“最后更新”日期
-- 修改“当前结论”
-- 在“已完成的联调修复”里补充新修复
-- 在“当前待验证项”里删除已验证项
-- 在“最近一次已知阻塞”里写最新 blocker
-- 在“下一步”里保持 3 到 5 条最关键动作
+满足下面任意两条，就可以认为 V1 值得继续推进：
+
+- 比简单插值有稳定可见优势
+- decode 后主体更稳
+- temporal artifacts 更少
+- 在中后期 sigma 区间表现明显更好
+- 作为 transition 模块具备继续优化价值
+
+## 维护方式
+
+后续这个文档只记录三类内容：
+
+1. 当前处于哪个理论/实验阶段
+2. 当前效果判断是什么
+3. 下一阶段是否值得继续推进
+
+不再记录：
+
+- 本机路径
+- 下载细节
+- 环境联调过程
+- 脚本修修补补
