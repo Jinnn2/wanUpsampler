@@ -11,42 +11,67 @@ fi
 
 DATASET_DIR="${CR_DATASET_DIR:-${PROJECT_ROOT}/datasets/open_video_720p}"
 RAW_VIDEO_DIR="${CR_RAW_VIDEO_DIR:-${PROJECT_ROOT}/data/changing_resolution/raw_open_video_720p}"
+SOURCES_FILE="${CR_SOURCES_FILE:-${PROJECT_ROOT}/changing_resolution/configs/open_video_720p_sources.tsv}"
+MIN_VIDEOS="${MIN_VIDEOS:-2}"
 
 mkdir -p "${DATASET_DIR}" "${RAW_VIDEO_DIR}"
+
+download_file() {
+  local url="$1"
+  local dst="$2"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -L --fail --retry 5 --retry-delay 3 --connect-timeout 30 \
+      -C - -o "${dst}" "${url}"
+    return
+  fi
+
+  wget -c -O "${dst}" "${url}"
+}
 
 download_one() {
   local name="$1"
   local url="$2"
-  local dst="${DATASET_DIR}/${name}.mp4"
+  local ext="${url##*.}"
+  local dst="${DATASET_DIR}/${name}.${ext}"
   local out="${RAW_VIDEO_DIR}/${name}.mp4"
 
   if [[ ! -f "${dst}" ]]; then
     echo "Downloading ${name}"
-    wget -c -O "${dst}" "${url}"
+    if ! download_file "${url}" "${dst}"; then
+      echo "[warn] download failed, skip: ${name}" >&2
+      rm -f "${dst}"
+      return 0
+    fi
   fi
 
   if ! ffprobe -v error "${dst}" >/dev/null 2>&1; then
-    echo "Invalid downloaded video: ${dst}" >&2
-    exit 1
+    echo "[warn] invalid downloaded video, skip: ${dst}" >&2
+    rm -f "${dst}"
+    return 0
   fi
 
-  if [[ ! -f "${out}" ]]; then
+  if [[ ! -f "${out}" ]] || ! ffprobe -v error "${out}" >/dev/null 2>&1; then
     ffmpeg -hide_banner -loglevel error -y -i "${dst}" \
       -map 0:v:0 -an -vf "fps=16" -c:v libx264 -pix_fmt yuv420p -crf 18 "${out}"
   fi
 }
 
-download_one "big_buck_bunny" "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-download_one "elephants_dream" "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
-download_one "sintel" "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4"
-download_one "tears_of_steel" "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
-download_one "for_bigger_blazes" "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-download_one "for_bigger_escapes" "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"
-download_one "for_bigger_fun" "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
-download_one "for_bigger_joyrides" "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4"
-download_one "for_bigger_meltdowns" "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4"
-download_one "subaru_outback" "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4"
-download_one "volkswagen_gti" "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/VolkswagenGTIReview.mp4"
+if [[ ! -f "${SOURCES_FILE}" ]]; then
+  echo "Sources file not found: ${SOURCES_FILE}" >&2
+  exit 1
+fi
+
+while IFS=$'\t' read -r name url; do
+  [[ -z "${name}" || "${name}" == \#* ]] && continue
+  download_one "${name}" "${url}"
+done < "${SOURCES_FILE}"
 
 count="$(find "${RAW_VIDEO_DIR}" -type f -name '*.mp4' | wc -l)"
+if (( count < MIN_VIDEOS )); then
+  echo "Only ${count} mp4 files are ready, expected at least ${MIN_VIDEOS}." >&2
+  echo "Check proxy/network or edit: ${SOURCES_FILE}" >&2
+  exit 1
+fi
+
 echo "Open video dataset ready: ${RAW_VIDEO_DIR} (${count} mp4 files)"
