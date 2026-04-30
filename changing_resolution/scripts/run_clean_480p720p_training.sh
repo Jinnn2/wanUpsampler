@@ -13,7 +13,7 @@ LIGHTX2V_REPO="${LIGHTX2V_REPO:-/data/yongyang/Jin/LightX2V}"
 MODEL_ROOT="${MODEL_ROOT:-/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B}"
 VAE_PATH="${VAE_PATH:-${MODEL_ROOT}/Wan2.1_VAE.pth}"
 
-RAW_VIDEO_DIR="${CR_RAW_VIDEO_DIR:-${PROJECT_ROOT}/data/changing_resolution/raw_open_video_720p}"
+RAW_VIDEO_DIR="${CR_RAW_VIDEO_DIR:-${PROJECT_ROOT}/data/changing_resolution/raw_wan21_720p}"
 LATENT_DIR="${CR_LATENT_DIR:-${PROJECT_ROOT}/data/changing_resolution/latent_pairs_480p720p}"
 OUT_DIR="${CR_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_clean_480p720p}"
 CONFIG="${CR_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_480p_to_720p.yaml}"
@@ -58,12 +58,12 @@ check_paths() {
 check_raw_videos() {
   if [[ ! -d "${RAW_VIDEO_DIR}" ]]; then
     echo "Raw video dir not found: ${RAW_VIDEO_DIR}" >&2
-    echo "Run: bash changing_resolution/scripts/download_open_video_720p.sh" >&2
+    echo "Run: bash changing_resolution/scripts/generate_wan21_720p_dataset.sh" >&2
     exit 1
   fi
   if [[ -z "$(find "${RAW_VIDEO_DIR}" -type f -name '*.mp4' -print -quit)" ]]; then
     echo "No mp4 videos found under: ${RAW_VIDEO_DIR}" >&2
-    echo "Run: bash changing_resolution/scripts/download_open_video_720p.sh" >&2
+    echo "Run: bash changing_resolution/scripts/generate_wan21_720p_dataset.sh" >&2
     exit 1
   fi
 }
@@ -114,8 +114,8 @@ train_model() {
 }
 
 case "${MODE}" in
-  download)
-    bash "${PROJECT_ROOT}/changing_resolution/scripts/download_open_video_720p.sh"
+  generate)
+    bash "${PROJECT_ROOT}/changing_resolution/scripts/generate_wan21_720p_dataset.sh"
     ;;
   build)
     build_latents
@@ -124,12 +124,12 @@ case "${MODE}" in
     train_model
     ;;
   all)
-    bash "${PROJECT_ROOT}/changing_resolution/scripts/download_open_video_720p.sh"
+    bash "${PROJECT_ROOT}/changing_resolution/scripts/generate_wan21_720p_dataset.sh"
     build_latents
     train_model
     ;;
   *)
-    echo "Usage: bash changing_resolution/scripts/run_clean_480p720p_training.sh [download|build|train|all]" >&2
+    echo "Usage: bash changing_resolution/scripts/run_clean_480p720p_training.sh [generate|build|train|all]" >&2
     exit 2
     ;;
 esac
