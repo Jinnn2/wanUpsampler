@@ -1,0 +1,59 @@
+{
+  "paths": {
+    "lightx2v_path": "/data/yongyang/Jin/LightX2V",
+    "wanupsampler_path": "/data/yongyang/Jin/wanUpsampler",
+    "model_path": "/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B",
+    "save_root": "/data/yongyang/Jin/wanUpsampler/outputs/lightx2v_compare"
+  },
+  "generator_lowres": {
+    "infer_steps": 50,
+    "target_video_length": 81,
+    "text_len": 512,
+    "target_height": 256,
+    "target_width": 416,
+    "self_attn_1_type": "flash_attn3",
+    "cross_attn_1_type": "flash_attn3",
+    "cross_attn_2_type": "flash_attn3",
+    "sample_guide_scale": 6,
+    "sample_shift": 8,
+    "enable_cfg": true,
+    "cpu_offload": false
+  },
+  "generator_native_highres": {
+    "enabled": true,
+    "infer_steps": 50,
+    "target_video_length": 81,
+    "text_len": 512,
+    "target_height": 512,
+    "target_width": 832,
+    "self_attn_1_type": "flash_attn3",
+    "cross_attn_1_type": "flash_attn3",
+    "cross_attn_2_type": "flash_attn3",
+    "sample_guide_scale": 6,
+    "sample_shift": 8,
+    "enable_cfg": true,
+    "cpu_offload": false
+  },
+  "wan_upsampler": {
+    "checkpoint": "/data/yongyang/Jin/wanUpsampler/outputs/wan_traj_upsampler_x2/latest.pt",
+    "train_config": "/data/yongyang/Jin/wanUpsampler/configs/train_wan21_x2_512.yaml",
+    "model_root": "/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B",
+    "vae_path": "/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth",
+    "wan_repo": "/data/yongyang/Jin/LightX2V",
+    "vae_backend": "lightx2v",
+    "precision": "bf16",
+    "sigma": 0.0,
+    "use_ema": true,
+    "output_fps": 16
+  },
+  "comparison": {
+    "make_bicubic": true,
+    "make_native_highres": true,
+    "layout": [
+      "bicubic",
+      "wan_upsampler",
+      "native_highres"
+    ]
+  },
+  "prompts_file": "/data/yongyang/Jin/wanUpsampler/configs/changing_resolution/wan_t2v_wanupsampler_v1_prompts_20.txt"
+}
