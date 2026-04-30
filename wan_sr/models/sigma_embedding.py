@@ -39,7 +39,10 @@ class SigmaEmbedding(nn.Module):
         )
 
     def forward(self, sigma: torch.Tensor) -> torch.Tensor:
-        return self.mlp(self.features(sigma))
+        features = self.features(sigma)
+        first_linear = self.mlp[0]
+        features = features.to(device=first_linear.weight.device, dtype=first_linear.weight.dtype)
+        return self.mlp(features)
 
 
 class AdaGroupNorm3D(nn.Module):
