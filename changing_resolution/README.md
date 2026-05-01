@@ -48,6 +48,13 @@ Or run all steps:
 bash changing_resolution/scripts/run_clean_480p720p_training.sh all
 ```
 
+Run the full pipeline inside tmux:
+
+```bash
+bash changing_resolution/scripts/tmux_run_clean_480p720p_all.sh
+tmux attach -t wan_cr_clean_480p720p
+```
+
 Common overrides:
 
 ```bash
