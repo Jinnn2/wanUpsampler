@@ -68,3 +68,22 @@ Generation overrides:
 MAX_PROMPTS=8 START_SEED=9000 \
 bash changing_resolution/scripts/run_clean_480p720p_training.sh generate
 ```
+
+Compare a trained checkpoint against original 480p, original 720p, and
+bicubic 720p:
+
+```bash
+bash changing_resolution/scripts/run_clean_480p720p_compare_batch10.sh
+```
+
+By default this uses:
+
+```text
+outputs/changing_resolution_clean_480p720p/step_0100000.pt
+```
+
+Outputs are written to:
+
+```text
+outputs/changing_resolution_compare_step100000/compare
+```

@@ -30,3 +30,5 @@ CR_OUT_DIR="${CR_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_clean_480p
 CR_CONFIG="${CR_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_480p_to_720p.yaml}"
 CR_GENERATE_CONFIG="${CR_GENERATE_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_generate_720p.json}"
 CR_PROMPTS_FILE="${CR_PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_generate_720p_prompts.txt}"
+CR_COMPARE_CKPT="${CR_COMPARE_CKPT:-${CR_OUT_DIR}/step_0100000.pt}"
+CR_COMPARE_DIR="${CR_COMPARE_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_compare_step100000}"
