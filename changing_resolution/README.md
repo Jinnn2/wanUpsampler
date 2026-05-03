@@ -69,12 +69,25 @@ MAX_PROMPTS=8 START_SEED=9000 \
 bash changing_resolution/scripts/run_clean_480p720p_training.sh generate
 ```
 
-Compare a trained checkpoint against original 480p, original 720p, and
-bicubic 720p:
+Compare a trained checkpoint inside the actual LightX2V changing-resolution
+chain:
 
 ```bash
 bash changing_resolution/scripts/run_clean_480p720p_compare_batch10.sh
 ```
+
+For each prompt, this now generates four videos with the same seed:
+
+```text
+ori 480     : direct Wan2.1 T2V at 480 x 832
+ori 720     : direct Wan2.1 T2V at 720 x 1248
+interp 720  : native LightX2V changing_resolution, trilinear clean-latent resize
+trained 720 : LightX2V changing_resolution with WanCleanLatentResizer replacing the resize step
+```
+
+The comparison script reads prompts from `CR_PROMPTS_FILE` and runs four
+LightX2V inference jobs per prompt. It no longer reuses the generated raw-video
+training corpus.
 
 By default this uses:
 
