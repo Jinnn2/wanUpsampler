@@ -16,6 +16,7 @@ PROMPTS_FILE="${CR_PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan
 OUT_DIR="${CR_RAW_VIDEO_DIR:-${PROJECT_ROOT}/data/changing_resolution/raw_wan21_720p}"
 START_SEED="${START_SEED:-42000}"
 MAX_PROMPTS="${MAX_PROMPTS:-20}"
+PROMPT_OFFSET="${PROMPT_OFFSET:-0}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 NEGATIVE_PROMPT="${NEGATIVE_PROMPT:-camera shake, overexposed, static image, blurry details, subtitles, text, watermark, low quality, jpeg artifacts, distorted hands, distorted face, malformed body, duplicate limbs, cluttered background}"
 
@@ -47,14 +48,19 @@ source "${LIGHTX2V_REPO}/scripts/base/base.sh"
 export PYTHONPATH="${PROJECT_ROOT}:${LIGHTX2V_REPO}:${PYTHONPATH:-}"
 
 index=0
+prompt_index=0
 while IFS= read -r prompt || [[ -n "${prompt}" ]]; do
   [[ -z "${prompt}" || "${prompt}" == \#* ]] && continue
+  if (( prompt_index < PROMPT_OFFSET )); then
+    prompt_index=$((prompt_index + 1))
+    continue
+  fi
   if (( index >= MAX_PROMPTS )); then
     break
   fi
 
   seed=$((START_SEED + index))
-  sample_id="$(printf "%03d" "${index}")"
+  sample_id="$(printf "%03d" "$((PROMPT_OFFSET + index))")"
   out_path="${OUT_DIR}/wan21_720p_${sample_id}_seed${seed}.mp4"
 
   if [[ -f "${out_path}" ]] && ffprobe -v error "${out_path}" >/dev/null 2>&1; then
@@ -73,6 +79,7 @@ while IFS= read -r prompt || [[ -n "${prompt}" ]]; do
   fi
 
   index=$((index + 1))
+  prompt_index=$((prompt_index + 1))
 done < "${PROMPTS_FILE}"
 
 count="$(find "${OUT_DIR}" -type f -name '*.mp4' | wc -l)"

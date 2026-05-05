@@ -69,6 +69,20 @@ bash changing_resolution/scripts/tmux_build_clean_lmdb_480p720p_1k.sh
 tmux attach -t wan_cr_lmdb_480p720p_1k
 ```
 
+Run the same 1k build across 8 GPUs:
+
+```bash
+GPU_IDS=0,1,2,3,4,5,6,7 \
+bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k_multigpu.sh all
+```
+
+Each GPU gets an independent prompt range, raw-video folder, and temporary LMDB
+part. After all workers finish, the script moves every shard into:
+
+```text
+data/changing_resolution/lmdb_480p720p_1k
+```
+
 To train from this LMDB:
 
 ```bash
