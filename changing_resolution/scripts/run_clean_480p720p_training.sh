@@ -17,6 +17,7 @@ RAW_VIDEO_DIR="${CR_RAW_VIDEO_DIR:-${PROJECT_ROOT}/data/changing_resolution/raw_
 LATENT_DIR="${CR_LATENT_DIR:-${PROJECT_ROOT}/data/changing_resolution/latent_pairs_480p720p}"
 OUT_DIR="${CR_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_clean_480p720p}"
 CONFIG="${CR_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_480p_to_720p.yaml}"
+DATA_FORMAT="${DATA_FORMAT:-files}"
 
 HR_H="${HR_H:-720}"
 HR_W="${HR_W:-1248}"
@@ -87,10 +88,21 @@ build_latents() {
 }
 
 train_model() {
-  if [[ ! -d "${LATENT_DIR}" ]] || [[ -z "$(find "${LATENT_DIR}" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*' -print -quit 2>/dev/null)" ]]; then
-    echo "No latent samples found under: ${LATENT_DIR}" >&2
-    echo "Run build first: bash changing_resolution/scripts/run_clean_480p720p_training.sh build" >&2
-    exit 1
+  if [[ "${DATA_FORMAT}" == "files" ]]; then
+    if [[ ! -d "${LATENT_DIR}" ]] || [[ -z "$(find "${LATENT_DIR}" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*' -print -quit 2>/dev/null)" ]]; then
+      echo "No latent samples found under: ${LATENT_DIR}" >&2
+      echo "Run build first: bash changing_resolution/scripts/run_clean_480p720p_training.sh build" >&2
+      exit 1
+    fi
+  elif [[ "${DATA_FORMAT}" == "lmdb" ]]; then
+    if [[ ! -d "${LATENT_DIR}" ]] || [[ -z "$(find "${LATENT_DIR}" -type f -name 'data.mdb' -print -quit 2>/dev/null)" ]]; then
+      echo "No LMDB shards found under: ${LATENT_DIR}" >&2
+      echo "Build LMDB first: bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k.sh all" >&2
+      exit 1
+    fi
+  else
+    echo "DATA_FORMAT must be files or lmdb, got: ${DATA_FORMAT}" >&2
+    exit 2
   fi
 
   local resume_args=()
@@ -101,6 +113,7 @@ train_model() {
   python "${PROJECT_ROOT}/changing_resolution/scripts/train_clean_latent_resizer.py" \
     --config "${CONFIG}" \
     --data_dir "${LATENT_DIR}" \
+    --data_format "${DATA_FORMAT}" \
     --out_dir "${OUT_DIR}" \
     --hidden_channels "${HIDDEN_CHANNELS}" \
     --num_res_blocks "${NUM_RES_BLOCKS}" \

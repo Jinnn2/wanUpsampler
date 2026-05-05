@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from wan_sr.data import CleanLatentPairDataset
+from wan_sr.data import CleanLatentLMDBDataset, CleanLatentPairDataset
 from wan_sr.losses import CleanLatentResizeLoss
 from wan_sr.models import WanCleanLatentResizer
 from wan_sr.training.checkpoint import load_checkpoint, save_checkpoint
@@ -37,7 +37,13 @@ def main() -> None:
     if args.config:
         shutil.copy2(args.config, out_dir / "train_config.yaml")
 
-    dataset = CleanLatentPairDataset(config["data_dir"], strict_channels=True)
+    dataset_format = str(config.get("data_format", "files")).lower()
+    if dataset_format == "files":
+        dataset = CleanLatentPairDataset(config["data_dir"], strict_channels=True)
+    elif dataset_format == "lmdb":
+        dataset = CleanLatentLMDBDataset(config["data_dir"], strict_channels=True)
+    else:
+        raise ValueError(f"data_format must be 'files' or 'lmdb', got {dataset_format!r}")
     loader = DataLoader(
         dataset,
         batch_size=int(config["train"]["batch_size"]),
@@ -118,6 +124,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", default="changing_resolution/configs/train_clean_480p_to_720p.yaml")
     parser.add_argument("--resume")
     parser.add_argument("--data_dir")
+    parser.add_argument("--data_format", choices=["files", "lmdb"])
     parser.add_argument("--out_dir")
     parser.add_argument("--hidden_channels", type=int)
     parser.add_argument("--num_res_blocks", type=int)
@@ -134,6 +141,7 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
     config = deep_update(
         {
             "data_dir": "data/changing_resolution/latent_pairs_480p720p",
+            "data_format": "files",
             "out_dir": "outputs/changing_resolution_clean_480p720p",
             "model": {
                 "in_channels": 16,
@@ -165,6 +173,8 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
         value = getattr(args, key)
         if value is not None:
             config[key] = value
+    if args.data_format is not None:
+        config["data_format"] = args.data_format
     for key in ("hidden_channels", "num_res_blocks", "scale_factor"):
         value = getattr(args, key)
         if value is not None:

@@ -1,4 +1,5 @@
 data_dir: data/changing_resolution/latent_pairs_480p720p
+data_format: files
 out_dir: outputs/changing_resolution_clean_480p720p
 
 model:
