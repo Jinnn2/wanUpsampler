@@ -19,6 +19,8 @@ LMDB_ROOT="${CR_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_480p720p
 PARTS_DIR="${LMDB_ROOT}/_parts"
 LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_lmdb_1k_multigpu}"
 OVERWRITE_LMDB="${OVERWRITE_LMDB:-0}"
+MONITOR_INTERVAL="${MONITOR_INTERVAL:-30}"
+MONITOR_TAIL_LINES="${MONITOR_TAIL_LINES:-8}"
 
 IFS=',' read -r -a GPUS <<< "${GPU_IDS}"
 NUM_GPUS="${#GPUS[@]}"
@@ -54,6 +56,17 @@ base_count=$((TOTAL_SAMPLES / NUM_GPUS))
 remainder=$((TOTAL_SAMPLES % NUM_GPUS))
 offset=0
 pids=()
+worker_names=()
+worker_logs=()
+
+cleanup_workers() {
+  if (( ${#pids[@]} > 0 )); then
+    echo "Stopping GPU workers..." >&2
+    kill "${pids[@]}" 2>/dev/null || true
+  fi
+}
+
+trap 'cleanup_workers; exit 130' INT TERM
 
 for rank in "${!GPUS[@]}"; do
   count="${base_count}"
@@ -85,15 +98,55 @@ for rank in "${!GPUS[@]}"; do
   ) >"${log_path}" 2>&1 &
 
   pids+=("$!")
+  worker_names+=("${part_name}")
+  worker_logs+=("${log_path}")
   offset=$((offset + count))
 done
 
 failed=0
-for pid in "${pids[@]}"; do
-  if ! wait "${pid}"; then
-    failed=1
-  fi
+remaining="${#pids[@]}"
+finished=()
+for _ in "${pids[@]}"; do
+  finished+=(0)
 done
+
+echo "Workers launched. Logs are under: ${LOG_DIR}"
+echo "The launcher prints the tail of each active worker log every ${MONITOR_INTERVAL}s."
+
+while (( remaining > 0 )); do
+  sleep "${MONITOR_INTERVAL}"
+  echo "----- worker status $(date '+%F %T') -----"
+  for i in "${!pids[@]}"; do
+    if (( finished[i] == 1 )); then
+      continue
+    fi
+    pid="${pids[$i]}"
+    name="${worker_names[$i]}"
+    log_path="${worker_logs[$i]}"
+    if kill -0 "${pid}" 2>/dev/null; then
+      echo "[running] ${name} pid=${pid} log=${log_path}"
+      if [[ -f "${log_path}" ]]; then
+        tail -n "${MONITOR_TAIL_LINES}" "${log_path}" || true
+      else
+        echo "(log not created yet)"
+      fi
+    else
+      if wait "${pid}"; then
+        echo "[done] ${name}"
+      else
+        echo "[failed] ${name}. Last log lines:"
+        if [[ -f "${log_path}" ]]; then
+          tail -n 80 "${log_path}" || true
+        fi
+        failed=1
+      fi
+      finished[i]=1
+      remaining=$((remaining - 1))
+    fi
+  done
+done
+
+trap - INT TERM
 
 if (( failed != 0 )); then
   echo "At least one GPU worker failed. Check logs under: ${LOG_DIR}" >&2

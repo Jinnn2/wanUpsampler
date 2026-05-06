@@ -83,6 +83,20 @@ part. After all workers finish, the script moves every shard into:
 data/changing_resolution/lmdb_480p720p_1k
 ```
 
+Worker logs are written to:
+
+```text
+logs/changing_resolution_lmdb_1k_multigpu/part_*.log
+```
+
+The launcher prints each active worker log tail every 30 seconds. Override with:
+
+```bash
+MONITOR_INTERVAL=10 MONITOR_TAIL_LINES=20 \
+GPU_IDS=0,1,2,3 \
+bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k_multigpu.sh all
+```
+
 To train from this LMDB:
 
 ```bash
