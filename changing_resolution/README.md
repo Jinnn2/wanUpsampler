@@ -45,7 +45,7 @@ z0_hr: Wan VAE encode(video_720p)
 Build 1000 samples on the Linux training machine:
 
 ```bash
-cd /data/yongyang/Jin/wanUpsampler
+cd /mnt/afs_2/houze/wanUpsampler
 
 bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k.sh all
 ```
@@ -110,7 +110,7 @@ To train from this LMDB:
 
 ```bash
 DATA_FORMAT=lmdb \
-CR_LATENT_DIR=/data/yongyang/Jin/wanUpsampler/data/changing_resolution/lmdb_480p720p_1k \
+CR_LATENT_DIR=/mnt/afs_2/houze/wanUpsampler/data/changing_resolution/lmdb_480p720p_1k \
 bash changing_resolution/scripts/run_clean_480p720p_training.sh train
 ```
 
@@ -124,7 +124,7 @@ bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k.sh lmdb
 Run on the Linux training machine:
 
 ```bash
-cd /data/yongyang/Jin/wanUpsampler
+cd /mnt/afs_2/houze/wanUpsampler
 
 bash changing_resolution/scripts/run_clean_480p720p_training.sh generate
 bash changing_resolution/scripts/run_clean_480p720p_training.sh build

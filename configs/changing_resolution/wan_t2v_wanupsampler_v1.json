@@ -1,9 +1,9 @@
 {
   "paths": {
-    "lightx2v_path": "/data/yongyang/Jin/LightX2V",
-    "wanupsampler_path": "/data/yongyang/Jin/wanUpsampler",
-    "model_path": "/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B",
-    "save_root": "/data/yongyang/Jin/wanUpsampler/outputs/lightx2v_compare"
+    "lightx2v_path": "/mnt/afs_2/houze/LightX2V",
+    "wanupsampler_path": "/mnt/afs_2/houze/wanUpsampler",
+    "model_path": "/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B",
+    "save_root": "/mnt/afs_2/houze/wanUpsampler/outputs/lightx2v_compare"
   },
   "generator_lowres": {
     "infer_steps": 50,
@@ -35,11 +35,11 @@
     "cpu_offload": false
   },
   "wan_upsampler": {
-    "checkpoint": "/data/yongyang/Jin/wanUpsampler/outputs/wan_traj_upsampler_x2/latest.pt",
-    "train_config": "/data/yongyang/Jin/wanUpsampler/configs/train_wan21_x2_512.yaml",
-    "model_root": "/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B",
-    "vae_path": "/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth",
-    "wan_repo": "/data/yongyang/Jin/LightX2V",
+    "checkpoint": "/mnt/afs_2/houze/wanUpsampler/outputs/wan_traj_upsampler_x2/latest.pt",
+    "train_config": "/mnt/afs_2/houze/wanUpsampler/configs/train_wan21_x2_512.yaml",
+    "model_root": "/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B",
+    "vae_path": "/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth",
+    "wan_repo": "/mnt/afs_2/houze/LightX2V",
     "vae_backend": "lightx2v",
     "precision": "bf16",
     "sigma": 0.0,
@@ -55,5 +55,5 @@
       "native_highres"
     ]
   },
-  "prompts_file": "/data/yongyang/Jin/wanUpsampler/configs/changing_resolution/wan_t2v_wanupsampler_v1_prompts_20.txt"
+  "prompts_file": "/mnt/afs_2/houze/wanUpsampler/configs/changing_resolution/wan_t2v_wanupsampler_v1_prompts_20.txt"
 }

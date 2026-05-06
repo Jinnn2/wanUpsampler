@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SESSION_NAME="${SESSION_NAME:-wan_cr_lmdb_480p720p_1k}"
-PROJECT_ROOT="${PROJECT_ROOT:-/data/yongyang/Jin/wanUpsampler}"
+PROJECT_ROOT="${PROJECT_ROOT:-/mnt/afs_2/houze/wanUpsampler}"
 LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs}"
 mkdir -p "${LOG_DIR}"
 

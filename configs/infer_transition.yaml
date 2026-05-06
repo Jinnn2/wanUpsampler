@@ -1,4 +1,4 @@
-model_root: /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B
+model_root: /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B
 checkpoint: outputs/wan_traj_upsampler_x2/latest.pt
 precision: bf16
 

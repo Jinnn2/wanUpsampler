@@ -23,7 +23,7 @@ from wan_sr.training.config import load_yaml
 from wan_sr.vae import WanVAEWrapper
 
 
-DEFAULT_MODEL_ROOT = "/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B"
+DEFAULT_MODEL_ROOT = "/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B"
 
 
 def main() -> None:

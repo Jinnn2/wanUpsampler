@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
-# Local machine paths for /data/yongyang/Jin.
+# Local machine paths for /mnt/afs_2/houze.
 # Scripts source this file by default. Override with:
 #   PATH_CONFIG=/path/to/local_paths.sh bash scripts/run_lightx2v_training.sh build
 
-JIN_ROOT="${JIN_ROOT:-/data/yongyang/Jin}"
+JIN_ROOT="${JIN_ROOT:-/mnt/afs_2/houze}"
 
 PROJECT_ROOT="${PROJECT_ROOT:-${JIN_ROOT}/wanUpsampler}"
 WAN_REPO="${WAN_REPO:-${JIN_ROOT}/Wan2.1}"

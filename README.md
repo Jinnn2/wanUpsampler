@@ -35,7 +35,7 @@ PROGRESS.md
 默认 Wan2.1 模型根目录：
 
 ```text
-/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B
+/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B
 ```
 
 ## 本机路径配置
@@ -46,18 +46,18 @@ PROGRESS.md
 configs/local_paths.sh
 ```
 
-当前默认按你的远程机目录写死到 `/data/yongyang/Jin`：
+当前默认按你的远程机目录写死到 `/mnt/afs_2/houze`：
 
 ```text
-PROJECT_ROOT=/data/yongyang/Jin/wanUpsampler
-WAN_REPO=/data/yongyang/Jin/Wan2.1
-LIGHTX2V_REPO=/data/yongyang/Jin/LightX2V
-MODEL_ROOT=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B
-VAE_PATH=/data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth
-DAVIS_ZIP=/data/yongyang/Jin/wanUpsampler/datasets/DAVIS-2017-trainval-480p.zip
-RAW_VIDEO_DIR=/data/yongyang/Jin/wanUpsampler/data/raw_videos
-LATENT_DIR=/data/yongyang/Jin/wanUpsampler/data/latent_pairs_wan21_512
-OUT_DIR=/data/yongyang/Jin/wanUpsampler/outputs/wan_traj_upsampler_x2
+PROJECT_ROOT=/mnt/afs_2/houze/wanUpsampler
+WAN_REPO=/mnt/afs_2/houze/Wan2.1
+LIGHTX2V_REPO=/mnt/afs_2/houze/LightX2V
+MODEL_ROOT=/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B
+VAE_PATH=/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth
+DAVIS_ZIP=/mnt/afs_2/houze/wanUpsampler/datasets/DAVIS-2017-trainval-480p.zip
+RAW_VIDEO_DIR=/mnt/afs_2/houze/wanUpsampler/data/raw_videos
+LATENT_DIR=/mnt/afs_2/houze/wanUpsampler/data/latent_pairs_wan21_512
+OUT_DIR=/mnt/afs_2/houze/wanUpsampler/outputs/wan_traj_upsampler_x2
 ```
 
 下载、构造 latent 和训练脚本都会默认读取这个配置文件。需要临时切换路径时，可以用环境变量覆盖，或者指定另一个配置文件：
@@ -80,8 +80,8 @@ pip install -r requirements.txt
 python scripts/build_latent_pairs.py \
   --video_dir data/raw_videos \
   --out_dir data/latent_pairs_wan21_512 \
-  --model_root /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B \
-  --vae_path /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth \
+  --model_root /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B \
+  --vae_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth \
   --wan_repo /path/to/LightX2V \
   --vae_backend lightx2v \
   --hr_size 512 512 \
@@ -151,7 +151,7 @@ data/raw_videos/davis2017_480p/*.mp4
 然后构造 latent pair：
 
 ```bash
-RAW_VIDEO_DIR=/data/yongyang/Jin/wanUpsampler/data/raw_videos \
+RAW_VIDEO_DIR=/mnt/afs_2/houze/wanUpsampler/data/raw_videos \
 bash scripts/run_lightx2v_training.sh build
 ```
 
@@ -170,8 +170,8 @@ decode 可视化评估：
 python scripts/eval_decode.py \
   --checkpoint outputs/wan_traj_upsampler_x2/latest.pt \
   --data_dir data/latent_pairs_wan21_512 \
-  --model_root /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B \
-  --vae_path /data/yongyang/Jin/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth \
+  --model_root /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B \
+  --vae_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth \
   --wan_repo /path/to/LightX2V \
   --vae_backend lightx2v \
   --out_dir outputs/eval_decode \
