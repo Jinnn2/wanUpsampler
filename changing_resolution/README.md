@@ -76,6 +76,15 @@ GPU_IDS=0,1,2,3,4,5,6,7 \
 bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k_multigpu.sh all
 ```
 
+Run the multi-GPU build inside tmux so it survives SSH disconnects:
+
+```bash
+TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 \
+bash changing_resolution/scripts/tmux_build_clean_lmdb_480p720p_1k_multigpu.sh
+
+tmux attach -t wan_cr_lmdb_480p720p_1k_multigpu
+```
+
 Each GPU gets an independent prompt range, raw-video folder, and temporary LMDB
 part. After all workers finish, the script moves every shard into:
 
