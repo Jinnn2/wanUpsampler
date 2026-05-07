@@ -114,6 +114,25 @@ CR_LATENT_DIR=/mnt/afs_2/houze/wanUpsampler/data/changing_resolution/lmdb_480p72
 bash changing_resolution/scripts/run_clean_480p720p_training.sh train
 ```
 
+Stage 1 baseline training uses the current residual resizer model and the 1k
+LMDB dataset:
+
+```bash
+bash changing_resolution/scripts/run_clean_480p720p_stage1_lmdb_training.sh check
+
+CUDA_VISIBLE_DEVICES=0 \
+bash changing_resolution/scripts/run_clean_480p720p_stage1_lmdb_training.sh train
+```
+
+Run it in tmux:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 \
+bash changing_resolution/scripts/tmux_run_clean_480p720p_stage1_lmdb_training.sh
+
+tmux attach -t wan_cr_stage1_lmdb_train
+```
+
 Useful overrides:
 
 ```bash
