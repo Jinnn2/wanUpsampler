@@ -115,7 +115,8 @@ bash changing_resolution/scripts/run_clean_480p720p_training.sh train
 ```
 
 Stage 1 baseline training uses the current residual resizer model and the 1k
-LMDB dataset:
+LMDB dataset. It keeps a deterministic validation split, evaluates every 1000
+steps, and saves `best_val.pt`:
 
 ```bash
 bash changing_resolution/scripts/run_clean_480p720p_stage1_lmdb_training.sh check
@@ -131,6 +132,13 @@ CUDA_VISIBLE_DEVICES=0 \
 bash changing_resolution/scripts/tmux_run_clean_480p720p_stage1_lmdb_training.sh
 
 tmux attach -t wan_cr_stage1_lmdb_train
+```
+
+The default first pass is 10k steps. Extend only after visual comparison:
+
+```bash
+MAX_STEPS=20000 RESUME=outputs/changing_resolution_clean_480p720p_stage1_lmdb/latest.pt \
+bash changing_resolution/scripts/tmux_run_clean_480p720p_stage1_lmdb_training.sh
 ```
 
 Useful overrides:

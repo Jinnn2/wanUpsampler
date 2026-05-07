@@ -93,7 +93,22 @@ Stage 1 output:
 ```text
 outputs/changing_resolution_clean_480p720p_stage1_lmdb/latest.pt
 outputs/changing_resolution_clean_480p720p_stage1_lmdb/step_*.pt
+outputs/changing_resolution_clean_480p720p_stage1_lmdb/best_val.pt
+outputs/changing_resolution_clean_480p720p_stage1_lmdb/metrics.jsonl
 ```
+
+Default Stage 1 run:
+
+```text
+train/val split: 95% / 5%, deterministic by seed
+max_steps:       10000 for the first checkpointing pass
+eval_every:      1000
+effective batch: 8
+best model:      lowest EMA validation loss
+```
+
+If the 10k checkpoint improves over interpolation in comparison videos, extend
+the same run to 20k steps before changing the model structure.
 
 ## Stage 2: Learned Feature Upsampler
 

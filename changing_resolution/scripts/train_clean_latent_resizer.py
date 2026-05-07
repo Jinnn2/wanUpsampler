@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import itertools
+import json
 import random
 import shutil
 import sys
 from pathlib import Path
+from typing import Iterator
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm import tqdm
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -44,8 +47,15 @@ def main() -> None:
         dataset = CleanLatentLMDBDataset(config["data_dir"], strict_channels=True)
     else:
         raise ValueError(f"data_format must be 'files' or 'lmdb', got {dataset_format!r}")
+    train_dataset, val_dataset = split_dataset(dataset, config)
+    print(
+        f"dataset={len(dataset)} train={len(train_dataset)} val={len(val_dataset)} "
+        f"format={dataset_format}",
+        flush=True,
+    )
+
     loader = DataLoader(
-        dataset,
+        train_dataset,
         batch_size=int(config["train"]["batch_size"]),
         shuffle=True,
         num_workers=int(config["train"].get("num_workers", 4)),
@@ -76,7 +86,12 @@ def main() -> None:
     grad_accum = int(config["train"].get("grad_accum", 1))
     log_every = int(config["train"].get("log_every", 20))
     save_every = int(config["train"].get("save_every", 1000))
+    eval_every = int(config["train"].get("eval_every", 1000))
+    val_batches = int(config["train"].get("val_batches", 0))
+    eval_use_ema = bool(config["train"].get("eval_use_ema", True))
     grad_clip_norm = float(config["train"].get("grad_clip_norm", 0.0))
+    metrics_path = out_dir / "metrics.jsonl"
+    best_val = load_best_val(out_dir / "best_val.json")
 
     progress = tqdm(range(start_step, max_steps), initial=start_step, total=max_steps, dynamic_ncols=True)
     optimizer.zero_grad(set_to_none=True)
@@ -112,7 +127,33 @@ def main() -> None:
             denom = log_every * grad_accum
             postfix = {key: value / denom for key, value in running.items()}
             progress.set_postfix({key: f"{value:.4f}" for key, value in postfix.items()})
+            append_metrics(metrics_path, {"step": actual_step, "split": "train", **postfix})
             running.clear()
+
+        if len(val_dataset) > 0 and eval_every > 0 and (actual_step % eval_every == 0 or actual_step == max_steps):
+            val_items = evaluate(
+                model,
+                ema,
+                val_dataset,
+                criterion,
+                device=device,
+                precision=precision,
+                batch_size=int(config["train"]["batch_size"]),
+                num_workers=int(config["train"].get("num_workers", 4)),
+                max_batches=val_batches,
+                use_ema=eval_use_ema,
+            )
+            progress.write(
+                "val "
+                + " ".join(f"{key}={value:.6f}" for key, value in val_items.items())
+                + f" step={actual_step}"
+            )
+            append_metrics(metrics_path, {"step": actual_step, "split": "val", **val_items})
+            if val_items["loss"] < best_val:
+                best_val = val_items["loss"]
+                save_checkpoint(out_dir / "best_val.pt", model, optimizer, ema, actual_step, config)
+                with (out_dir / "best_val.json").open("w", encoding="utf-8") as f:
+                    json.dump({"step": actual_step, **val_items}, f, ensure_ascii=False, indent=2)
 
         if actual_step % save_every == 0 or actual_step == max_steps:
             save_checkpoint(out_dir / f"step_{actual_step:07d}.pt", model, optimizer, ema, actual_step, config)
@@ -162,6 +203,11 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
                 "ema_decay": 0.9999,
                 "log_every": 20,
                 "save_every": 1000,
+                "eval_every": 1000,
+                "val_ratio": 0.05,
+                "val_max_samples": 100,
+                "val_batches": 0,
+                "eval_use_ema": True,
                 "seed": 1234,
                 "grad_clip_norm": 1.0,
             },
@@ -191,6 +237,112 @@ def set_seed(seed: int) -> None:
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
+
+def split_dataset(dataset: Dataset, config: dict) -> tuple[Dataset, Dataset]:
+    total = len(dataset)
+    train_cfg = config.get("train", {})
+    val_ratio = float(train_cfg.get("val_ratio", 0.0))
+    val_max_samples = int(train_cfg.get("val_max_samples", 0))
+    seed = int(train_cfg.get("seed", 1234))
+
+    if val_ratio <= 0 or total < 2:
+        return dataset, Subset(dataset, [])
+
+    val_count = max(1, int(round(total * val_ratio)))
+    if val_max_samples > 0:
+        val_count = min(val_count, val_max_samples)
+    val_count = min(val_count, total - 1)
+
+    rng = random.Random(seed)
+    indices = list(range(total))
+    rng.shuffle(indices)
+    val_indices = sorted(indices[:val_count])
+    train_indices = sorted(indices[val_count:])
+    return Subset(dataset, train_indices), Subset(dataset, val_indices)
+
+
+@torch.no_grad()
+def evaluate(
+    model: torch.nn.Module,
+    ema: EMA,
+    dataset: Dataset,
+    criterion: CleanLatentResizeLoss,
+    *,
+    device: torch.device,
+    precision: str,
+    batch_size: int,
+    num_workers: int,
+    max_batches: int,
+    use_ema: bool,
+) -> dict[str, float]:
+    if len(dataset) == 0:
+        return {}
+
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True,
+        drop_last=False,
+    )
+    autocast_dtype = torch.bfloat16 if precision == "bf16" else torch.float16
+    use_autocast = device.type == "cuda" and precision in {"bf16", "fp16"}
+    totals: dict[str, float] = {}
+    count = 0
+
+    model.eval()
+    with maybe_ema_weights(model, ema, enabled=use_ema):
+        for batch_index, batch in enumerate(loader):
+            if max_batches > 0 and batch_index >= max_batches:
+                break
+            z0_lr = batch["z0_lr"].to(device, non_blocking=True)
+            z0_hr = batch["z0_hr"].to(device, non_blocking=True)
+            target_spatial = (z0_hr.shape[-2], z0_hr.shape[-1])
+            with torch.autocast(device_type=device.type, dtype=autocast_dtype, enabled=use_autocast):
+                pred = model(z0_lr, output_size=target_spatial)
+                _, loss_items = criterion(pred.float(), z0_hr.float(), z0_lr.float())
+            batch_size_actual = int(z0_lr.shape[0])
+            count += batch_size_actual
+            for name, value in loss_items.items():
+                totals[name] = totals.get(name, 0.0) + float(value) * batch_size_actual
+
+    model.train()
+    return {name: value / max(count, 1) for name, value in totals.items()}
+
+
+@contextlib.contextmanager
+def maybe_ema_weights(model: torch.nn.Module, ema: EMA, enabled: bool) -> Iterator[None]:
+    if not enabled:
+        yield
+        return
+
+    params = {name: param for name, param in model.named_parameters() if name in ema.shadow}
+    backup = {name: param.detach().clone() for name, param in params.items()}
+    try:
+        ema.copy_to(model)
+        yield
+    finally:
+        with torch.no_grad():
+            for name, param in params.items():
+                param.copy_(backup[name])
+
+
+def append_metrics(path: Path, metrics: dict[str, float | int | str]) -> None:
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(metrics, ensure_ascii=False) + "\n")
+
+
+def load_best_val(path: Path) -> float:
+    if not path.exists():
+        return float("inf")
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        return float(payload.get("loss", float("inf")))
+    except Exception:
+        return float("inf")
 
 
 if __name__ == "__main__":
