@@ -137,6 +137,24 @@ outputs/changing_resolution_operator_compare_stage1/metrics_val.jsonl
 outputs/changing_resolution_operator_compare_stage1/summary_val.json
 ```
 
+Convert metric JSONL into CSV and Markdown tables:
+
+```bash
+python changing_resolution/scripts/eval/summarize_operator_compare_table.py \
+  --input outputs/changing_resolution_operator_compare_stage1 \
+  --split val
+```
+
+Output:
+
+```text
+outputs/changing_resolution_operator_compare_stage1/tables/samples_val.csv
+outputs/changing_resolution_operator_compare_stage1/tables/samples_val.md
+outputs/changing_resolution_operator_compare_stage1/tables/summary_val.csv
+outputs/changing_resolution_operator_compare_stage1/tables/summary_val.md
+outputs/changing_resolution_operator_compare_stage1/tables/summary_val.json
+```
+
 Generation-chain A/B has no reference. It compares only the two resize
 operators inside the same LightX2V changing-resolution path:
 
@@ -205,6 +223,9 @@ scripts/eval/run_clean_480p720p_operator_compare_multigpu.sh
 
 scripts/eval/tmux_run_clean_480p720p_operator_compare_multigpu.sh
   tmux wrapper for operator compare.
+
+scripts/eval/summarize_operator_compare_table.py
+  Convert operator compare JSONL metrics into CSV, Markdown, and JSON tables.
 
 scripts/eval/run_clean_480p720p_chain_ab_compare.sh
   Single-worker LightX2V chain A/B compare.

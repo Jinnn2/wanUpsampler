@@ -37,6 +37,14 @@ bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_operator_compare_m
 bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_chain_ab_compare_multigpu.sh
 ```
 
+After operator compare finishes, build CSV and Markdown tables:
+
+```bash
+python changing_resolution/scripts/eval/summarize_operator_compare_table.py \
+  --input outputs/changing_resolution_operator_compare_stage1 \
+  --split val
+```
+
 ## bridge
 
 LightX2V changing_resolution 推理桥接脚本。
