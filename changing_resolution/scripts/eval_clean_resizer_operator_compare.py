@@ -57,6 +57,7 @@ def main() -> None:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     metric_path = out_dir / f"metrics_{args.split}_offset{args.offset}_limit{args.limit}.jsonl"
+    similarity = VideoSimilarityMetrics(args.metrics, device=device)
 
     autocast_dtype = torch.bfloat16 if args.precision == "bf16" else torch.float16
     use_autocast = device.type == "cuda" and args.precision in {"bf16", "fp16"}
@@ -104,6 +105,8 @@ def main() -> None:
                 interp_video=interp_video,
                 trained_video=trained_video,
                 target_video=target_video,
+                similarity=similarity,
+                metric_batch_size=args.metric_batch_size,
                 paths=paths,
             )
             metric_file.write(json.dumps(metrics, ensure_ascii=False) + "\n")
@@ -112,8 +115,12 @@ def main() -> None:
                 f"[{local_index + 1}/{len(indices)}] idx={sample_index} "
                 f"latent_l1 interp={metrics['interp_latent_l1']:.6f} "
                 f"trained={metrics['trained_latent_l1']:.6f} "
-                f"psnr interp={metrics['interp_pixel_psnr']:.3f} "
-                f"trained={metrics['trained_pixel_psnr']:.3f}",
+                f"psnr interp={metrics['interp_psnr']:.3f} "
+                f"trained={metrics['trained_psnr']:.3f} "
+                f"ssim interp={metrics['interp_ssim']:.4f} "
+                f"trained={metrics['trained_ssim']:.4f} "
+                f"lpips interp={metrics['interp_lpips']:.4f} "
+                f"trained={metrics['trained_lpips']:.4f}",
                 flush=True,
             )
 
@@ -175,7 +182,7 @@ def write_operator_videos(
         path.mkdir(parents=True, exist_ok=True)
 
     lr_path = video_dir / f"{sample_name}_lr480_decode.mp4"
-    target_path = video_dir / f"{sample_name}_target720_decode.mp4"
+    target_path = video_dir / f"{sample_name}_ori720_decode.mp4"
     interp_path = video_dir / f"{sample_name}_interp720_decode.mp4"
     trained_path = video_dir / f"{sample_name}_trained720_decode.mp4"
     compare_path = compare_dir / f"{sample_name}_operator_compare.mp4"
@@ -187,7 +194,7 @@ def write_operator_videos(
 
     panel_paths = [
         make_labeled_panel(lr_path, panel_dir / f"{sample_name}_panel_lr480.mp4", "lr 480 decode", panel_height, panel_width, fps),
-        make_labeled_panel(target_path, panel_dir / f"{sample_name}_panel_target720.mp4", "target 720 decode", panel_height, panel_width, fps),
+        make_labeled_panel(target_path, panel_dir / f"{sample_name}_panel_ori720.mp4", "ori 720 decode", panel_height, panel_width, fps),
         make_labeled_panel(interp_path, panel_dir / f"{sample_name}_panel_interp720.mp4", "interp 720 decode", panel_height, panel_width, fps),
         make_labeled_panel(trained_path, panel_dir / f"{sample_name}_panel_trained720.mp4", "trained 720 decode", panel_height, panel_width, fps),
     ]
@@ -216,7 +223,7 @@ def write_operator_videos(
     )
     return {
         "lr480_decode": str(lr_path),
-        "target720_decode": str(target_path),
+        "ori720_decode": str(target_path),
         "interp720_decode": str(interp_path),
         "trained720_decode": str(trained_path),
         "compare": str(compare_path),
@@ -263,6 +270,8 @@ def compute_metrics(
     interp_video: torch.Tensor,
     trained_video: torch.Tensor,
     target_video: torch.Tensor,
+    similarity: VideoSimilarityMetrics,
+    metric_batch_size: int,
     paths: dict[str, str],
 ) -> dict[str, object]:
     interp_latent_l1 = float((interp_z0_hr - target_z0_hr).abs().mean())
@@ -271,6 +280,8 @@ def compute_metrics(
     trained_pixel_mse = float(F.mse_loss(trained_video, target_video))
     interp_temporal = temporal_l1(interp_video, target_video)
     trained_temporal = temporal_l1(trained_video, target_video)
+    interp_similarity = similarity.compute(interp_video, target_video, batch_size=metric_batch_size)
+    trained_similarity = similarity.compute(trained_video, target_video, batch_size=metric_batch_size)
     return {
         "sample_index": sample_index,
         "sample_id": sample_id,
@@ -279,8 +290,16 @@ def compute_metrics(
         "latent_l1_delta_trained_minus_interp": trained_latent_l1 - interp_latent_l1,
         "interp_pixel_mse": interp_pixel_mse,
         "trained_pixel_mse": trained_pixel_mse,
-        "interp_pixel_psnr": psnr(interp_pixel_mse),
-        "trained_pixel_psnr": psnr(trained_pixel_mse),
+        "interp_pixel_psnr_manual": psnr(interp_pixel_mse),
+        "trained_pixel_psnr_manual": psnr(trained_pixel_mse),
+        **{f"interp_{name}": value for name, value in interp_similarity.items()},
+        **{f"trained_{name}": value for name, value in trained_similarity.items()},
+        "psnr_delta_trained_minus_interp": trained_similarity.get("psnr", float("nan"))
+        - interp_similarity.get("psnr", float("nan")),
+        "ssim_delta_trained_minus_interp": trained_similarity.get("ssim", float("nan"))
+        - interp_similarity.get("ssim", float("nan")),
+        "lpips_delta_trained_minus_interp": trained_similarity.get("lpips", float("nan"))
+        - interp_similarity.get("lpips", float("nan")),
         "interp_temporal_l1": interp_temporal,
         "trained_temporal_l1": trained_temporal,
         "paths": paths,
@@ -299,6 +318,64 @@ def psnr(mse: float) -> float:
     return 10.0 * math.log10(1.0 / mse)
 
 
+class VideoSimilarityMetrics:
+    """TorchMetrics implementation matching x-attention eval/HunyuanVideo/similarity.py."""
+
+    def __init__(self, metric_names: list[str], device: torch.device) -> None:
+        self.metric_names = metric_names
+        self.device = device
+        self.metrics = self._build_metrics(metric_names, device)
+
+    def compute(self, gen_video: torch.Tensor, ref_video: torch.Tensor, batch_size: int) -> dict[str, float]:
+        gen_frames = _video_to_nchw(gen_video).to(self.device)
+        ref_frames = _video_to_nchw(ref_video).to(self.device)
+        if gen_frames.shape != ref_frames.shape:
+            raise ValueError(f"gen/ref video shape mismatch: {gen_frames.shape} vs {ref_frames.shape}")
+
+        batch_size = max(1, int(batch_size))
+        with torch.no_grad():
+            for metric in self.metrics.values():
+                metric.reset()
+            for start in range(0, gen_frames.shape[0], batch_size):
+                gen_batch = gen_frames[start : start + batch_size]
+                ref_batch = ref_frames[start : start + batch_size]
+                for metric in self.metrics.values():
+                    metric.update(gen_batch, ref_batch)
+            return {name: float(metric.compute().item()) for name, metric in self.metrics.items()}
+
+    def _build_metrics(self, metric_names: list[str], device: torch.device):
+        try:
+            from torchmetrics.image import (
+                LearnedPerceptualImagePatchSimilarity,
+                PeakSignalNoiseRatio,
+                StructuralSimilarityIndexMeasure,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                "PSNR/SSIM/LPIPS metrics require torchmetrics and lpips. "
+                "Install them with: pip install torchmetrics lpips"
+            ) from exc
+
+        metrics = {}
+        for metric_name in metric_names:
+            if metric_name == "psnr":
+                metric = PeakSignalNoiseRatio(data_range=(0, 1), reduction="elementwise_mean", dim=(1, 2, 3))
+            elif metric_name == "ssim":
+                metric = StructuralSimilarityIndexMeasure(data_range=(0, 1))
+            elif metric_name == "lpips":
+                metric = LearnedPerceptualImagePatchSimilarity(normalize=True)
+            else:
+                raise ValueError(f"Unsupported metric: {metric_name}")
+            metrics[metric_name] = metric.to(device)
+        return metrics
+
+
+def _video_to_nchw(video: torch.Tensor) -> torch.Tensor:
+    if video.ndim != 4 or video.shape[-1] != 3:
+        raise ValueError(f"video must be [T,H,W,C], got {tuple(video.shape)}")
+    return video.float().clamp(0, 1).permute(0, 3, 1, 2).contiguous()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", required=True)
@@ -314,6 +391,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=8)
     parser.add_argument("--vae_backend", choices=["auto", "official", "lightx2v", "diffusers"], default="lightx2v")
     parser.add_argument("--precision", choices=["fp32", "bf16", "fp16"], default="bf16")
+    parser.add_argument("--metrics", nargs="+", default=["psnr", "ssim", "lpips"])
+    parser.add_argument("--metric_batch_size", type=int, default=4)
     parser.add_argument("--fps", type=int, default=16)
     parser.add_argument("--panel_height", type=int, default=720)
     parser.add_argument("--panel_width", type=int, default=1248)

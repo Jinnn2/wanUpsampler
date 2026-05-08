@@ -23,6 +23,8 @@ SPLIT="${SPLIT:-val}"
 PRECISION="${PRECISION:-bf16}"
 USE_EMA="${USE_EMA:-1}"
 FPS="${FPS:-16}"
+METRICS="${METRICS:-psnr ssim lpips}"
+METRIC_BATCH_SIZE="${METRIC_BATCH_SIZE:-4}"
 LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_operator_compare}"
 
 export LIGHTX2V_REPO
@@ -81,6 +83,8 @@ for rank in "${!GPUS[@]}"; do
       --offset "${offset}" \
       --limit "${count}" \
       --precision "${PRECISION}" \
+      --metrics ${METRICS} \
+      --metric_batch_size "${METRIC_BATCH_SIZE}" \
       --fps "${FPS}" \
       "${ema_args[@]}"
   ) >"${log_path}" 2>&1 &
@@ -102,5 +106,28 @@ fi
 
 merged_metrics="${OUT_DIR}/metrics_${SPLIT}.jsonl"
 cat "${OUT_DIR}"/part_*/metrics_"${SPLIT}"_*.jsonl > "${merged_metrics}"
+summary_path="${OUT_DIR}/summary_${SPLIT}.json"
+python - "${merged_metrics}" "${summary_path}" <<'PY'
+import json
+import math
+import sys
+from pathlib import Path
+
+metrics_path = Path(sys.argv[1])
+summary_path = Path(sys.argv[2])
+rows = [json.loads(line) for line in metrics_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+numeric = {}
+for row in rows:
+    for key, value in row.items():
+        if isinstance(value, (int, float)) and math.isfinite(float(value)):
+            numeric.setdefault(key, []).append(float(value))
+summary = {
+    "num_samples": len(rows),
+    "mean": {key: sum(values) / len(values) for key, values in sorted(numeric.items()) if values},
+}
+summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+print(json.dumps(summary["mean"], ensure_ascii=False, indent=2))
+PY
 echo "Operator compare ready: ${OUT_DIR}"
 echo "Merged metrics: ${merged_metrics}"
+echo "Summary: ${summary_path}"

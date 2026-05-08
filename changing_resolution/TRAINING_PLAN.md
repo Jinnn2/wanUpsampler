@@ -166,13 +166,20 @@ reference target:
 
 ```text
 lr480_decode      = decode(z0_lr)
-target720_decode  = decode(z0_hr)
+ori720_decode     = decode(z0_hr)
 interp720_decode  = decode(trilinear(z0_lr))
 trained720_decode = decode(model(z0_lr))
 ```
 
 Metrics compare `interp720_decode` and `trained720_decode` against
-`target720_decode`. This answers:
+`ori720_decode`. The default metric set follows
+`mit-han-lab/x-attention/eval/HunyuanVideo/similarity.py`:
+
+```text
+PSNR, SSIM, LPIPS
+```
+
+This answers:
 
 ```text
 Is the learned clean-latent resize operator better than interpolation?

@@ -226,8 +226,12 @@ generation trajectory.
 Operator compare has a true reference from the validation LMDB:
 
 ```text
-lr480_decode | target720_decode | interp720_decode | trained720_decode
+lr480_decode | ori720_decode | interp720_decode | trained720_decode
 ```
+
+For each sample, metrics are computed against `ori720_decode` using the same
+TorchMetrics PSNR, SSIM, and LPIPS implementation style as
+`mit-han-lab/x-attention/eval/HunyuanVideo/similarity.py`.
 
 Run it in parallel:
 
@@ -241,6 +245,7 @@ Outputs:
 ```text
 outputs/changing_resolution_operator_compare_stage1/part_*/compare
 outputs/changing_resolution_operator_compare_stage1/metrics_val.jsonl
+outputs/changing_resolution_operator_compare_stage1/summary_val.json
 ```
 
 Generation-chain A/B has no reference and only compares the two resize
