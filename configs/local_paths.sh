@@ -37,3 +37,7 @@ CR_PROMPTS_FILE="${CR_PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/
 CR_HF_PROMPTS_FILE="${CR_HF_PROMPTS_FILE:-${PROJECT_ROOT}/prompts/vidprom_filtered_extended.txt}"
 CR_COMPARE_CKPT="${CR_COMPARE_CKPT:-${CR_OUT_DIR}/step_0100000.pt}"
 CR_COMPARE_DIR="${CR_COMPARE_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_compare_step100000}"
+CR_OPERATOR_COMPARE_CKPT="${CR_OPERATOR_COMPARE_CKPT:-${CR_STAGE1_OUT_DIR}/best_val.pt}"
+CR_OPERATOR_COMPARE_DIR="${CR_OPERATOR_COMPARE_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_operator_compare_stage1}"
+CR_CHAIN_COMPARE_CKPT="${CR_CHAIN_COMPARE_CKPT:-${CR_STAGE1_OUT_DIR}/best_val.pt}"
+CR_CHAIN_COMPARE_DIR="${CR_CHAIN_COMPARE_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_chain_ab_stage1}"

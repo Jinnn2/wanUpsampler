@@ -154,3 +154,59 @@ DDP training
 ```
 
 These are not Stage 1 requirements.
+
+## Evaluation Protocol
+
+Use two separate evaluation suites.
+
+### Operator Compare: With Reference
+
+Use the held-out LMDB validation split. This is the only suite with a true
+reference target:
+
+```text
+lr480_decode      = decode(z0_lr)
+target720_decode  = decode(z0_hr)
+interp720_decode  = decode(trilinear(z0_lr))
+trained720_decode = decode(model(z0_lr))
+```
+
+Metrics compare `interp720_decode` and `trained720_decode` against
+`target720_decode`. This answers:
+
+```text
+Is the learned clean-latent resize operator better than interpolation?
+```
+
+Run:
+
+```bash
+TOTAL_SAMPLES=32 GPU_IDS=0,1,2,3 \
+bash changing_resolution/scripts/run_clean_480p720p_operator_compare_multigpu.sh
+```
+
+### Chain A/B Compare: No Reference
+
+Use the actual LightX2V changing-resolution inference chain. This suite has no
+ground-truth target, because native 480p and native 720p generations follow
+different trajectories.
+
+Compare only:
+
+```text
+interp720  = LightX2V changing_resolution + fixed interpolation
+trained720 = LightX2V changing_resolution + trained clean latent resizer
+```
+
+This answers:
+
+```text
+Does replacing the clean-latent resize operator improve the actual generation chain?
+```
+
+Run:
+
+```bash
+TOTAL_SAMPLES=16 GPU_IDS=0,1,2,3 \
+bash changing_resolution/scripts/run_clean_480p720p_chain_ab_compare_multigpu.sh
+```

@@ -216,3 +216,49 @@ Outputs are written to:
 ```text
 outputs/changing_resolution_compare_step100000/compare
 ```
+
+## Stage 1 Evaluation
+
+Use two different evaluation suites. Do not treat native 720p generation as a
+reference for changing-resolution outputs, because it follows a different
+generation trajectory.
+
+Operator compare has a true reference from the validation LMDB:
+
+```text
+lr480_decode | target720_decode | interp720_decode | trained720_decode
+```
+
+Run it in parallel:
+
+```bash
+TOTAL_SAMPLES=32 GPU_IDS=0,1,2,3 \
+bash changing_resolution/scripts/run_clean_480p720p_operator_compare_multigpu.sh
+```
+
+Outputs:
+
+```text
+outputs/changing_resolution_operator_compare_stage1/part_*/compare
+outputs/changing_resolution_operator_compare_stage1/metrics_val.jsonl
+```
+
+Generation-chain A/B has no reference and only compares the two resize
+operators inside the same LightX2V changing-resolution path:
+
+```text
+interp720 | trained720
+```
+
+Run it in parallel:
+
+```bash
+TOTAL_SAMPLES=16 GPU_IDS=0,1,2,3 \
+bash changing_resolution/scripts/run_clean_480p720p_chain_ab_compare_multigpu.sh
+```
+
+Outputs:
+
+```text
+outputs/changing_resolution_chain_ab_stage1/compare
+```
