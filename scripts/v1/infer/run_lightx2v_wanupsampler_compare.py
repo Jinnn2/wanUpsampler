@@ -10,7 +10,7 @@ from pathlib import Path
 import torch
 from torch.nn import functional as F
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -140,7 +140,7 @@ def run_lightx2v_infer(
 def run_wanupsampler(video_path: Path, save_result_path: Path, upsampler_config: dict) -> None:
     command = [
         sys.executable,
-        str(REPO_ROOT / "scripts" / "apply_wan_upsampler_to_video.py"),
+        str(REPO_ROOT / "scripts" / "v1" / "infer" / "apply_wan_upsampler_to_video.py"),
         "--video_path",
         str(video_path),
         "--save_result_path",

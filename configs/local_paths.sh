@@ -2,7 +2,7 @@
 
 # Local machine paths for /mnt/afs_2/houze.
 # Scripts source this file by default. Override with:
-#   PATH_CONFIG=/path/to/local_paths.sh bash scripts/run_lightx2v_training.sh build
+#   PATH_CONFIG=/path/to/local_paths.sh bash scripts/v1/train/run_lightx2v_training.sh build
 
 JIN_ROOT="${JIN_ROOT:-/mnt/afs_2/houze}"
 
@@ -21,7 +21,7 @@ DAVIS_DIR="${DAVIS_DIR:-}"
 RAW_VIDEO_DIR="${RAW_VIDEO_DIR:-${PROJECT_ROOT}/data/raw_videos}"
 LATENT_DIR="${LATENT_DIR:-${PROJECT_ROOT}/data/latent_pairs_wan21_512}"
 OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/wan_traj_upsampler_x2}"
-TRAIN_CONFIG="${TRAIN_CONFIG:-${PROJECT_ROOT}/configs/train_wan21_x2_512.yaml}"
+TRAIN_CONFIG="${TRAIN_CONFIG:-${PROJECT_ROOT}/configs/v1/train_wan21_x2_512.yaml}"
 
 # V2 changing_resolution clean-latent training paths.
 CR_RAW_VIDEO_DIR="${CR_RAW_VIDEO_DIR:-${PROJECT_ROOT}/data/changing_resolution/raw_wan21_720p}"

@@ -5,14 +5,14 @@ set -euo pipefail
 # Proxy variables such as http_proxy / https_proxy are inherited from the shell.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_PATH_CONFIG="${SCRIPT_DIR}/../configs/local_paths.sh"
+DEFAULT_PATH_CONFIG="${SCRIPT_DIR}/../../../configs/local_paths.sh"
 PATH_CONFIG="${PATH_CONFIG:-${DEFAULT_PATH_CONFIG}}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
   source "${PATH_CONFIG}"
 fi
 
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 DATASET_ROOT="${DATASET_ROOT:-${PROJECT_ROOT}/datasets}"
 RAW_VIDEO_DIR="${RAW_VIDEO_DIR:-${PROJECT_ROOT}/data/raw_videos}"
 

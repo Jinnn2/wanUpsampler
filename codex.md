@@ -202,7 +202,7 @@ H.264 压缩可以第二版再加。
 让 Codex 先写这个脚本：
 
 ```bash
-python scripts/build_latent_pairs.py \
+python scripts/v1/data/build_latent_pairs.py \
   --video_dir data/raw_videos \
   --out_dir data/latent_pairs_wan21_512 \
   --vae_path checkpoints/Wan2.1_VAE.pth \
@@ -683,7 +683,7 @@ WanTrajectoryUpsampler/
 项目要求：
 
 1. 数据预处理
-- 实现 scripts/build_latent_pairs.py。
+- 实现 scripts/v1/data/build_latent_pairs.py。
 - 输入 raw video directory。
 - 切分连续 clip，默认 17 frames, 16 fps。
 - 对 HR clip 做 resize/crop 到 512×512。
@@ -715,7 +715,7 @@ WanTrajectoryUpsampler/
 - total loss = latent + 0.2 * low + 0.1 * temp。
 
 5. Training
-- 实现 scripts/train.py。
+- 实现 scripts/v1/train/train.py。
 - 支持 bf16、gradient accumulation、AdamW、EMA、checkpoint save/resume。
 - 支持 warmup_clean_steps：前若干步 sigma=0，训练 clean upscaler。
 - 之后采样 sigma，训练 noisy-to-clean。

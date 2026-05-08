@@ -11,8 +11,8 @@ export CUDA_VISIBLE_DEVICES=0
 source ${lightx2v_path}/scripts/base/base.sh
 export PYTHONPATH=${wanupsampler_path}:$PYTHONPATH
 
-config_json=${wanupsampler_path}/configs/changing_resolution/wan_t2v_wanupsampler_v1.json
-prompts_file=${wanupsampler_path}/configs/changing_resolution/wan_t2v_wanupsampler_v1_prompts_20.txt
+config_json=${wanupsampler_path}/configs/v1/changing_resolution/wan_t2v_wanupsampler_v1.json
+prompts_file=${wanupsampler_path}/configs/v1/changing_resolution/wan_t2v_wanupsampler_v1_prompts_20.txt
 output_root=${wanupsampler_path}/outputs/lightx2v_compare/batch20
 
 negative_prompt="镜头晃动，色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走"
@@ -29,7 +29,7 @@ while IFS= read -r prompt || [[ -n "$prompt" ]]; do
   seed=$((41 + index))
   save_result_path=${output_root}/${sample_id}_comparison.mp4
 
-  python ${wanupsampler_path}/scripts/run_lightx2v_wanupsampler_compare.py \
+  python ${wanupsampler_path}/scripts/v1/infer/run_lightx2v_wanupsampler_compare.py \
   --seed ${seed} \
   --model_cls wan2.1 \
   --task t2v \

@@ -36,7 +36,7 @@
   },
   "wan_upsampler": {
     "checkpoint": "/mnt/afs_2/houze/wanUpsampler/outputs/wan_traj_upsampler_x2/latest.pt",
-    "train_config": "/mnt/afs_2/houze/wanUpsampler/configs/train_wan21_x2_512.yaml",
+    "train_config": "/mnt/afs_2/houze/wanUpsampler/configs/v1/train_wan21_x2_512.yaml",
     "model_root": "/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B",
     "vae_path": "/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth",
     "wan_repo": "/mnt/afs_2/houze/LightX2V",
@@ -55,5 +55,5 @@
       "native_highres"
     ]
   },
-  "prompts_file": "/mnt/afs_2/houze/wanUpsampler/configs/changing_resolution/wan_t2v_wanupsampler_v1_prompts_20.txt"
+  "prompts_file": "/mnt/afs_2/houze/wanUpsampler/configs/v1/changing_resolution/wan_t2v_wanupsampler_v1_prompts_20.txt"
 }

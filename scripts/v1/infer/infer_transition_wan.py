@@ -7,7 +7,7 @@ from pathlib import Path
 import torch
 from safetensors.torch import load_file, save_file
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -58,7 +58,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--x_t_lr", required=True, help="safetensors containing key 'latent' or one tensor")
     parser.add_argument("--sigma", type=float, required=True)
     parser.add_argument("--out", default="outputs/transition.safetensors")
-    parser.add_argument("--config", default="configs/infer_transition.yaml")
+    parser.add_argument("--config", default="configs/v1/infer_transition.yaml")
     parser.add_argument("--use_ema", action="store_true")
     parser.add_argument("--cpu", action="store_true")
     return parser.parse_args()

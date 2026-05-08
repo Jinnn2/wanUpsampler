@@ -10,7 +10,7 @@ from safetensors.torch import save_file
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -100,7 +100,7 @@ def main() -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True)
-    parser.add_argument("--config", default="configs/train_wan21_x2_512.yaml")
+    parser.add_argument("--config", default="configs/v1/train_wan21_x2_512.yaml")
     parser.add_argument("--data_dir")
     parser.add_argument("--out_dir", default="outputs/eval_decode")
     parser.add_argument("--model_root", default=DEFAULT_MODEL_ROOT)

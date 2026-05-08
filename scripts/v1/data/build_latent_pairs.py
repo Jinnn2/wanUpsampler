@@ -9,7 +9,7 @@ import torch
 from safetensors.torch import save_file
 from tqdm import tqdm
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -35,7 +35,7 @@ def main() -> None:
         raise FileNotFoundError(
             f"No videos found under {args.video_dir}. "
             "Expected files with suffix .mp4/.mov/.mkv/.webm/.avi. "
-            "If you used scripts/download_davis2017.sh, check data/raw_videos/davis2017_480p."
+            "If you used scripts/v1/data/download_davis2017.sh, check data/raw_videos/davis2017_480p."
         )
 
     vae = WanVAEWrapper(
