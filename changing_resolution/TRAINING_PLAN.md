@@ -189,7 +189,7 @@ Run:
 
 ```bash
 TOTAL_SAMPLES=32 GPU_IDS=0,1,2,3 \
-bash changing_resolution/scripts/run_clean_480p720p_operator_compare_multigpu.sh
+bash changing_resolution/scripts/eval/run_clean_480p720p_operator_compare_multigpu.sh
 ```
 
 ### Chain A/B Compare: No Reference
@@ -215,5 +215,5 @@ Run:
 
 ```bash
 TOTAL_SAMPLES=16 GPU_IDS=0,1,2,3 \
-bash changing_resolution/scripts/run_clean_480p720p_chain_ab_compare_multigpu.sh
+bash changing_resolution/scripts/eval/run_clean_480p720p_chain_ab_compare_multigpu.sh
 ```

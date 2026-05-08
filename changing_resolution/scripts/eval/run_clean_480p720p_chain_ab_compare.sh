@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
@@ -126,7 +126,7 @@ run_infer() {
     echo "skip existing: ${output}"
     return
   fi
-  python "${PROJECT_ROOT}/changing_resolution/scripts/run_lightx2v_clean_bridge_infer.py" \
+  python "${PROJECT_ROOT}/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_infer.py" \
     --seed "${seed}" \
     --model_cls "${model_cls}" \
     --task t2v \

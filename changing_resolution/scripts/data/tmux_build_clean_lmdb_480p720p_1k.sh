@@ -13,7 +13,7 @@ if tmux has-session -t "${SESSION_NAME}" 2>/dev/null; then
 fi
 
 tmux new-session -d -s "${SESSION_NAME}" \
-  "cd '${PROJECT_ROOT}' && bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k.sh all 2>&1 | tee '${LOG_DIR}/build_clean_lmdb_480p720p_1k.log'"
+  "cd '${PROJECT_ROOT}' && bash changing_resolution/scripts/data/build_clean_480p720p_lmdb_1k.sh all 2>&1 | tee '${LOG_DIR}/build_clean_lmdb_480p720p_1k.log'"
 
 echo "Started tmux session: ${SESSION_NAME}"
 echo "Attach with: tmux attach -t ${SESSION_NAME}"

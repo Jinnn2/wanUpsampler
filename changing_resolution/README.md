@@ -45,14 +45,14 @@ build only the LMDB:
 
 ```bash
 TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 \
-bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k_multigpu.sh lmdb
+bash changing_resolution/scripts/data/build_clean_480p720p_lmdb_1k_multigpu.sh lmdb
 ```
 
 To generate raw videos and build LMDB in one tmux run:
 
 ```bash
 TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 \
-bash changing_resolution/scripts/tmux_build_clean_lmdb_480p720p_1k_multigpu.sh
+bash changing_resolution/scripts/data/tmux_build_clean_lmdb_480p720p_1k_multigpu.sh
 
 tmux attach -t wan_cr_lmdb_480p720p_1k_multigpu
 ```
@@ -74,14 +74,14 @@ trilinear(z0_lr) + learned residual
 Preflight:
 
 ```bash
-bash changing_resolution/scripts/run_clean_480p720p_stage1_lmdb_training.sh check
+bash changing_resolution/scripts/train/run_clean_480p720p_stage1_lmdb_training.sh check
 ```
 
 Train in tmux:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 \
-bash changing_resolution/scripts/tmux_run_clean_480p720p_stage1_lmdb_training.sh
+bash changing_resolution/scripts/train/tmux_run_clean_480p720p_stage1_lmdb_training.sh
 
 tmux attach -t wan_cr_stage1_lmdb_train
 ```
@@ -107,7 +107,7 @@ Extend to 20k only after the 10k comparison looks useful:
 ```bash
 MAX_STEPS=20000 \
 RESUME=outputs/changing_resolution_clean_480p720p_stage1_lmdb/latest.pt \
-bash changing_resolution/scripts/tmux_run_clean_480p720p_stage1_lmdb_training.sh
+bash changing_resolution/scripts/train/tmux_run_clean_480p720p_stage1_lmdb_training.sh
 ```
 
 ### 3. Evaluate Stage 1
@@ -124,7 +124,7 @@ It computes PSNR, SSIM, and LPIPS against `ori720_decode`.
 
 ```bash
 TOTAL_SAMPLES=32 GPU_IDS=0,1,2,3 \
-bash changing_resolution/scripts/tmux_run_clean_480p720p_operator_compare_multigpu.sh
+bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_operator_compare_multigpu.sh
 
 tmux attach -t wan_cr_operator_compare
 ```
@@ -146,7 +146,7 @@ interp720 | trained720
 
 ```bash
 TOTAL_SAMPLES=16 GPU_IDS=0,1,2,3 \
-bash changing_resolution/scripts/tmux_run_clean_480p720p_chain_ab_compare_multigpu.sh
+bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_chain_ab_compare_multigpu.sh
 
 tmux attach -t wan_cr_chain_ab_compare
 ```
@@ -162,64 +162,64 @@ outputs/changing_resolution_chain_ab_stage1/compare
 ### Data Build
 
 ```text
-generate_wan21_720p_dataset.sh
+scripts/data/generate_wan21_720p_dataset.sh
   Generate Wan2.1 720p source videos from prompts.
 
-build_480p720p_lmdb.py
+scripts/data/build_480p720p_lmdb.py
   Convert 720p videos into sharded LMDB clean latent pairs.
 
-build_clean_480p720p_lmdb_1k.sh
+scripts/data/build_clean_480p720p_lmdb_1k.sh
   Single-worker 1k prompt/video/LMDB entrypoint.
 
-build_clean_480p720p_lmdb_1k_multigpu.sh
+scripts/data/build_clean_480p720p_lmdb_1k_multigpu.sh
   Multi-GPU data build. Splits prompt ranges across GPUs.
 
-tmux_build_clean_lmdb_480p720p_1k.sh
+scripts/data/tmux_build_clean_lmdb_480p720p_1k.sh
   tmux wrapper for the single-worker data build.
 
-tmux_build_clean_lmdb_480p720p_1k_multigpu.sh
+scripts/data/tmux_build_clean_lmdb_480p720p_1k_multigpu.sh
   tmux wrapper for the multi-GPU data build.
 ```
 
 ### Training
 
 ```text
-train_clean_latent_resizer.py
+scripts/train/train_clean_latent_resizer.py
   Generic clean latent resizer trainer. Supports files and LMDB backends.
 
-run_clean_480p720p_stage1_lmdb_training.sh
+scripts/train/run_clean_480p720p_stage1_lmdb_training.sh
   Stage 1 LMDB baseline training entrypoint.
 
-tmux_run_clean_480p720p_stage1_lmdb_training.sh
+scripts/train/tmux_run_clean_480p720p_stage1_lmdb_training.sh
   tmux wrapper for Stage 1 training.
 ```
 
 ### Evaluation
 
 ```text
-eval_clean_resizer_operator_compare.py
+scripts/eval/eval_clean_resizer_operator_compare.py
   Decode validation LMDB samples and compute reference metrics.
 
-run_clean_480p720p_operator_compare_multigpu.sh
+scripts/eval/run_clean_480p720p_operator_compare_multigpu.sh
   Multi-GPU operator compare wrapper.
 
-tmux_run_clean_480p720p_operator_compare_multigpu.sh
+scripts/eval/tmux_run_clean_480p720p_operator_compare_multigpu.sh
   tmux wrapper for operator compare.
 
-run_clean_480p720p_chain_ab_compare.sh
+scripts/eval/run_clean_480p720p_chain_ab_compare.sh
   Single-worker LightX2V chain A/B compare.
 
-run_clean_480p720p_chain_ab_compare_multigpu.sh
+scripts/eval/run_clean_480p720p_chain_ab_compare_multigpu.sh
   Multi-GPU chain A/B compare wrapper.
 
-tmux_run_clean_480p720p_chain_ab_compare_multigpu.sh
+scripts/eval/tmux_run_clean_480p720p_chain_ab_compare_multigpu.sh
   tmux wrapper for chain A/B compare.
 ```
 
 ### LightX2V Bridge
 
 ```text
-run_lightx2v_clean_bridge_infer.py
+scripts/bridge/run_lightx2v_clean_bridge_infer.py
   Local LightX2V inference wrapper that registers the clean-resizer bridge.
 
 ../lightx2v_clean_bridge.py
@@ -229,19 +229,19 @@ run_lightx2v_clean_bridge_infer.py
 ### Legacy / Historical
 
 ```text
-build_480p720p_latents.py
+scripts/data/build_480p720p_latents.py
   Older per-sample safetensors latent-pair builder.
 
-run_clean_480p720p_training.sh
+scripts/legacy/run_clean_480p720p_training.sh
   Older generate/build/train wrapper for the safetensors path.
 
-tmux_run_clean_480p720p_all.sh
+scripts/legacy/tmux_run_clean_480p720p_all.sh
   tmux wrapper for the older all-in-one safetensors path.
 
-run_clean_480p720p_compare_batch10.sh
+scripts/legacy/run_clean_480p720p_compare_batch10.sh
   Older four-way compare: ori480 / ori720 / interp720 / trained720.
 
-apply_clean_resizer_to_video.py
+scripts/legacy/apply_clean_resizer_to_video.py
   Offline video-to-video utility for applying a checkpoint through VAE.
 ```
 

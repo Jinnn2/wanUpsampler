@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 SESSION_NAME="${SESSION_NAME:-wan_cr_lmdb_480p720p_1k_multigpu}"
 MODE="${MODE:-all}"
 
@@ -56,7 +56,7 @@ echo "gpu_ids      : ${GPU_IDS}"
 echo "run_log      : ${RUN_LOG}"
 echo "worker_logs  : ${WORKER_LOG_DIR}/part_*.log"
 
-bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k_multigpu.sh "${MODE}"
+bash changing_resolution/scripts/data/build_clean_480p720p_lmdb_1k_multigpu.sh "${MODE}"
 EOF
 
 chmod +x "${RUN_SCRIPT}"

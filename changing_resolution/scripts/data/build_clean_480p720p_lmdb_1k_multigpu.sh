@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
@@ -30,7 +30,7 @@ if (( NUM_GPUS < 1 )); then
 fi
 
 if [[ "${MODE}" != "all" && "${MODE}" != "generate" && "${MODE}" != "lmdb" ]]; then
-  echo "Usage: bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k_multigpu.sh [all|generate|lmdb]" >&2
+  echo "Usage: bash changing_resolution/scripts/data/build_clean_480p720p_lmdb_1k_multigpu.sh [all|generate|lmdb]" >&2
   exit 2
 fi
 
@@ -50,7 +50,7 @@ echo "  raw_root     : ${RAW_ROOT}"
 echo "  lmdb_root    : ${LMDB_ROOT}"
 echo "  log_dir      : ${LOG_DIR}"
 
-bash "${PROJECT_ROOT}/changing_resolution/scripts/build_clean_480p720p_lmdb_1k.sh" prompts
+bash "${PROJECT_ROOT}/changing_resolution/scripts/data/build_clean_480p720p_lmdb_1k.sh" prompts
 
 base_count=$((TOTAL_SAMPLES / NUM_GPUS))
 remainder=$((TOTAL_SAMPLES % NUM_GPUS))
@@ -94,7 +94,7 @@ for rank in "${!GPUS[@]}"; do
     CR_RAW_VIDEO_DIR_1K="${part_raw}" \
     CR_LMDB_DIR="${part_lmdb}" \
     OVERWRITE_LMDB="${OVERWRITE_LMDB}" \
-    bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k.sh "${MODE}"
+    bash changing_resolution/scripts/data/build_clean_480p720p_lmdb_1k.sh "${MODE}"
   ) >"${log_path}" 2>&1 &
 
   pids+=("$!")

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
@@ -35,7 +35,7 @@ check_lmdb() {
   if [[ ! -d "${LMDB_DIR}" ]] || [[ -z "$(find "${LMDB_DIR}" -type f -name 'data.mdb' -print -quit 2>/dev/null)" ]]; then
     echo "No LMDB shards found under: ${LMDB_DIR}" >&2
     echo "If raw videos are already generated in part_00..part_03, build LMDB first:" >&2
-    echo "  TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k_multigpu.sh lmdb" >&2
+    echo "  TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 bash changing_resolution/scripts/data/build_clean_480p720p_lmdb_1k_multigpu.sh lmdb" >&2
     exit 1
   fi
 }
@@ -67,7 +67,7 @@ train_stage1() {
   echo "  gpu     : ${CUDA_VISIBLE_DEVICES}"
   echo "  steps   : ${MAX_STEPS}"
 
-  python "${PROJECT_ROOT}/changing_resolution/scripts/train_clean_latent_resizer.py" \
+  python "${PROJECT_ROOT}/changing_resolution/scripts/train/train_clean_latent_resizer.py" \
     --config "${CONFIG}" \
     --data_dir "${LMDB_DIR}" \
     --data_format lmdb \
@@ -93,7 +93,7 @@ case "${MODE}" in
     train_stage1
     ;;
   *)
-    echo "Usage: bash changing_resolution/scripts/run_clean_480p720p_stage1_lmdb_training.sh [check|train]" >&2
+    echo "Usage: bash changing_resolution/scripts/train/run_clean_480p720p_stage1_lmdb_training.sh [check|train]" >&2
     exit 2
     ;;
 esac

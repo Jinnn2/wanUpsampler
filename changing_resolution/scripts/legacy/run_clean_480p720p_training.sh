@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
@@ -59,12 +59,12 @@ check_paths() {
 check_raw_videos() {
   if [[ ! -d "${RAW_VIDEO_DIR}" ]]; then
     echo "Raw video dir not found: ${RAW_VIDEO_DIR}" >&2
-    echo "Run: bash changing_resolution/scripts/generate_wan21_720p_dataset.sh" >&2
+    echo "Run: bash changing_resolution/scripts/data/generate_wan21_720p_dataset.sh" >&2
     exit 1
   fi
   if [[ -z "$(find "${RAW_VIDEO_DIR}" -type f -name '*.mp4' -print -quit)" ]]; then
     echo "No mp4 videos found under: ${RAW_VIDEO_DIR}" >&2
-    echo "Run: bash changing_resolution/scripts/generate_wan21_720p_dataset.sh" >&2
+    echo "Run: bash changing_resolution/scripts/data/generate_wan21_720p_dataset.sh" >&2
     exit 1
   fi
 }
@@ -72,7 +72,7 @@ check_raw_videos() {
 build_latents() {
   check_paths
   check_raw_videos
-  python "${PROJECT_ROOT}/changing_resolution/scripts/build_480p720p_latents.py" \
+  python "${PROJECT_ROOT}/changing_resolution/scripts/data/build_480p720p_latents.py" \
     --video_dir "${RAW_VIDEO_DIR}" \
     --out_dir "${LATENT_DIR}" \
     --model_root "${MODEL_ROOT}" \
@@ -91,13 +91,13 @@ train_model() {
   if [[ "${DATA_FORMAT}" == "files" ]]; then
     if [[ ! -d "${LATENT_DIR}" ]] || [[ -z "$(find "${LATENT_DIR}" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*' -print -quit 2>/dev/null)" ]]; then
       echo "No latent samples found under: ${LATENT_DIR}" >&2
-      echo "Run build first: bash changing_resolution/scripts/run_clean_480p720p_training.sh build" >&2
+      echo "Run build first: bash changing_resolution/scripts/legacy/run_clean_480p720p_training.sh build" >&2
       exit 1
     fi
   elif [[ "${DATA_FORMAT}" == "lmdb" ]]; then
     if [[ ! -d "${LATENT_DIR}" ]] || [[ -z "$(find "${LATENT_DIR}" -type f -name 'data.mdb' -print -quit 2>/dev/null)" ]]; then
       echo "No LMDB shards found under: ${LATENT_DIR}" >&2
-      echo "Build LMDB first: bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k.sh all" >&2
+      echo "Build LMDB first: bash changing_resolution/scripts/data/build_clean_480p720p_lmdb_1k.sh all" >&2
       exit 1
     fi
   else
@@ -110,7 +110,7 @@ train_model() {
     resume_args=(--resume "${RESUME}")
   fi
 
-  python "${PROJECT_ROOT}/changing_resolution/scripts/train_clean_latent_resizer.py" \
+  python "${PROJECT_ROOT}/changing_resolution/scripts/train/train_clean_latent_resizer.py" \
     --config "${CONFIG}" \
     --data_dir "${LATENT_DIR}" \
     --data_format "${DATA_FORMAT}" \
@@ -128,7 +128,7 @@ train_model() {
 
 case "${MODE}" in
   generate)
-    bash "${PROJECT_ROOT}/changing_resolution/scripts/generate_wan21_720p_dataset.sh"
+    bash "${PROJECT_ROOT}/changing_resolution/scripts/data/generate_wan21_720p_dataset.sh"
     ;;
   build)
     build_latents
@@ -137,12 +137,12 @@ case "${MODE}" in
     train_model
     ;;
   all)
-    bash "${PROJECT_ROOT}/changing_resolution/scripts/generate_wan21_720p_dataset.sh"
+    bash "${PROJECT_ROOT}/changing_resolution/scripts/data/generate_wan21_720p_dataset.sh"
     build_latents
     train_model
     ;;
   *)
-    echo "Usage: bash changing_resolution/scripts/run_clean_480p720p_training.sh [generate|build|train|all]" >&2
+    echo "Usage: bash changing_resolution/scripts/legacy/run_clean_480p720p_training.sh [generate|build|train|all]" >&2
     exit 2
     ;;
 esac

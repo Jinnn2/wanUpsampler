@@ -2,13 +2,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
-SESSION_NAME="${SESSION_NAME:-wan_cr_operator_compare}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
+SESSION_NAME="${SESSION_NAME:-wan_cr_chain_ab_compare}"
 LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs}"
-RUN_LOG="${RUN_LOG:-${LOG_DIR}/operator_compare_stage1.log}"
+RUN_LOG="${RUN_LOG:-${LOG_DIR}/chain_ab_compare_stage1.log}"
 
 if ! command -v tmux >/dev/null 2>&1; then
-  echo "tmux not found. Install tmux or run run_clean_480p720p_operator_compare_multigpu.sh directly." >&2
+  echo "tmux not found. Install tmux or run run_clean_480p720p_chain_ab_compare_multigpu.sh directly." >&2
   exit 1
 fi
 
@@ -22,7 +22,7 @@ if tmux has-session -t "${SESSION_NAME}" 2>/dev/null; then
 fi
 
 tmux new-session -d -s "${SESSION_NAME}" \
-  "cd '${PROJECT_ROOT}' && bash changing_resolution/scripts/run_clean_480p720p_operator_compare_multigpu.sh 2>&1 | tee '${RUN_LOG}'"
+  "cd '${PROJECT_ROOT}' && bash changing_resolution/scripts/eval/run_clean_480p720p_chain_ab_compare_multigpu.sh 2>&1 | tee '${RUN_LOG}'"
 
 echo "Started tmux session: ${SESSION_NAME}"
 echo "Attach with: tmux attach -t ${SESSION_NAME}"

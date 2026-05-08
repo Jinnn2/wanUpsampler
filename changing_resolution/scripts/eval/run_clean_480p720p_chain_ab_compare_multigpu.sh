@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
@@ -41,7 +41,7 @@ for rank in "${!GPUS[@]}"; do
     CUDA_VISIBLE_DEVICES="${gpu}" \
     PROMPT_OFFSET="${offset}" \
     LIMIT="${count}" \
-    bash changing_resolution/scripts/run_clean_480p720p_chain_ab_compare.sh
+    bash changing_resolution/scripts/eval/run_clean_480p720p_chain_ab_compare.sh
   ) >"${log_path}" 2>&1 &
   pids+=("$!")
   offset=$((offset + count))

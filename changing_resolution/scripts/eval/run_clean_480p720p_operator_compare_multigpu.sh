@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
@@ -70,7 +70,7 @@ for rank in "${!GPUS[@]}"; do
   (
     cd "${PROJECT_ROOT}"
     CUDA_VISIBLE_DEVICES="${gpu}" \
-    python changing_resolution/scripts/eval_clean_resizer_operator_compare.py \
+    python changing_resolution/scripts/eval/eval_clean_resizer_operator_compare.py \
       --data_dir "${LMDB_DIR}" \
       --data_format lmdb \
       --checkpoint "${CHECKPOINT}" \

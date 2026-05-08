@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
@@ -83,7 +83,7 @@ generate_videos() {
   CR_RAW_VIDEO_DIR="${RAW_VIDEO_DIR}" \
   MAX_PROMPTS="${NUM_SAMPLES}" \
   START_SEED="${START_SEED}" \
-  bash "${PROJECT_ROOT}/changing_resolution/scripts/generate_wan21_720p_dataset.sh"
+  bash "${PROJECT_ROOT}/changing_resolution/scripts/data/generate_wan21_720p_dataset.sh"
 }
 
 build_lmdb() {
@@ -92,7 +92,7 @@ build_lmdb() {
     overwrite_args=(--overwrite)
   fi
 
-  python "${PROJECT_ROOT}/changing_resolution/scripts/build_480p720p_lmdb.py" \
+  python "${PROJECT_ROOT}/changing_resolution/scripts/data/build_480p720p_lmdb.py" \
     --video_dir "${RAW_VIDEO_DIR}" \
     --out_dir "${LMDB_DIR}" \
     --prompts_file "${PROMPTS_FILE}" \
@@ -134,7 +134,7 @@ case "${MODE}" in
     build_lmdb
     ;;
   *)
-    echo "Usage: bash changing_resolution/scripts/build_clean_480p720p_lmdb_1k.sh [prompts|generate|lmdb|all]" >&2
+    echo "Usage: bash changing_resolution/scripts/data/build_clean_480p720p_lmdb_1k.sh [prompts|generate|lmdb|all]" >&2
     exit 2
     ;;
 esac
