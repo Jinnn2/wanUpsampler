@@ -1,0 +1,54 @@
+  flowchart LR
+    %% WanCleanLatentResizer, current Stage 1 baseline.
+    %% Tensor layout is [B, C, T, H, W]. Only H/W are resized.
+
+    input["z0_lr<br/>[B, 16, T, 60, 104]"]
+    target["target spatial<br/>from z0_hr: 90 x 156"]
+
+    subgraph model["WanCleanLatentResizer"]
+      direction LR
+
+      input --> stem["Stem Conv3D<br/>16 -> 256<br/>kernel 3, padding 1"]
+      stem --> pre["Pre blocks<br/>PlainResBlock3D x4<br/>256 channels"]
+      pre --> resize_feat["Feature resize<br/>F.interpolate trilinear<br/>T unchanged, H/W 1.5x"]
+      target -. "output_size" .-> resize_feat
+      resize_feat --> post["Post blocks<br/>PlainResBlock3D x4<br/>256 channels"]
+      post --> head["Head<br/>GroupNorm + SiLU + Conv3D<br/>256 -> 16"]
+      head --> residual["learned residual<br/>[B, 16, T, 90, 156]"]
+
+      input --> skip_resize["Skip resize<br/>F.interpolate trilinear<br/>z0_lr -> HR latent size"]
+      target -. "output_size" .-> skip_resize
+
+      residual --> add["add"]
+      skip_resize --> add
+      add --> output["pred_z0_hr<br/>[B, 16, T, 90, 156]"]
+    end
+
+    output --> loss["training loss"]
+    zhr["z0_hr reference<br/>[B, 16, T, 90, 156]"] --> loss
+    input --> loss
+
+    subgraph loss_terms["CleanLatentResizeLoss"]
+      direction TB
+      l1["latent Charbonnier<br/>pred_z0_hr vs z0_hr"]
+      low["low-frequency L1<br/>downsample(pred_z0_hr) vs z0_lr"]
+      temp["temporal difference<br/>pred_z0_hr vs z0_hr"]
+      resloss["residual penalty<br/>optional, weight 0 by default"]
+    end
+
+    loss --> l1
+    loss --> low
+    loss --> temp
+    loss --> resloss
+
+    classDef tensor fill:#eef6ff,stroke:#3478c6,stroke-width:1px,color:#102033;
+    classDef op fill:#f7f7f7,stroke:#555,stroke-width:1px,color:#202020;
+    classDef resize fill:#fff4db,stroke:#b7791f,stroke-width:1px,color:#302000;
+    classDef out fill:#eaf8ee,stroke:#2f855a,stroke-width:1px,color:#102516;
+    classDef loss fill:#fcecec,stroke:#c53030,stroke-width:1px,color:#301010;
+
+    class input,zhr,target tensor;
+    class stem,pre,post,head,add op;
+    class resize_feat,skip_resize resize;
+    class residual,output out;
+    class loss,l1,low,temp,resloss loss;

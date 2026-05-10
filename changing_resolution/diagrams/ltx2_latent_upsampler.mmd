@@ -1,0 +1,64 @@
+flowchart LR
+  %% LTX2 LatentUpsampler in local LightX2V.
+  %% Main tensor layout is [B, C, F, H, W].
+  %% The x2 spatial checkpoint usually uses C=128, mid_channels=512, dims=3.
+
+  input["input LTX2 latent<br/>[B, 128, F, H, W]"]
+  stats["LTX2 VAE<br/>per-channel statistics"]
+
+  subgraph wrapper["LTX2Upsampler wrapper"]
+    direction LR
+    input --> unnorm["un_normalize(latent)"]
+    stats -.-> unnorm
+    unnorm --> model_in["LatentUpsampler input"]
+  end
+
+  subgraph model["LatentUpsampler"]
+    direction LR
+
+    model_in --> initial["Initial block<br/>Conv3D 128 -> 512<br/>GroupNorm(32) + SiLU"]
+    initial --> pre["Pre-upsample ResBlock x4<br/>Conv + GN + SiLU + Conv + GN<br/>residual add"]
+
+    pre --> choose{"spatial upsample path"}
+
+    choose -->|x2 spatial checkpoint| x2prep["per-frame view<br/>[B,512,F,H,W] -> [(B*F),512,H,W]"]
+    x2prep --> x2conv["Conv2D<br/>512 -> 4*512"]
+    x2conv --> x2shuffle["PixelShuffleND dims=2<br/>factors=(2,2)<br/>H/W x2"]
+    x2shuffle --> x2back["restore video view<br/>[(B*F),512,2H,2W] -> [B,512,F,2H,2W]"]
+
+    choose -->|rational_resampler scale=1.5| ratprep["per-frame view<br/>[B,512,F,H,W] -> [(B*F),512,H,W]"]
+    ratprep --> ratconv["Conv2D<br/>512 -> 9*512"]
+    ratconv --> ratshuffle["PixelShuffleND dims=2<br/>factors=(3,3)<br/>H/W x3"]
+    ratshuffle --> blur["BlurDownsample<br/>fixed 5x5 binomial kernel<br/>stride=2"]
+    blur --> ratback["restore video view<br/>[(B*F),512,1.5H,1.5W] -> [B,512,F,1.5H,1.5W]"]
+
+    x2back --> post["Post-upsample ResBlock x4<br/>512 channels"]
+    ratback --> post
+    post --> final["Final Conv3D<br/>512 -> 128"]
+    final --> model_out["upsampled latent<br/>[B,128,F,H',W']"]
+  end
+
+  subgraph wrapper_out["LTX2Upsampler wrapper"]
+    direction LR
+    model_out --> norm["normalize(latent)"]
+    stats -.-> norm
+    norm --> output["output LTX2 latent<br/>x2: [B,128,F,2H,2W]<br/>1.5x: [B,128,F,1.5H,1.5W]"]
+  end
+
+  note["Notes<br/>Temporal axis F is unchanged for spatial-only upsampling.<br/>LTX2 wrapper loads config from checkpoint metadata.<br/>Wan bridge uses the LTX2 x2 checkpoint through RGB/LTX2 latent roundtrip."]
+
+  output -.-> note
+
+  classDef tensor fill:#eef6ff,stroke:#3478c6,stroke-width:1px,color:#102033;
+  classDef wrapper fill:#f2efff,stroke:#6b46c1,stroke-width:1px,color:#1f1235;
+  classDef op fill:#f7f7f7,stroke:#555,stroke-width:1px,color:#202020;
+  classDef x2 fill:#eaf8ee,stroke:#2f855a,stroke-width:1px,color:#102516;
+  classDef rational fill:#fff4db,stroke:#b7791f,stroke-width:1px,color:#302000;
+  classDef note fill:#fcecec,stroke:#c53030,stroke-width:1px,color:#301010;
+
+  class input,model_in,model_out,output,stats tensor;
+  class unnorm,norm wrapper;
+  class initial,pre,choose,post,final op;
+  class x2prep,x2conv,x2shuffle,x2back x2;
+  class ratprep,ratconv,ratshuffle,blur,ratback rational;
+  class note note;

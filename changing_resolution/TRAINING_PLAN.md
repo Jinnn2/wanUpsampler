@@ -3,6 +3,13 @@
 This plan tracks the clean-latent 480p -> 720p route for LightX2V
 `changing_resolution`.
 
+For a consolidated method index covering current, legacy, and next-stage
+training paths, see:
+
+```text
+changing_resolution/TRAINING_METHODS.md
+```
+
 ## Goal
 
 Train a clean latent resizer that can replace LightX2V's fixed interpolation

@@ -3,6 +3,12 @@
 This folder contains the V2 path for replacing LightX2V's native
 `changing_resolution` interpolation with a learned clean-latent resizer.
 
+For the current training-method summary, see:
+
+```text
+changing_resolution/TRAINING_METHODS.md
+```
+
 The target contract is:
 
 ```text
