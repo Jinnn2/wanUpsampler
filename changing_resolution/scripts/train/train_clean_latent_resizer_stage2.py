@@ -21,7 +21,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from wan_sr.data import CleanLatentLMDBDataset, CleanLatentPairDataset
 from wan_sr.losses import CleanLatentResizeLoss
-from wan_sr.models import WanCleanLatentResizer
+from wan_sr.models import WanCleanLatentResizerStage2
 from wan_sr.training.checkpoint import load_checkpoint, save_checkpoint
 from wan_sr.training.config import deep_update, load_yaml
 from wan_sr.training.ema import EMA
@@ -40,19 +40,11 @@ def main() -> None:
     if args.config:
         shutil.copy2(args.config, out_dir / "train_config.yaml")
 
-    # 同一训练入口兼容早期 safetensors 目录和当前主线 LMDB 数据。
-    # 每个样本都提供 clean latent pair: z0_lr -> z0_hr。
-    dataset_format = str(config.get("data_format", "files")).lower()
-    if dataset_format == "files":
-        dataset = CleanLatentPairDataset(config["data_dir"], strict_channels=True)
-    elif dataset_format == "lmdb":
-        dataset = CleanLatentLMDBDataset(config["data_dir"], strict_channels=True)
-    else:
-        raise ValueError(f"data_format must be 'files' or 'lmdb', got {dataset_format!r}")
+    dataset = build_dataset(config)
     train_dataset, val_dataset = split_dataset(dataset, config)
     print(
         f"dataset={len(dataset)} train={len(train_dataset)} val={len(val_dataset)} "
-        f"format={dataset_format}",
+        f"format={config.get('data_format', 'files')}",
         flush=True,
     )
 
@@ -66,7 +58,7 @@ def main() -> None:
     )
     batches = itertools.cycle(loader)
 
-    model = WanCleanLatentResizer(**config["model"]).to(device)
+    model = WanCleanLatentResizerStage2(**config["model"]).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(config["train"]["lr"]),
@@ -105,11 +97,9 @@ def main() -> None:
             batch = next(batches)
             z0_lr = batch["z0_lr"].to(device, non_blocking=True)
             z0_hr = batch["z0_hr"].to(device, non_blocking=True)
-            # 以 z0_hr 的实际空间尺寸作为目标，保证模型输出和监督张量严格对齐。
             target_spatial = (z0_hr.shape[-2], z0_hr.shape[-1])
 
             with torch.autocast(device_type=device.type, dtype=autocast_dtype, enabled=use_autocast):
-                # 模型学习 clean latent 的空间升分算子：z0_lr -> pred_z0_hr。
                 pred = model(z0_lr, output_size=target_spatial)
                 loss, loss_items = criterion(pred.float(), z0_hr.float(), z0_lr.float())
                 loss = loss / grad_accum
@@ -166,7 +156,7 @@ def main() -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="changing_resolution/configs/train_clean_480p_to_720p.yaml")
+    parser.add_argument("--config", default="changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage2.yaml")
     parser.add_argument("--resume")
     parser.add_argument("--data_dir")
     parser.add_argument("--data_format", choices=["files", "lmdb"])
@@ -179,25 +169,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr", type=float)
     parser.add_argument("--max_steps", type=int)
     parser.add_argument("--precision", choices=["fp32", "bf16", "fp16"])
+    parser.add_argument("--no_residual_skip", action="store_true")
     return parser.parse_args()
 
 
 def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
     config = deep_update(
         {
-            "data_dir": "data/changing_resolution/latent_pairs_480p720p",
-            "data_format": "files",
-            "out_dir": "outputs/changing_resolution_clean_480p720p",
+            "data_dir": "data/changing_resolution/lmdb_480p720p_1k",
+            "data_format": "lmdb",
+            "out_dir": "outputs/changing_resolution_clean_480p720p_stage2_lmdb",
             "model": {
                 "in_channels": 16,
                 "out_channels": 16,
                 "hidden_channels": 256,
                 "num_res_blocks": 8,
                 "scale_factor": 1.5,
+                "dropout": 0.0,
                 "residual_skip": True,
+                "resblock_type": "ltx2",
+                "resize_op": "rational_conv3d_pixel_shuffle",
             },
             "train": {
-                "max_steps": 100000,
+                "max_steps": 10000,
                 "batch_size": 1,
                 "num_workers": 8,
                 "grad_accum": 8,
@@ -229,11 +223,22 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
         value = getattr(args, key)
         if value is not None:
             config["model"][key] = value
+    if args.no_residual_skip:
+        config["model"]["residual_skip"] = False
     for key in ("batch_size", "grad_accum", "lr", "max_steps", "precision"):
         value = getattr(args, key)
         if value is not None:
             config["train"][key] = value
     return config
+
+
+def build_dataset(config: dict) -> Dataset:
+    dataset_format = str(config.get("data_format", "files")).lower()
+    if dataset_format == "files":
+        return CleanLatentPairDataset(config["data_dir"], strict_channels=True)
+    if dataset_format == "lmdb":
+        return CleanLatentLMDBDataset(config["data_dir"], strict_channels=True)
+    raise ValueError(f"data_format must be 'files' or 'lmdb', got {dataset_format!r}")
 
 
 def set_seed(seed: int) -> None:
@@ -283,7 +288,6 @@ def evaluate(
     if len(dataset) == 0:
         return {}
 
-    # 验证阶段复用同一套 loss，并可临时切换到 EMA 权重来评估更平滑的模型。
     loader = DataLoader(
         dataset,
         batch_size=batch_size,

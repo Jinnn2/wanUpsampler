@@ -9,6 +9,12 @@ For the current training-method summary, see:
 changing_resolution/TRAINING_METHODS.md
 ```
 
+For the planned Stage 2 model change, see:
+
+```text
+changing_resolution/STAGE2_MODEL_PLAN.md
+```
+
 The target contract is:
 
 ```text
@@ -181,6 +187,37 @@ Output:
 outputs/changing_resolution_chain_ab_stage1/compare
 ```
 
+### 4. Train Stage 2 LTX2-Style Resizer
+
+Stage 2 keeps the clean-latent target but changes the model internals:
+
+```text
+LTX2-style ResBlock3D
+Conv3d expansion -> spatial PixelShuffle x3 -> BlurDownsample /2
+trilinear(z0_lr) + learned residual
+```
+
+Preflight:
+
+```bash
+bash changing_resolution/scripts/train/run_clean_480p720p_stage2_lmdb_training.sh check
+```
+
+Train in tmux:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 \
+bash changing_resolution/scripts/train/tmux_run_clean_480p720p_stage2_lmdb_training.sh
+
+tmux attach -t wan_cr_stage2_lmdb_train
+```
+
+Output:
+
+```text
+outputs/changing_resolution_clean_480p720p_stage2_lmdb
+```
+
 ## Script Structure
 
 ### Data Build
@@ -216,6 +253,15 @@ scripts/train/run_clean_480p720p_stage1_lmdb_training.sh
 
 scripts/train/tmux_run_clean_480p720p_stage1_lmdb_training.sh
   tmux wrapper for Stage 1 training.
+
+scripts/train/train_clean_latent_resizer_stage2.py
+  Stage 2 trainer using WanCleanLatentResizerStage2.
+
+scripts/train/run_clean_480p720p_stage2_lmdb_training.sh
+  Stage 2 LMDB training entrypoint.
+
+scripts/train/tmux_run_clean_480p720p_stage2_lmdb_training.sh
+  tmux wrapper for Stage 2 training.
 ```
 
 ### Evaluation
@@ -277,6 +323,9 @@ scripts/legacy/apply_clean_resizer_to_video.py
 ```text
 changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage1.yaml
   Stage 1 LMDB training config.
+
+changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage2.yaml
+  Stage 2 LTX2-style LMDB training config.
 
 changing_resolution/configs/train_clean_480p_to_720p.yaml
   Older safetensors training config.

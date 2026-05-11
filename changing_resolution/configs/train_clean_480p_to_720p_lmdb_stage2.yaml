@@ -1,0 +1,40 @@
+data_dir: data/changing_resolution/lmdb_480p720p_1k
+data_format: lmdb
+out_dir: outputs/changing_resolution_clean_480p720p_stage2_lmdb
+
+model:
+  in_channels: 16
+  out_channels: 16
+  hidden_channels: 256
+  num_res_blocks: 8
+  scale_factor: 1.5
+  dropout: 0.0
+  residual_skip: true
+  resblock_type: ltx2
+  resize_op: rational_conv3d_pixel_shuffle
+
+train:
+  max_steps: 10000
+  batch_size: 1
+  num_workers: 8
+  grad_accum: 8
+  lr: 0.0001
+  weight_decay: 0.01
+  precision: bf16
+  ema_decay: 0.9999
+  log_every: 20
+  save_every: 1000
+  eval_every: 1000
+  val_ratio: 0.05
+  val_max_samples: 100
+  val_batches: 0
+  eval_use_ema: true
+  seed: 1234
+  grad_clip_norm: 1.0
+
+loss:
+  latent_weight: 1.0
+  low_freq_weight: 0.2
+  temporal_weight: 0.1
+  residual_weight: 0.0
+  charbonnier_eps: 0.001
