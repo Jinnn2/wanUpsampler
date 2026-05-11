@@ -90,11 +90,11 @@ x
   -> add residual
 ```
 
-Stage 2 should introduce a Wan-local block with LTX2's operation order but
-using `Conv3d` for Wan video latents:
+Stage 2 introduces a Wan-local `ResBlock` with LTX2's operation order but using
+`Conv3d` for Wan video latents:
 
 ```text
-class LTX2StyleResBlock3D:
+class ResBlock:
     Conv3d(channels, channels, kernel_size=3, padding=1)
     GroupNorm(32-compatible, channels)
     SiLU
@@ -113,7 +113,7 @@ Expected behavior:
 This block changes feature refinement behavior but does not change tensor
 shape.
 
-## SpatialRationalResampler3D
+## SpatialRationalResampler
 
 LTX2 implements 1.5x rational spatial scaling as:
 
@@ -125,7 +125,7 @@ For Wan Stage 2, the intended version is a 3D-convolution variant that keeps
 time unchanged:
 
 ```text
-SpatialRationalResampler3D(scale=1.5)
+SpatialRationalResampler(scale=1.5)
 
 input:
   [B, hidden, T, H, W]
@@ -177,12 +177,12 @@ The target Stage 2 forward path is:
 ```text
 z0_lr
   -> stem Conv3d 16 -> hidden
-  -> LTX2StyleResBlock3D x4
-  -> SpatialRationalResampler3D scale 1.5
+  -> ResBlock x4
+  -> SpatialRationalResampler scale 1.5
        -> Conv3d hidden -> hidden * 9
        -> spatial PixelShuffle x3
        -> BlurDownsample /2
-  -> LTX2StyleResBlock3D x4
+  -> ResBlock x4
   -> GroupNorm + SiLU + Conv3d hidden -> 16
   -> learned residual
   -> trilinear(z0_lr) + residual
@@ -370,10 +370,10 @@ not be claimed until they are explicitly implemented and tested.
 
 ## Implementation Order
 
-1. Add `LTX2StyleResBlock3D`.
+1. Add `ResBlock`.
 2. Add `SpatialPixelShuffle3x` for `[B, C, T, H, W]`.
-3. Add `SpatialBlurDownsample3D` or reuse a frame-flattened 2D blur.
-4. Add `SpatialRationalResampler3D(scale=1.5)`.
+3. Add `BlurDownsample` or reuse a frame-flattened 2D blur.
+4. Add `SpatialRationalResampler(scale=1.5)`.
 5. Add Stage 2 model selection flags while preserving Stage 1 defaults.
 6. Add Stage 2 config and train wrappers.
 7. Run a shape-only smoke test on synthetic latents.

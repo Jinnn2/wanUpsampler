@@ -7,7 +7,7 @@ from torch import nn
 from torch.nn import functional as F
 
 
-class LTX2StyleResBlock3D(nn.Module):
+class ResBlock(nn.Module):
     """LTX2-order residual block using Conv3d for Wan video latents."""
 
     def __init__(self, channels: int) -> None:
@@ -28,7 +28,7 @@ class LTX2StyleResBlock3D(nn.Module):
         return self.activation(x + residual)
 
 
-class SpatialPixelShuffle3D(nn.Module):
+class PixelShuffle(nn.Module):
     """Spatial pixel shuffle over H/W for [B, C, T, H, W] tensors."""
 
     def __init__(self, upscale_factor: int) -> None:
@@ -53,7 +53,7 @@ class SpatialPixelShuffle3D(nn.Module):
         return x.reshape(batch, out_channels, frames, height * r, width * r)
 
 
-class SpatialBlurDownsample3D(nn.Module):
+class BlurDownsample(nn.Module):
     """Fixed anti-aliased downsample over H/W only."""
 
     def __init__(self, stride: int, kernel_size: int = 5) -> None:
@@ -91,20 +91,20 @@ class SpatialBlurDownsample3D(nn.Module):
         return x2d.reshape(batch, frames, channels, out_h, out_w).permute(0, 2, 1, 3, 4).contiguous()
 
 
-class SpatialRationalResampler3D(nn.Module):
+class SpatialRationalResampler(nn.Module):
     """Learned 3/2 spatial resampler: Conv3d expansion -> shuffle x3 -> blur /2."""
 
     def __init__(self, channels: int, scale: float = 1.5) -> None:
         super().__init__()
         if float(scale) != 1.5:
-            raise ValueError("SpatialRationalResampler3D currently supports scale=1.5 only")
+            raise ValueError("SpatialRationalResampler currently supports scale=1.5 only")
         self.channels = int(channels)
         self.scale = float(scale)
         self.num = 3
         self.den = 2
         self.conv = nn.Conv3d(channels, channels * self.num * self.num, kernel_size=3, padding=1)
-        self.pixel_shuffle = SpatialPixelShuffle3D(self.num)
-        self.blur_down = SpatialBlurDownsample3D(stride=self.den)
+        self.pixel_shuffle = PixelShuffle(self.num)
+        self.blur_down = BlurDownsample(stride=self.den)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.conv(x)
@@ -153,9 +153,9 @@ class WanCleanLatentResizerStage2(nn.Module):
 
         pre_blocks = num_res_blocks // 2
         post_blocks = num_res_blocks - pre_blocks
-        self.pre_blocks = nn.ModuleList([LTX2StyleResBlock3D(hidden_channels) for _ in range(pre_blocks)])
-        self.feature_resizer = SpatialRationalResampler3D(hidden_channels, scale=scale_factor)
-        self.post_blocks = nn.ModuleList([LTX2StyleResBlock3D(hidden_channels) for _ in range(post_blocks)])
+        self.pre_blocks = nn.ModuleList([ResBlock(hidden_channels) for _ in range(pre_blocks)])
+        self.feature_resizer = SpatialRationalResampler(hidden_channels, scale=scale_factor)
+        self.post_blocks = nn.ModuleList([ResBlock(hidden_channels) for _ in range(post_blocks)])
         self.out = nn.Conv3d(hidden_channels, out_channels, kernel_size=3, padding=1)
 
     def forward(
