@@ -16,7 +16,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from wan_sr.data import CleanLatentLMDBDataset, CleanLatentPairDataset
 from wan_sr.data.video_io import write_video
-from wan_sr.models import WanCleanLatentResizer
+from wan_sr.models import WanCleanLatentResizer, WanCleanLatentResizerStage2
 from wan_sr.training.checkpoint import load_checkpoint
 from wan_sr.training.config import load_yaml
 from wan_sr.training.ema import EMA
@@ -37,7 +37,9 @@ def main() -> None:
     if not indices:
         raise RuntimeError("No samples selected for operator compare")
 
-    model = WanCleanLatentResizer(**model_config).to(device)
+    model_class = select_model_class(model_config, args.model_class)
+    model_config = apply_model_overrides(model_config, model_class, args)
+    model = model_class(**model_config).to(device)
     load_checkpoint(args.checkpoint, model, map_location=device)
     if args.use_ema and "ema" in checkpoint:
         ema = EMA(model)
@@ -126,6 +128,29 @@ def main() -> None:
 
     print(f"operator compare ready: {out_dir}")
     print(f"metrics: {metric_path}")
+
+
+def select_model_class(model_config: dict, model_class: str) -> type[torch.nn.Module]:
+    normalized = model_class.lower()
+    if normalized == "auto":
+        if model_config.get("resize_op") == "rational_conv3d_pixel_shuffle" or model_config.get("resblock_type") == "ltx2":
+            return WanCleanLatentResizerStage2
+        return WanCleanLatentResizer
+    if normalized in {"stage1", "wan_clean_latent_resizer", "wancleanlatentresizer"}:
+        return WanCleanLatentResizer
+    if normalized in {"stage2", "wan_clean_latent_resizer_stage2", "wancleanlatentresizerstage2"}:
+        return WanCleanLatentResizerStage2
+    raise ValueError(f"Unsupported model_class: {model_class}")
+
+
+def apply_model_overrides(model_config: dict, model_class: type[torch.nn.Module], args: argparse.Namespace) -> dict:
+    model_config = dict(model_config)
+    if model_class is WanCleanLatentResizerStage2:
+        if args.stage2_residual_skip == "off":
+            model_config["residual_skip"] = False
+        elif args.stage2_residual_skip == "on":
+            model_config["residual_skip"] = True
+    return model_config
 
 
 def load_dataset(data_dir: str, data_format: str):
@@ -398,6 +423,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--panel_width", type=int, default=1248)
     parser.add_argument("--use_ema", action="store_true")
     parser.add_argument("--cpu", action="store_true")
+    parser.add_argument("--model_class", choices=["auto", "stage1", "stage2"], default="auto")
+    parser.add_argument("--stage2_residual_skip", choices=["off", "on", "checkpoint"], default="off")
     return parser.parse_args()
 
 

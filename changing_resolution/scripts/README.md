@@ -44,6 +44,7 @@ Generation-chain A/B 在真实 LightX2V `changing_resolution` 链路中比较
 ```bash
 bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_operator_compare_multigpu.sh
 bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_chain_ab_compare_multigpu.sh
+bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_chain_ab_compare_multigpu.sh
 ```
 
 Operator compare 完成后生成 CSV 和 Markdown 表格：

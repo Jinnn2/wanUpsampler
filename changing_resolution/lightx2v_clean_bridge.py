@@ -176,7 +176,7 @@ class WanCleanResizerBridgeRunner(WanRunner):
         if str(repo_path) not in sys.path:
             sys.path.insert(0, str(repo_path))
 
-        from wan_sr.models import WanCleanLatentResizer
+        from wan_sr.models import WanCleanLatentResizer, WanCleanLatentResizerStage2
         from wan_sr.training.checkpoint import load_checkpoint
         from wan_sr.training.config import load_yaml
 
@@ -189,7 +189,13 @@ class WanCleanResizerBridgeRunner(WanRunner):
         if not model_config:
             raise ValueError("Failed to infer clean resizer config from checkpoint or train config.")
 
-        model = WanCleanLatentResizer(**model_config)
+        model_class = self._select_clean_resizer_model_class(
+            model_config=model_config,
+            stage1_class=WanCleanLatentResizer,
+            stage2_class=WanCleanLatentResizerStage2,
+        )
+        model_config = self._apply_clean_resizer_overrides(model_config, model_class, WanCleanLatentResizerStage2)
+        model = model_class(**model_config)
         load_checkpoint(ckpt_path, model, map_location="cpu")
         if self.config.get("wan_clean_resizer_use_ema", True) and "ema" in checkpoint:
             from wan_sr.training.ema import EMA
@@ -200,8 +206,25 @@ class WanCleanResizerBridgeRunner(WanRunner):
 
         model = model.to(device=torch.device(AI_DEVICE), dtype=GET_DTYPE())
         model.eval()
-        logger.info(f"Initialized Wan V2 clean resizer from {ckpt_path}")
+        logger.info(f"Initialized Wan V2 clean resizer ({model_class.__name__}) from {ckpt_path}")
         return model
+
+    def _select_clean_resizer_model_class(self, model_config, stage1_class, stage2_class):
+        configured = str(self.config.get("wan_clean_resizer_model_class", "")).lower()
+        if configured in {"stage1", "wan_clean_latent_resizer", "wancleanlatentresizer"}:
+            return stage1_class
+        if configured in {"stage2", "wan_clean_latent_resizer_stage2", "wancleanlatentresizerstage2"}:
+            return stage2_class
+        if model_config.get("resize_op") == "rational_conv3d_pixel_shuffle" or model_config.get("resblock_type") == "ltx2":
+            return stage2_class
+        return stage1_class
+
+    def _apply_clean_resizer_overrides(self, model_config, model_class, stage2_class):
+        model_config = dict(model_config)
+        if model_class is stage2_class:
+            residual_skip = self.config.get("wan_clean_resizer_residual_skip", False)
+            model_config["residual_skip"] = bool(residual_skip)
+        return model_config
 
     def load_model(self):
         super().load_model()

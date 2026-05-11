@@ -123,7 +123,7 @@ class WanCleanLatentResizerStage2(nn.Module):
         num_res_blocks: int = 8,
         scale_factor: float = 1.5,
         dropout: float = 0.0,
-        residual_skip: bool = True,
+        residual_skip: bool = False,
         resblock_type: str = "ltx2",
         resize_op: str = "rational_conv3d_pixel_shuffle",
     ) -> None:
