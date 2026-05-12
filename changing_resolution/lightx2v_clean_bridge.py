@@ -189,6 +189,7 @@ class WanCleanResizerBridgeRunner(WanRunner):
         if not model_config:
             raise ValueError("Failed to infer clean resizer config from checkpoint or train config.")
 
+        model_config = self._apply_clean_resizer_overrides(model_config)
         model_type = infer_clean_resizer_model_type(model_config)
         model = build_clean_latent_resizer(model_config)
         load_checkpoint(ckpt_path, model, map_location="cpu")
@@ -203,6 +204,16 @@ class WanCleanResizerBridgeRunner(WanRunner):
         model.eval()
         logger.info(f"Initialized Wan V2 clean resizer model_type={model_type} from {ckpt_path}")
         return model
+
+    def _apply_clean_resizer_overrides(self, model_config):
+        model_config = dict(model_config)
+        configured = self.config.get("wan_clean_resizer_model_class")
+        if configured:
+            model_config["model_type"] = str(configured)
+        if infer_clean_resizer_model_type(model_config) == "stage2":
+            residual_skip = self.config.get("wan_clean_resizer_residual_skip", False)
+            model_config["residual_skip"] = bool(residual_skip)
+        return model_config
 
     def load_model(self):
         super().load_model()

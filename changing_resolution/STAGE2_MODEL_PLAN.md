@@ -53,14 +53,16 @@ The two intended model changes are:
    upsampler: Conv3d expansion -> spatial PixelShuffle x3 -> BlurDownsample /2.
 ```
 
-The residual skip path should remain enabled for the first Stage 2 experiment:
+The residual skip path was originally planned as a controlled first experiment:
 
 ```text
 output = trilinear(z0_lr) + learned_residual
 ```
 
-Keeping this skip path makes Stage 2 a controlled comparison against Stage 1:
-only the feature refinement and feature resize operator change.
+For the current Stage 2 model, interpolation is disabled by default
+(`residual_skip=false`) so the rational upsampler must produce the full HR
+latent prediction instead of leaning on the trilinear skip path. The old
+residual-skip mode remains available as an explicit ablation.
 
 ## LTX2-Compatible ResBlock
 
@@ -184,8 +186,7 @@ z0_lr
        -> BlurDownsample /2
   -> ResBlock x4
   -> GroupNorm + SiLU + Conv3d hidden -> 16
-  -> learned residual
-  -> trilinear(z0_lr) + residual
+  -> full HR latent prediction
   -> pred_z0_hr
 ```
 
@@ -199,7 +200,7 @@ model:
   num_res_blocks: 8
   scale_factor: 1.5
   dropout: 0.0
-  residual_skip: true
+  residual_skip: false
   resblock_type: ltx2
   resize_op: rational_conv3d_pixel_shuffle
 ```
@@ -355,9 +356,9 @@ The learned expansion can create checkerboard-like latent artifacts. The blur
 downsample is meant to reduce this, but visual chain A/B is still required.
 
 Residual skip masking:
-Keeping `trilinear(z0_lr) + residual` stabilizes training, but it can hide weak
-learned upsampling. If Stage 2 only improves marginally, run an ablation with
-`residual_skip=false`.
+Keeping `trilinear(z0_lr) + residual` can stabilize training, but it can hide
+weak learned upsampling. The default now keeps `residual_skip=false`; enable the
+skip only as a controlled ablation if full-prediction training is unstable.
 
 Temporal consistency:
 The proposed resampler changes H/W only, but the expansion uses `Conv3d`, so it

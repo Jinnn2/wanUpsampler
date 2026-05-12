@@ -37,6 +37,7 @@ def main() -> None:
     if not indices:
         raise RuntimeError("No samples selected for operator compare")
 
+    model_config = apply_model_overrides(model_config, args)
     model_type = infer_clean_resizer_model_type(model_config)
     print(f"loading clean resizer model_type={model_type}", flush=True)
     model = build_clean_latent_resizer(model_config).to(device)
@@ -128,6 +129,18 @@ def main() -> None:
 
     print(f"operator compare ready: {out_dir}")
     print(f"metrics: {metric_path}")
+
+
+def apply_model_overrides(model_config: dict, args: argparse.Namespace) -> dict:
+    model_config = dict(model_config)
+    if args.model_class != "auto":
+        model_config["model_type"] = args.model_class
+    if infer_clean_resizer_model_type(model_config) == "stage2":
+        if args.stage2_residual_skip == "off":
+            model_config["residual_skip"] = False
+        elif args.stage2_residual_skip == "on":
+            model_config["residual_skip"] = True
+    return model_config
 
 
 def load_dataset(data_dir: str, data_format: str):
@@ -400,6 +413,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--panel_width", type=int, default=1248)
     parser.add_argument("--use_ema", action="store_true")
     parser.add_argument("--cpu", action="store_true")
+    parser.add_argument("--model_class", choices=["auto", "stage1", "stage2"], default="auto")
+    parser.add_argument("--stage2_residual_skip", choices=["off", "on", "checkpoint"], default="off")
     return parser.parse_args()
 
 

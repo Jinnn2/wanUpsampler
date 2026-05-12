@@ -186,7 +186,7 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
                 "num_res_blocks": 8,
                 "scale_factor": 1.5,
                 "dropout": 0.0,
-                "residual_skip": True,
+                "residual_skip": False,
                 "resblock_type": "ltx2",
                 "resize_op": "rational_conv3d_pixel_shuffle",
             },
