@@ -213,8 +213,9 @@ class WanCleanResizerBridgeRunner(WanRunner):
         if configured:
             model_config["model_type"] = str(configured)
         if infer_clean_resizer_model_type(model_config) == "stage2":
-            residual_skip = self.config.get("wan_clean_resizer_residual_skip", False)
-            model_config["residual_skip"] = bool(residual_skip)
+            if "wan_clean_resizer_residual_skip" in self.config:
+                residual_skip = self.config["wan_clean_resizer_residual_skip"]
+                model_config["residual_skip"] = bool(residual_skip)
         return model_config
 
     def load_model(self):

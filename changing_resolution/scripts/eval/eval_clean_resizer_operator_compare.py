@@ -414,7 +414,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use_ema", action="store_true")
     parser.add_argument("--cpu", action="store_true")
     parser.add_argument("--model_class", choices=["auto", "stage1", "stage2"], default="auto")
-    parser.add_argument("--stage2_residual_skip", choices=["off", "on", "checkpoint"], default="off")
+    parser.add_argument("--stage2_residual_skip", choices=["off", "on", "checkpoint"], default="checkpoint")
     return parser.parse_args()
 
 

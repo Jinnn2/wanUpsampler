@@ -12,7 +12,7 @@ fi
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 PROMPTS_FILE="${CR_PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_generate_720p_prompts.txt}"
-CHECKPOINT="${CR_STAGE2_CHAIN_COMPARE_CKPT:-${CR_STAGE2_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_clean_480p720p_stage2_lmdb}/best_val.pt}"
+CHECKPOINT="${CR_STAGE2_CHAIN_COMPARE_CKPT:-${CR_STAGE2_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_clean_480p720p_stage2_lmdb}/latest.pt}"
 TRAIN_CONFIG="${CR_STAGE2_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage2.yaml}"
 OUT_DIR="${CR_STAGE2_CHAIN_COMPARE_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_chain_ab_stage2}"
 
@@ -30,9 +30,11 @@ NUM_FRAMES="${NUM_FRAMES:-81}"
 GUIDE_SCALE="${GUIDE_SCALE:-6}"
 SAMPLE_SHIFT="${SAMPLE_SHIFT:-8}"
 PRECISION="${PRECISION:-bf16}"
-USE_EMA="${USE_EMA:-1}"
+# Stage 2 short 10k runs can have a lagging EMA; default to raw weights for eval.
+USE_EMA="${USE_EMA:-0}"
 SKIP_EXISTING="${SKIP_EXISTING:-1}"
 NEGATIVE_PROMPT="${NEGATIVE_PROMPT:-}"
+STAGE2_RESIDUAL_SKIP="${STAGE2_RESIDUAL_SKIP:-checkpoint}"
 
 export PYTHONPATH="${LIGHTX2V_REPO}:${PROJECT_ROOT}:${PYTHONPATH:-}"
 export LIGHTX2V_REPO
@@ -109,10 +111,16 @@ if mode == "stage2":
             "wan_clean_resizer_ckpt": os.environ["CHECKPOINT"],
             "wan_clean_resizer_train_config": os.environ["TRAIN_CONFIG"],
             "wan_clean_resizer_model_class": "stage2",
-            "wan_clean_resizer_residual_skip": False,
             "wan_clean_resizer_use_ema": os.environ["BRIDGE_USE_EMA"].lower() == "true",
         }
     )
+    residual_skip = os.environ["STAGE2_RESIDUAL_SKIP"].lower()
+    if residual_skip not in {"checkpoint", "on", "off", "true", "false", "1", "0"}:
+        raise SystemExit(
+            "STAGE2_RESIDUAL_SKIP must be checkpoint, on/off, true/false, or 1/0"
+        )
+    if residual_skip != "checkpoint":
+        cfg["wan_clean_resizer_residual_skip"] = residual_skip in {"on", "true", "1"}
 with open(path, "w", encoding="utf-8") as f:
     json.dump(cfg, f, ensure_ascii=False, indent=2)
 PY
@@ -148,7 +156,7 @@ make_labeled_panel() {
     -an -c:v libx264 -pix_fmt yuv420p -crf 18 "${output}"
 }
 
-export PROJECT_ROOT CHECKPOINT TRAIN_CONFIG RATE CHANGE_STEP INFER_STEPS NUM_FRAMES GUIDE_SCALE SAMPLE_SHIFT BRIDGE_USE_EMA HR_H HR_W
+export PROJECT_ROOT CHECKPOINT TRAIN_CONFIG RATE CHANGE_STEP INFER_STEPS NUM_FRAMES GUIDE_SCALE SAMPLE_SHIFT BRIDGE_USE_EMA HR_H HR_W STAGE2_RESIDUAL_SKIP
 
 index=0
 for prompt in "${prompts[@]}"; do
