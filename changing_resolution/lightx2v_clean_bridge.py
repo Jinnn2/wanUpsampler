@@ -206,6 +206,8 @@ class WanCleanResizerBridgeRunner(WanRunner):
         return model
 
     def _apply_clean_resizer_overrides(self, model_config):
+        from wan_sr.models import infer_clean_resizer_model_type
+
         model_config = dict(model_config)
         configured = self.config.get("wan_clean_resizer_model_class")
         if configured:
