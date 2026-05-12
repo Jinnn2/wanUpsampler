@@ -14,7 +14,7 @@ MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 VAE_PATH="${VAE_PATH:-${MODEL_ROOT}/Wan2.1_VAE.pth}"
 LMDB_DIR="${CR_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_480p720p_1k}"
 CHECKPOINT="${CR_OPERATOR_COMPARE_CKPT:-${CR_STAGE1_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_clean_480p720p_stage1_lmdb}/best_val.pt}"
-TRAIN_CONFIG="${CR_STAGE1_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage1.yaml}"
+TRAIN_CONFIG="${CR_OPERATOR_COMPARE_TRAIN_CONFIG:-${CR_STAGE1_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage1.yaml}}"
 OUT_DIR="${CR_OPERATOR_COMPARE_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_operator_compare_stage1}"
 
 GPU_IDS="${GPU_IDS:-0,1,2,3}"

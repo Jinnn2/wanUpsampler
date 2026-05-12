@@ -176,7 +176,7 @@ class WanCleanResizerBridgeRunner(WanRunner):
         if str(repo_path) not in sys.path:
             sys.path.insert(0, str(repo_path))
 
-        from wan_sr.models import WanCleanLatentResizer
+        from wan_sr.models import build_clean_latent_resizer, infer_clean_resizer_model_type
         from wan_sr.training.checkpoint import load_checkpoint
         from wan_sr.training.config import load_yaml
 
@@ -189,7 +189,8 @@ class WanCleanResizerBridgeRunner(WanRunner):
         if not model_config:
             raise ValueError("Failed to infer clean resizer config from checkpoint or train config.")
 
-        model = WanCleanLatentResizer(**model_config)
+        model_type = infer_clean_resizer_model_type(model_config)
+        model = build_clean_latent_resizer(model_config)
         load_checkpoint(ckpt_path, model, map_location="cpu")
         if self.config.get("wan_clean_resizer_use_ema", True) and "ema" in checkpoint:
             from wan_sr.training.ema import EMA
@@ -200,7 +201,7 @@ class WanCleanResizerBridgeRunner(WanRunner):
 
         model = model.to(device=torch.device(AI_DEVICE), dtype=GET_DTYPE())
         model.eval()
-        logger.info(f"Initialized Wan V2 clean resizer from {ckpt_path}")
+        logger.info(f"Initialized Wan V2 clean resizer model_type={model_type} from {ckpt_path}")
         return model
 
     def load_model(self):

@@ -22,6 +22,12 @@ venv/
 *.pth
 *.mp4
 
+# Presentation / PPT artifacts
+/changing_resolution/presentations/
+*.ppt
+*.pptx
+*.pptm
+
 # OS/editor
 .DS_Store
 Thumbs.db

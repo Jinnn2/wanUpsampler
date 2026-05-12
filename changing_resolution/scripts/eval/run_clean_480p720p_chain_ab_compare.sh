@@ -13,7 +13,7 @@ LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 PROMPTS_FILE="${CR_PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_generate_720p_prompts.txt}"
 CHECKPOINT="${CR_CHAIN_COMPARE_CKPT:-${CR_STAGE1_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_clean_480p720p_stage1_lmdb}/best_val.pt}"
-TRAIN_CONFIG="${CR_STAGE1_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage1.yaml}"
+TRAIN_CONFIG="${CR_CHAIN_COMPARE_TRAIN_CONFIG:-${CR_STAGE1_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage1.yaml}}"
 OUT_DIR="${CR_CHAIN_COMPARE_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_chain_ab_stage1}"
 
 LIMIT="${LIMIT:-8}"

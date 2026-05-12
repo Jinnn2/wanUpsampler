@@ -12,7 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from wan_sr.data.degradation import resize_video
 from wan_sr.data.video_io import read_video_frames, write_video
-from wan_sr.models import WanCleanLatentResizer
+from wan_sr.models import build_clean_latent_resizer, infer_clean_resizer_model_type
 from wan_sr.training.checkpoint import load_checkpoint
 from wan_sr.training.config import load_yaml
 from wan_sr.training.ema import EMA
@@ -42,7 +42,9 @@ def main() -> None:
     )
 
     z0_lr = vae.encode(lr_video).to(device)
-    model = WanCleanLatentResizer(**model_config).to(device)
+    model_type = infer_clean_resizer_model_type(model_config)
+    print(f"loading clean resizer model_type={model_type}", flush=True)
+    model = build_clean_latent_resizer(model_config).to(device)
     load_checkpoint(args.checkpoint, model, map_location=device)
     if args.use_ema and "ema" in checkpoint:
         ema = EMA(model)
