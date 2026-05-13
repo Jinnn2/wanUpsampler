@@ -191,7 +191,7 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
                 "resize_op": "rational_conv3d_pixel_shuffle",
             },
             "train": {
-                "max_steps": 10000,
+                "max_steps": 50000,
                 "batch_size": 1,
                 "num_workers": 8,
                 "grad_accum": 8,
