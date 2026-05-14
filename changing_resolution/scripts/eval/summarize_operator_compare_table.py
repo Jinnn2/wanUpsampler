@@ -225,7 +225,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--input",
-        default="outputs/changing_resolution_operator_compare_stage1",
+        default="outputs/changing_resolution_operator_compare_stage2",
         help="Operator compare output dir or metrics JSONL path.",
     )
     parser.add_argument("--split", default="val")

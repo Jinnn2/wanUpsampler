@@ -1,97 +1,89 @@
 # wanUpsampler
 
-`wanUpsampler` 是一个面向 Wan / LightX2V 采样链路的 latent 分辨率切换项目。
+`wanUpsampler` is now organized around the Stage 2 `changing_resolution` path:
+a learned clean-latent resizer for replacing LightX2V's fixed 480p -> 720p
+interpolation step.
 
-当前主线是 `changing_resolution`：训练并接入一个 clean latent resizer，在 LightX2V 的 changing_resolution 过程中替换固定插值算子，用于 480p -> 720p。
+## Mainline
 
-## 当前主线
-
-优先阅读：
+Read first:
 
 ```text
 changing_resolution/README.md
-changing_resolution/TRAINING_PLAN.md
+changing_resolution/STAGE2_RUNBOOK.md
 ```
 
-推荐远端运行入口：
+Recommended remote entrypoints:
 
 ```bash
-# 1. 构建 1k clean-latent LMDB
+# 1. Build the 1k 480p/720p clean-latent LMDB.
 bash changing_resolution/scripts/data/tmux_build_clean_lmdb_480p720p_1k_multigpu.sh
 
-# 2. 训练 stage1 resizer
-bash changing_resolution/scripts/train/tmux_run_clean_480p720p_stage1_lmdb_training.sh
+# 2. Train Stage 2.
+bash changing_resolution/scripts/train/tmux_run_clean_480p720p_stage2_lmdb_training.sh
 
-# 3. operator compare: 有 ori720_decode 参考，输出 PSNR / SSIM / LPIPS
-bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_operator_compare_multigpu.sh
+# 3. Decode-level operator compare against the validation LMDB reference.
+bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_operator_compare_multigpu.sh
 
-# 4. generation-chain A/B: 同一 LightX2V 链路内比较 interp720 / trained720
-bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_chain_ab_compare_multigpu.sh
+# 4. LightX2V generation-chain A/B compare.
+bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_chain_ab_compare_multigpu.sh
 ```
 
-## 项目结构
+## Repository Layout
 
 ```text
 wan_sr/
-  核心 Python 包：数据集、模型、loss、scheduler、训练工具、Wan VAE wrapper。
+  Main Python package: data, losses, schedulers, training utilities, VAE wrapper,
+  and the Stage 2 model.
 
 changing_resolution/
-  当前 V2 主线。目标是 clean latent 480p -> 720p，并接入 LightX2V changing_resolution。
-
-scripts/v1/
-  早期 V1 noisy-to-clean upsampler 流程。保留用于回溯和兼容。
+  Current Stage 2 clean-latent 480p -> 720p route and LightX2V bridge.
 
 configs/
-  机器路径配置和 V1 配置。V2 配置放在 changing_resolution/configs/。
+  Machine-specific path defaults. Stage 2 training configs live under
+  changing_resolution/configs/.
 
 experiments/
-  外部参考或早期实验代码，不作为当前主线入口。
+  External references and exploratory code, not current entrypoints.
 
-PROGRESS.md
-  理论进度和当前阶段判断。
+.archive/
+  Hidden in-repo archive for retired Stage 1 and V1 code.
 ```
 
-## 路径配置
+## Path Config
 
-机器相关路径集中在：
+Machine-specific defaults live in:
 
 ```text
 configs/local_paths.sh
 ```
 
-默认面向远端环境：
-
-```text
-PROJECT_ROOT=/mnt/afs_2/houze/wanUpsampler
-LIGHTX2V_REPO=/mnt/afs_2/houze/LightX2V
-MODEL_ROOT=/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B
-```
-
-临时切换路径时使用环境变量覆盖：
+Override it with `PATH_CONFIG` when needed:
 
 ```bash
-PATH_CONFIG=/path/to/local_paths.sh bash changing_resolution/scripts/train/tmux_run_clean_480p720p_stage1_lmdb_training.sh
+PATH_CONFIG=/path/to/local_paths.sh \
+bash changing_resolution/scripts/train/run_clean_480p720p_stage2_lmdb_training.sh check
 ```
 
-## V1 历史入口
+## Archive
 
-V1 是早期 noisy latent upsampler 路线，脚本已归档到 `scripts/v1/`。
-
-```bash
-bash scripts/v1/train/run_lightx2v_training.sh build
-bash scripts/v1/train/run_lightx2v_training.sh train
-```
-
-V1 配置位于：
+Retired code is kept in the repo for traceability:
 
 ```text
-configs/v1/
+.archive/stage1/
+  Stage 1 residual clean-resizer model, configs, wrappers, and old docs.
+
+.archive/v1/
+  Early noisy-to-clean V1 scripts, configs, and model implementation.
 ```
 
-## 安装依赖
+The archive is not imported or used by the current mainline.
+
+## Install
 
 ```bash
 pip install -r requirements.txt
 ```
 
-完整训练和推理需要在 Linux GPU 机器上运行，并保证 LightX2V、Wan2.1 模型权重、Wan VAE 权重路径可用。
+Full training and inference require the Linux GPU environment plus working
+LightX2V, Wan2.1 model, and Wan VAE paths.

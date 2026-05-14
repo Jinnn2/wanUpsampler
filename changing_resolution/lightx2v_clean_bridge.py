@@ -137,7 +137,7 @@ class WanV2CleanLatentResizerBridge:
 
 @RUNNER_REGISTER("wan2.1_clean_resizer_bridge")
 class WanCleanResizerBridgeRunner(WanRunner):
-    """WAN changing-resolution runner backed by WanCleanLatentResizer."""
+    """WAN changing-resolution runner backed by the Stage 2 clean-latent resizer."""
 
     def __init__(self, config):
         super().__init__(config)

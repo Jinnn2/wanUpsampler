@@ -2,14 +2,18 @@
 
 ```text
 local_paths.sh
-  远端机器路径配置。所有主线脚本默认读取它，也可以用 PATH_CONFIG 覆盖。
-
-v1/
-  V1 noisy-to-clean upsampler 的历史配置。
+  Remote machine path defaults for current Stage 2 scripts. Override with
+  PATH_CONFIG when running on a different machine.
 ```
 
-V2 changing_resolution 主线配置放在：
+Stage 2 training and generation configs live in:
 
 ```text
 changing_resolution/configs/
+```
+
+Retired V1 configs are archived under:
+
+```text
+.archive/v1/configs/
 ```

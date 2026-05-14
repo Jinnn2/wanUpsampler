@@ -1,19 +1,7 @@
-# Changing Resolution Clean Latent
+# Changing Resolution Stage 2
 
-This folder contains the V2 path for replacing LightX2V's native
-`changing_resolution` interpolation with a learned clean-latent resizer.
-
-For the current training-method summary, see:
-
-```text
-changing_resolution/TRAINING_METHODS.md
-```
-
-For the planned Stage 2 model change, see:
-
-```text
-changing_resolution/STAGE2_MODEL_PLAN.md
-```
+This folder contains the current mainline for replacing LightX2V's native
+`changing_resolution` interpolation with a learned Stage 2 clean-latent resizer.
 
 The target contract is:
 
@@ -21,7 +9,7 @@ The target contract is:
 x0_pred_lr or z0_lr -> z0_hr
 ```
 
-For the current 480p -> 720p setting:
+For the 480p -> 720p setting:
 
 ```text
 LR RGB: 480 x 832
@@ -32,10 +20,9 @@ scale: 1.5x spatial
 
 LightX2V first estimates a clean latent with `x0_pred = x_t - sigma * eps`,
 resizes that clean estimate, and re-noises it before continuing diffusion.
-Therefore the training target is clean latent resizing, not noisy latent
-super-resolution.
+The training target is clean latent resizing, not noisy latent super-resolution.
 
-## Recommended Flow
+## Stage 2 Flow
 
 Run from the Linux machine:
 
@@ -45,165 +32,20 @@ git pull
 pip install -r requirements.txt
 ```
 
-### 1. Build 1k LMDB Data
-
-If raw 720p videos already exist in:
-
-```text
-data/changing_resolution/raw_wan21_720p_1k/part_00 ... part_03
-```
-
-build only the LMDB:
-
-```bash
-TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 \
-bash changing_resolution/scripts/data/build_clean_480p720p_lmdb_1k_multigpu.sh lmdb
-```
-
-To generate raw videos and build LMDB in one tmux run:
+Build the 1k LMDB:
 
 ```bash
 TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 \
 bash changing_resolution/scripts/data/tmux_build_clean_lmdb_480p720p_1k_multigpu.sh
-
-tmux attach -t wan_cr_lmdb_480p720p_1k_multigpu
 ```
 
-Output:
-
-```text
-data/changing_resolution/lmdb_480p720p_1k
-```
-
-### 2. Train Stage 1 Baseline
-
-Stage 1 keeps the current residual resizer model:
-
-```text
-trilinear(z0_lr) + learned residual
-```
-
-Preflight:
-
-```bash
-bash changing_resolution/scripts/train/run_clean_480p720p_stage1_lmdb_training.sh check
-```
-
-Train in tmux:
-
-```bash
-CUDA_VISIBLE_DEVICES=0 \
-bash changing_resolution/scripts/train/tmux_run_clean_480p720p_stage1_lmdb_training.sh
-
-tmux attach -t wan_cr_stage1_lmdb_train
-```
-
-Default training:
-
-```text
-max_steps: 10000
-effective batch: 8
-train/val split: 95% / 5%
-eval_every: 1000
-best checkpoint: best_val.pt
-```
-
-Output:
-
-```text
-outputs/changing_resolution_clean_480p720p_stage1_lmdb
-```
-
-Extend to 20k only after the 10k comparison looks useful:
-
-```bash
-MAX_STEPS=20000 \
-RESUME=outputs/changing_resolution_clean_480p720p_stage1_lmdb/latest.pt \
-bash changing_resolution/scripts/train/tmux_run_clean_480p720p_stage1_lmdb_training.sh
-```
-
-### 3. Evaluate Stage 1
-
-Use two separate suites.
-
-Operator compare has a real reference from the validation LMDB:
-
-```text
-lr480_decode | ori720_decode | interp720_decode | trained720_decode
-```
-
-It computes PSNR, SSIM, and LPIPS against `ori720_decode`.
-
-```bash
-TOTAL_SAMPLES=32 GPU_IDS=0,1,2,3 \
-bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_operator_compare_multigpu.sh
-
-tmux attach -t wan_cr_operator_compare
-```
-
-Output:
-
-```text
-outputs/changing_resolution_operator_compare_stage1/part_*/compare
-outputs/changing_resolution_operator_compare_stage1/metrics_val.jsonl
-outputs/changing_resolution_operator_compare_stage1/summary_val.json
-```
-
-Convert metric JSONL into CSV and Markdown tables:
-
-```bash
-python changing_resolution/scripts/eval/summarize_operator_compare_table.py \
-  --input outputs/changing_resolution_operator_compare_stage1 \
-  --split val
-```
-
-Output:
-
-```text
-outputs/changing_resolution_operator_compare_stage1/tables/samples_val.csv
-outputs/changing_resolution_operator_compare_stage1/tables/samples_val.md
-outputs/changing_resolution_operator_compare_stage1/tables/summary_val.csv
-outputs/changing_resolution_operator_compare_stage1/tables/summary_val.md
-outputs/changing_resolution_operator_compare_stage1/tables/summary_val.json
-```
-
-Generation-chain A/B has no reference. It compares only the two resize
-operators inside the same LightX2V changing-resolution path:
-
-```text
-interp720 | trained720
-```
-
-```bash
-TOTAL_SAMPLES=16 GPU_IDS=0,1,2,3 \
-bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_chain_ab_compare_multigpu.sh
-
-tmux attach -t wan_cr_chain_ab_compare
-```
-
-Output:
-
-```text
-outputs/changing_resolution_chain_ab_stage1/compare
-```
-
-### 4. Train Stage 2 LTX2-Style Resizer
-
-Stage 2 keeps the clean-latent target but changes the model internals:
-
-```text
-LTX2-style ResBlock3D
-Conv3d expansion -> spatial PixelShuffle x3 -> BlurDownsample /2
-trilinear(z0_lr) + learned residual
-```
-
-Preflight:
+Preflight Stage 2 training:
 
 ```bash
 bash changing_resolution/scripts/train/run_clean_480p720p_stage2_lmdb_training.sh check
 ```
 
-Train in tmux:
+Train Stage 2:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 \
@@ -218,128 +60,76 @@ Output:
 outputs/changing_resolution_clean_480p720p_stage2_lmdb
 ```
 
-## Script Structure
+Run operator compare:
 
-### Data Build
-
-```text
-scripts/data/generate_wan21_720p_dataset.sh
-  Generate Wan2.1 720p source videos from prompts.
-
-scripts/data/build_480p720p_lmdb.py
-  Convert 720p videos into sharded LMDB clean latent pairs.
-
-scripts/data/build_clean_480p720p_lmdb_1k.sh
-  Single-worker 1k prompt/video/LMDB entrypoint.
-
-scripts/data/build_clean_480p720p_lmdb_1k_multigpu.sh
-  Multi-GPU data build. Splits prompt ranges across GPUs.
-
-scripts/data/tmux_build_clean_lmdb_480p720p_1k.sh
-  tmux wrapper for the single-worker data build.
-
-scripts/data/tmux_build_clean_lmdb_480p720p_1k_multigpu.sh
-  tmux wrapper for the multi-GPU data build.
+```bash
+TOTAL_SAMPLES=32 GPU_IDS=0,1,2,3 \
+bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_operator_compare_multigpu.sh
 ```
 
-### Training
+Output:
 
 ```text
-scripts/train/train_clean_latent_resizer.py
-  Generic clean latent resizer trainer. Supports files and LMDB backends.
+outputs/changing_resolution_operator_compare_stage2
+```
 
-scripts/train/run_clean_480p720p_stage1_lmdb_training.sh
-  Stage 1 LMDB baseline training entrypoint.
+Run generation-chain A/B compare:
 
-scripts/train/tmux_run_clean_480p720p_stage1_lmdb_training.sh
-  tmux wrapper for Stage 1 training.
+```bash
+TOTAL_SAMPLES=16 GPU_IDS=0,1,2,3 \
+bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_chain_ab_compare_multigpu.sh
+```
+
+Output:
+
+```text
+outputs/changing_resolution_chain_ab_stage2/compare
+```
+
+## Script Structure
+
+```text
+scripts/data/
+  Wan2.1 720p generation and 480p/720p LMDB builders.
 
 scripts/train/train_clean_latent_resizer_stage2.py
   Stage 2 trainer using WanCleanLatentResizerStage2.
 
 scripts/train/run_clean_480p720p_stage2_lmdb_training.sh
-  Stage 2 LMDB training entrypoint.
-
 scripts/train/tmux_run_clean_480p720p_stage2_lmdb_training.sh
-  tmux wrapper for Stage 2 training.
-```
+  Stage 2 training entrypoints.
 
-### Evaluation
-
-```text
 scripts/eval/eval_clean_resizer_operator_compare.py
   Decode validation LMDB samples and compute reference metrics.
 
-scripts/eval/run_clean_480p720p_operator_compare_multigpu.sh
-  Multi-GPU operator compare wrapper.
+scripts/eval/run_clean_480p720p_stage2_operator_compare_multigpu.sh
+scripts/eval/tmux_run_clean_480p720p_stage2_operator_compare_multigpu.sh
+  Stage 2 operator compare entrypoints.
 
-scripts/eval/tmux_run_clean_480p720p_operator_compare_multigpu.sh
-  tmux wrapper for operator compare.
+scripts/eval/run_clean_480p720p_stage2_chain_ab_compare.sh
+scripts/eval/run_clean_480p720p_stage2_chain_ab_compare_multigpu.sh
+scripts/eval/tmux_run_clean_480p720p_stage2_chain_ab_compare_multigpu.sh
+  Stage 2 LightX2V chain A/B entrypoints.
 
-scripts/eval/summarize_operator_compare_table.py
-  Convert operator compare JSONL metrics into CSV, Markdown, and JSON tables.
-
-scripts/eval/run_clean_480p720p_chain_ab_compare.sh
-  Single-worker LightX2V chain A/B compare.
-
-scripts/eval/run_clean_480p720p_chain_ab_compare_multigpu.sh
-  Multi-GPU chain A/B compare wrapper.
-
-scripts/eval/tmux_run_clean_480p720p_chain_ab_compare_multigpu.sh
-  tmux wrapper for chain A/B compare.
-```
-
-### LightX2V Bridge
-
-```text
 scripts/bridge/run_lightx2v_clean_bridge_infer.py
-  Local LightX2V inference wrapper that registers the clean-resizer bridge.
-
 ../lightx2v_clean_bridge.py
-  Runtime integration: replaces clean-latent interpolation in LightX2V.
-```
-
-### Legacy / Historical
-
-```text
-scripts/data/build_480p720p_latents.py
-  Older per-sample safetensors latent-pair builder.
-
-scripts/legacy/run_clean_480p720p_training.sh
-  Older generate/build/train wrapper for the safetensors path.
-
-scripts/legacy/tmux_run_clean_480p720p_all.sh
-  tmux wrapper for the older all-in-one safetensors path.
-
-scripts/legacy/run_clean_480p720p_compare_batch10.sh
-  Older four-way compare: ori480 / ori720 / interp720 / trained720.
-
-scripts/legacy/apply_clean_resizer_to_video.py
-  Offline video-to-video utility for applying a checkpoint through VAE.
+  LightX2V bridge integration.
 ```
 
 ## Configs
 
 ```text
-changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage1.yaml
-  Stage 1 LMDB training config.
-
-changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage2.yaml
+configs/train_clean_480p_to_720p_lmdb_stage2.yaml
   Stage 2 LTX2-style LMDB training config.
 
-changing_resolution/configs/train_clean_480p_to_720p.yaml
-  Older safetensors training config.
-
-changing_resolution/configs/wan_t2v_generate_720p.json
-  Wan2.1 720p generation config.
-
-configs/local_paths.sh
-  Machine-specific path defaults. Override with environment variables.
+configs/wan_t2v_generate_720p.json
+configs/wan_t2v_generate_720p_prompts.txt
+  Wan2.1 720p source generation config and prompts.
 ```
 
 ## Metrics
 
-For operator compare, success means:
+Operator compare uses the validation LMDB `ori720_decode` as the reference:
 
 ```text
 trained_psnr  > interp_psnr
@@ -347,16 +137,6 @@ trained_ssim  > interp_ssim
 trained_lpips < interp_lpips
 ```
 
-For chain A/B compare, there is no reference target. Judge:
-
-```text
-sharpness
-temporal stability
-less flicker
-less texture crawling
-less subject deformation
-```
-
-Native 720p generation is not a valid reference for changing-resolution output,
-because native 720p and changing-resolution follow different diffusion
-trajectories.
+Chain A/B has no reference target. Judge visual quality in the same LightX2V
+trajectory: sharpness, temporal stability, flicker, texture crawl, and subject
+deformation.
