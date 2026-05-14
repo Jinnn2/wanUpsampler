@@ -27,6 +27,9 @@ bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_operator_co
 
 # 4. LightX2V generation-chain A/B compare.
 bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_chain_ab_compare_multigpu.sh
+
+# Optional: sweep the handoff step and compare stop480 / interp720 / stage2.
+bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_change_step_sweep_multigpu.sh
 ```
 
 ## Repository Layout

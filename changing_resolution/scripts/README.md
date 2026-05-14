@@ -33,6 +33,18 @@ Run Stage 2 generation-chain A/B:
 bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_chain_ab_compare_multigpu.sh
 ```
 
+Sweep the changing-resolution handoff step and produce three-way panels:
+
+```bash
+bash changing_resolution/scripts/eval/run_clean_480p720p_stage2_change_step_sweep.sh
+```
+
+Run the step sweep on four GPUs:
+
+```bash
+bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_change_step_sweep_multigpu.sh
+```
+
 Operator compare output can be converted to CSV and Markdown tables:
 
 ```bash

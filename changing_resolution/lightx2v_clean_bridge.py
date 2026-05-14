@@ -78,6 +78,11 @@ class WanScheduler4CleanResizerBridge(WanScheduler4ChangingResolution):
         target_latent_shape = self.latents_list[self.changing_resolution_index + 1].shape
         clean_sample = self._resize_clean_latent_to_next_stage(denoised_sample, target_latent_shape)
 
+        if self.step_index + 1 >= len(self.timesteps):
+            logger.info("Changing resolution at final step; decode resized clean latent without re-noise.")
+            self.latents = clean_sample
+            return
+
         noisy_sample = self.add_noise(
             clean_sample,
             self.latents_list[self.changing_resolution_index + 1],
@@ -232,3 +237,76 @@ class WanCleanResizerBridgeRunner(WanRunner):
         super().init_run()
         if hasattr(self.scheduler, "set_clean_latent_resizer"):
             self.scheduler.set_clean_latent_resizer(self.clean_latent_resizer)
+
+
+@RUNNER_REGISTER("wan2.1_clean_interp_bridge")
+class WanCleanInterpBridgeRunner(WanRunner):
+    """WAN changing-resolution runner that uses the same clean-latent switch path with trilinear resize."""
+
+    def __init__(self, config):
+        super().__init__(config)
+        self._validate_interp_config()
+
+    def _validate_interp_config(self):
+        if self.config["task"] != "t2v":
+            raise NotImplementedError("wan2.1_clean_interp_bridge currently only supports t2v.")
+        if len(self.config.get("resolution_rate", [])) != 1:
+            raise ValueError("wan2.1_clean_interp_bridge expects exactly one lowres->highres stage.")
+        if len(self.config.get("changing_resolution_steps", [])) != 1:
+            raise ValueError("wan2.1_clean_interp_bridge expects exactly one changing_resolution step.")
+
+    def init_scheduler(self):
+        if self.config["feature_caching"] == "NoCaching":
+            scheduler_class = WanScheduler
+        elif self.config["feature_caching"] == "TaylorSeer":
+            scheduler_class = WanSchedulerTaylorCaching
+        elif self.config.feature_caching in ["Tea", "Ada", "Custom", "FirstBlock", "DualBlock", "DynamicBlock", "Mag"]:
+            scheduler_class = WanSchedulerCaching
+        else:
+            raise NotImplementedError(f"Unsupported feature_caching type: {self.config.feature_caching}")
+
+        self.scheduler = WanScheduler4CleanResizerBridgeInterface(scheduler_class, self.config)
+
+
+@RUNNER_REGISTER("wan2.1_partial_denoise_decode")
+class WanPartialDenoiseDecodeRunner(WanRunner):
+    """Decode the clean x0 estimate after N steps from a full-step WAN schedule."""
+
+    def __init__(self, config):
+        super().__init__(config)
+        stop_after_steps = int(self.config.get("stop_after_steps", 0))
+        infer_steps = int(self.config["infer_steps"])
+        if stop_after_steps < 1 or stop_after_steps > infer_steps:
+            raise ValueError(f"stop_after_steps must be in [1, {infer_steps}], got {stop_after_steps}")
+        if self.config.get("changing_resolution", False):
+            raise ValueError("wan2.1_partial_denoise_decode expects a single-resolution config.")
+
+    def run_segment(self, segment_idx=0):
+        stop_after_steps = int(self.config["stop_after_steps"])
+
+        for step_index in range(stop_after_steps):
+            if self.video_segment_num == 1:
+                self.check_stop()
+            logger.info(f"==> partial step_index: {step_index + 1} / {self.model.scheduler.infer_steps}")
+
+            self.model.scheduler.step_pre(step_index=step_index)
+            self.model.infer(self.inputs)
+
+            if step_index + 1 == stop_after_steps:
+                latents = self._current_denoised_latent()
+            else:
+                self.model.scheduler.step_post()
+
+        if segment_idx is not None and segment_idx == self.video_segment_num - 1:
+            del self.inputs
+            getattr(torch, AI_DEVICE).empty_cache()
+
+        return latents
+
+    def _current_denoised_latent(self):
+        scheduler = self.model.scheduler
+        model_output = scheduler.noise_pred.to(torch.float32)
+        sample = scheduler.latents.to(torch.float32)
+        sigma_t = scheduler.sigmas[scheduler.step_index]
+        x0_pred = sample - sigma_t * model_output
+        return x0_pred.to(dtype=scheduler.latents.dtype, device=scheduler.latents.device)
