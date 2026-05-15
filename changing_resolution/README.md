@@ -95,6 +95,12 @@ scripts/data/
 scripts/train/train_clean_latent_resizer_stage2.py
   Stage 2 trainer using WanCleanLatentResizerStage2.
 
+scripts/data/build_x0pred_480p720p_stage3_lmdb.py
+scripts/train/train_x0pred_latent_resizer_stage3.py
+  Stage 3 data builder and trainer. Stage 3 keeps the Stage 2 architecture, but
+  trains on one-step-denoised `x0_pred_lr` inputs generated from clean 480p
+  latents at the real bridge handoff step.
+
 scripts/train/run_clean_480p720p_stage2_lmdb_training.sh
 scripts/train/tmux_run_clean_480p720p_stage2_lmdb_training.sh
   Stage 2 training entrypoints.
