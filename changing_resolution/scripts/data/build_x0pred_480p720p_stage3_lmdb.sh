@@ -22,6 +22,7 @@ SAMPLE_SHIFT="${SAMPLE_SHIFT:-8}"
 GUIDE_SCALE="${GUIDE_SCALE:-6}"
 BASE_SEED="${BASE_SEED:-9300}"
 MAX_SAMPLES="${MAX_SAMPLES:-}"
+SAMPLE_OFFSET="${SAMPLE_OFFSET:-0}"
 MODE="${MODE:-lightx2v}"
 PRECISION="${PRECISION:-bf16}"
 OVERWRITE="${OVERWRITE:-0}"
@@ -72,5 +73,6 @@ python "${PROJECT_ROOT}/changing_resolution/scripts/data/build_x0pred_480p720p_s
   --sample_shift "${SAMPLE_SHIFT}" \
   --sample_guide_scale "${GUIDE_SCALE}" \
   --base_seed "${BASE_SEED}" \
+  --offset "${SAMPLE_OFFSET}" \
   --precision "${PRECISION}" \
   "${extra_args[@]}"

@@ -26,10 +26,14 @@ def main() -> None:
     prepare_output_dir(Path(args.out_dir), overwrite=args.overwrite)
 
     source = CleanLatentLMDBDataset(args.source_lmdb, strict_channels=True)
+    start_index = int(args.offset)
+    if start_index < 0 or start_index >= len(source):
+        raise ValueError(f"offset must be in [0, {len(source) - 1}], got {start_index}")
     if args.max_samples is not None:
-        sample_count = min(len(source), args.max_samples)
+        end_index = min(len(source), start_index + int(args.max_samples))
     else:
-        sample_count = len(source)
+        end_index = len(source)
+    sample_count = end_index - start_index
     if sample_count <= 0:
         raise RuntimeError("No source samples selected.")
 
@@ -50,8 +54,8 @@ def main() -> None:
 
     saved = 0
     try:
-        for index in tqdm(range(sample_count), desc="stage3 x0_pred", dynamic_ncols=True):
-            row = source[index]
+        for source_index in tqdm(range(start_index, end_index), desc="stage3 x0_pred", dynamic_ncols=True):
+            row = source[source_index]
             prompt = row["prompt"]
             z0_lr = row["z0_lr"].float()
             z0_hr = row["z0_hr"].float()
@@ -60,7 +64,7 @@ def main() -> None:
                 x0_pred_lr = z0_lr
                 recipe = {"mode": "clean_copy", "note": "debug path only; not a real Stage 3 training domain"}
             else:
-                seed = int(args.base_seed) + index
+                seed = int(args.base_seed) + source_index
                 x0_pred_lr, recipe = generator.make_x0_pred(z0_lr, prompt=prompt, seed=seed)
 
             meta = merge_meta(row.get("meta_json", "{}"))
@@ -69,6 +73,7 @@ def main() -> None:
                     "task": "changing_resolution_x0pred_stage3_480p_to_720p",
                     "schema": "wan_x0pred_latent_pair_lmdb_v1",
                     "source_lmdb": str(args.source_lmdb),
+                    "source_index": source_index,
                     "source_sample_id": row["sample_id"],
                     "prompt": prompt,
                     "x0_pred_lr_shape": list(x0_pred_lr.shape),
@@ -322,6 +327,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample_guide_scale", type=float, default=6.0)
     parser.add_argument("--num_frames", type=int, default=81)
     parser.add_argument("--max_samples", type=int)
+    parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--require_samples", type=int)
     parser.add_argument("--shard_size", type=int, default=100)
     parser.add_argument("--map_size_gb", type=int, default=256)

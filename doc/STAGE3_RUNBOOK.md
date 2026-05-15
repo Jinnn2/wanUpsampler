@@ -24,9 +24,18 @@ the clean `z0_lr`. This makes the model learn both inference-domain cleanup and
 
 ## Build Stage 3 LMDB
 
+Single GPU:
+
 ```bash
 CUDA_VISIBLE_DEVICES=0 \
 bash changing_resolution/scripts/data/tmux_build_x0pred_480p720p_stage3_lmdb.sh
+```
+
+Multi GPU:
+
+```bash
+TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 OVERWRITE=1 \
+bash changing_resolution/scripts/data/tmux_build_x0pred_480p720p_stage3_lmdb_multigpu.sh
 ```
 
 Defaults:
@@ -45,6 +54,13 @@ Useful overrides:
 ```bash
 DENOISE_STEP=35 MAX_SAMPLES=32 OVERWRITE=1 \
 bash changing_resolution/scripts/data/tmux_build_x0pred_480p720p_stage3_lmdb.sh
+```
+
+For a multi-GPU partial build, use `TOTAL_SAMPLES` instead of `MAX_SAMPLES`:
+
+```bash
+DENOISE_STEP=35 TOTAL_SAMPLES=32 GPU_IDS=0,1,2,3 OVERWRITE=1 \
+bash changing_resolution/scripts/data/tmux_build_x0pred_480p720p_stage3_lmdb_multigpu.sh
 ```
 
 For a fast plumbing check that does not run Wan, use:
