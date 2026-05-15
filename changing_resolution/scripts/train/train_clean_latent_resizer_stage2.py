@@ -29,8 +29,10 @@ from wan_sr.training.ema import EMA
 
 def main() -> None:
     args = parse_args()
+    # 先读 YAML，再用命令行参数覆盖；这样 bash 脚本里的 MAX_STEPS/LR 等会优先生效。
     config = apply_cli_overrides(load_yaml(args.config), args)
 
+    # 固定随机种子，保证 train/val split 和 DataLoader shuffle 的主随机源可复现。
     set_seed(int(config["train"].get("seed", 1234)))
     torch.set_float32_matmul_precision("high")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -38,8 +40,10 @@ def main() -> None:
     out_dir = Path(config["out_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
     if args.config:
+        # 把本次训练用到的原始配置一并归档，方便之后追溯 checkpoint 对应的超参。
         shutil.copy2(args.config, out_dir / "train_config.yaml")
 
+    # Stage 2 训练的是 clean latent pair：z0_lr -> z0_hr，不在这里解码 RGB。
     dataset = build_dataset(config)
     train_dataset, val_dataset = split_dataset(dataset, config)
     print(
@@ -54,26 +58,33 @@ def main() -> None:
         shuffle=True,
         num_workers=int(config["train"].get("num_workers", 4)),
         pin_memory=True,
+        # 丢掉最后不足 batch 的样本，保证每个 micro-batch 的 loss 尺度一致。
         drop_last=True,
     )
+    # 训练按 max_steps 控制，不按 epoch 控制；cycle 会在一个 epoch 结束后继续重洗 DataLoader。
     batches = itertools.cycle(loader)
 
+    # WanCleanLatentResizerStage2 是 LTX2 风格的 1.5x 空间 clean-latent 放大器。
     model = WanCleanLatentResizerStage2(**config["model"]).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(config["train"]["lr"]),
         weight_decay=float(config["train"].get("weight_decay", 0.01)),
     )
+    # EMA 保存一份平滑后的模型权重；验证默认用 EMA，通常比即时权重更稳。
     ema = EMA(model, decay=float(config["train"].get("ema_decay", 0.9999)))
+    # Loss = HR latent fidelity + LR consistency + temporal difference + optional residual regularization。
     criterion = CleanLatentResizeLoss(**config.get("loss", {}))
 
     start_step = 0
     if args.resume:
+        # 续训会同时恢复 model / optimizer / EMA，并从 checkpoint 记录的 step 继续。
         start_step = load_checkpoint(args.resume, model, optimizer=optimizer, ema=ema, map_location=device)
 
     precision = config["train"].get("precision", "bf16")
     autocast_dtype = torch.bfloat16 if precision == "bf16" else torch.float16
     use_autocast = device.type == "cuda" and precision in {"bf16", "fp16"}
+    # bf16 的动态范围较大，通常不需要 GradScaler；只有 fp16 时才启用 scaler。
     scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda" and precision == "fp16")
 
     max_steps = int(config["train"]["max_steps"])
@@ -85,6 +96,7 @@ def main() -> None:
     eval_use_ema = bool(config["train"].get("eval_use_ema", True))
     grad_clip_norm = float(config["train"].get("grad_clip_norm", 0.0))
     metrics_path = out_dir / "metrics.jsonl"
+    # 如果目录里已经有 best_val.json，继续沿用历史最优值，避免续训时覆盖更好的 best_val.pt。
     best_val = load_best_val(out_dir / "best_val.json")
 
     progress = tqdm(range(start_step, max_steps), initial=start_step, total=max_steps, dynamic_ncols=True)
@@ -93,27 +105,34 @@ def main() -> None:
 
     for step in progress:
         model.train()
+        # 一个 optimizer step 内累积多个 micro-batch，等效 batch = batch_size * grad_accum。
         for _ in range(grad_accum):
             batch = next(batches)
             z0_lr = batch["z0_lr"].to(device, non_blocking=True)
             z0_hr = batch["z0_hr"].to(device, non_blocking=True)
+            # 以真实 HR latent 的 H/W 作为目标尺寸；Stage 2 内部会检查它是否等于 1.5x。
             target_spatial = (z0_hr.shape[-2], z0_hr.shape[-1])
 
             with torch.autocast(device_type=device.type, dtype=autocast_dtype, enabled=use_autocast):
                 pred = model(z0_lr, output_size=target_spatial)
+                # loss 内部会把 pred 再下采样到 z0_lr，约束低频/结构一致性。
                 loss, loss_items = criterion(pred.float(), z0_hr.float(), z0_lr.float())
+                # 梯度累积时必须除以 grad_accum，避免等效学习率被放大 grad_accum 倍。
                 loss = loss / grad_accum
 
             scaler.scale(loss).backward()
+            # loss_items 是未除以 grad_accum 的可读指标，后面按 micro-batch 数再平均。
             for name, value in loss_items.items():
                 running[name] = running.get(name, 0.0) + float(value)
 
         if grad_clip_norm > 0:
+            # clip 前先 unscale，确保裁剪的是实际梯度范数而不是 fp16 scaler 放大后的梯度。
             scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip_norm)
         scaler.step(optimizer)
         scaler.update()
         optimizer.zero_grad(set_to_none=True)
+        # 只在真实 optimizer step 后更新 EMA，而不是每个 micro-batch 更新。
         ema.update(model)
 
         actual_step = step + 1
@@ -121,10 +140,12 @@ def main() -> None:
             denom = log_every * grad_accum
             postfix = {key: value / denom for key, value in running.items()}
             progress.set_postfix({key: f"{value:.4f}" for key, value in postfix.items()})
+            # metrics.jsonl 每行一条 JSON，方便后续用脚本画 train/val 曲线。
             append_metrics(metrics_path, {"step": actual_step, "split": "train", **postfix})
             running.clear()
 
         if len(val_dataset) > 0 and eval_every > 0 and (actual_step % eval_every == 0 or actual_step == max_steps):
+            # 验证默认使用 EMA 权重；maybe_ema_weights 会在验证后恢复训练中的即时权重。
             val_items = evaluate(
                 model,
                 ema,
@@ -145,11 +166,13 @@ def main() -> None:
             append_metrics(metrics_path, {"step": actual_step, "split": "val", **val_items})
             if val_items["loss"] < best_val:
                 best_val = val_items["loss"]
+                # best_val.pt 保存当前即时权重、optimizer 和 EMA；推理时可再选择是否加载 EMA。
                 save_checkpoint(out_dir / "best_val.pt", model, optimizer, ema, actual_step, config)
                 with (out_dir / "best_val.json").open("w", encoding="utf-8") as f:
                     json.dump({"step": actual_step, **val_items}, f, ensure_ascii=False, indent=2)
 
         if actual_step % save_every == 0 or actual_step == max_steps:
+            # step checkpoint 用于回滚和横向比较，latest.pt 用于续训入口。
             save_checkpoint(out_dir / f"step_{actual_step:07d}.pt", model, optimizer, ema, actual_step, config)
             save_checkpoint(out_dir / "latest.pt", model, optimizer, ema, actual_step, config)
 
@@ -174,6 +197,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
+    # 这里的默认值是代码兜底；实际训练优先使用 YAML，其次被命令行覆盖。
     config = deep_update(
         {
             "data_dir": "data/changing_resolution/lmdb_480p720p_1k",
@@ -235,8 +259,10 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
 def build_dataset(config: dict) -> Dataset:
     dataset_format = str(config.get("data_format", "files")).lower()
     if dataset_format == "files":
+        # 兼容早期 safetensors 文件目录格式。
         return CleanLatentPairDataset(config["data_dir"], strict_channels=True)
     if dataset_format == "lmdb":
+        # 当前 Stage 2 默认使用分片 LMDB，减少大量小文件读取开销。
         return CleanLatentLMDBDataset(config["data_dir"], strict_channels=True)
     raise ValueError(f"data_format must be 'files' or 'lmdb', got {dataset_format!r}")
 
@@ -266,6 +292,7 @@ def split_dataset(dataset: Dataset, config: dict) -> tuple[Dataset, Dataset]:
     rng = random.Random(seed)
     indices = list(range(total))
     rng.shuffle(indices)
+    # 排序不是为了随机性，而是让 Subset 访问顺序稳定；训练阶段 DataLoader 仍会 shuffle。
     val_indices = sorted(indices[:val_count])
     train_indices = sorted(indices[val_count:])
     return Subset(dataset, train_indices), Subset(dataset, val_indices)
@@ -314,6 +341,7 @@ def evaluate(
                 _, loss_items = criterion(pred.float(), z0_hr.float(), z0_lr.float())
             batch_size_actual = int(z0_lr.shape[0])
             count += batch_size_actual
+            # 验证集可能最后一个 batch 不满，所以按真实 batch size 加权平均。
             for name, value in loss_items.items():
                 totals[name] = totals.get(name, 0.0) + float(value) * batch_size_actual
 
@@ -328,6 +356,7 @@ def maybe_ema_weights(model: torch.nn.Module, ema: EMA, enabled: bool) -> Iterat
         return
 
     params = {name: param for name, param in model.named_parameters() if name in ema.shadow}
+    # 临时把模型参数替换成 EMA 参数做验证，finally 中恢复即时训练权重。
     backup = {name: param.detach().clone() for name, param in params.items()}
     try:
         ema.copy_to(model)
