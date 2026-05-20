@@ -30,6 +30,9 @@ bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_chain_ab_co
 
 # Optional: sweep the handoff step and compare stop480 / interp720 / stage2.
 bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_change_step_sweep_multigpu.sh
+
+# Stage 3 x0-pred checkpoint sweep smoke test.
+bash changing_resolution/scripts/eval/run_x0pred_480p720p_stage3_change_step_sweep.sh
 ```
 
 ## Repository Layout

@@ -26,3 +26,10 @@ CR_STAGE2_OPERATOR_COMPARE_CKPT="${CR_STAGE2_OPERATOR_COMPARE_CKPT:-${CR_STAGE2_
 CR_STAGE2_OPERATOR_COMPARE_DIR="${CR_STAGE2_OPERATOR_COMPARE_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_operator_compare_stage2}"
 CR_STAGE2_CHAIN_COMPARE_CKPT="${CR_STAGE2_CHAIN_COMPARE_CKPT:-${CR_STAGE2_OUT_DIR}/latest.pt}"
 CR_STAGE2_CHAIN_COMPARE_DIR="${CR_STAGE2_CHAIN_COMPARE_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_chain_ab_stage2}"
+
+# Stage 3 x0-pred clean-latent paths.
+CR_STAGE3_LMDB_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step35}"
+CR_STAGE3_CONFIG="${CR_STAGE3_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_x0pred_480p_to_720p_lmdb_stage3.yaml}"
+CR_STAGE3_OUT_DIR="${CR_STAGE3_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_x0pred_480p720p_stage3_lmdb}"
+CR_STAGE3_CHANGE_STEP_SWEEP_CKPT="${CR_STAGE3_CHANGE_STEP_SWEEP_CKPT:-${CR_STAGE3_OUT_DIR}/latest.pt}"
+CR_STAGE3_CHANGE_STEP_SWEEP_DIR="${CR_STAGE3_CHANGE_STEP_SWEEP_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_stage3_change_step_sweep}"

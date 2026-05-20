@@ -97,3 +97,58 @@ outputs/changing_resolution_x0pred_480p720p_stage3_lmdb
 The Stage 3 checkpoint remains loadable through the existing Stage 2 bridge
 model path because the neural architecture and checkpoint schema are unchanged.
 The main difference is the LMDB schema and training distribution.
+
+## Change-Step Sweep
+
+Stage 3 sweep uses the same three-way panel format as Stage 2, but the learned
+branch loads the Stage 3 x0-pred checkpoint:
+
+```text
+stop480 at step N | interp720 step N -> 50 | stage3 720 step N -> 50
+```
+
+The single-GPU script is intentionally small by default so you can smoke-test the
+50k checkpoint first:
+
+```bash
+bash changing_resolution/scripts/eval/run_x0pred_480p720p_stage3_change_step_sweep.sh
+```
+
+Defaults:
+
+```text
+LIMIT: 1
+CHANGE_STEPS: 35
+checkpoint: outputs/changing_resolution_x0pred_480p720p_stage3_lmdb/latest.pt
+USE_EMA: 1
+output: outputs/changing_resolution_stage3_change_step_sweep
+```
+
+Useful test runs:
+
+```bash
+CHANGE_STEPS="30 35 40" LIMIT=1 \
+bash changing_resolution/scripts/eval/run_x0pred_480p720p_stage3_change_step_sweep.sh
+
+CR_STAGE3_CHANGE_STEP_SWEEP_CKPT=outputs/changing_resolution_x0pred_480p720p_stage3_lmdb/step_050000.pt \
+CHANGE_STEPS=35 LIMIT=2 \
+bash changing_resolution/scripts/eval/run_x0pred_480p720p_stage3_change_step_sweep.sh
+```
+
+Four-GPU batch sweep:
+
+```bash
+bash changing_resolution/scripts/eval/tmux_run_x0pred_480p720p_stage3_change_step_sweep_multigpu.sh
+```
+
+Default batch parameters:
+
+```text
+GPU_IDS: 0,1,2,3
+TOTAL_PROMPTS: 4
+STEP_START / STEP_END / STEP_STRIDE: 10 / 50 / 1
+```
+
+That default produces 164 three-way panels because 10..50 inclusive contains 41
+handoff steps. Use `STEP_START=1 STEP_END=50 STEP_STRIDE=1` for 200 panels with
+4 prompts.
