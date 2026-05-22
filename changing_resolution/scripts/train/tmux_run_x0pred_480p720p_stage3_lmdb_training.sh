@@ -3,9 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
-SESSION_NAME="${SESSION_NAME:-wan_cr_stage3_x0pred_lmdb_train}"
+DENOISE_STEP="${DENOISE_STEP:-45}"
+SESSION_NAME="${SESSION_NAME:-wan_cr_stage3_x0pred_lmdb_step${DENOISE_STEP}_train}"
 LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs}"
-RUN_LOG="${RUN_LOG:-${LOG_DIR}/train_x0pred_480p720p_stage3_lmdb.log}"
+RUN_LOG="${RUN_LOG:-${LOG_DIR}/train_x0pred_480p720p_stage3_lmdb_step${DENOISE_STEP}.log}"
 
 if ! command -v tmux >/dev/null 2>&1; then
   echo "tmux not found. Install tmux or run run_x0pred_480p720p_stage3_lmdb_training.sh directly." >&2
@@ -22,7 +23,7 @@ if tmux has-session -t "${SESSION_NAME}" 2>/dev/null; then
 fi
 
 tmux new-session -d -s "${SESSION_NAME}" \
-  "cd '${PROJECT_ROOT}' && bash changing_resolution/scripts/train/run_x0pred_480p720p_stage3_lmdb_training.sh train 2>&1 | tee '${RUN_LOG}'"
+  "cd '${PROJECT_ROOT}' && DENOISE_STEP='${DENOISE_STEP}' bash changing_resolution/scripts/train/run_x0pred_480p720p_stage3_lmdb_training.sh train 2>&1 | tee '${RUN_LOG}'"
 
 echo "Started tmux session: ${SESSION_NAME}"
 echo "Attach with: tmux attach -t ${SESSION_NAME}"

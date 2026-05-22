@@ -40,6 +40,7 @@ def main() -> None:
         shutil.copy2(args.config, out_dir / "train_config.yaml")
 
     dataset = X0PredLatentLMDBDataset(config["data_dir"], strict_channels=True)
+    validate_stage3_denoise_step(dataset, config)
     train_dataset, val_dataset = split_dataset(dataset, config)
     print(f"dataset={len(dataset)} train={len(train_dataset)} val={len(val_dataset)} format=stage3_x0pred_lmdb", flush=True)
 
@@ -156,6 +157,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resume")
     parser.add_argument("--data_dir")
     parser.add_argument("--out_dir")
+    parser.add_argument("--denoise_step", type=int)
     parser.add_argument("--hidden_channels", type=int)
     parser.add_argument("--num_res_blocks", type=int)
     parser.add_argument("--scale_factor", type=float)
@@ -171,8 +173,8 @@ def parse_args() -> argparse.Namespace:
 def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
     config = deep_update(
         {
-            "data_dir": "data/changing_resolution/lmdb_x0pred_480p720p_stage3_step35",
-            "out_dir": "outputs/changing_resolution_x0pred_480p720p_stage3_lmdb",
+            "data_dir": "data/changing_resolution/lmdb_x0pred_480p720p_stage3_step45",
+            "out_dir": "outputs/changing_resolution_x0pred_480p720p_stage3_step45_lmdb",
             "model": {
                 "in_channels": 16,
                 "out_channels": 16,
@@ -183,6 +185,9 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
                 "residual_skip": False,
                 "resblock_type": "ltx2",
                 "resize_op": "rational_conv3d_pixel_shuffle",
+            },
+            "stage3": {
+                "denoise_step": 45,
             },
             "train": {
                 "max_steps": 50000,
@@ -211,6 +216,8 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
         value = getattr(args, key)
         if value is not None:
             config[key] = value
+    if args.denoise_step is not None:
+        config.setdefault("stage3", {})["denoise_step"] = int(args.denoise_step)
     for key in ("hidden_channels", "num_res_blocks", "scale_factor"):
         value = getattr(args, key)
         if value is not None:
@@ -222,6 +229,42 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
         if value is not None:
             config["train"][key] = value
     return config
+
+
+def validate_stage3_denoise_step(dataset: Dataset, config: dict, max_checks: int = 16) -> None:
+    expected = config.get("stage3", {}).get("denoise_step")
+    if expected is None:
+        return
+
+    expected = int(expected)
+    checked = 0
+    mismatches: list[str] = []
+    for index in range(min(len(dataset), max_checks)):
+        item = dataset[index]
+        try:
+            meta = json.loads(item.get("meta_json", "{}"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid Stage 3 meta_json at sample {index}") from exc
+
+        recipe = meta.get("stage3_recipe")
+        actual = recipe.get("denoise_step") if isinstance(recipe, dict) else None
+        if actual is None:
+            raise ValueError(
+                "Stage 3 sample metadata does not contain stage3_recipe.denoise_step; "
+                f"cannot verify this LMDB matches requested denoise_step={expected}. "
+                f"sample_id={item.get('sample_id')}"
+            )
+        checked += 1
+        if int(actual) != expected:
+            mismatches.append(f"{item.get('sample_id')}: {actual}")
+
+    if mismatches:
+        preview = ", ".join(mismatches[:4])
+        raise ValueError(
+            f"Stage 3 LMDB denoise_step mismatch: requested {expected}, "
+            f"but found {preview}. Use the matching --data_dir or rebuild LMDB with DENOISE_STEP={expected}."
+        )
+    print(f"validated Stage 3 LMDB denoise_step={expected} on {checked} sample(s)", flush=True)
 
 
 def infinite_batches(loader: DataLoader) -> Iterator[dict]:

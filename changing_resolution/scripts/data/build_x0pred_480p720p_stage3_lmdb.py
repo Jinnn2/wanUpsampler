@@ -185,7 +185,7 @@ class LightX2VX0PredGenerator:
         x0_pred = scheduler.latents.to(torch.float32) - sigma * noise_pred
 
         self.runner.end_run()
-        recipe = {
+        recipe = {+
             "mode": "lightx2v",
             "infer_steps": int(self.args.infer_steps),
             "denoise_step": denoise_step,
@@ -313,7 +313,7 @@ class ShardedX0PredLatentLMDBWriter:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source_lmdb", default="data/changing_resolution/lmdb_480p720p_1k")
-    parser.add_argument("--out_dir", default="data/changing_resolution/lmdb_x0pred_480p720p_stage3_step35")
+    parser.add_argument("--out_dir", default="data/changing_resolution/lmdb_x0pred_480p720p_stage3_step45")
     parser.add_argument("--mode", choices=["lightx2v", "clean_copy"], default="lightx2v")
     parser.add_argument("--lightx2v_repo", default=os.environ.get("LIGHTX2V_REPO"))
     parser.add_argument("--model_path", default="/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B")
@@ -322,7 +322,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--task", default="t2v")
     parser.add_argument("--negative_prompt", default="")
     parser.add_argument("--infer_steps", type=int, default=50)
-    parser.add_argument("--denoise_step", type=int, default=35)
+    parser.add_argument("--denoise_step", type=int, default=45)
     parser.add_argument("--sample_shift", type=float, default=8.0)
     parser.add_argument("--sample_guide_scale", type=float, default=6.0)
     parser.add_argument("--num_frames", type=int, default=81)

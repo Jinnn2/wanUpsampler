@@ -3,7 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
-SESSION_NAME="${SESSION_NAME:-wan_cr_stage3_x0pred_lmdb_multigpu}"
+DENOISE_STEP="${DENOISE_STEP:-45}"
+SESSION_NAME="${SESSION_NAME:-wan_cr_stage3_x0pred_lmdb_step${DENOISE_STEP}_multigpu}"
 
 TOTAL_SAMPLES="${TOTAL_SAMPLES:-1000}"
 GPU_IDS="${GPU_IDS:-0,1,2,3}"
@@ -14,10 +15,9 @@ MONITOR_TAIL_LINES="${MONITOR_TAIL_LINES:-8}"
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 CR_STAGE2_LMDB_DIR="${CR_STAGE2_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_480p720p_1k}"
-CR_STAGE3_LMDB_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step35}"
+CR_STAGE3_LMDB_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step${DENOISE_STEP}}"
 CR_STAGE3_X0PRED_CONFIG="${CR_STAGE3_X0PRED_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_stage3_x0pred_480p.json}"
 INFER_STEPS="${INFER_STEPS:-50}"
-DENOISE_STEP="${DENOISE_STEP:-35}"
 SAMPLE_SHIFT="${SAMPLE_SHIFT:-8}"
 GUIDE_SCALE="${GUIDE_SCALE:-6}"
 BASE_SEED="${BASE_SEED:-9300}"
@@ -25,9 +25,9 @@ MODE="${MODE:-lightx2v}"
 PRECISION="${PRECISION:-bf16}"
 
 TMUX_LOG_DIR="${TMUX_LOG_DIR:-${PROJECT_ROOT}/logs}"
-WORKER_LOG_DIR="${WORKER_LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_stage3_x0pred_lmdb_multigpu}"
-RUN_LOG="${RUN_LOG:-${TMUX_LOG_DIR}/build_x0pred_480p720p_stage3_lmdb_multigpu.log}"
-RUN_SCRIPT="${RUN_SCRIPT:-${TMUX_LOG_DIR}/run_x0pred_480p720p_stage3_lmdb_multigpu.tmux.sh}"
+WORKER_LOG_DIR="${WORKER_LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_stage3_x0pred_lmdb_step${DENOISE_STEP}_multigpu}"
+RUN_LOG="${RUN_LOG:-${TMUX_LOG_DIR}/build_x0pred_480p720p_stage3_lmdb_step${DENOISE_STEP}_multigpu.log}"
+RUN_SCRIPT="${RUN_SCRIPT:-${TMUX_LOG_DIR}/run_x0pred_480p720p_stage3_lmdb_step${DENOISE_STEP}_multigpu.tmux.sh}"
 
 if ! command -v tmux >/dev/null 2>&1; then
   echo "tmux not found. Install tmux or run build_x0pred_480p720p_stage3_lmdb_multigpu.sh directly." >&2

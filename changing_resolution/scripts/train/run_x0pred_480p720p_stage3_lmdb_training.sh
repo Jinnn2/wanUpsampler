@@ -10,9 +10,10 @@ if [[ -f "${PATH_CONFIG}" ]]; then
 fi
 
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
-LMDB_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step35}"
+DENOISE_STEP="${DENOISE_STEP:-45}"
+LMDB_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step${DENOISE_STEP}}"
 CONFIG="${CR_STAGE3_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_x0pred_480p_to_720p_lmdb_stage3.yaml}"
-OUT_DIR="${CR_STAGE3_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_x0pred_480p720p_stage3_lmdb}"
+OUT_DIR="${CR_STAGE3_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_x0pred_480p720p_stage3_step${DENOISE_STEP}_lmdb}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 MAX_STEPS="${MAX_STEPS:-50000}"
@@ -36,7 +37,7 @@ check_lmdb() {
   if [[ ! -d "${LMDB_DIR}" ]] || [[ -z "$(find "${LMDB_DIR}" -type f -name 'data.mdb' -print -quit 2>/dev/null)" ]]; then
     echo "No Stage 3 x0-pred LMDB shards found under: ${LMDB_DIR}" >&2
     echo "Build it first with:" >&2
-    echo "  bash changing_resolution/scripts/data/build_x0pred_480p720p_stage3_lmdb.sh" >&2
+    echo "  DENOISE_STEP=${DENOISE_STEP} bash changing_resolution/scripts/data/build_x0pred_480p720p_stage3_lmdb.sh" >&2
     exit 1
   fi
 }
@@ -84,6 +85,7 @@ train_stage3() {
   echo "  lmdb    : ${LMDB_DIR}"
   echo "  config  : ${CONFIG}"
   echo "  out_dir : ${OUT_DIR}"
+  echo "  step    : ${DENOISE_STEP}"
   echo "  gpu     : ${CUDA_VISIBLE_DEVICES}"
   echo "  steps   : ${MAX_STEPS}"
 
@@ -91,6 +93,7 @@ train_stage3() {
     --config "${CONFIG}" \
     --data_dir "${LMDB_DIR}" \
     --out_dir "${OUT_DIR}" \
+    --denoise_step "${DENOISE_STEP}" \
     --hidden_channels "${HIDDEN_CHANNELS}" \
     --num_res_blocks "${NUM_RES_BLOCKS}" \
     --scale_factor "${SCALE_FACTOR}" \
@@ -108,7 +111,7 @@ case "${MODE}" in
     check_lmdb
     check_python_deps
     check_stage3_import
-    echo "Stage 3 LMDB training preflight passed: ${LMDB_DIR}"
+    echo "Stage 3 LMDB training preflight passed: ${LMDB_DIR} (denoise_step=${DENOISE_STEP})"
     ;;
   train)
     train_stage3

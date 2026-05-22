@@ -12,12 +12,12 @@ fi
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 SOURCE_LMDB="${CR_STAGE2_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_480p720p_1k}"
-OUT_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step35}"
 CONFIG_JSON="${CR_STAGE3_X0PRED_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_stage3_x0pred_480p.json}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 INFER_STEPS="${INFER_STEPS:-50}"
-DENOISE_STEP="${DENOISE_STEP:-35}"
+DENOISE_STEP="${DENOISE_STEP:-45}"
+OUT_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step${DENOISE_STEP}}"
 SAMPLE_SHIFT="${SAMPLE_SHIFT:-8}"
 GUIDE_SCALE="${GUIDE_SCALE:-6}"
 BASE_SEED="${BASE_SEED:-9300}"
@@ -60,6 +60,13 @@ fi
 if [[ "${OVERWRITE}" == "1" ]]; then
   extra_args+=(--overwrite)
 fi
+
+echo "Stage 3 x0-pred LMDB build"
+echo "  source_lmdb : ${SOURCE_LMDB}"
+echo "  out_dir     : ${OUT_DIR}"
+echo "  denoise_step: ${DENOISE_STEP}"
+echo "  infer_steps : ${INFER_STEPS}"
+echo "  mode        : ${MODE}"
 
 python "${PROJECT_ROOT}/changing_resolution/scripts/data/build_x0pred_480p720p_stage3_lmdb.py" \
   --source_lmdb "${SOURCE_LMDB}" \

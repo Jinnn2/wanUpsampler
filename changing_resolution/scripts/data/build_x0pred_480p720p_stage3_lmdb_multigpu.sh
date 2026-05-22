@@ -12,11 +12,12 @@ fi
 TOTAL_SAMPLES="${TOTAL_SAMPLES:-1000}"
 GPU_IDS="${GPU_IDS:-0,1,2,3}"
 START_OFFSET="${START_OFFSET:-0}"
+DENOISE_STEP="${DENOISE_STEP:-45}"
 
 SOURCE_LMDB="${CR_STAGE2_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_480p720p_1k}"
-LMDB_ROOT="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step35}"
+LMDB_ROOT="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step${DENOISE_STEP}}"
 PARTS_DIR="${LMDB_ROOT}/_parts"
-LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_stage3_x0pred_lmdb_multigpu}"
+LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_stage3_x0pred_lmdb_step${DENOISE_STEP}_multigpu}"
 OVERWRITE="${OVERWRITE:-0}"
 MONITOR_INTERVAL="${MONITOR_INTERVAL:-30}"
 MONITOR_TAIL_LINES="${MONITOR_TAIL_LINES:-8}"
@@ -46,6 +47,7 @@ echo "  source_lmdb  : ${SOURCE_LMDB}"
 echo "  lmdb_root    : ${LMDB_ROOT}"
 echo "  total_samples: ${TOTAL_SAMPLES}"
 echo "  start_offset : ${START_OFFSET}"
+echo "  denoise_step : ${DENOISE_STEP}"
 echo "  gpu_ids      : ${GPU_IDS}"
 echo "  log_dir      : ${LOG_DIR}"
 
@@ -85,6 +87,7 @@ for rank in "${!GPUS[@]}"; do
     CUDA_VISIBLE_DEVICES="${gpu}" \
     CR_STAGE2_LMDB_DIR="${SOURCE_LMDB}" \
     CR_STAGE3_LMDB_DIR="${part_lmdb}" \
+    DENOISE_STEP="${DENOISE_STEP}" \
     SAMPLE_OFFSET="${offset}" \
     MAX_SAMPLES="${count}" \
     OVERWRITE="${OVERWRITE}" \

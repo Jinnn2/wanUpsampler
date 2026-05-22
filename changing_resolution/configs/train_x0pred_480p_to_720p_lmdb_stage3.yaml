@@ -1,5 +1,8 @@
-data_dir: data/changing_resolution/lmdb_x0pred_480p720p_stage3_step35
-out_dir: outputs/changing_resolution_x0pred_480p720p_stage3_lmdb
+data_dir: data/changing_resolution/lmdb_x0pred_480p720p_stage3_step45
+out_dir: outputs/changing_resolution_x0pred_480p720p_stage3_step45_lmdb
+
+stage3:
+  denoise_step: 45
 
 model:
   in_channels: 16
