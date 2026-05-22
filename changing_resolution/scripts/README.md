@@ -45,6 +45,18 @@ Run the step sweep on four GPUs:
 bash changing_resolution/scripts/eval/tmux_run_clean_480p720p_stage2_change_step_sweep_multigpu.sh
 ```
 
+Run a small Stage 3 x0-pred sweep test:
+
+```bash
+bash changing_resolution/scripts/eval/run_x0pred_480p720p_stage3_change_step_sweep.sh
+```
+
+Run the Stage 3 x0-pred sweep on four GPUs:
+
+```bash
+bash changing_resolution/scripts/eval/tmux_run_x0pred_480p720p_stage3_change_step_sweep_multigpu.sh
+```
+
 Operator compare output can be converted to CSV and Markdown tables:
 
 ```bash

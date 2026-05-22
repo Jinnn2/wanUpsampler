@@ -117,6 +117,11 @@ scripts/eval/run_clean_480p720p_stage2_chain_ab_compare_multigpu.sh
 scripts/eval/tmux_run_clean_480p720p_stage2_chain_ab_compare_multigpu.sh
   Stage 2 LightX2V chain A/B entrypoints.
 
+scripts/eval/run_x0pred_480p720p_stage3_change_step_sweep.sh
+scripts/eval/run_x0pred_480p720p_stage3_change_step_sweep_multigpu.sh
+scripts/eval/tmux_run_x0pred_480p720p_stage3_change_step_sweep_multigpu.sh
+  Stage 3 x0-pred handoff-step sweep entrypoints.
+
 scripts/bridge/run_lightx2v_clean_bridge_infer.py
 ../lightx2v_clean_bridge.py
   LightX2V bridge integration.
