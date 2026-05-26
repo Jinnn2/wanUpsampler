@@ -185,7 +185,7 @@ class LightX2VX0PredGenerator:
         x0_pred = scheduler.latents.to(torch.float32) - sigma * noise_pred
 
         self.runner.end_run()
-        recipe = {+
+        recipe = {
             "mode": "lightx2v",
             "infer_steps": int(self.args.infer_steps),
             "denoise_step": denoise_step,

@@ -61,6 +61,8 @@ if [[ "${OVERWRITE}" == "1" ]]; then
   extra_args+=(--overwrite)
 fi
 
+python -m py_compile "${PROJECT_ROOT}/changing_resolution/scripts/data/build_x0pred_480p720p_stage3_lmdb.py"
+
 echo "Stage 3 x0-pred LMDB build"
 echo "  source_lmdb : ${SOURCE_LMDB}"
 echo "  out_dir     : ${OUT_DIR}"
