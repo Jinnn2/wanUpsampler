@@ -57,6 +57,20 @@ Run the Stage 3 x0-pred sweep on four GPUs:
 bash changing_resolution/scripts/eval/tmux_run_x0pred_480p720p_stage3_change_step_sweep_multigpu.sh
 ```
 
+Compare wall-clock generation time between direct Wan 720p generation and the
+Stage 3 bridge path:
+
+```bash
+bash changing_resolution/scripts/eval/benchmark_generation_time.sh
+```
+
+To also time the one-step `x0_pred` data-build call, include it explicitly:
+
+```bash
+BENCH_CASES=direct_720p,stage3_bridge_720p,x0pred_call \
+  bash changing_resolution/scripts/eval/benchmark_generation_time.sh
+```
+
 Operator compare output can be converted to CSV and Markdown tables:
 
 ```bash
