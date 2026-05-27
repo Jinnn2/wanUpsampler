@@ -1,0 +1,27 @@
+{
+  "infer_steps": 4,
+  "target_video_length": 81,
+  "text_len": 512,
+  "target_height": 720,
+  "target_width": 1248,
+  "self_attn_1_type": "flash_attn3",
+  "cross_attn_1_type": "flash_attn3",
+  "cross_attn_2_type": "flash_attn3",
+  "sample_guide_scale": 6,
+  "sample_shift": 5,
+  "enable_cfg": false,
+  "cpu_offload": false,
+  "feature_caching": "NoCaching",
+  "denoising_step_list": [1000, 750, 500, 250],
+  "dit_original_ckpt": "lightx2v/Wan2.1-Distill-Models/wan2.1_t2v_14b_lightx2v_4step.safetensors",
+  "changing_resolution": true,
+  "resolution_rate": [0.6666666667],
+  "changing_resolution_steps": [2],
+  "wan_distill_bridge_renoise_mode": "resize_flow",
+  "wan_clean_resizer_repo": "/path/to/wanUpsampler",
+  "wan_clean_resizer_ckpt": "/path/to/outputs/changing_resolution_distill_x0pred_480p720p_stage3_distill_step2_lmdb/latest.pt",
+  "wan_clean_resizer_train_config": "/path/to/wanUpsampler/changing_resolution_distill/configs/train_x0pred_480p_to_720p_lmdb_stage3_distill.yaml",
+  "wan_clean_resizer_model_class": "stage2",
+  "wan_clean_resizer_use_ema": true
+}
+
