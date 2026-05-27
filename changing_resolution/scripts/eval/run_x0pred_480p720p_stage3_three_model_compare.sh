@@ -13,10 +13,14 @@ LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 PROMPTS_FILE="${PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt}"
 TRAIN_CONFIG="${TRAIN_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_x0pred_480p_to_720p_lmdb_stage3.yaml}"
+STAGE2_TRAIN_CONFIG="${STAGE2_TRAIN_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage2.yaml}"
 OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_stage3_three_model_compare}"
 
 MODEL_STEPS="${MODEL_STEPS:-45 46 47}"
 INTERP_CHANGE_STEP="${INTERP_CHANGE_STEP:-45}"
+STAGE2_CHANGE_STEP="${STAGE2_CHANGE_STEP:-45}"
+STAGE2_CLEAN_CHECKPOINT="${STAGE2_CLEAN_CHECKPOINT:-${PROJECT_ROOT}/outputs/changing_resolution_clean_480p720p_stage2_lmdb/step_0010000.pt}"
+STAGE2_USE_EMA="${STAGE2_USE_EMA:-0}"
 LIMIT="${LIMIT:-10}"
 PROMPT_OFFSET="${PROMPT_OFFSET:-0}"
 START_SEED="${START_SEED:-9200}"
@@ -53,7 +57,7 @@ for path in "${LIGHTX2V_REPO}" "${MODEL_ROOT}"; do
     exit 1
   fi
 done
-for path in "${PROMPTS_FILE}" "${TRAIN_CONFIG}"; do
+for path in "${PROMPTS_FILE}" "${TRAIN_CONFIG}" "${STAGE2_TRAIN_CONFIG}" "${STAGE2_CLEAN_CHECKPOINT}"; do
   if [[ ! -f "${path}" ]]; then
     echo "File not found: ${path}" >&2
     exit 1
@@ -68,7 +72,7 @@ if [[ "${#model_steps[@]}" -ne 3 ]]; then
 fi
 MODEL_STEP_TAG="${MODEL_STEPS_NORMALIZED// /_}"
 
-for step in "${INTERP_CHANGE_STEP}" "${model_steps[@]}"; do
+for step in "${INTERP_CHANGE_STEP}" "${STAGE2_CHANGE_STEP}" "${model_steps[@]}"; do
   if (( step < 1 || step > INFER_STEPS )); then
     echo "Invalid change step ${step}; must be in [1, ${INFER_STEPS}]." >&2
     exit 2
@@ -88,7 +92,7 @@ for step in "${model_steps[@]}"; do
   fi
 done
 
-mkdir -p "${OUT_DIR}"/{configs,interp,panels,compare}
+mkdir -p "${OUT_DIR}"/{configs,interp,stage2_clean_10k,panels,compare}
 for step in "${model_steps[@]}"; do
   mkdir -p "${OUT_DIR}/stage3_step${step}"
 done
@@ -110,12 +114,19 @@ write_config() {
   local mode="$2"
   local change_step="$3"
   local checkpoint="${4:-}"
-  python - "$output" "$mode" "$change_step" "$checkpoint" <<'PY'
+  local train_config="${5:-${TRAIN_CONFIG}}"
+  local use_ema="${6:-${BRIDGE_USE_EMA}}"
+  python - "$output" "$mode" "$change_step" "$checkpoint" "$train_config" "$use_ema" <<'PY'
 import json
 import os
 import sys
 
-path, mode, change_step, checkpoint = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
+path = sys.argv[1]
+mode = sys.argv[2]
+change_step = int(sys.argv[3])
+checkpoint = sys.argv[4]
+train_config = sys.argv[5]
+use_ema = sys.argv[6].lower() == "true"
 
 cfg = {
     "infer_steps": int(os.environ["INFER_STEPS"]),
@@ -136,7 +147,7 @@ cfg = {
     "changing_resolution_steps": [change_step],
 }
 
-if mode == "stage3":
+if mode in {"stage3", "stage2_clean"}:
     residual_skip = os.environ["STAGE3_RESIDUAL_SKIP"].lower()
     if residual_skip not in {"checkpoint", "on", "off", "true", "false", "1", "0"}:
         raise SystemExit("STAGE3_RESIDUAL_SKIP must be checkpoint, on/off, true/false, or 1/0")
@@ -144,9 +155,9 @@ if mode == "stage3":
         {
             "wan_clean_resizer_repo": os.environ["PROJECT_ROOT"],
             "wan_clean_resizer_ckpt": checkpoint,
-            "wan_clean_resizer_train_config": os.environ["TRAIN_CONFIG"],
+            "wan_clean_resizer_train_config": train_config,
             "wan_clean_resizer_model_class": "stage2",
-            "wan_clean_resizer_use_ema": os.environ["BRIDGE_USE_EMA"].lower() == "true",
+            "wan_clean_resizer_use_ema": use_ema,
         }
     )
     if residual_skip != "checkpoint":
@@ -208,6 +219,18 @@ for prompt in "${prompts[@]}"; do
   make_labeled_panel "${out_interp}" "${panel_interp}" "interp step ${INTERP_CHANGE_STEP}->${INFER_STEPS}"
 
   panel_inputs=("${panel_interp}")
+  cfg_stage2="${OUT_DIR}/configs/${sample_id}_stage2_clean_10k_step${STAGE2_CHANGE_STEP}.json"
+  out_stage2="${OUT_DIR}/stage2_clean_10k/${sample_id}_stage2_clean_10k_step${STAGE2_CHANGE_STEP}.mp4"
+  panel_stage2="${OUT_DIR}/panels/${sample_id}_panel_stage2_clean_10k_step${STAGE2_CHANGE_STEP}.mp4"
+  stage2_use_ema_bool=false
+  if [[ "${STAGE2_USE_EMA}" == "1" ]]; then
+    stage2_use_ema_bool=true
+  fi
+  write_config "${cfg_stage2}" "stage2_clean" "${STAGE2_CHANGE_STEP}" "${STAGE2_CLEAN_CHECKPOINT}" "${STAGE2_TRAIN_CONFIG}" "${stage2_use_ema_bool}"
+  run_infer "wan2.1_clean_resizer_bridge" "${cfg_stage2}" "${prompt}" "${seed}" "${out_stage2}"
+  make_labeled_panel "${out_stage2}" "${panel_stage2}" "stage2 clean 10k step ${STAGE2_CHANGE_STEP}->${INFER_STEPS} ema=${STAGE2_USE_EMA}"
+  panel_inputs+=("${panel_stage2}")
+
   for step in "${model_steps[@]}"; do
     var_name="CHECKPOINT_STEP_${step}"
     checkpoint="${!var_name-}"
@@ -218,19 +241,19 @@ for prompt in "${prompts[@]}"; do
     out_stage3="${OUT_DIR}/stage3_step${step}/${sample_id}_stage3_step${step}.mp4"
     panel_stage3="${OUT_DIR}/panels/${sample_id}_panel_stage3_step${step}.mp4"
 
-    write_config "${cfg_stage3}" "stage3" "${step}" "${checkpoint}"
+    write_config "${cfg_stage3}" "stage3" "${step}" "${checkpoint}" "${TRAIN_CONFIG}" "${BRIDGE_USE_EMA}"
     run_infer "wan2.1_clean_resizer_bridge" "${cfg_stage3}" "${prompt}" "${seed}" "${out_stage3}"
     make_labeled_panel "${out_stage3}" "${panel_stage3}" "stage3 model step ${step}->${INFER_STEPS}"
     panel_inputs+=("${panel_stage3}")
   done
 
-  compare="${OUT_DIR}/compare/${sample_id}_interp_vs_stage3_steps_${MODEL_STEP_TAG}.mp4"
+  compare="${OUT_DIR}/compare/${sample_id}_interp_vs_stage2_10k_stage3_steps_${MODEL_STEP_TAG}.mp4"
   ffmpeg -hide_banner -loglevel error -y \
-    -i "${panel_inputs[0]}" -i "${panel_inputs[1]}" -i "${panel_inputs[2]}" -i "${panel_inputs[3]}" \
-    -filter_complex "[0:v][1:v][2:v][3:v]hstack=inputs=4[v]" \
+    -i "${panel_inputs[0]}" -i "${panel_inputs[1]}" -i "${panel_inputs[2]}" -i "${panel_inputs[3]}" -i "${panel_inputs[4]}" \
+    -filter_complex "[0:v][1:v][2:v][3:v][4:v]hstack=inputs=5[v]" \
     -map "[v]" -an -c:v libx264 -pix_fmt yuv420p -crf 18 "${compare}"
 
   index=$((index + 1))
 done
 
-echo "Stage 3 three-model comparison videos ready: ${OUT_DIR}/compare"
+echo "Stage 2/3 five-column comparison videos ready: ${OUT_DIR}/compare"

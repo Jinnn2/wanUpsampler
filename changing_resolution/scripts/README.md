@@ -57,8 +57,8 @@ Run the Stage 3 x0-pred sweep on four GPUs:
 bash changing_resolution/scripts/eval/tmux_run_x0pred_480p720p_stage3_change_step_sweep_multigpu.sh
 ```
 
-Run a 10-prompt, four-column comparison: interp baseline plus Stage 3 models
-trained for change steps 45, 46, and 47:
+Run a 10-prompt, five-column comparison: interp baseline, Stage 2 clean 10k
+checkpoint, and Stage 3 models trained for change steps 45, 46, and 47:
 
 ```bash
 bash changing_resolution/scripts/eval/run_x0pred_480p720p_stage3_three_model_compare.sh
