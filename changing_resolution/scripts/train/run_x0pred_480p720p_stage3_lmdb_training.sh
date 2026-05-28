@@ -11,9 +11,24 @@ fi
 
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 DENOISE_STEP="${DENOISE_STEP:-45}"
-LMDB_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step${DENOISE_STEP}}"
+HR_TARGET_MODE="${HR_TARGET_MODE:-x0_pred}"
+case "${HR_TARGET_MODE}" in
+  x0_pred)
+    DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_x0predhr_step${DENOISE_STEP}"
+    DEFAULT_OUT_NAME="changing_resolution_x0pred_480p720p_stage3_x0predhr_step${DENOISE_STEP}_lmdb"
+    ;;
+  clean)
+    DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_cleanhr_step${DENOISE_STEP}"
+    DEFAULT_OUT_NAME="changing_resolution_x0pred_480p720p_stage3_cleanhr_step${DENOISE_STEP}_lmdb"
+    ;;
+  *)
+    DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_${HR_TARGET_MODE}_step${DENOISE_STEP}"
+    DEFAULT_OUT_NAME="changing_resolution_x0pred_480p720p_stage3_${HR_TARGET_MODE}_step${DENOISE_STEP}_lmdb"
+    ;;
+esac
+LMDB_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/${DEFAULT_LMDB_NAME}}"
 CONFIG="${CR_STAGE3_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_x0pred_480p_to_720p_lmdb_stage3.yaml}"
-OUT_DIR="${CR_STAGE3_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_x0pred_480p720p_stage3_step${DENOISE_STEP}_lmdb}"
+OUT_DIR="${CR_STAGE3_OUT_DIR:-${PROJECT_ROOT}/outputs/${DEFAULT_OUT_NAME}}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 MAX_STEPS="${MAX_STEPS:-50000}"

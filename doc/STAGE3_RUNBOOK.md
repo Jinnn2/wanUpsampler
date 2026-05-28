@@ -49,9 +49,9 @@ Defaults:
 
 ```text
 source: data/changing_resolution/lmdb_480p720p_1k
-output: data/changing_resolution/lmdb_x0pred_480p720p_stage3_step35
+output: data/changing_resolution/lmdb_x0pred_480p720p_stage3_x0predhr_step45
 infer_steps: 50
-denoise_step: 35
+denoise_step: 45
 model: /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B
 config: changing_resolution/configs/wan_t2v_stage3_x0pred_480p.json
 hr_target_mode: x0_pred

@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
+USER_CR_STAGE3_LMDB_DIR="${CR_STAGE3_LMDB_DIR+x}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
   source "${PATH_CONFIG}"
@@ -15,9 +16,18 @@ START_OFFSET="${START_OFFSET:-0}"
 DENOISE_STEP="${DENOISE_STEP:-45}"
 HR_TARGET_MODE="${HR_TARGET_MODE:-x0_pred}"
 HR_SEED_OFFSET="${HR_SEED_OFFSET:-0}"
+case "${HR_TARGET_MODE}" in
+  x0_pred) DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_x0predhr_step${DENOISE_STEP}" ;;
+  clean) DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_cleanhr_step${DENOISE_STEP}" ;;
+  *) DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_${HR_TARGET_MODE}_step${DENOISE_STEP}" ;;
+esac
 
 SOURCE_LMDB="${CR_STAGE2_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_480p720p_1k}"
-LMDB_ROOT="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step${DENOISE_STEP}}"
+if [[ -n "${USER_CR_STAGE3_LMDB_DIR}" ]]; then
+  LMDB_ROOT="${CR_STAGE3_LMDB_DIR}"
+else
+  LMDB_ROOT="${PROJECT_ROOT}/data/changing_resolution/${DEFAULT_LMDB_NAME}"
+fi
 PARTS_DIR="${LMDB_ROOT}/_parts"
 LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_stage3_x0pred_lmdb_step${DENOISE_STEP}_multigpu}"
 OVERWRITE="${OVERWRITE:-0}"

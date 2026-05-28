@@ -346,7 +346,7 @@ class ShardedX0PredLatentLMDBWriter:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source_lmdb", default="data/changing_resolution/lmdb_480p720p_1k")
-    parser.add_argument("--out_dir", default="data/changing_resolution/lmdb_x0pred_480p720p_stage3_step45")
+    parser.add_argument("--out_dir", default="data/changing_resolution/lmdb_x0pred_480p720p_stage3_x0predhr_step45")
     parser.add_argument("--mode", choices=["lightx2v", "clean_copy"], default="lightx2v")
     parser.add_argument("--lightx2v_repo", default=os.environ.get("LIGHTX2V_REPO"))
     parser.add_argument("--model_path", default="/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B")

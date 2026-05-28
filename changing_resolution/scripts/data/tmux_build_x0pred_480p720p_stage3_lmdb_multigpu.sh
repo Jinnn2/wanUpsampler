@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 DENOISE_STEP="${DENOISE_STEP:-45}"
 SESSION_NAME="${SESSION_NAME:-wan_cr_stage3_x0pred_lmdb_step${DENOISE_STEP}_multigpu}"
+USER_CR_STAGE3_LMDB_DIR="${CR_STAGE3_LMDB_DIR+x}"
 
 TOTAL_SAMPLES="${TOTAL_SAMPLES:-1000}"
 GPU_IDS="${GPU_IDS:-0,1,2,3}"
@@ -15,16 +16,23 @@ MONITOR_TAIL_LINES="${MONITOR_TAIL_LINES:-8}"
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 CR_STAGE2_LMDB_DIR="${CR_STAGE2_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_480p720p_1k}"
-CR_STAGE3_LMDB_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step${DENOISE_STEP}}"
 CR_STAGE3_X0PRED_CONFIG="${CR_STAGE3_X0PRED_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_stage3_x0pred_480p.json}"
 INFER_STEPS="${INFER_STEPS:-50}"
 SAMPLE_SHIFT="${SAMPLE_SHIFT:-8}"
 GUIDE_SCALE="${GUIDE_SCALE:-6}"
 HR_TARGET_MODE="${HR_TARGET_MODE:-x0_pred}"
 HR_SEED_OFFSET="${HR_SEED_OFFSET:-0}"
+case "${HR_TARGET_MODE}" in
+  x0_pred) DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_x0predhr_step${DENOISE_STEP}" ;;
+  clean) DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_cleanhr_step${DENOISE_STEP}" ;;
+  *) DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_${HR_TARGET_MODE}_step${DENOISE_STEP}" ;;
+esac
 BASE_SEED="${BASE_SEED:-9300}"
 MODE="${MODE:-lightx2v}"
 PRECISION="${PRECISION:-bf16}"
+if [[ -z "${USER_CR_STAGE3_LMDB_DIR}" ]]; then
+  CR_STAGE3_LMDB_DIR="${PROJECT_ROOT}/data/changing_resolution/${DEFAULT_LMDB_NAME}"
+fi
 
 TMUX_LOG_DIR="${TMUX_LOG_DIR:-${PROJECT_ROOT}/logs}"
 WORKER_LOG_DIR="${WORKER_LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_stage3_x0pred_lmdb_step${DENOISE_STEP}_multigpu}"

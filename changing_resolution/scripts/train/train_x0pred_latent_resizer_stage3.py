@@ -177,8 +177,8 @@ def parse_args() -> argparse.Namespace:
 def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
     config = deep_update(
         {
-            "data_dir": "data/changing_resolution/lmdb_x0pred_480p720p_stage3_step45",
-            "out_dir": "outputs/changing_resolution_x0pred_480p720p_stage3_step45_lmdb",
+            "data_dir": "data/changing_resolution/lmdb_x0pred_480p720p_stage3_x0predhr_step45",
+            "out_dir": "outputs/changing_resolution_x0pred_480p720p_stage3_x0predhr_step45_lmdb",
             "model": {
                 "in_channels": 16,
                 "out_channels": 16,

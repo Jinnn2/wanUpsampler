@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
+USER_CR_STAGE3_LMDB_DIR="${CR_STAGE3_LMDB_DIR+x}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
   source "${PATH_CONFIG}"
@@ -17,11 +18,20 @@ CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 INFER_STEPS="${INFER_STEPS:-50}"
 DENOISE_STEP="${DENOISE_STEP:-45}"
-OUT_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step${DENOISE_STEP}}"
 SAMPLE_SHIFT="${SAMPLE_SHIFT:-8}"
 GUIDE_SCALE="${GUIDE_SCALE:-6}"
 HR_TARGET_MODE="${HR_TARGET_MODE:-x0_pred}"
 HR_SEED_OFFSET="${HR_SEED_OFFSET:-0}"
+case "${HR_TARGET_MODE}" in
+  x0_pred) DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_x0predhr_step${DENOISE_STEP}" ;;
+  clean) DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_cleanhr_step${DENOISE_STEP}" ;;
+  *) DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_${HR_TARGET_MODE}_step${DENOISE_STEP}" ;;
+esac
+if [[ -n "${USER_CR_STAGE3_LMDB_DIR}" ]]; then
+  OUT_DIR="${CR_STAGE3_LMDB_DIR}"
+else
+  OUT_DIR="${PROJECT_ROOT}/data/changing_resolution/${DEFAULT_LMDB_NAME}"
+fi
 BASE_SEED="${BASE_SEED:-9300}"
 MAX_SAMPLES="${MAX_SAMPLES:-}"
 SAMPLE_OFFSET="${SAMPLE_OFFSET:-0}"

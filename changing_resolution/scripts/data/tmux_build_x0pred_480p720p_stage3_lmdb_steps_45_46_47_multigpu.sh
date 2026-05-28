@@ -20,6 +20,8 @@ CR_STAGE3_X0PRED_CONFIG="${CR_STAGE3_X0PRED_CONFIG:-${PROJECT_ROOT}/changing_res
 INFER_STEPS="${INFER_STEPS:-50}"
 SAMPLE_SHIFT="${SAMPLE_SHIFT:-8}"
 GUIDE_SCALE="${GUIDE_SCALE:-6}"
+HR_TARGET_MODE="${HR_TARGET_MODE:-x0_pred}"
+HR_SEED_OFFSET="${HR_SEED_OFFSET:-0}"
 BASE_SEED="${BASE_SEED:-9300}"
 MODE="${MODE:-lightx2v}"
 PRECISION="${PRECISION:-bf16}"
@@ -62,6 +64,8 @@ export CR_STAGE3_X0PRED_CONFIG="${CR_STAGE3_X0PRED_CONFIG}"
 export INFER_STEPS="${INFER_STEPS}"
 export SAMPLE_SHIFT="${SAMPLE_SHIFT}"
 export GUIDE_SCALE="${GUIDE_SCALE}"
+export HR_TARGET_MODE="${HR_TARGET_MODE}"
+export HR_SEED_OFFSET="${HR_SEED_OFFSET}"
 export BASE_SEED="${BASE_SEED}"
 export MODE="${MODE}"
 export PRECISION="${PRECISION}"
@@ -72,6 +76,7 @@ echo "steps        : ${STEPS}"
 echo "total_samples: ${TOTAL_SAMPLES}"
 echo "start_offset : ${START_OFFSET}"
 echo "gpu_ids      : ${GPU_IDS}"
+echo "hr_target    : ${HR_TARGET_MODE}"
 echo "run_log      : ${RUN_LOG}"
 
 IFS=',' read -r -a STEP_LIST <<< "${STEPS}"
@@ -81,7 +86,13 @@ for step in "\${STEP_LIST[@]}"; do
     continue
   fi
   export DENOISE_STEP="\${step}"
-  export CR_STAGE3_LMDB_DIR="${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step\${step}"
+  if [[ "${HR_TARGET_MODE}" == "x0_pred" ]]; then
+    export CR_STAGE3_LMDB_DIR="${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_x0predhr_step\${step}"
+  elif [[ "${HR_TARGET_MODE}" == "clean" ]]; then
+    export CR_STAGE3_LMDB_DIR="${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_cleanhr_step\${step}"
+  else
+    export CR_STAGE3_LMDB_DIR="${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_${HR_TARGET_MODE}_step\${step}"
+  fi
   export LOG_DIR="${PROJECT_ROOT}/logs/changing_resolution_stage3_x0pred_lmdb_step\${step}_multigpu"
 
   echo "===== build Stage 3 x0-pred LMDB step \${step} ====="

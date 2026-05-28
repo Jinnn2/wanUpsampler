@@ -97,6 +97,16 @@ for index in "\${!STEP_LIST[@]}"; do
     echo "Empty GPU id for step \${step}" >&2
     exit 2
   fi
+  if [[ "${HR_TARGET_MODE:-x0_pred}" == "x0_pred" ]]; then
+    lmdb_dir="${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_x0predhr_step\${step}"
+    out_dir="${PROJECT_ROOT}/outputs/changing_resolution_x0pred_480p720p_stage3_x0predhr_step\${step}_lmdb"
+  elif [[ "${HR_TARGET_MODE:-x0_pred}" == "clean" ]]; then
+    lmdb_dir="${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_cleanhr_step\${step}"
+    out_dir="${PROJECT_ROOT}/outputs/changing_resolution_x0pred_480p720p_stage3_cleanhr_step\${step}_lmdb"
+  else
+    lmdb_dir="${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_${HR_TARGET_MODE:-x0_pred}_step\${step}"
+    out_dir="${PROJECT_ROOT}/outputs/changing_resolution_x0pred_480p720p_stage3_${HR_TARGET_MODE:-x0_pred}_step\${step}_lmdb"
+  fi
 
   log_path="${WORKER_LOG_DIR}/step_\${step}_gpu_\${gpu}.log"
   echo "Launch step \${step}: gpu=\${gpu}, log=\${log_path}"
@@ -104,8 +114,9 @@ for index in "\${!STEP_LIST[@]}"; do
     cd "${PROJECT_ROOT}"
     CUDA_VISIBLE_DEVICES="\${gpu}" \
     DENOISE_STEP="\${step}" \
-    CR_STAGE3_LMDB_DIR="${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step\${step}" \
-    CR_STAGE3_OUT_DIR="${PROJECT_ROOT}/outputs/changing_resolution_x0pred_480p720p_stage3_step\${step}_lmdb" \
+    HR_TARGET_MODE="${HR_TARGET_MODE:-x0_pred}" \
+    CR_STAGE3_LMDB_DIR="\${lmdb_dir}" \
+    CR_STAGE3_OUT_DIR="\${out_dir}" \
     bash changing_resolution/scripts/train/run_x0pred_480p720p_stage3_lmdb_training.sh train
   ) >"\${log_path}" 2>&1 &
 

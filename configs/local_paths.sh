@@ -28,8 +28,24 @@ CR_STAGE2_CHAIN_COMPARE_CKPT="${CR_STAGE2_CHAIN_COMPARE_CKPT:-${CR_STAGE2_OUT_DI
 CR_STAGE2_CHAIN_COMPARE_DIR="${CR_STAGE2_CHAIN_COMPARE_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_chain_ab_stage2}"
 
 # Stage 3 x0-pred clean-latent paths.
-CR_STAGE3_LMDB_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step35}"
+CR_STAGE3_DENOISE_STEP="${DENOISE_STEP:-45}"
+CR_STAGE3_HR_TARGET_MODE="${HR_TARGET_MODE:-x0_pred}"
+case "${CR_STAGE3_HR_TARGET_MODE}" in
+  x0_pred)
+    CR_STAGE3_DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_x0predhr_step${CR_STAGE3_DENOISE_STEP}"
+    CR_STAGE3_DEFAULT_OUT_NAME="changing_resolution_x0pred_480p720p_stage3_x0predhr_step${CR_STAGE3_DENOISE_STEP}_lmdb"
+    ;;
+  clean)
+    CR_STAGE3_DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_cleanhr_step${CR_STAGE3_DENOISE_STEP}"
+    CR_STAGE3_DEFAULT_OUT_NAME="changing_resolution_x0pred_480p720p_stage3_cleanhr_step${CR_STAGE3_DENOISE_STEP}_lmdb"
+    ;;
+  *)
+    CR_STAGE3_DEFAULT_LMDB_NAME="lmdb_x0pred_480p720p_stage3_${CR_STAGE3_HR_TARGET_MODE}_step${CR_STAGE3_DENOISE_STEP}"
+    CR_STAGE3_DEFAULT_OUT_NAME="changing_resolution_x0pred_480p720p_stage3_${CR_STAGE3_HR_TARGET_MODE}_step${CR_STAGE3_DENOISE_STEP}_lmdb"
+    ;;
+esac
+CR_STAGE3_LMDB_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/${CR_STAGE3_DEFAULT_LMDB_NAME}}"
 CR_STAGE3_CONFIG="${CR_STAGE3_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_x0pred_480p_to_720p_lmdb_stage3.yaml}"
-CR_STAGE3_OUT_DIR="${CR_STAGE3_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_x0pred_480p720p_stage3_lmdb}"
+CR_STAGE3_OUT_DIR="${CR_STAGE3_OUT_DIR:-${PROJECT_ROOT}/outputs/${CR_STAGE3_DEFAULT_OUT_NAME}}"
 CR_STAGE3_CHANGE_STEP_SWEEP_CKPT="${CR_STAGE3_CHANGE_STEP_SWEEP_CKPT:-${CR_STAGE3_OUT_DIR}/latest.pt}"
 CR_STAGE3_CHANGE_STEP_SWEEP_DIR="${CR_STAGE3_CHANGE_STEP_SWEEP_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_stage3_change_step_sweep}"
