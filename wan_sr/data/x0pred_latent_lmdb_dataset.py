@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 
 
 class X0PredLatentLMDBDataset(Dataset):
-    """Dataset of Stage 3 x0-pred LR inputs and clean LR/HR Wan latent targets."""
+    """Dataset of Stage 3 x0-pred LR inputs and HR Wan latent targets."""
 
     def __init__(
         self,

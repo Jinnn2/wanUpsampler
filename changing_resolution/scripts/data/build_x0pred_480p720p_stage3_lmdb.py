@@ -62,27 +62,59 @@ def main() -> None:
 
             if generator is None:
                 x0_pred_lr = z0_lr
-                recipe = {"mode": "clean_copy", "note": "debug path only; not a real Stage 3 training domain"}
+                target_hr = z0_hr
+                recipe = {
+                    "mode": "clean_copy",
+                    "denoise_step": int(args.denoise_step),
+                    "hr_target_mode": "clean",
+                    "hr_target_domain": "clean_z0_hr",
+                    "note": "debug path only; not a real Stage 3 training domain",
+                }
             else:
                 seed = int(args.base_seed) + source_index
-                x0_pred_lr, recipe = generator.make_x0_pred(z0_lr, prompt=prompt, seed=seed)
+                x0_pred_lr, lr_recipe = generator.make_x0_pred(z0_lr, prompt=prompt, seed=seed)
+                if args.hr_target_mode == "x0_pred":
+                    target_hr, hr_recipe = generator.make_x0_pred(
+                        z0_hr,
+                        prompt=prompt,
+                        seed=seed + int(args.hr_seed_offset),
+                    )
+                    hr_target_domain = "x0_pred_hr"
+                elif args.hr_target_mode == "clean":
+                    target_hr = z0_hr
+                    hr_recipe = {"mode": "clean", "seed": None}
+                    hr_target_domain = "clean_z0_hr"
+                else:
+                    raise ValueError(f"Unsupported hr_target_mode={args.hr_target_mode!r}")
+                recipe = {
+                    "mode": "lightx2v_pair",
+                    "infer_steps": int(args.infer_steps),
+                    "denoise_step": int(args.denoise_step),
+                    "step_index": int(args.denoise_step) - 1,
+                    "hr_target_mode": args.hr_target_mode,
+                    "hr_target_domain": hr_target_domain,
+                    "lr_input": lr_recipe,
+                    "hr_target": hr_recipe,
+                }
 
             meta = merge_meta(row.get("meta_json", "{}"))
             meta.update(
                 {
                     "task": "changing_resolution_x0pred_stage3_480p_to_720p",
-                    "schema": "wan_x0pred_latent_pair_lmdb_v1",
+                    "schema": "wan_x0pred_latent_pair_lmdb_v2",
                     "source_lmdb": str(args.source_lmdb),
                     "source_index": source_index,
                     "source_sample_id": row["sample_id"],
                     "prompt": prompt,
                     "x0_pred_lr_shape": list(x0_pred_lr.shape),
                     "z0_lr_shape": list(z0_lr.shape),
-                    "z0_hr_shape": list(z0_hr.shape),
+                    "z0_hr_shape": list(target_hr.shape),
+                    "clean_z0_hr_shape": list(z0_hr.shape),
+                    "hr_target_domain": recipe["hr_target_domain"],
                     "stage3_recipe": recipe,
                 }
             )
-            writer.write(x0_pred_lr, z0_lr, z0_hr, prompt=prompt, meta=meta)
+            writer.write(x0_pred_lr, z0_lr, target_hr, prompt=prompt, meta=meta)
             saved += 1
     finally:
         writer.close()
@@ -95,7 +127,7 @@ def main() -> None:
 
 
 class LightX2VX0PredGenerator:
-    """Generate x0_pred by noising clean LR latent and running one Wan denoiser step."""
+    """Generate x0_pred by noising a clean latent and running one Wan denoiser step."""
 
     def __init__(self, args: argparse.Namespace, *, device: torch.device, dtype: torch.dtype) -> None:
         lightx2v_repo = args.lightx2v_repo or os.environ.get("LIGHTX2V_REPO")
@@ -194,6 +226,7 @@ class LightX2VX0PredGenerator:
             "sample_shift": float(self.args.sample_shift),
             "sample_guide_scale": float(self.args.sample_guide_scale),
             "seed": seed,
+            "latent_shape": list(x0_pred.shape),
         }
         return x0_pred.detach().cpu(), recipe
 
@@ -297,7 +330,7 @@ class ShardedX0PredLatentLMDBWriter:
             "x0_pred_lr_shape": list(x0_pred_lr.shape),
             "z0_lr_shape": list(z0_lr.shape),
             "z0_hr_shape": list(z0_hr.shape),
-            "schema": "wan_x0pred_latent_pair_lmdb_v1",
+            "schema": "wan_x0pred_latent_pair_lmdb_v2",
         }
         self._write_metadata()
 
@@ -325,6 +358,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--denoise_step", type=int, default=45)
     parser.add_argument("--sample_shift", type=float, default=8.0)
     parser.add_argument("--sample_guide_scale", type=float, default=6.0)
+    parser.add_argument("--hr_target_mode", choices=["x0_pred", "clean"], default="x0_pred")
+    parser.add_argument("--hr_seed_offset", type=int, default=0)
     parser.add_argument("--num_frames", type=int, default=81)
     parser.add_argument("--max_samples", type=int)
     parser.add_argument("--offset", type=int, default=0)

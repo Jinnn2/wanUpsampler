@@ -13,6 +13,8 @@ TOTAL_SAMPLES="${TOTAL_SAMPLES:-1000}"
 GPU_IDS="${GPU_IDS:-0,1,2,3}"
 START_OFFSET="${START_OFFSET:-0}"
 DENOISE_STEP="${DENOISE_STEP:-45}"
+HR_TARGET_MODE="${HR_TARGET_MODE:-x0_pred}"
+HR_SEED_OFFSET="${HR_SEED_OFFSET:-0}"
 
 SOURCE_LMDB="${CR_STAGE2_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_480p720p_1k}"
 LMDB_ROOT="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step${DENOISE_STEP}}"
@@ -48,6 +50,7 @@ echo "  lmdb_root    : ${LMDB_ROOT}"
 echo "  total_samples: ${TOTAL_SAMPLES}"
 echo "  start_offset : ${START_OFFSET}"
 echo "  denoise_step : ${DENOISE_STEP}"
+echo "  hr_target    : ${HR_TARGET_MODE}"
 echo "  gpu_ids      : ${GPU_IDS}"
 echo "  log_dir      : ${LOG_DIR}"
 
@@ -88,6 +91,8 @@ for rank in "${!GPUS[@]}"; do
     CR_STAGE2_LMDB_DIR="${SOURCE_LMDB}" \
     CR_STAGE3_LMDB_DIR="${part_lmdb}" \
     DENOISE_STEP="${DENOISE_STEP}" \
+    HR_TARGET_MODE="${HR_TARGET_MODE}" \
+    HR_SEED_OFFSET="${HR_SEED_OFFSET}" \
     SAMPLE_OFFSET="${offset}" \
     MAX_SAMPLES="${count}" \
     OVERWRITE="${OVERWRITE}" \

@@ -20,6 +20,8 @@ DENOISE_STEP="${DENOISE_STEP:-45}"
 OUT_DIR="${CR_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_x0pred_480p720p_stage3_step${DENOISE_STEP}}"
 SAMPLE_SHIFT="${SAMPLE_SHIFT:-8}"
 GUIDE_SCALE="${GUIDE_SCALE:-6}"
+HR_TARGET_MODE="${HR_TARGET_MODE:-x0_pred}"
+HR_SEED_OFFSET="${HR_SEED_OFFSET:-0}"
 BASE_SEED="${BASE_SEED:-9300}"
 MAX_SAMPLES="${MAX_SAMPLES:-}"
 SAMPLE_OFFSET="${SAMPLE_OFFSET:-0}"
@@ -69,6 +71,7 @@ echo "  out_dir     : ${OUT_DIR}"
 echo "  denoise_step: ${DENOISE_STEP}"
 echo "  infer_steps : ${INFER_STEPS}"
 echo "  mode        : ${MODE}"
+echo "  hr_target   : ${HR_TARGET_MODE}"
 
 python "${PROJECT_ROOT}/changing_resolution/scripts/data/build_x0pred_480p720p_stage3_lmdb.py" \
   --source_lmdb "${SOURCE_LMDB}" \
@@ -81,6 +84,8 @@ python "${PROJECT_ROOT}/changing_resolution/scripts/data/build_x0pred_480p720p_s
   --denoise_step "${DENOISE_STEP}" \
   --sample_shift "${SAMPLE_SHIFT}" \
   --sample_guide_scale "${GUIDE_SCALE}" \
+  --hr_target_mode "${HR_TARGET_MODE}" \
+  --hr_seed_offset "${HR_SEED_OFFSET}" \
   --base_seed "${BASE_SEED}" \
   --offset "${SAMPLE_OFFSET}" \
   --precision "${PRECISION}" \

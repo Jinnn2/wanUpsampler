@@ -80,6 +80,7 @@ def main() -> None:
     val_batches = int(config["train"].get("val_batches", 0))
     eval_use_ema = bool(config["train"].get("eval_use_ema", True))
     grad_clip_norm = float(config["train"].get("grad_clip_norm", 0.0))
+    low_freq_reference = config.get("stage3", {}).get("low_freq_reference", "input")
     metrics_path = out_dir / "metrics.jsonl"
     best_val = load_best_val(out_dir / "best_val.json")
 
@@ -93,12 +94,13 @@ def main() -> None:
             batch = next(batches)
             x0_pred_lr = batch["x0_pred_lr"].to(device, non_blocking=True)
             z0_lr = batch["z0_lr"].to(device, non_blocking=True)
-            z0_hr = batch["z0_hr"].to(device, non_blocking=True)
-            target_spatial = (z0_hr.shape[-2], z0_hr.shape[-1])
+            target_hr = batch["z0_hr"].to(device, non_blocking=True)
+            low_freq_ref = select_low_freq_reference(low_freq_reference, x0_pred_lr=x0_pred_lr, z0_lr=z0_lr)
+            target_spatial = (target_hr.shape[-2], target_hr.shape[-1])
 
             with torch.autocast(device_type=device.type, dtype=autocast_dtype, enabled=use_autocast):
                 pred = model(x0_pred_lr, output_size=target_spatial)
-                loss, loss_items = criterion(pred.float(), z0_hr.float(), z0_lr.float())
+                loss, loss_items = criterion(pred.float(), target_hr.float(), low_freq_ref.float())
                 loss = loss / grad_accum
 
             scaler.scale(loss).backward()
@@ -133,6 +135,7 @@ def main() -> None:
                 num_workers=int(config["train"].get("num_workers", 4)),
                 max_batches=val_batches,
                 use_ema=eval_use_ema,
+                low_freq_reference=low_freq_reference,
             )
             progress.write(
                 "val "
@@ -158,6 +161,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data_dir")
     parser.add_argument("--out_dir")
     parser.add_argument("--denoise_step", type=int)
+    parser.add_argument("--low_freq_reference", choices=["input", "clean_lr"])
     parser.add_argument("--hidden_channels", type=int)
     parser.add_argument("--num_res_blocks", type=int)
     parser.add_argument("--scale_factor", type=float)
@@ -188,6 +192,7 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
             },
             "stage3": {
                 "denoise_step": 45,
+                "low_freq_reference": "input",
             },
             "train": {
                 "max_steps": 50000,
@@ -218,6 +223,8 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
             config[key] = value
     if args.denoise_step is not None:
         config.setdefault("stage3", {})["denoise_step"] = int(args.denoise_step)
+    if args.low_freq_reference is not None:
+        config.setdefault("stage3", {})["low_freq_reference"] = args.low_freq_reference
     for key in ("hidden_channels", "num_res_blocks", "scale_factor"):
         value = getattr(args, key)
         if value is not None:
@@ -265,6 +272,19 @@ def validate_stage3_denoise_step(dataset: Dataset, config: dict, max_checks: int
             f"but found {preview}. Use the matching --data_dir or rebuild LMDB with DENOISE_STEP={expected}."
         )
     print(f"validated Stage 3 LMDB denoise_step={expected} on {checked} sample(s)", flush=True)
+
+
+def select_low_freq_reference(
+    mode: str,
+    *,
+    x0_pred_lr: torch.Tensor,
+    z0_lr: torch.Tensor,
+) -> torch.Tensor:
+    if mode == "input":
+        return x0_pred_lr
+    if mode == "clean_lr":
+        return z0_lr
+    raise ValueError(f"Unsupported stage3.low_freq_reference={mode!r}; use 'input' or 'clean_lr'.")
 
 
 def infinite_batches(loader: DataLoader) -> Iterator[dict]:
@@ -316,6 +336,7 @@ def evaluate(
     num_workers: int,
     max_batches: int,
     use_ema: bool,
+    low_freq_reference: str,
 ) -> dict[str, float]:
     if len(dataset) == 0:
         return {}
@@ -333,11 +354,12 @@ def evaluate(
                 break
             x0_pred_lr = batch["x0_pred_lr"].to(device, non_blocking=True)
             z0_lr = batch["z0_lr"].to(device, non_blocking=True)
-            z0_hr = batch["z0_hr"].to(device, non_blocking=True)
-            target_spatial = (z0_hr.shape[-2], z0_hr.shape[-1])
+            target_hr = batch["z0_hr"].to(device, non_blocking=True)
+            low_freq_ref = select_low_freq_reference(low_freq_reference, x0_pred_lr=x0_pred_lr, z0_lr=z0_lr)
+            target_spatial = (target_hr.shape[-2], target_hr.shape[-1])
             with torch.autocast(device_type=device.type, dtype=autocast_dtype, enabled=use_autocast):
                 pred = model(x0_pred_lr, output_size=target_spatial)
-                _, loss_items = criterion(pred.float(), z0_hr.float(), z0_lr.float())
+                _, loss_items = criterion(pred.float(), target_hr.float(), low_freq_ref.float())
             batch_size_actual = int(x0_pred_lr.shape[0])
             count += batch_size_actual
             for name, value in loss_items.items():

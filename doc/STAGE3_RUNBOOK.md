@@ -5,7 +5,7 @@ domain:
 
 ```text
 Stage 2: z0_lr       -> z0_hr
-Stage 3: x0_pred_lr  -> z0_hr
+Stage 3: x0_pred_lr  -> x0_pred_hr
 ```
 
 The default Stage 3 data recipe is aligned with the real bridge handoff:
@@ -15,12 +15,19 @@ clean 480p latent z0_lr
   -> add flow noise at step 35 in a 50-step Wan schedule
   -> run one Wan denoiser forward pass
   -> x0_pred_lr = x_t - sigma_t * noise_pred
+
+clean 720p latent z0_hr
+  -> add flow noise at the same step
+  -> run one Wan denoiser forward pass
+  -> x0_pred_hr = x_t - sigma_t * noise_pred
 ```
 
-During training, `x0_pred_lr` is the model input, `z0_hr` is the HR target, and
-the low-frequency consistency loss still compares the prediction downsampled to
-the clean `z0_lr`. This makes the model learn both inference-domain cleanup and
-1.5x latent resizing.
+During training, `x0_pred_lr` is the model input and `x0_pred_hr` is the HR
+target. For compatibility the LMDB stores the HR target in the existing `z0_hr`
+slot, but metadata marks `hr_target_domain: x0_pred_hr`. The low-frequency
+consistency loss now defaults to comparing the prediction downsampled to the
+input-domain `x0_pred_lr`; use `--low_freq_reference clean_lr` only for the old
+clean-target recipe.
 
 ## Build Stage 3 LMDB
 
@@ -47,12 +54,20 @@ infer_steps: 50
 denoise_step: 35
 model: /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B
 config: changing_resolution/configs/wan_t2v_stage3_x0pred_480p.json
+hr_target_mode: x0_pred
 ```
 
 Useful overrides:
 
 ```bash
 DENOISE_STEP=35 MAX_SAMPLES=32 OVERWRITE=1 \
+bash changing_resolution/scripts/data/tmux_build_x0pred_480p720p_stage3_lmdb.sh
+```
+
+To rebuild the older `x0_pred_lr -> clean z0_hr` recipe for ablation:
+
+```bash
+HR_TARGET_MODE=clean DENOISE_STEP=35 MAX_SAMPLES=32 OVERWRITE=1 \
 bash changing_resolution/scripts/data/tmux_build_x0pred_480p720p_stage3_lmdb.sh
 ```
 

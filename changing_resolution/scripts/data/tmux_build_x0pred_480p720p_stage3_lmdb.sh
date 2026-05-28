@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 DENOISE_STEP="${DENOISE_STEP:-45}"
+HR_TARGET_MODE="${HR_TARGET_MODE:-x0_pred}"
+HR_SEED_OFFSET="${HR_SEED_OFFSET:-0}"
 SESSION_NAME="${SESSION_NAME:-wan_cr_stage3_x0pred_lmdb_step${DENOISE_STEP}_build}"
 LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs}"
 RUN_LOG="${RUN_LOG:-${LOG_DIR}/build_x0pred_480p720p_stage3_lmdb_step${DENOISE_STEP}.log}"
@@ -23,7 +25,7 @@ if tmux has-session -t "${SESSION_NAME}" 2>/dev/null; then
 fi
 
 tmux new-session -d -s "${SESSION_NAME}" \
-  "cd '${PROJECT_ROOT}' && DENOISE_STEP='${DENOISE_STEP}' bash changing_resolution/scripts/data/build_x0pred_480p720p_stage3_lmdb.sh 2>&1 | tee '${RUN_LOG}'"
+  "cd '${PROJECT_ROOT}' && DENOISE_STEP='${DENOISE_STEP}' HR_TARGET_MODE='${HR_TARGET_MODE}' HR_SEED_OFFSET='${HR_SEED_OFFSET}' bash changing_resolution/scripts/data/build_x0pred_480p720p_stage3_lmdb.sh 2>&1 | tee '${RUN_LOG}'"
 
 echo "Started tmux session: ${SESSION_NAME}"
 echo "Attach with: tmux attach -t ${SESSION_NAME}"
