@@ -21,6 +21,10 @@ INTERP_CHANGE_STEP="${INTERP_CHANGE_STEP:-45}"
 STAGE2_CHANGE_STEP="${STAGE2_CHANGE_STEP:-45}"
 STAGE2_CLEAN_CHECKPOINT="${STAGE2_CLEAN_CHECKPOINT:-${PROJECT_ROOT}/outputs/changing_resolution_clean_480p720p_stage2_lmdb/step_0010000.pt}"
 STAGE2_USE_EMA="${STAGE2_USE_EMA:-0}"
+Z_PREDHR_CHANGE_STEP="${Z_PREDHR_CHANGE_STEP:-45}"
+Z_PREDHR_CHECKPOINT="${Z_PREDHR_CHECKPOINT:-${PROJECT_ROOT}/outputs/changing_resolution_x0pred_480p720p_stage3_x0predhr_step45_lmdb/latest.pt}"
+Z_PREDHR_TRAIN_CONFIG="${Z_PREDHR_TRAIN_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_x0pred_480p_to_720p_lmdb_stage3.yaml}"
+Z_PREDHR_USE_EMA="${Z_PREDHR_USE_EMA:-0}"
 LIMIT="${LIMIT:-10}"
 PROMPT_OFFSET="${PROMPT_OFFSET:-0}"
 START_SEED="${START_SEED:-9200}"
@@ -57,7 +61,7 @@ for path in "${LIGHTX2V_REPO}" "${MODEL_ROOT}"; do
     exit 1
   fi
 done
-for path in "${PROMPTS_FILE}" "${TRAIN_CONFIG}" "${STAGE2_TRAIN_CONFIG}" "${STAGE2_CLEAN_CHECKPOINT}"; do
+for path in "${PROMPTS_FILE}" "${TRAIN_CONFIG}" "${STAGE2_TRAIN_CONFIG}" "${STAGE2_CLEAN_CHECKPOINT}" "${Z_PREDHR_TRAIN_CONFIG}" "${Z_PREDHR_CHECKPOINT}"; do
   if [[ ! -f "${path}" ]]; then
     echo "File not found: ${path}" >&2
     exit 1
@@ -72,7 +76,7 @@ if [[ "${#model_steps[@]}" -ne 3 ]]; then
 fi
 MODEL_STEP_TAG="${MODEL_STEPS_NORMALIZED// /_}"
 
-for step in "${INTERP_CHANGE_STEP}" "${STAGE2_CHANGE_STEP}" "${model_steps[@]}"; do
+for step in "${INTERP_CHANGE_STEP}" "${STAGE2_CHANGE_STEP}" "${Z_PREDHR_CHANGE_STEP}" "${model_steps[@]}"; do
   if (( step < 1 || step > INFER_STEPS )); then
     echo "Invalid change step ${step}; must be in [1, ${INFER_STEPS}]." >&2
     exit 2
@@ -92,7 +96,7 @@ for step in "${model_steps[@]}"; do
   fi
 done
 
-mkdir -p "${OUT_DIR}"/{configs,interp,stage2_clean_10k,panels,compare}
+mkdir -p "${OUT_DIR}"/{configs,interp,stage2_clean_10k,z_predhr,panels,compare}
 for step in "${model_steps[@]}"; do
   mkdir -p "${OUT_DIR}/stage3_step${step}"
 done
@@ -231,6 +235,18 @@ for prompt in "${prompts[@]}"; do
   make_labeled_panel "${out_stage2}" "${panel_stage2}" "stage2 clean 10k step ${STAGE2_CHANGE_STEP}->${INFER_STEPS} ema=${STAGE2_USE_EMA}"
   panel_inputs+=("${panel_stage2}")
 
+  cfg_z_predhr="${OUT_DIR}/configs/${sample_id}_z_predhr_step${Z_PREDHR_CHANGE_STEP}.json"
+  out_z_predhr="${OUT_DIR}/z_predhr/${sample_id}_z_predhr_step${Z_PREDHR_CHANGE_STEP}.mp4"
+  panel_z_predhr="${OUT_DIR}/panels/${sample_id}_panel_z_predhr_step${Z_PREDHR_CHANGE_STEP}.mp4"
+  z_predhr_use_ema_bool=false
+  if [[ "${Z_PREDHR_USE_EMA}" == "1" ]]; then
+    z_predhr_use_ema_bool=true
+  fi
+  write_config "${cfg_z_predhr}" "stage3" "${Z_PREDHR_CHANGE_STEP}" "${Z_PREDHR_CHECKPOINT}" "${Z_PREDHR_TRAIN_CONFIG}" "${z_predhr_use_ema_bool}"
+  run_infer "wan2.1_clean_resizer_bridge" "${cfg_z_predhr}" "${prompt}" "${seed}" "${out_z_predhr}"
+  make_labeled_panel "${out_z_predhr}" "${panel_z_predhr}" "z_predhr step ${Z_PREDHR_CHANGE_STEP}->${INFER_STEPS} ema=${Z_PREDHR_USE_EMA}"
+  panel_inputs+=("${panel_z_predhr}")
+
   for step in "${model_steps[@]}"; do
     var_name="CHECKPOINT_STEP_${step}"
     checkpoint="${!var_name-}"
@@ -247,13 +263,13 @@ for prompt in "${prompts[@]}"; do
     panel_inputs+=("${panel_stage3}")
   done
 
-  compare="${OUT_DIR}/compare/${sample_id}_interp_vs_stage2_10k_stage3_steps_${MODEL_STEP_TAG}.mp4"
+  compare="${OUT_DIR}/compare/${sample_id}_interp_vs_stage2_10k_z_predhr_stage3_steps_${MODEL_STEP_TAG}.mp4"
   ffmpeg -hide_banner -loglevel error -y \
-    -i "${panel_inputs[0]}" -i "${panel_inputs[1]}" -i "${panel_inputs[2]}" -i "${panel_inputs[3]}" -i "${panel_inputs[4]}" \
-    -filter_complex "[0:v][1:v][2:v][3:v][4:v]hstack=inputs=5[v]" \
+    -i "${panel_inputs[0]}" -i "${panel_inputs[1]}" -i "${panel_inputs[2]}" -i "${panel_inputs[3]}" -i "${panel_inputs[4]}" -i "${panel_inputs[5]}" \
+    -filter_complex "[0:v][1:v][2:v][3:v][4:v][5:v]hstack=inputs=6[v]" \
     -map "[v]" -an -c:v libx264 -pix_fmt yuv420p -crf 18 "${compare}"
 
   index=$((index + 1))
 done
 
-echo "Stage 2/3 five-column comparison videos ready: ${OUT_DIR}/compare"
+echo "Stage 2/3 six-column comparison videos ready: ${OUT_DIR}/compare"
