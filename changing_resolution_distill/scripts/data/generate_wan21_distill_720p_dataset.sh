@@ -12,6 +12,7 @@ fi
 
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 CR_DISTILL_MODEL_ROOT="${CR_DISTILL_MODEL_ROOT:-/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
+CR_DISTILL_DIT_CKPT="${CR_DISTILL_DIT_CKPT:-${CR_DISTILL_MODEL_ROOT}/distill_model.pt}"
 MODEL_ROOT="${USER_MODEL_ROOT:-${CR_DISTILL_MODEL_ROOT}}"
 GEN_CONFIG="${CR_DISTILL_GENERATE_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/wan_t2v_distill_generate_720p.json}"
 PROMPTS_FILE="${CR_PROMPTS_FILE:-${PROJECT_ROOT}/prompts/vidprom_filtered_extended.txt}"
@@ -32,6 +33,10 @@ if [[ ! -d "${MODEL_ROOT}" ]]; then
   echo "Wan distill model root not found: ${MODEL_ROOT}" >&2
   exit 1
 fi
+if [[ ! -f "${CR_DISTILL_DIT_CKPT}" ]]; then
+  echo "Wan distill DiT checkpoint not found: ${CR_DISTILL_DIT_CKPT}" >&2
+  exit 1
+fi
 if [[ ! -f "${GEN_CONFIG}" ]]; then
   echo "Generation config not found: ${GEN_CONFIG}" >&2
   exit 1
@@ -48,6 +53,19 @@ model_path="${MODEL_ROOT}"
 # shellcheck source=/dev/null
 source "${LIGHTX2V_REPO}/scripts/base/base.sh"
 export PYTHONPATH="${PROJECT_ROOT}:${LIGHTX2V_REPO}:${PYTHONPATH:-}"
+
+RUNTIME_CONFIG="${OUT_DIR}/wan_t2v_distill_generate_720p.runtime.json"
+python - "${GEN_CONFIG}" "${RUNTIME_CONFIG}" "${CR_DISTILL_DIT_CKPT}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+src, dst, ckpt = map(Path, sys.argv[1:])
+data = json.loads(src.read_text(encoding="utf-8"))
+data["dit_original_ckpt"] = str(ckpt)
+dst.parent.mkdir(parents=True, exist_ok=True)
+dst.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+PY
 
 index=0
 prompt_index=0
@@ -74,7 +92,7 @@ while IFS= read -r prompt || [[ -n "${prompt}" ]]; do
       --model_cls wan2.1_distill \
       --task t2v \
       --model_path "${MODEL_ROOT}" \
-      --config_json "${GEN_CONFIG}" \
+      --config_json "${RUNTIME_CONFIG}" \
       --prompt "${prompt}" \
       --negative_prompt "${NEGATIVE_PROMPT}" \
       --save_result_path "${out_path}"

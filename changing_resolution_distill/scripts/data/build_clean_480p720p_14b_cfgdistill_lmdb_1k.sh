@@ -12,6 +12,7 @@ fi
 
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 CR_DISTILL_MODEL_ROOT="${CR_DISTILL_MODEL_ROOT:-/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
+CR_DISTILL_DIT_CKPT="${CR_DISTILL_DIT_CKPT:-${CR_DISTILL_MODEL_ROOT}/distill_model.pt}"
 MODEL_ROOT="${USER_MODEL_ROOT:-${CR_DISTILL_MODEL_ROOT}}"
 VAE_PATH="${CR_DISTILL_VAE_PATH:-${MODEL_ROOT}/Wan2.1_VAE.pth}"
 
@@ -46,6 +47,10 @@ check_paths() {
   fi
   if [[ ! -d "${MODEL_ROOT}" ]]; then
     echo "Wan distill model root not found: ${MODEL_ROOT}" >&2
+    exit 1
+  fi
+  if [[ ! -f "${CR_DISTILL_DIT_CKPT}" ]]; then
+    echo "Wan distill DiT checkpoint not found: ${CR_DISTILL_DIT_CKPT}" >&2
     exit 1
   fi
   if [[ ! -f "${VAE_PATH}" ]]; then
@@ -83,6 +88,7 @@ generate_videos() {
 
   CR_PROMPTS_FILE="${PROMPTS_FILE}" \
   CR_DISTILL_RAW_VIDEO_DIR_1K="${RAW_VIDEO_DIR}" \
+  CR_DISTILL_DIT_CKPT="${CR_DISTILL_DIT_CKPT}" \
   MAX_PROMPTS="${NUM_SAMPLES}" \
   START_SEED="${START_SEED}" \
   bash "${PROJECT_ROOT}/changing_resolution_distill/scripts/data/generate_wan21_distill_720p_dataset.sh"

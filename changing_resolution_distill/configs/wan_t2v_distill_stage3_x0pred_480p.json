@@ -13,5 +13,5 @@
   "cpu_offload": false,
   "feature_caching": "NoCaching",
   "denoising_step_list": [1000, 750, 500, 250],
-  "dit_original_ckpt": "lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt"
+  "dit_original_ckpt": "/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt"
 }

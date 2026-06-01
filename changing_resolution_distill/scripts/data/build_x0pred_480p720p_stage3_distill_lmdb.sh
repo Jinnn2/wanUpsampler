@@ -12,6 +12,7 @@ fi
 
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 CR_DISTILL_MODEL_ROOT="${CR_DISTILL_MODEL_ROOT:-/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
+CR_DISTILL_DIT_CKPT="${CR_DISTILL_DIT_CKPT:-${CR_DISTILL_MODEL_ROOT}/distill_model.pt}"
 CR_DISTILL_MODEL_ID="${CR_DISTILL_MODEL_ID:-lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
 CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill}"
 MODEL_ROOT="${USER_MODEL_ROOT:-${CR_DISTILL_MODEL_ROOT}}"
@@ -50,7 +51,7 @@ case "${PRECISION}" in
     ;;
 esac
 
-for path in "${LIGHTX2V_REPO}" "${MODEL_ROOT}" "${SOURCE_LMDB}"; do
+for path in "${LIGHTX2V_REPO}" "${MODEL_ROOT}" "${CR_DISTILL_DIT_CKPT}" "${SOURCE_LMDB}"; do
   if [[ ! -e "${path}" ]]; then
     echo "Path not found: ${path}" >&2
     exit 1
@@ -61,6 +62,19 @@ if [[ ! -f "${CONFIG_JSON}" ]]; then
   exit 1
 fi
 
+RUNTIME_CONFIG="${OUT_DIR}/wan_t2v_distill_stage3_x0pred_480p.runtime.json"
+python - "${CONFIG_JSON}" "${RUNTIME_CONFIG}" "${CR_DISTILL_DIT_CKPT}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+src, dst, ckpt = map(Path, sys.argv[1:])
+data = json.loads(src.read_text(encoding="utf-8"))
+data["dit_original_ckpt"] = str(ckpt)
+dst.parent.mkdir(parents=True, exist_ok=True)
+dst.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+PY
+
 args=(
   --source_lmdb "${SOURCE_LMDB}"
   --out_dir "${OUT_DIR}"
@@ -68,7 +82,7 @@ args=(
   --distill_model_id "${CR_DISTILL_MODEL_ID}"
   --lightx2v_repo "${LIGHTX2V_REPO}"
   --model_path "${MODEL_ROOT}"
-  --config_json "${CONFIG_JSON}"
+  --config_json "${RUNTIME_CONFIG}"
   --model_cls "wan2.1_distill"
   --task "t2v"
   --denoising_step_list ${DENOISING_STEP_LIST}
@@ -105,7 +119,8 @@ echo "  handoff_step : ${HANDOFF_STEP}"
 echo "  denoise list : ${DENOISING_STEP_LIST}"
 echo "  distill id   : ${CR_DISTILL_MODEL_ID}"
 echo "  model        : ${MODEL_ROOT}"
-echo "  config       : ${CONFIG_JSON}"
+echo "  dit ckpt     : ${CR_DISTILL_DIT_CKPT}"
+echo "  config       : ${RUNTIME_CONFIG}"
 echo "  gpu          : ${CUDA_VISIBLE_DEVICES}"
 
 python "${PROJECT_ROOT}/changing_resolution_distill/scripts/data/build_x0pred_480p720p_stage3_distill_lmdb.py" "${args[@]}"

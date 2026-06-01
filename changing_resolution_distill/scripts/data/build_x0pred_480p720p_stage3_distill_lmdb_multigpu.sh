@@ -17,6 +17,7 @@ START_OFFSET="${START_OFFSET:-0}"
 HANDOFF_STEP="${HANDOFF_STEP:-2}"
 CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill}"
 CR_DISTILL_MODEL_ROOT="${CR_DISTILL_MODEL_ROOT:-/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
+CR_DISTILL_DIT_CKPT="${CR_DISTILL_DIT_CKPT:-${CR_DISTILL_MODEL_ROOT}/distill_model.pt}"
 CR_DISTILL_MODEL_ID="${CR_DISTILL_MODEL_ID:-lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
 MODEL_ROOT="${USER_MODEL_ROOT:-${CR_DISTILL_MODEL_ROOT}}"
 CR_DISTILL_CLEAN_LMDB_DIR="${CR_DISTILL_CLEAN_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_1k}"
@@ -40,7 +41,7 @@ if (( NUM_GPUS < 1 )); then
   exit 2
 fi
 
-for path in "${SOURCE_LMDB}" "${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}" "${MODEL_ROOT}" "${CONFIG_JSON}"; do
+for path in "${SOURCE_LMDB}" "${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}" "${MODEL_ROOT}" "${CR_DISTILL_DIT_CKPT}" "${CONFIG_JSON}"; do
   if [[ ! -e "${path}" ]]; then
     echo "Path not found: ${path}" >&2
     exit 1
@@ -64,6 +65,7 @@ echo "  handoff_step : ${HANDOFF_STEP}"
 echo "  stage3_tag   : ${CR_DISTILL_STAGE3_TAG}"
 echo "  distill_id   : ${CR_DISTILL_MODEL_ID}"
 echo "  model        : ${MODEL_ROOT}"
+echo "  dit_ckpt     : ${CR_DISTILL_DIT_CKPT}"
 echo "  gpu_ids      : ${GPU_IDS}"
 echo "  log_dir      : ${LOG_DIR}"
 
@@ -105,6 +107,7 @@ for rank in "${!GPUS[@]}"; do
     CR_DISTILL_STAGE3_LMDB_DIR="${part_lmdb}" \
     CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG}" \
     CR_DISTILL_MODEL_ROOT="${CR_DISTILL_MODEL_ROOT}" \
+    CR_DISTILL_DIT_CKPT="${CR_DISTILL_DIT_CKPT}" \
     CR_DISTILL_MODEL_ID="${CR_DISTILL_MODEL_ID}" \
     MODEL_ROOT="${MODEL_ROOT}" \
     CR_DISTILL_STAGE3_X0PRED_CONFIG="${CONFIG_JSON}" \

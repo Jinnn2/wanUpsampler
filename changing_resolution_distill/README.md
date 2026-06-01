@@ -93,7 +93,7 @@ denoising_step_list: 1000 750 500 250
 sample_shift: 5
 sample_guide_scale: 6
 config: changing_resolution_distill/configs/wan_t2v_distill_stage3_x0pred_480p.json
-dit_original_ckpt: lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt
+dit_original_ckpt: /mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt
 ```
 
 ## Train
