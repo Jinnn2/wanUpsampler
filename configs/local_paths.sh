@@ -15,6 +15,9 @@ VAE_PATH="${VAE_PATH:-${MODEL_ROOT}/Wan2.1_VAE.pth}"
 CR_DISTILL_MODEL_ROOT="${CR_DISTILL_MODEL_ROOT:-${JIN_ROOT}/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
 CR_DISTILL_MODEL_ID="${CR_DISTILL_MODEL_ID:-lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
 CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill}"
+CR_DISTILL_RAW_VIDEO_DIR_1K="${CR_DISTILL_RAW_VIDEO_DIR_1K:-${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_1k}"
+CR_DISTILL_CLEAN_LMDB_DIR="${CR_DISTILL_CLEAN_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_1k}"
+CR_DISTILL_GENERATE_CONFIG="${CR_DISTILL_GENERATE_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/wan_t2v_distill_generate_720p.json}"
 
 # Stage 2 changing_resolution clean-latent paths.
 CR_RAW_VIDEO_DIR="${CR_RAW_VIDEO_DIR:-${PROJECT_ROOT}/data/changing_resolution/raw_wan21_720p}"

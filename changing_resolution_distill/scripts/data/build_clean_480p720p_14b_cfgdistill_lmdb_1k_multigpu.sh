@@ -4,32 +4,21 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
-USER_MODEL_ROOT="${MODEL_ROOT:-}"
-USER_CR_DISTILL_STAGE3_LMDB_DIR="${CR_DISTILL_STAGE3_LMDB_DIR+x}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
   source "${PATH_CONFIG}"
 fi
 
 TOTAL_SAMPLES="${TOTAL_SAMPLES:-1000}"
-GPU_IDS="${GPU_IDS:-0,1,2,3}"
-START_OFFSET="${START_OFFSET:-0}"
-HANDOFF_STEP="${HANDOFF_STEP:-2}"
-CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill}"
-CR_DISTILL_MODEL_ROOT="${CR_DISTILL_MODEL_ROOT:-/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
-CR_DISTILL_MODEL_ID="${CR_DISTILL_MODEL_ID:-lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
-MODEL_ROOT="${USER_MODEL_ROOT:-${CR_DISTILL_MODEL_ROOT}}"
-CR_DISTILL_CLEAN_LMDB_DIR="${CR_DISTILL_CLEAN_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_1k}"
-SOURCE_LMDB="${CR_STAGE2_LMDB_DIR:-${CR_DISTILL_CLEAN_LMDB_DIR}}"
-CONFIG_JSON="${CR_DISTILL_STAGE3_X0PRED_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/wan_t2v_distill_stage3_x0pred_480p.json}"
-if [[ -n "${USER_CR_DISTILL_STAGE3_LMDB_DIR}" ]]; then
-  LMDB_ROOT="${CR_DISTILL_STAGE3_LMDB_DIR}"
-else
-  LMDB_ROOT="${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_${CR_DISTILL_STAGE3_TAG}_step${HANDOFF_STEP}"
-fi
+GPU_IDS="${GPU_IDS:-0,1,2,3,4,5,6,7}"
+START_SEED="${START_SEED:-620000}"
+MODE="${1:-all}"
+
+RAW_ROOT="${CR_DISTILL_RAW_VIDEO_DIR_1K:-${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_1k}"
+LMDB_ROOT="${CR_DISTILL_CLEAN_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_1k}"
 PARTS_DIR="${LMDB_ROOT}/_parts"
-LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_distill_stage3_${CR_DISTILL_STAGE3_TAG}_step${HANDOFF_STEP}_multigpu}"
-OVERWRITE="${OVERWRITE:-0}"
+LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_distill_clean_14b_cfgdistill_1k_multigpu}"
+OVERWRITE_LMDB="${OVERWRITE_LMDB:-0}"
 MONITOR_INTERVAL="${MONITOR_INTERVAL:-30}"
 MONITOR_TAIL_LINES="${MONITOR_TAIL_LINES:-8}"
 
@@ -40,36 +29,32 @@ if (( NUM_GPUS < 1 )); then
   exit 2
 fi
 
-for path in "${SOURCE_LMDB}" "${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}" "${MODEL_ROOT}" "${CONFIG_JSON}"; do
-  if [[ ! -e "${path}" ]]; then
-    echo "Path not found: ${path}" >&2
-    exit 1
-  fi
-done
+if [[ "${MODE}" != "all" && "${MODE}" != "generate" && "${MODE}" != "lmdb" ]]; then
+  echo "Usage: bash changing_resolution_distill/scripts/data/build_clean_480p720p_14b_cfgdistill_lmdb_1k_multigpu.sh [all|generate|lmdb]" >&2
+  exit 2
+fi
 
-mkdir -p "${LMDB_ROOT}" "${PARTS_DIR}" "${LOG_DIR}"
+mkdir -p "${RAW_ROOT}" "${LMDB_ROOT}" "${PARTS_DIR}" "${LOG_DIR}"
 
-if [[ "${OVERWRITE}" == "1" ]]; then
+if [[ "${OVERWRITE_LMDB}" == "1" ]]; then
   find "${LMDB_ROOT}" -mindepth 1 -maxdepth 1 \( -name 'shard_*' -o -name '_parts' \) -exec rm -rf {} +
   mkdir -p "${PARTS_DIR}"
 fi
 
-echo "Multi-GPU Stage 3 14B CfgDistill x0-pred LMDB build"
+echo "Multi-GPU 14B CfgDistill clean-latent LMDB build"
 echo "  project      : ${PROJECT_ROOT}"
-echo "  source_lmdb  : ${SOURCE_LMDB}"
-echo "  lmdb_root    : ${LMDB_ROOT}"
+echo "  mode         : ${MODE}"
 echo "  total_samples: ${TOTAL_SAMPLES}"
-echo "  start_offset : ${START_OFFSET}"
-echo "  handoff_step : ${HANDOFF_STEP}"
-echo "  stage3_tag   : ${CR_DISTILL_STAGE3_TAG}"
-echo "  distill_id   : ${CR_DISTILL_MODEL_ID}"
-echo "  model        : ${MODEL_ROOT}"
 echo "  gpu_ids      : ${GPU_IDS}"
+echo "  raw_root     : ${RAW_ROOT}"
+echo "  lmdb_root    : ${LMDB_ROOT}"
 echo "  log_dir      : ${LOG_DIR}"
+
+bash "${PROJECT_ROOT}/changing_resolution_distill/scripts/data/build_clean_480p720p_14b_cfgdistill_lmdb_1k.sh" prompts
 
 base_count=$((TOTAL_SAMPLES / NUM_GPUS))
 remainder=$((TOTAL_SAMPLES % NUM_GPUS))
-offset="${START_OFFSET}"
+offset=0
 pids=()
 worker_names=()
 worker_logs=()
@@ -94,25 +79,22 @@ for rank in "${!GPUS[@]}"; do
 
   gpu="$(echo "${GPUS[$rank]}" | xargs)"
   part_name="$(printf "part_%02d" "${rank}")"
+  part_raw="${RAW_ROOT}/${part_name}"
   part_lmdb="${PARTS_DIR}/${part_name}"
+  part_seed=$((START_SEED + offset))
   log_path="${LOG_DIR}/${part_name}.log"
 
-  echo "Launch ${part_name}: gpu=${gpu}, offset=${offset}, count=${count}"
+  echo "Launch ${part_name}: gpu=${gpu}, offset=${offset}, count=${count}, seed=${part_seed}"
   (
     cd "${PROJECT_ROOT}"
     CUDA_VISIBLE_DEVICES="${gpu}" \
-    CR_STAGE2_LMDB_DIR="${SOURCE_LMDB}" \
-    CR_DISTILL_STAGE3_LMDB_DIR="${part_lmdb}" \
-    CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG}" \
-    CR_DISTILL_MODEL_ROOT="${CR_DISTILL_MODEL_ROOT}" \
-    CR_DISTILL_MODEL_ID="${CR_DISTILL_MODEL_ID}" \
-    MODEL_ROOT="${MODEL_ROOT}" \
-    CR_DISTILL_STAGE3_X0PRED_CONFIG="${CONFIG_JSON}" \
-    HANDOFF_STEP="${HANDOFF_STEP}" \
-    SAMPLE_OFFSET="${offset}" \
-    MAX_SAMPLES="${count}" \
-    OVERWRITE="${OVERWRITE}" \
-    bash changing_resolution_distill/scripts/data/build_x0pred_480p720p_stage3_distill_lmdb.sh
+    NUM_SAMPLES="${count}" \
+    PROMPT_OFFSET="${offset}" \
+    START_SEED="${part_seed}" \
+    CR_DISTILL_RAW_VIDEO_DIR_1K="${part_raw}" \
+    CR_DISTILL_CLEAN_LMDB_DIR="${part_lmdb}" \
+    OVERWRITE_LMDB="${OVERWRITE_LMDB}" \
+    bash changing_resolution_distill/scripts/data/build_clean_480p720p_14b_cfgdistill_lmdb_1k.sh "${MODE}"
   ) >"${log_path}" 2>&1 &
 
   pids+=("$!")
@@ -171,6 +153,11 @@ if (( failed != 0 )); then
   exit 1
 fi
 
+if [[ "${MODE}" == "generate" ]]; then
+  echo "Video generation finished. Raw videos are under: ${RAW_ROOT}"
+  exit 0
+fi
+
 echo "Merging part shards into ${LMDB_ROOT}"
 for part_dir in "${PARTS_DIR}"/part_*; do
   [[ -d "${part_dir}" ]] || continue
@@ -181,7 +168,7 @@ for part_dir in "${PARTS_DIR}"/part_*; do
     dst="${LMDB_ROOT}/shard_${part_base}_${shard_base#shard_}"
     if [[ -e "${dst}" ]]; then
       echo "Merged shard already exists: ${dst}" >&2
-      echo "Set OVERWRITE=1 to rebuild and merge from scratch." >&2
+      echo "Set OVERWRITE_LMDB=1 to rebuild and merge from scratch." >&2
       exit 1
     fi
     mv "${shard_dir}" "${dst}"
@@ -207,13 +194,15 @@ for shard in sorted(root.glob("shard_*")):
             raw = txn.get(b"metadata")
             if raw:
                 total += int(json.loads(raw.decode("utf-8"))["num_samples"])
+            else:
+                total += int(txn.get(b"num_samples").decode("utf-8"))
     finally:
         env.close()
 print(total)
 PY
 )"
 
-echo "Merged Stage 3 14B CfgDistill LMDB ready: ${LMDB_ROOT}"
+echo "Merged 14B CfgDistill clean LMDB ready: ${LMDB_ROOT}"
 echo "  shards : ${shard_count}"
 echo "  samples: ${sample_count}"
 

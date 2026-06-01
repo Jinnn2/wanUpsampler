@@ -29,6 +29,10 @@ changing_resolution_distill/
     train_x0pred_480p_to_720p_lmdb_stage3_distill.yaml
   scripts/
     bridge/run_lightx2v_distill_bridge_infer.py
+    data/generate_wan21_distill_720p_dataset.sh
+    data/build_clean_480p720p_14b_cfgdistill_lmdb_1k.sh
+    data/build_clean_480p720p_14b_cfgdistill_lmdb_1k_multigpu.sh
+    data/build_14b_cfgdistill_720p_clean_and_x0pred_lmdb_1k.sh
     data/build_x0pred_480p720p_stage3_distill_lmdb.py
     data/build_x0pred_480p720p_stage3_distill_lmdb.sh
     data/build_x0pred_480p720p_stage3_distill_lmdb_multigpu.sh
@@ -39,6 +43,23 @@ changing_resolution_distill/
 ```
 
 ## Build LMDB
+
+Full rebuild from new 14B CfgDistill 720p videos:
+
+```bash
+TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 STEPS=1,2,3 OVERWRITE_LMDB=1 OVERWRITE_X0PRED=1 \
+bash changing_resolution_distill/scripts/data/build_14b_cfgdistill_720p_clean_and_x0pred_lmdb_1k.sh all
+```
+
+This produces:
+
+```text
+data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_1k
+data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_1k
+data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_step1
+data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_step2
+data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_step3
+```
 
 ```bash
 HANDOFF_STEP=2 MAX_SAMPLES=32 OVERWRITE=1 \
@@ -62,7 +83,7 @@ bash changing_resolution_distill/scripts/data/build_x0pred_480p720p_stage3_disti
 Defaults:
 
 ```text
-source: data/changing_resolution/lmdb_480p720p_1k
+source: data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_1k
 output: data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_step2
 model_path: /mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill
 distill_model_id: lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill
