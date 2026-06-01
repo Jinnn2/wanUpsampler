@@ -13,7 +13,7 @@
   "cpu_offload": false,
   "feature_caching": "NoCaching",
   "denoising_step_list": [1000, 750, 500, 250],
-  "dit_original_ckpt": "lightx2v/Wan2.1-Distill-Models/wan2.1_t2v_14b_lightx2v_4step.safetensors",
+  "dit_original_ckpt": "lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt",
   "changing_resolution": true,
   "resolution_rate": [0.6666666667],
   "changing_resolution_steps": [2],
@@ -24,4 +24,3 @@
   "wan_clean_resizer_model_class": "stage2",
   "wan_clean_resizer_use_ema": true
 }
-

@@ -4,13 +4,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
+USER_MODEL_ROOT="${MODEL_ROOT:-}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
   source "${PATH_CONFIG}"
 fi
 
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
-MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
+CR_DISTILL_MODEL_ROOT="${CR_DISTILL_MODEL_ROOT:-/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
+MODEL_ROOT="${USER_MODEL_ROOT:-${CR_DISTILL_MODEL_ROOT}}"
 SOURCE_LMDB="${CR_STAGE2_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_480p720p_1k}"
 HANDOFF_STEP="${HANDOFF_STEP:-2}"
 OUT_DIR="${CR_DISTILL_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_distill_step${HANDOFF_STEP}}"

@@ -263,7 +263,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--mode", choices=["lightx2v_distill", "clean_copy"], default="lightx2v_distill")
     parser.add_argument("--lightx2v_repo", default=os.environ.get("LIGHTX2V_REPO"))
-    parser.add_argument("--model_path", default="/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B")
+    parser.add_argument(
+        "--model_path",
+        default=os.environ.get(
+            "CR_DISTILL_MODEL_ROOT",
+            "/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill",
+        ),
+    )
     parser.add_argument(
         "--config_json",
         default="changing_resolution_distill/configs/wan_t2v_distill_stage3_x0pred_480p.json",

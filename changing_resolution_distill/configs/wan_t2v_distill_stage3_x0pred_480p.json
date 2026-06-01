@@ -13,6 +13,5 @@
   "cpu_offload": false,
   "feature_caching": "NoCaching",
   "denoising_step_list": [1000, 750, 500, 250],
-  "dit_original_ckpt": "lightx2v/Wan2.1-Distill-Models/wan2.1_t2v_14b_lightx2v_4step.safetensors"
+  "dit_original_ckpt": "lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt"
 }
-

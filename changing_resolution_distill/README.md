@@ -55,12 +55,14 @@ Defaults:
 ```text
 source: data/changing_resolution/lmdb_480p720p_1k
 output: data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_distill_step2
+model_path: /mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill
 model_cls: wan2.1_distill
 infer_steps: 4
 denoising_step_list: 1000 750 500 250
 sample_shift: 5
 sample_guide_scale: 6
 config: changing_resolution_distill/configs/wan_t2v_distill_stage3_x0pred_480p.json
+dit_original_ckpt: lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt
 ```
 
 ## Train
