@@ -61,6 +61,9 @@ data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_step
 data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_step3
 ```
 
+Video generation uses a persistent LightX2V runner: each GPU worker loads the
+14B CfgDistill model once, then loops over its prompt shard.
+
 ```bash
 HANDOFF_STEP=2 MAX_SAMPLES=32 OVERWRITE=1 \
 bash changing_resolution_distill/scripts/data/build_x0pred_480p720p_stage3_distill_lmdb.sh

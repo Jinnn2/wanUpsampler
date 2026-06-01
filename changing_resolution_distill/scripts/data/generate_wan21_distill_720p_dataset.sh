@@ -67,40 +67,19 @@ dst.parent.mkdir(parents=True, exist_ok=True)
 dst.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 PY
 
-index=0
-prompt_index=0
-while IFS= read -r prompt || [[ -n "${prompt}" ]]; do
-  [[ -z "${prompt}" || "${prompt}" == \#* ]] && continue
-  if (( prompt_index < PROMPT_OFFSET )); then
-    prompt_index=$((prompt_index + 1))
-    continue
-  fi
-  if (( index >= MAX_PROMPTS )); then
-    break
-  fi
-
-  seed=$((START_SEED + index))
-  sample_id="$(printf "%06d" "$((PROMPT_OFFSET + index))")"
-  out_path="${OUT_DIR}/wan21_14b_cfgdistill_720p_${sample_id}_seed${seed}.mp4"
-
-  if [[ -f "${out_path}" ]] && ffprobe -v error "${out_path}" >/dev/null 2>&1; then
-    echo "Skip existing valid video: ${out_path}"
-  else
-    echo "Generating ${out_path}"
-    python -m lightx2v.infer \
-      --seed "${seed}" \
-      --model_cls wan2.1_distill \
-      --task t2v \
-      --model_path "${MODEL_ROOT}" \
-      --config_json "${RUNTIME_CONFIG}" \
-      --prompt "${prompt}" \
-      --negative_prompt "${NEGATIVE_PROMPT}" \
-      --save_result_path "${out_path}"
-  fi
-
-  index=$((index + 1))
-  prompt_index=$((prompt_index + 1))
-done < "${PROMPTS_FILE}"
+python "${PROJECT_ROOT}/changing_resolution_distill/scripts/data/generate_wan21_distill_720p_dataset.py" \
+  --seed "${START_SEED}" \
+  --model_cls wan2.1_distill \
+  --task t2v \
+  --model_path "${MODEL_ROOT}" \
+  --config_json "${RUNTIME_CONFIG}" \
+  --prompts_file "${PROMPTS_FILE}" \
+  --out_dir "${OUT_DIR}" \
+  --start_seed "${START_SEED}" \
+  --max_prompts "${MAX_PROMPTS}" \
+  --prompt_offset "${PROMPT_OFFSET}" \
+  --negative_prompt "${NEGATIVE_PROMPT}" \
+  --target_video_length "${NUM_FRAMES:-81}"
 
 count="$(find "${OUT_DIR}" -type f -name '*.mp4' | wc -l)"
 echo "Wan2.1 14B CfgDistill generated 720p dataset ready: ${OUT_DIR} (${count} mp4 files)"
