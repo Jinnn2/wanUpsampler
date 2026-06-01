@@ -10,10 +10,11 @@ if [[ -f "${PATH_CONFIG}" ]]; then
 fi
 
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
+CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill}"
 HANDOFF_STEP="${HANDOFF_STEP:-2}"
-LMDB_DIR="${CR_DISTILL_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_distill_step${HANDOFF_STEP}}"
+LMDB_DIR="${CR_DISTILL_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_${CR_DISTILL_STAGE3_TAG}_step${HANDOFF_STEP}}"
 CONFIG="${CR_DISTILL_STAGE3_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_x0pred_480p_to_720p_lmdb_stage3_distill.yaml}"
-OUT_DIR="${CR_DISTILL_STAGE3_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_x0pred_480p720p_stage3_distill_step${HANDOFF_STEP}_lmdb}"
+OUT_DIR="${CR_DISTILL_STAGE3_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_x0pred_480p720p_stage3_${CR_DISTILL_STAGE3_TAG}_step${HANDOFF_STEP}_lmdb}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 MAX_STEPS="${MAX_STEPS:-50000}"
@@ -121,4 +122,3 @@ case "${MODE}" in
     exit 2
     ;;
 esac
-

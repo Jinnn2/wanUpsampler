@@ -196,6 +196,10 @@ class LightX2VDistillX0PredGenerator:
         recipe = {
             "mode": "lightx2v_distill",
             "recipe": "distill_4step",
+            "distill_model_id": str(self.args.distill_model_id),
+            "model_path": str(self.args.model_path),
+            "config_json": str(self.args.config_json),
+            "dit_original_ckpt": str(self.config.get("dit_original_ckpt", "")),
             "model_cls": str(self.config["model_cls"]),
             "infer_steps": infer_steps,
             "denoising_step_list": list(self.args.denoising_step_list),
@@ -255,13 +259,18 @@ class LightX2VDistillX0PredGenerator:
 
 
 def parse_args() -> argparse.Namespace:
+    default_stage3_tag = os.environ.get("CR_DISTILL_STAGE3_TAG", "14b_cfgdistill")
     parser = argparse.ArgumentParser()
     parser.add_argument("--source_lmdb", default="data/changing_resolution/lmdb_480p720p_1k")
     parser.add_argument(
         "--out_dir",
-        default="data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_distill_step2",
+        default=f"data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_{default_stage3_tag}_step2",
     )
     parser.add_argument("--mode", choices=["lightx2v_distill", "clean_copy"], default="lightx2v_distill")
+    parser.add_argument(
+        "--distill_model_id",
+        default=os.environ.get("CR_DISTILL_MODEL_ID", "lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill"),
+    )
     parser.add_argument("--lightx2v_repo", default=os.environ.get("LIGHTX2V_REPO"))
     parser.add_argument(
         "--model_path",

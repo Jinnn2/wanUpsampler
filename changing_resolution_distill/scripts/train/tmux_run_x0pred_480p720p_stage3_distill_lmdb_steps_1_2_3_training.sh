@@ -9,6 +9,7 @@ SESSION_NAME="${SESSION_NAME:-wan_cr_distill_stage3_x0pred_steps_${STEP_TAG}_tra
 
 GPU_IDS="${GPU_IDS:-0,1,2}"
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
+CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill}"
 MAX_STEPS="${MAX_STEPS:-10000}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
 GRAD_ACCUM="${GRAD_ACCUM:-8}"
@@ -47,6 +48,7 @@ cd "${PROJECT_ROOT}"
 export PROJECT_ROOT="${PROJECT_ROOT}"
 export GPU_IDS="${GPU_IDS}"
 export LIGHTX2V_REPO="${LIGHTX2V_REPO}"
+export CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG}"
 export MAX_STEPS="${MAX_STEPS}"
 export BATCH_SIZE="${BATCH_SIZE}"
 export GRAD_ACCUM="${GRAD_ACCUM}"
@@ -63,6 +65,7 @@ echo "project     : ${PROJECT_ROOT}"
 echo "steps       : ${STEPS}"
 echo "gpu_ids     : ${GPU_IDS}"
 echo "max_steps   : ${MAX_STEPS}"
+echo "stage3_tag  : ${CR_DISTILL_STAGE3_TAG}"
 echo "run_log     : ${RUN_LOG}"
 echo "worker_logs : ${WORKER_LOG_DIR}/step_*.log"
 
@@ -104,8 +107,8 @@ for index in "\${!STEP_LIST[@]}"; do
     cd "${PROJECT_ROOT}"
     CUDA_VISIBLE_DEVICES="\${gpu}" \
     HANDOFF_STEP="\${step}" \
-    CR_DISTILL_STAGE3_LMDB_DIR="${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_distill_step\${step}" \
-    CR_DISTILL_STAGE3_OUT_DIR="${PROJECT_ROOT}/outputs/changing_resolution_distill_x0pred_480p720p_stage3_distill_step\${step}_lmdb" \
+    CR_DISTILL_STAGE3_LMDB_DIR="${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_${CR_DISTILL_STAGE3_TAG}_step\${step}" \
+    CR_DISTILL_STAGE3_OUT_DIR="${PROJECT_ROOT}/outputs/changing_resolution_distill_x0pred_480p720p_stage3_${CR_DISTILL_STAGE3_TAG}_step\${step}_lmdb" \
     bash changing_resolution_distill/scripts/train/run_x0pred_480p720p_stage3_distill_lmdb_training.sh train
   ) >"\${log_path}" 2>&1 &
 
@@ -149,4 +152,3 @@ echo "Started tmux session: ${SESSION_NAME}"
 echo "Attach with: tmux attach -t ${SESSION_NAME}"
 echo "Run log: ${RUN_LOG}"
 echo "Worker logs: ${WORKER_LOG_DIR}/step_*.log"
-

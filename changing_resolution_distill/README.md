@@ -16,6 +16,7 @@ clean LR latent z0_lr
 The first version deliberately reuses the existing Stage 2/Stage 3 resizer
 architecture and LMDB dataset reader. The main difference is the data recipe
 metadata: `stage3_recipe.mode=lightx2v_distill`, `model_cls=wan2.1_distill`,
+`distill_model_id=lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill`,
 `infer_steps=4`, and `denoising_step_list=[1000,750,500,250]`.
 
 ## Layout
@@ -30,6 +31,7 @@ changing_resolution_distill/
     bridge/run_lightx2v_distill_bridge_infer.py
     data/build_x0pred_480p720p_stage3_distill_lmdb.py
     data/build_x0pred_480p720p_stage3_distill_lmdb.sh
+    data/build_x0pred_480p720p_stage3_distill_lmdb_multigpu.sh
     data/tmux_build_x0pred_480p720p_stage3_distill_lmdb_steps_1_2_3.sh
     train/run_x0pred_480p720p_stage3_distill_lmdb_training.sh
     train/tmux_run_x0pred_480p720p_stage3_distill_lmdb_steps_1_2_3_training.sh
@@ -50,12 +52,20 @@ STEPS=1,2,3 TOTAL_SAMPLES=1000 OVERWRITE=1 \
 bash changing_resolution_distill/scripts/data/tmux_build_x0pred_480p720p_stage3_distill_lmdb_steps_1_2_3.sh
 ```
 
+Build one handoff step with multiple GPUs:
+
+```bash
+HANDOFF_STEP=2 TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 OVERWRITE=1 \
+bash changing_resolution_distill/scripts/data/build_x0pred_480p720p_stage3_distill_lmdb_multigpu.sh
+```
+
 Defaults:
 
 ```text
 source: data/changing_resolution/lmdb_480p720p_1k
-output: data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_distill_step2
+output: data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_step2
 model_path: /mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill
+distill_model_id: lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill
 model_cls: wan2.1_distill
 infer_steps: 4
 denoising_step_list: 1000 750 500 250
@@ -106,5 +116,5 @@ resolution idea of switching to a target-resolution noise bank.
 
 Use `configs/wan_t2v_distill_stage3_bridge_720p.example.json` as the starting
 point for a real infer config. Replace the `wan_clean_resizer_*` placeholder
-paths with the trained step checkpoint and local repo path before running
-`scripts/bridge/run_lightx2v_distill_bridge_infer.py`.
+paths with the trained `stage3_14b_cfgdistill` step checkpoint and local repo
+path before running `scripts/bridge/run_lightx2v_distill_bridge_infer.py`.
