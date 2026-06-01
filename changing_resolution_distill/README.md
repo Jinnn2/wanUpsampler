@@ -47,22 +47,38 @@ changing_resolution_distill/
 Full rebuild from new 14B CfgDistill 720p videos:
 
 ```bash
-TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 STEPS=1,2,3 OVERWRITE_LMDB=1 OVERWRITE_X0PRED=1 \
+TOTAL_SAMPLES=5000 GPU_IDS=0,1,2,3 STEPS=1,2,3 OVERWRITE_LMDB=1 OVERWRITE_X0PRED=1 \
 bash changing_resolution_distill/scripts/data/build_14b_cfgdistill_720p_clean_and_x0pred_lmdb_1k.sh all
 ```
 
 This produces:
 
 ```text
-data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_1k
-data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_1k
-data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_step1
-data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_step2
-data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_step3
+data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_5k
+data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_5k
+data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_5k_step1
+data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_5k_step2
+data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_5k_step3
 ```
 
 Video generation uses a persistent LightX2V runner: each GPU worker loads the
 14B CfgDistill model once, then loops over its prompt shard.
+
+To reuse an existing 1k raw-video dataset and only generate the remaining 4k:
+
+```bash
+TOTAL_SAMPLES=5000 GPU_IDS=0,1,2,3 \
+bash changing_resolution_distill/scripts/data/copy_14b_cfgdistill_1k_raw_to_5k.sh
+
+TOTAL_SAMPLES=5000 GPU_IDS=0,1,2,3 OVERWRITE_LMDB=0 \
+bash changing_resolution_distill/scripts/data/build_clean_480p720p_14b_cfgdistill_lmdb_1k_multigpu.sh generate
+
+TOTAL_SAMPLES=5000 GPU_IDS=0,1,2,3 OVERWRITE_LMDB=1 \
+bash changing_resolution_distill/scripts/data/build_clean_480p720p_14b_cfgdistill_lmdb_1k_multigpu.sh lmdb
+
+TOTAL_SAMPLES=5000 GPU_IDS=0,1,2,3 STEPS=1,2,3 OVERWRITE_X0PRED=1 \
+bash changing_resolution_distill/scripts/data/build_14b_cfgdistill_720p_clean_and_x0pred_lmdb_1k.sh x0pred
+```
 
 ```bash
 HANDOFF_STEP=2 MAX_SAMPLES=32 OVERWRITE=1 \
@@ -72,22 +88,22 @@ bash changing_resolution_distill/scripts/data/build_x0pred_480p720p_stage3_disti
 Build handoff steps 1/2/3 in one tmux session:
 
 ```bash
-STEPS=1,2,3 TOTAL_SAMPLES=1000 OVERWRITE=1 \
+STEPS=1,2,3 TOTAL_SAMPLES=5000 OVERWRITE=1 \
 bash changing_resolution_distill/scripts/data/tmux_build_x0pred_480p720p_stage3_distill_lmdb_steps_1_2_3.sh
 ```
 
 Build one handoff step with multiple GPUs:
 
 ```bash
-HANDOFF_STEP=2 TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 OVERWRITE=1 \
+HANDOFF_STEP=2 TOTAL_SAMPLES=5000 GPU_IDS=0,1,2,3 OVERWRITE=1 \
 bash changing_resolution_distill/scripts/data/build_x0pred_480p720p_stage3_distill_lmdb_multigpu.sh
 ```
 
 Defaults:
 
 ```text
-source: data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_1k
-output: data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_step2
+source: data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_5k
+output: data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_14b_cfgdistill_5k_step2
 model_path: /mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill
 distill_model_id: lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill
 model_cls: wan2.1_distill
@@ -140,5 +156,5 @@ resolution idea of switching to a target-resolution noise bank.
 
 Use `configs/wan_t2v_distill_stage3_bridge_720p.example.json` as the starting
 point for a real infer config. Replace the `wan_clean_resizer_*` placeholder
-paths with the trained `stage3_14b_cfgdistill` step checkpoint and local repo
+paths with the trained `stage3_14b_cfgdistill_5k` step checkpoint and local repo
 path before running `scripts/bridge/run_lightx2v_distill_bridge_infer.py`.

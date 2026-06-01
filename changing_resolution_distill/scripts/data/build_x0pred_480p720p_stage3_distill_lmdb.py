@@ -259,13 +259,13 @@ class LightX2VDistillX0PredGenerator:
 
 
 def parse_args() -> argparse.Namespace:
-    default_stage3_tag = os.environ.get("CR_DISTILL_STAGE3_TAG", "14b_cfgdistill")
+    default_stage3_tag = os.environ.get("CR_DISTILL_STAGE3_TAG", "14b_cfgdistill_5k")
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--source_lmdb",
         default=os.environ.get(
             "CR_DISTILL_CLEAN_LMDB_DIR",
-            "data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_1k",
+            "data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_5k",
         ),
     )
     parser.add_argument(

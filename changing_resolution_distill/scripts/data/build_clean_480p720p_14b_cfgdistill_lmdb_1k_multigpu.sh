@@ -9,15 +9,16 @@ if [[ -f "${PATH_CONFIG}" ]]; then
   source "${PATH_CONFIG}"
 fi
 
-TOTAL_SAMPLES="${TOTAL_SAMPLES:-1000}"
+TOTAL_SAMPLES="${TOTAL_SAMPLES:-5000}"
 GPU_IDS="${GPU_IDS:-0,1,2,3,4,5,6,7}"
 START_SEED="${START_SEED:-620000}"
+START_OFFSET="${START_OFFSET:-0}"
 MODE="${1:-all}"
 
-RAW_ROOT="${CR_DISTILL_RAW_VIDEO_DIR_1K:-${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_1k}"
-LMDB_ROOT="${CR_DISTILL_CLEAN_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_1k}"
+RAW_ROOT="${CR_DISTILL_RAW_VIDEO_DIR_1K:-${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_5k}"
+LMDB_ROOT="${CR_DISTILL_CLEAN_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_5k}"
 PARTS_DIR="${LMDB_ROOT}/_parts"
-LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_distill_clean_14b_cfgdistill_1k_multigpu}"
+LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_distill_clean_14b_cfgdistill_5k_multigpu}"
 OVERWRITE_LMDB="${OVERWRITE_LMDB:-0}"
 MONITOR_INTERVAL="${MONITOR_INTERVAL:-30}"
 MONITOR_TAIL_LINES="${MONITOR_TAIL_LINES:-8}"
@@ -45,6 +46,7 @@ echo "Multi-GPU 14B CfgDistill clean-latent LMDB build"
 echo "  project      : ${PROJECT_ROOT}"
 echo "  mode         : ${MODE}"
 echo "  total_samples: ${TOTAL_SAMPLES}"
+echo "  start_offset : ${START_OFFSET}"
 echo "  gpu_ids      : ${GPU_IDS}"
 echo "  raw_root     : ${RAW_ROOT}"
 echo "  lmdb_root    : ${LMDB_ROOT}"
@@ -54,7 +56,7 @@ bash "${PROJECT_ROOT}/changing_resolution_distill/scripts/data/build_clean_480p7
 
 base_count=$((TOTAL_SAMPLES / NUM_GPUS))
 remainder=$((TOTAL_SAMPLES % NUM_GPUS))
-offset=0
+offset="${START_OFFSET}"
 pids=()
 worker_names=()
 worker_logs=()
@@ -206,7 +208,8 @@ echo "Merged 14B CfgDistill clean LMDB ready: ${LMDB_ROOT}"
 echo "  shards : ${shard_count}"
 echo "  samples: ${sample_count}"
 
-if (( sample_count != TOTAL_SAMPLES )); then
-  echo "Expected ${TOTAL_SAMPLES} samples, got ${sample_count}" >&2
+expected_samples=$((START_OFFSET + TOTAL_SAMPLES))
+if (( sample_count != expected_samples )); then
+  echo "Expected ${expected_samples} samples, got ${sample_count}" >&2
   exit 1
 fi

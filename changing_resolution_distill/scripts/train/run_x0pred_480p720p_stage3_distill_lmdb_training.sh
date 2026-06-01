@@ -10,7 +10,7 @@ if [[ -f "${PATH_CONFIG}" ]]; then
 fi
 
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
-CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill}"
+CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill_5k}"
 HANDOFF_STEP="${HANDOFF_STEP:-2}"
 LMDB_DIR="${CR_DISTILL_STAGE3_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_${CR_DISTILL_STAGE3_TAG}_step${HANDOFF_STEP}}"
 CONFIG="${CR_DISTILL_STAGE3_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_x0pred_480p_to_720p_lmdb_stage3_distill.yaml}"

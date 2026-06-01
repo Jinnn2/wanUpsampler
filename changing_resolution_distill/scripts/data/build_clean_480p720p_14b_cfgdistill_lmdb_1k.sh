@@ -18,10 +18,10 @@ VAE_PATH="${CR_DISTILL_VAE_PATH:-${MODEL_ROOT}/Wan2.1_VAE.pth}"
 
 PROMPTS_DIR="${PROMPTS_DIR:-${PROJECT_ROOT}/prompts}"
 PROMPTS_FILE="${CR_HF_PROMPTS_FILE:-${PROMPTS_DIR}/vidprom_filtered_extended.txt}"
-RAW_VIDEO_DIR="${CR_DISTILL_RAW_VIDEO_DIR_1K:-${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_1k}"
-LMDB_DIR="${CR_DISTILL_CLEAN_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_1k}"
+RAW_VIDEO_DIR="${CR_DISTILL_RAW_VIDEO_DIR_1K:-${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_5k}"
+LMDB_DIR="${CR_DISTILL_CLEAN_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_5k}"
 
-NUM_SAMPLES="${NUM_SAMPLES:-1000}"
+NUM_SAMPLES="${NUM_SAMPLES:-5000}"
 START_SEED="${START_SEED:-620000}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 

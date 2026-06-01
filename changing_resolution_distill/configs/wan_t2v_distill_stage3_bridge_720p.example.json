@@ -19,7 +19,7 @@
   "changing_resolution_steps": [2],
   "wan_distill_bridge_renoise_mode": "resize_flow",
   "wan_clean_resizer_repo": "/path/to/wanUpsampler",
-  "wan_clean_resizer_ckpt": "/path/to/outputs/changing_resolution_distill_x0pred_480p720p_stage3_14b_cfgdistill_step2_lmdb/latest.pt",
+  "wan_clean_resizer_ckpt": "/path/to/outputs/changing_resolution_distill_x0pred_480p720p_stage3_14b_cfgdistill_5k_step2_lmdb/latest.pt",
   "wan_clean_resizer_train_config": "/path/to/wanUpsampler/changing_resolution_distill/configs/train_x0pred_480p_to_720p_lmdb_stage3_distill.yaml",
   "wan_clean_resizer_model_class": "stage2",
   "wan_clean_resizer_use_ema": true

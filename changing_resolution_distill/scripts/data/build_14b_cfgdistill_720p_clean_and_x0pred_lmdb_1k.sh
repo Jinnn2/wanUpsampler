@@ -10,13 +10,13 @@ if [[ -f "${PATH_CONFIG}" ]]; then
 fi
 
 MODE="${1:-all}"
-TOTAL_SAMPLES="${TOTAL_SAMPLES:-1000}"
+TOTAL_SAMPLES="${TOTAL_SAMPLES:-5000}"
 GPU_IDS="${GPU_IDS:-0,1,2,3,4,5,6,7}"
 STEPS="${STEPS:-1,2,3}"
 OVERWRITE_LMDB="${OVERWRITE_LMDB:-0}"
 OVERWRITE_X0PRED="${OVERWRITE_X0PRED:-0}"
-CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill}"
-CR_DISTILL_CLEAN_LMDB_DIR="${CR_DISTILL_CLEAN_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_1k}"
+CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill_5k}"
+CR_DISTILL_CLEAN_LMDB_DIR="${CR_DISTILL_CLEAN_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_5k}"
 
 case "${MODE}" in
   all|generate|clean|x0pred)

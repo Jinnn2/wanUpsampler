@@ -185,7 +185,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompts_file", type=Path, required=True)
     parser.add_argument("--out_dir", type=Path, required=True)
     parser.add_argument("--start_seed", type=int, default=620000)
-    parser.add_argument("--max_prompts", type=int, default=1000)
+    parser.add_argument("--max_prompts", type=int, default=5000)
     parser.add_argument("--prompt_offset", type=int, default=0)
     parser.add_argument("--negative_prompt", default="")
     parser.add_argument("--target_video_length", type=int, default=81)
