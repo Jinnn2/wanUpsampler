@@ -222,3 +222,24 @@ class WanDistillCleanResizerBridgeRunner(WanDistillRunner):
         if hasattr(self.scheduler, "set_clean_latent_resizer"):
             self.scheduler.set_clean_latent_resizer(self.clean_latent_resizer)
 
+
+@RUNNER_REGISTER("wan2.1_distill_interp_bridge")
+class WanDistillInterpBridgeRunner(WanDistillRunner):
+    """WAN 4-step distill changing-resolution runner with trilinear clean-latent resize."""
+
+    def __init__(self, config):
+        super().__init__(config)
+        self._validate_interp_config()
+
+    def _validate_interp_config(self):
+        if self.config["task"] != "t2v":
+            raise NotImplementedError("wan2.1_distill_interp_bridge currently only supports t2v.")
+        if len(self.config.get("resolution_rate", [])) != 1:
+            raise ValueError("wan2.1_distill_interp_bridge expects exactly one lowres->highres stage.")
+        if len(self.config.get("changing_resolution_steps", [])) != 1:
+            raise ValueError("wan2.1_distill_interp_bridge expects exactly one changing_resolution step.")
+
+    def init_scheduler(self):
+        if self.config["feature_caching"] != "NoCaching":
+            raise NotImplementedError("wan2.1_distill_interp_bridge currently supports only NoCaching.")
+        self.scheduler = WanStepDistillScheduler4CleanResizerBridge(self.config)
