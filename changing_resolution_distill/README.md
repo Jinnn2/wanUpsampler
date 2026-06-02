@@ -129,6 +129,12 @@ STEPS=1,2,3 GPU_IDS=0,1,2 MAX_STEPS=10000 \
 bash changing_resolution_distill/scripts/train/tmux_run_x0pred_480p720p_stage3_distill_lmdb_steps_1_2_3_training.sh
 ```
 
+For the current 5k 14B CfgDistill dataset, the dedicated 10k-step launcher is:
+
+```bash
+bash changing_resolution_distill/scripts/train/tmux_run_x0pred_480p720p_stage3_distill_5k_10k_steps_1_2_3_training.sh
+```
+
 The trainer is still the existing Stage 3 trainer. The distill wrapper passes
 `--denoise_step ${HANDOFF_STEP}` so the current LMDB metadata guard keeps the
 handoff-step data and checkpoint aligned.
