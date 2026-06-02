@@ -18,7 +18,7 @@ TRAIN_CONFIG="${TRAIN_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/config
 CHECKPOINT="${CHECKPOINT:-${PROJECT_ROOT}/outputs/changing_resolution_distill_x0pred_480p720p_stage3_${CR_DISTILL_STAGE3_TAG}_step2_lmdb/latest.pt}"
 OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_stage3_step2_compare}"
 
-LIMIT="${LIMIT:-1}"
+LIMIT="${LIMIT:-10}"
 PROMPT_OFFSET="${PROMPT_OFFSET:-0}"
 START_SEED="${START_SEED:-9300}"
 CHANGE_STEP="${CHANGE_STEP:-2}"
