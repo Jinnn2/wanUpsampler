@@ -169,6 +169,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--grad_accum", type=int)
     parser.add_argument("--lr", type=float)
     parser.add_argument("--max_steps", type=int)
+    parser.add_argument("--ema_decay", type=float)
     parser.add_argument("--precision", choices=["fp32", "bf16", "fp16"])
     parser.add_argument("--no_residual_skip", action="store_true")
     return parser.parse_args()
@@ -231,7 +232,7 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
             config["model"][key] = value
     if args.no_residual_skip:
         config["model"]["residual_skip"] = False
-    for key in ("batch_size", "grad_accum", "lr", "max_steps", "precision"):
+    for key in ("batch_size", "grad_accum", "lr", "max_steps", "ema_decay", "precision"):
         value = getattr(args, key)
         if value is not None:
             config["train"][key] = value

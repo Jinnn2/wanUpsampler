@@ -79,7 +79,7 @@ class WanStepDistillScheduler4CleanResizerBridge(WanStepDistillScheduler):
             return
 
         sigma_next = self.sigmas[self.step_index + 1].to(device=sample.device, dtype=torch.float32)
-        renoise_mode = self.config.get("wan_distill_bridge_renoise_mode", "resize_flow")
+        renoise_mode = self.config.get("wan_distill_bridge_renoise_mode", "random")
         if renoise_mode == "resize_flow":
             flow_hr = torch.nn.functional.interpolate(
                 flow_pred.unsqueeze(0),

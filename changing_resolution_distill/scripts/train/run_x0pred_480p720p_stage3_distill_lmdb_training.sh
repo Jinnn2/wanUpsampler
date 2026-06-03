@@ -21,6 +21,7 @@ MAX_STEPS="${MAX_STEPS:-50000}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
 GRAD_ACCUM="${GRAD_ACCUM:-8}"
 LR="${LR:-1e-4}"
+EMA_DECAY="${EMA_DECAY:-}"
 PRECISION="${PRECISION:-bf16}"
 HIDDEN_CHANNELS="${HIDDEN_CHANNELS:-256}"
 NUM_RES_BLOCKS="${NUM_RES_BLOCKS:-8}"
@@ -81,6 +82,11 @@ train_stage3_distill() {
     residual_args=(--no_residual_skip)
   fi
 
+  local ema_args=()
+  if [[ -n "${EMA_DECAY}" ]]; then
+    ema_args=(--ema_decay "${EMA_DECAY}")
+  fi
+
   echo "Stage 3 distill x0-pred latent LMDB training"
   echo "  project      : ${PROJECT_ROOT}"
   echo "  lmdb         : ${LMDB_DIR}"
@@ -89,6 +95,7 @@ train_stage3_distill() {
   echo "  handoff_step : ${HANDOFF_STEP}"
   echo "  gpu          : ${CUDA_VISIBLE_DEVICES}"
   echo "  steps        : ${MAX_STEPS}"
+  echo "  ema_decay    : ${EMA_DECAY:-config default}"
 
   python "${PROJECT_ROOT}/changing_resolution/scripts/train/train_x0pred_latent_resizer_stage3.py" \
     --config "${CONFIG}" \
@@ -102,6 +109,7 @@ train_stage3_distill() {
     --grad_accum "${GRAD_ACCUM}" \
     --lr "${LR}" \
     --max_steps "${MAX_STEPS}" \
+    "${ema_args[@]}" \
     --precision "${PRECISION}" \
     "${residual_args[@]}" \
     "${resume_args[@]}"

@@ -156,9 +156,10 @@ random      : x_next_hr = (1 - sigma_next) * x0_hr + sigma_next * fixed_hr_noise
 resize_flow : x_next_hr = x0_hr + sigma_next * trilinear_resize(flow_pred_lr)
 ```
 
-`resize_flow` preserves the distill step-post shape more closely, while
-`random` is a conservative baseline aligned with the original changing
-resolution idea of switching to a target-resolution noise bank.
+`random` is the default and mirrors the non-distill bridge contract: infer the
+current clean `x0`, resize only that clean latent, then re-noise with the
+target-resolution noise bank. `resize_flow` is kept as an explicit ablation mode
+for experiments that intentionally resize the predicted flow.
 
 Use `configs/wan_t2v_distill_stage3_bridge_720p.example.json` as the starting
 point for a real infer config. Replace the `wan_clean_resizer_*` placeholder
