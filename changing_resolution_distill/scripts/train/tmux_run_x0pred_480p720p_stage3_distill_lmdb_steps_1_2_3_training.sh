@@ -20,6 +20,7 @@ HIDDEN_CHANNELS="${HIDDEN_CHANNELS:-256}"
 NUM_RES_BLOCKS="${NUM_RES_BLOCKS:-8}"
 SCALE_FACTOR="${SCALE_FACTOR:-1.5}"
 NO_RESIDUAL_SKIP="${NO_RESIDUAL_SKIP:-true}"
+AUTO_RESUME="${AUTO_RESUME:-1}"
 
 TMUX_LOG_DIR="${TMUX_LOG_DIR:-${PROJECT_ROOT}/logs}"
 WORKER_LOG_DIR="${WORKER_LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_distill_stage3_x0pred_steps_${STEP_TAG}_train}"
@@ -60,6 +61,7 @@ export HIDDEN_CHANNELS="${HIDDEN_CHANNELS}"
 export NUM_RES_BLOCKS="${NUM_RES_BLOCKS}"
 export SCALE_FACTOR="${SCALE_FACTOR}"
 export NO_RESIDUAL_SKIP="${NO_RESIDUAL_SKIP}"
+export AUTO_RESUME="${AUTO_RESUME}"
 export WORKER_LOG_DIR="${WORKER_LOG_DIR}"
 
 echo "tmux session: ${SESSION_NAME}"
@@ -69,6 +71,7 @@ echo "gpu_ids     : ${GPU_IDS}"
 echo "max_steps   : ${MAX_STEPS}"
 echo "ema_decay   : ${EMA_DECAY:-config default}"
 echo "stage3_tag  : ${CR_DISTILL_STAGE3_TAG}"
+echo "auto_resume : ${AUTO_RESUME}"
 echo "run_log     : ${RUN_LOG}"
 echo "worker_logs : ${WORKER_LOG_DIR}/step_*.log"
 
@@ -105,13 +108,22 @@ for index in "\${!STEP_LIST[@]}"; do
   fi
 
   log_path="${WORKER_LOG_DIR}/step_\${step}_gpu_\${gpu}.log"
+  out_dir="${PROJECT_ROOT}/outputs/changing_resolution_distill_x0pred_480p720p_stage3_${CR_DISTILL_STAGE3_TAG}_step\${step}_lmdb"
+  resume_path=""
+  if [[ "${AUTO_RESUME}" == "1" && -f "\${out_dir}/latest.pt" ]]; then
+    resume_path="\${out_dir}/latest.pt"
+  fi
   echo "Launch distill step \${step}: gpu=\${gpu}, log=\${log_path}"
+  if [[ -n "\${resume_path}" ]]; then
+    echo "  resume=\${resume_path}"
+  fi
   (
     cd "${PROJECT_ROOT}"
     CUDA_VISIBLE_DEVICES="\${gpu}" \
     HANDOFF_STEP="\${step}" \
     CR_DISTILL_STAGE3_LMDB_DIR="${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_x0pred_480p720p_stage3_${CR_DISTILL_STAGE3_TAG}_step\${step}" \
-    CR_DISTILL_STAGE3_OUT_DIR="${PROJECT_ROOT}/outputs/changing_resolution_distill_x0pred_480p720p_stage3_${CR_DISTILL_STAGE3_TAG}_step\${step}_lmdb" \
+    CR_DISTILL_STAGE3_OUT_DIR="\${out_dir}" \
+    RESUME="\${resume_path}" \
     bash changing_resolution_distill/scripts/train/run_x0pred_480p720p_stage3_distill_lmdb_training.sh train
   ) >"\${log_path}" 2>&1 &
 
