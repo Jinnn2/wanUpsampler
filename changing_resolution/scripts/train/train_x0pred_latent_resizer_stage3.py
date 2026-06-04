@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import random
 import shutil
 import sys
@@ -32,7 +33,7 @@ def main() -> None:
 
     set_seed(int(config["train"].get("seed", 1234)))
     torch.set_float32_matmul_precision("high")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_training_device()
 
     out_dir = Path(config["out_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -273,6 +274,19 @@ def validate_stage3_denoise_step(dataset: Dataset, config: dict, max_checks: int
             f"but found {preview}. Use the matching --data_dir or rebuild LMDB with DENOISE_STEP={expected}."
         )
     print(f"validated Stage 3 LMDB denoise_step={expected} on {checked} sample(s)", flush=True)
+
+
+def get_training_device() -> torch.device:
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if os.environ.get("ALLOW_CPU_TRAINING") == "1":
+        print("WARNING: CUDA is unavailable; ALLOW_CPU_TRAINING=1 so Stage 3 training will run on CPU.", flush=True)
+        return torch.device("cpu")
+    raise RuntimeError(
+        "CUDA is unavailable, refusing to run Stage 3 training on CPU. "
+        "Check NVIDIA driver / CUDA-compatible PyTorch / CUDA_VISIBLE_DEVICES. "
+        "Set ALLOW_CPU_TRAINING=1 only for tiny smoke tests."
+    )
 
 
 def select_low_freq_reference(
