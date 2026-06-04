@@ -15,7 +15,15 @@ DIT_CKPT="${CR_DISTILL_DIT_CKPT:-${MODEL_ROOT}/distill_model.pt}"
 PROMPTS_FILE="${PROMPTS_FILE:-${CR_PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_generate_720p_prompts.txt}}"
 CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill_5k}"
 TRAIN_CONFIG="${TRAIN_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_x0pred_480p_to_720p_lmdb_stage3_distill.yaml}"
-CHECKPOINT="${CHECKPOINT:-${PROJECT_ROOT}/outputs/changing_resolution_distill_x0pred_480p720p_stage3_${CR_DISTILL_STAGE3_TAG}_step2_lmdb/latest.pt}"
+DEFAULT_CHECKPOINT_DIR="${PROJECT_ROOT}/outputs/changing_resolution_distill_x0pred_480p720p_stage3_${CR_DISTILL_STAGE3_TAG}_step2_lmdb"
+CHECKPOINT="${CHECKPOINT:-}"
+if [[ -z "${CHECKPOINT}" ]]; then
+  if [[ -f "${DEFAULT_CHECKPOINT_DIR}/best_val.pt" ]]; then
+    CHECKPOINT="${DEFAULT_CHECKPOINT_DIR}/best_val.pt"
+  else
+    CHECKPOINT="${DEFAULT_CHECKPOINT_DIR}/latest.pt"
+  fi
+fi
 OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_stage3_step2_compare}"
 
 LIMIT="${LIMIT:-10}"

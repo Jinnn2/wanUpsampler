@@ -15,13 +15,12 @@ DIT_CKPT="${CR_DISTILL_DIT_CKPT:-${MODEL_ROOT}/distill_model.pt}"
 PROMPTS_FILE="${PROMPTS_FILE:-${CR_PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_generate_720p_prompts.txt}}"
 CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill_5k}"
 TRAIN_CONFIG="${TRAIN_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_x0pred_480p_to_720p_lmdb_stage3_distill.yaml}"
-OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_stage3_steps_1_2_3_compare}"
+OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_stage3_steps_1_2_3_raw_ema_compare}"
 
 MODEL_STEPS="${MODEL_STEPS:-1 2 3}"
-INTERP_CHANGE_STEP="${INTERP_CHANGE_STEP:-2}"
 LIMIT="${LIMIT:-10}"
 PROMPT_OFFSET="${PROMPT_OFFSET:-0}"
-START_SEED="${START_SEED:-9400}"
+START_SEED="${START_SEED:-9500}"
 HR_H="${HR_H:-720}"
 HR_W="${HR_W:-1248}"
 LR_H="${LR_H:-480}"
@@ -33,7 +32,6 @@ GUIDE_SCALE="${GUIDE_SCALE:-6}"
 SAMPLE_SHIFT="${SAMPLE_SHIFT:-5}"
 DENOISING_STEP_LIST="${DENOISING_STEP_LIST:-1000 750 500 250}"
 PRECISION="${PRECISION:-bf16}"
-USE_EMA="${USE_EMA:-1}"
 SKIP_EXISTING="${SKIP_EXISTING:-1}"
 NEGATIVE_PROMPT="${NEGATIVE_PROMPT:-}"
 RENOISE_MODE="${RENOISE_MODE:-random}"
@@ -88,14 +86,12 @@ if [[ "${#model_steps[@]}" -ne 3 ]]; then
 fi
 MODEL_STEP_TAG="${MODEL_STEPS_NORMALIZED// /_}"
 
-for step in "${INTERP_CHANGE_STEP}" "${model_steps[@]}"; do
+for step in "${model_steps[@]}"; do
   if (( step < 1 || step > INFER_STEPS )); then
     echo "Invalid change step ${step}; must be in [1, ${INFER_STEPS}]." >&2
     exit 2
   fi
-done
 
-for step in "${model_steps[@]}"; do
   var_name="CHECKPOINT_STEP_${step}"
   checkpoint="$(resolve_checkpoint_for_step "${step}")"
   if [[ ! -f "${checkpoint}" ]]; then
@@ -105,9 +101,9 @@ for step in "${model_steps[@]}"; do
   fi
 done
 
-mkdir -p "${OUT_DIR}"/{configs,low480,interp720,panels,compare}
+mkdir -p "${OUT_DIR}"/{configs,panels,compare}
 for step in "${model_steps[@]}"; do
-  mkdir -p "${OUT_DIR}/stage3_step${step}"
+  mkdir -p "${OUT_DIR}/stage3_step${step}_raw" "${OUT_DIR}/stage3_step${step}_ema"
 done
 
 mapfile -t prompts < <(grep -v '^[[:space:]]*$' "${PROMPTS_FILE}" | grep -v '^[[:space:]]*#' | tail -n +"$((PROMPT_OFFSET + 1))" | head -n "${LIMIT}")
@@ -117,25 +113,21 @@ if [[ "${#prompts[@]}" -eq 0 ]]; then
 fi
 
 RATE="$(python -c "print(${LR_H} / ${HR_H})")"
-BRIDGE_USE_EMA=false
-if [[ "${USE_EMA}" == "1" ]]; then
-  BRIDGE_USE_EMA=true
-fi
 
 write_config() {
   local output="$1"
-  local mode="$2"
-  local change_step="${3:-${INTERP_CHANGE_STEP}}"
-  local checkpoint="${4:-}"
-  python - "$output" "$mode" "$change_step" "$checkpoint" <<'PY'
+  local change_step="$2"
+  local checkpoint="$3"
+  local use_ema="$4"
+  python - "$output" "$change_step" "$checkpoint" "$use_ema" <<'PY'
 import json
 import os
 import sys
 
 path = sys.argv[1]
-mode = sys.argv[2]
-change_step = int(sys.argv[3])
-checkpoint = sys.argv[4]
+change_step = int(sys.argv[2])
+checkpoint = sys.argv[3]
+use_ema = sys.argv[4].lower() == "true"
 denoising_steps = [int(x) for x in os.environ["DENOISING_STEP_LIST"].replace(",", " ").split()]
 cfg = {
     "infer_steps": int(os.environ["INFER_STEPS"]),
@@ -153,36 +145,22 @@ cfg = {
     "feature_caching": "NoCaching",
     "denoising_step_list": denoising_steps,
     "dit_original_ckpt": os.environ["DIT_CKPT"],
+    "changing_resolution": True,
+    "resolution_rate": [float(os.environ["RATE"])],
+    "changing_resolution_steps": [change_step],
+    "wan_distill_bridge_renoise_mode": os.environ["RENOISE_MODE"],
+    "wan_clean_resizer_repo": os.environ["PROJECT_ROOT"],
+    "wan_clean_resizer_ckpt": checkpoint,
+    "wan_clean_resizer_train_config": os.environ["TRAIN_CONFIG"],
+    "wan_clean_resizer_model_class": "stage2",
+    "wan_clean_resizer_use_ema": use_ema,
 }
 
-if mode == "low480":
-    cfg.update({"target_height": int(os.environ["LR_H"]), "target_width": int(os.environ["LR_W"])})
-elif mode in {"interp", "stage3"}:
-    cfg.update(
-        {
-            "changing_resolution": True,
-            "resolution_rate": [float(os.environ["RATE"])],
-            "changing_resolution_steps": [change_step],
-            "wan_distill_bridge_renoise_mode": os.environ["RENOISE_MODE"],
-        }
-    )
-    if mode == "stage3":
-        cfg.update(
-            {
-                "wan_clean_resizer_repo": os.environ["PROJECT_ROOT"],
-                "wan_clean_resizer_ckpt": checkpoint,
-                "wan_clean_resizer_train_config": os.environ["TRAIN_CONFIG"],
-                "wan_clean_resizer_model_class": "stage2",
-                "wan_clean_resizer_use_ema": os.environ["BRIDGE_USE_EMA"].lower() == "true",
-            }
-        )
-        residual_skip = os.environ["STAGE3_RESIDUAL_SKIP"].lower()
-        if residual_skip not in {"checkpoint", "on", "off", "true", "false", "1", "0"}:
-            raise SystemExit("STAGE3_RESIDUAL_SKIP must be checkpoint, on/off, true/false, or 1/0")
-        if residual_skip != "checkpoint":
-            cfg["wan_clean_resizer_residual_skip"] = residual_skip in {"on", "true", "1"}
-else:
-    raise SystemExit(f"unknown mode: {mode}")
+residual_skip = os.environ["STAGE3_RESIDUAL_SKIP"].lower()
+if residual_skip not in {"checkpoint", "on", "off", "true", "false", "1", "0"}:
+    raise SystemExit("STAGE3_RESIDUAL_SKIP must be checkpoint, on/off, true/false, or 1/0")
+if residual_skip != "checkpoint":
+    cfg["wan_clean_resizer_residual_skip"] = residual_skip in {"on", "true", "1"}
 
 with open(path, "w", encoding="utf-8") as f:
     json.dump(cfg, f, ensure_ascii=False, indent=2)
@@ -190,18 +168,17 @@ PY
 }
 
 run_infer() {
-  local model_cls="$1"
-  local config_json="$2"
-  local prompt="$3"
-  local seed="$4"
-  local output="$5"
+  local config_json="$1"
+  local prompt="$2"
+  local seed="$3"
+  local output="$4"
   if [[ "${SKIP_EXISTING}" == "1" && -s "${output}" ]]; then
     echo "skip existing: ${output}"
     return
   fi
   python "${PROJECT_ROOT}/changing_resolution_distill/scripts/bridge/run_lightx2v_distill_bridge_infer.py" \
     --seed "${seed}" \
-    --model_cls "${model_cls}" \
+    --model_cls "wan2.1_distill_clean_resizer_bridge" \
     --task t2v \
     --model_path "${MODEL_ROOT}" \
     --config_json "${config_json}" \
@@ -219,7 +196,7 @@ make_labeled_panel() {
     -an -c:v libx264 -pix_fmt yuv420p -crf 18 "${output}"
 }
 
-export PROJECT_ROOT TRAIN_CONFIG RATE DIT_CKPT DENOISING_STEP_LIST INFER_STEPS NUM_FRAMES GUIDE_SCALE SAMPLE_SHIFT BRIDGE_USE_EMA HR_H HR_W LR_H LR_W RENOISE_MODE STAGE3_RESIDUAL_SKIP
+export PROJECT_ROOT TRAIN_CONFIG RATE DIT_CKPT DENOISING_STEP_LIST INFER_STEPS NUM_FRAMES GUIDE_SCALE SAMPLE_SHIFT HR_H HR_W RENOISE_MODE STAGE3_RESIDUAL_SKIP
 
 index=0
 for prompt in "${prompts[@]}"; do
@@ -230,40 +207,34 @@ for prompt in "${prompts[@]}"; do
   echo "[$((index + 1))/${#prompts[@]}] sample=${sample_id}"
   echo "${prompt}"
 
-  cfg_low="${OUT_DIR}/configs/${sample_id}_low480.json"
-  out_low="${OUT_DIR}/low480/${sample_id}_low480.mp4"
-  panel_low="${OUT_DIR}/panels/${sample_id}_panel_low480.mp4"
-  write_config "${cfg_low}" "low480"
-  run_infer "wan2.1_distill" "${cfg_low}" "${prompt}" "${seed}" "${out_low}"
-  make_labeled_panel "${out_low}" "${panel_low}" "no switch 480"
-
-  cfg_interp="${OUT_DIR}/configs/${sample_id}_interp_step${INTERP_CHANGE_STEP}.json"
-  out_interp="${OUT_DIR}/interp720/${sample_id}_interp_step${INTERP_CHANGE_STEP}.mp4"
-  panel_interp="${OUT_DIR}/panels/${sample_id}_panel_interp_step${INTERP_CHANGE_STEP}.mp4"
-  write_config "${cfg_interp}" "interp" "${INTERP_CHANGE_STEP}"
-  run_infer "wan2.1_distill_interp_bridge" "${cfg_interp}" "${prompt}" "${seed}" "${out_interp}"
-  make_labeled_panel "${out_interp}" "${panel_interp}" "interp step ${INTERP_CHANGE_STEP}->${INFER_STEPS}"
-
-  panel_inputs=("${panel_low}" "${panel_interp}")
+  panel_inputs=()
   for step in "${model_steps[@]}"; do
     checkpoint="$(resolve_checkpoint_for_step "${step}")"
-    cfg_stage3="${OUT_DIR}/configs/${sample_id}_stage3_step${step}.json"
-    out_stage3="${OUT_DIR}/stage3_step${step}/${sample_id}_stage3_step${step}.mp4"
-    panel_stage3="${OUT_DIR}/panels/${sample_id}_panel_stage3_step${step}.mp4"
+    for variant in raw ema; do
+      if [[ "${variant}" == "ema" ]]; then
+        use_ema="true"
+      else
+        use_ema="false"
+      fi
 
-    write_config "${cfg_stage3}" "stage3" "${step}" "${checkpoint}"
-    run_infer "wan2.1_distill_clean_resizer_bridge" "${cfg_stage3}" "${prompt}" "${seed}" "${out_stage3}"
-    make_labeled_panel "${out_stage3}" "${panel_stage3}" "stage3 step${step} model step ${step}->${INFER_STEPS}"
-    panel_inputs+=("${panel_stage3}")
+      cfg_stage3="${OUT_DIR}/configs/${sample_id}_stage3_step${step}_${variant}.json"
+      out_stage3="${OUT_DIR}/stage3_step${step}_${variant}/${sample_id}_stage3_step${step}_${variant}.mp4"
+      panel_stage3="${OUT_DIR}/panels/${sample_id}_panel_stage3_step${step}_${variant}.mp4"
+
+      write_config "${cfg_stage3}" "${step}" "${checkpoint}" "${use_ema}"
+      run_infer "${cfg_stage3}" "${prompt}" "${seed}" "${out_stage3}"
+      make_labeled_panel "${out_stage3}" "${panel_stage3}" "stage3 step${step} ${variant}"
+      panel_inputs+=("${panel_stage3}")
+    done
   done
 
-  compare="${OUT_DIR}/compare/${sample_id}_distill_steps_${MODEL_STEP_TAG}_compare.mp4"
+  compare="${OUT_DIR}/compare/${sample_id}_distill_steps_${MODEL_STEP_TAG}_raw_ema_compare.mp4"
   ffmpeg -hide_banner -loglevel error -y \
-    -i "${panel_inputs[0]}" -i "${panel_inputs[1]}" -i "${panel_inputs[2]}" -i "${panel_inputs[3]}" -i "${panel_inputs[4]}" \
-    -filter_complex "[0:v][1:v][2:v][3:v][4:v]hstack=inputs=5[v]" \
+    -i "${panel_inputs[0]}" -i "${panel_inputs[1]}" -i "${panel_inputs[2]}" -i "${panel_inputs[3]}" -i "${panel_inputs[4]}" -i "${panel_inputs[5]}" \
+    -filter_complex "[0:v][1:v][2:v][3:v][4:v][5:v]hstack=inputs=6[v]" \
     -map "[v]" -an -c:v libx264 -pix_fmt yuv420p -crf 18 "${compare}"
 
   index=$((index + 1))
 done
 
-echo "Distill step 1/2/3 comparison videos ready: ${OUT_DIR}/compare"
+echo "Distill step 1/2/3 raw-vs-EMA comparison videos ready: ${OUT_DIR}/compare"
