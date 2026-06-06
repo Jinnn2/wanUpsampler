@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import itertools
 import json
+import os
 import random
 import shutil
 import sys
@@ -35,7 +36,7 @@ def main() -> None:
     # 固定随机种子，保证 train/val split 和 DataLoader shuffle 的主随机源可复现。
     set_seed(int(config["train"].get("seed", 1234)))
     torch.set_float32_matmul_precision("high")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_training_device()
 
     out_dir = Path(config["out_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -191,6 +192,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--grad_accum", type=int)
     parser.add_argument("--lr", type=float)
     parser.add_argument("--max_steps", type=int)
+    parser.add_argument("--ema_decay", type=float)
     parser.add_argument("--precision", choices=["fp32", "bf16", "fp16"])
     parser.add_argument("--no_residual_skip", action="store_true")
     return parser.parse_args()
@@ -249,11 +251,24 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
             config["model"][key] = value
     if args.no_residual_skip:
         config["model"]["residual_skip"] = False
-    for key in ("batch_size", "grad_accum", "lr", "max_steps", "precision"):
+    for key in ("batch_size", "grad_accum", "lr", "max_steps", "ema_decay", "precision"):
         value = getattr(args, key)
         if value is not None:
             config["train"][key] = value
     return config
+
+
+def get_training_device() -> torch.device:
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if os.environ.get("ALLOW_CPU_TRAINING") == "1":
+        print("WARNING: CUDA is unavailable; ALLOW_CPU_TRAINING=1 so Stage 2 training will run on CPU.", flush=True)
+        return torch.device("cpu")
+    raise RuntimeError(
+        "CUDA is unavailable, refusing to run Stage 2 training on CPU. "
+        "Check NVIDIA driver / CUDA-compatible PyTorch / CUDA_VISIBLE_DEVICES. "
+        "Set ALLOW_CPU_TRAINING=1 only for tiny smoke tests."
+    )
 
 
 def build_dataset(config: dict) -> Dataset:

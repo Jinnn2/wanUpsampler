@@ -42,6 +42,8 @@ changing_resolution_distill/
     eval/run_clean_480p720p_stage2_distill_operator_compare_multigpu.sh
     train/run_clean_480p720p_stage2_distill_lmdb_training.sh
     train/tmux_run_clean_480p720p_stage2_distill_lmdb_training.sh
+    train/tmux_run_clean_480p720p_stage2_distill_5k_10k_training.sh
+    train/tmux_run_clean_480p720p_stage2_distill_5k_30k_ema999_training.sh
     train/run_x0pred_480p720p_stage3_distill_lmdb_training.sh
     train/tmux_run_x0pred_480p720p_stage3_distill_lmdb_steps_1_2_3_training.sh
   lightx2v_distill_bridge.py
@@ -127,15 +129,11 @@ Stage 2 trains the clean-latent resizer directly on the distill clean LMDB:
 `changing_resolution/scripts/train/train_clean_latent_resizer_stage2.py`
 trainer and keeps the checkpoint/config/output paths under the distill tree.
 
+Single-run entrypoint:
+
 ```bash
-MAX_STEPS=50000 \
+MAX_STEPS=10000 \
 bash changing_resolution_distill/scripts/train/run_clean_480p720p_stage2_distill_lmdb_training.sh train
-```
-
-Run it in tmux:
-
-```bash
-bash changing_resolution_distill/scripts/train/tmux_run_clean_480p720p_stage2_distill_lmdb_training.sh
 ```
 
 Defaults:
@@ -144,6 +142,28 @@ Defaults:
 source: data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_5k
 config: changing_resolution_distill/configs/train_clean_480p_to_720p_lmdb_stage2_distill.yaml
 output: outputs/changing_resolution_distill_clean_480p720p_stage2_14b_cfgdistill_5k_lmdb
+```
+
+The maintained tmux launcher mirrors the distill Stage 3 launcher style: it
+writes a runnable script under `logs/`, records a top-level run log plus a worker
+log, and resumes from `latest.pt` when `AUTO_RESUME=1`.
+
+```bash
+GPU_IDS=0 MAX_STEPS=10000 \
+bash changing_resolution_distill/scripts/train/tmux_run_clean_480p720p_stage2_distill_lmdb_training.sh
+```
+
+For the current 5k 14B CfgDistill dataset, the dedicated 10k-step launcher is:
+
+```bash
+bash changing_resolution_distill/scripts/train/tmux_run_clean_480p720p_stage2_distill_5k_10k_training.sh
+```
+
+For the current 5k 14B CfgDistill dataset, the dedicated 30k-step EMA-0.999
+launcher is:
+
+```bash
+bash changing_resolution_distill/scripts/train/tmux_run_clean_480p720p_stage2_distill_5k_30k_ema999_training.sh
 ```
 
 Quick checks after a checkpoint exists:
