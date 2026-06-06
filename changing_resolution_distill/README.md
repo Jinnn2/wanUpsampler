@@ -26,6 +26,7 @@ changing_resolution_distill/
   configs/
     wan_t2v_distill_stage3_x0pred_480p.json
     wan_t2v_distill_stage3_bridge_720p.example.json
+    train_clean_480p_to_720p_lmdb_stage2_distill.yaml
     train_x0pred_480p_to_720p_lmdb_stage3_distill.yaml
   scripts/
     bridge/run_lightx2v_distill_bridge_infer.py
@@ -37,6 +38,10 @@ changing_resolution_distill/
     data/build_x0pred_480p720p_stage3_distill_lmdb.sh
     data/build_x0pred_480p720p_stage3_distill_lmdb_multigpu.sh
     data/tmux_build_x0pred_480p720p_stage3_distill_lmdb_steps_1_2_3.sh
+    eval/run_clean_480p720p_stage2_distill_chain_ab_compare.sh
+    eval/run_clean_480p720p_stage2_distill_operator_compare_multigpu.sh
+    train/run_clean_480p720p_stage2_distill_lmdb_training.sh
+    train/tmux_run_clean_480p720p_stage2_distill_lmdb_training.sh
     train/run_x0pred_480p720p_stage3_distill_lmdb_training.sh
     train/tmux_run_x0pred_480p720p_stage3_distill_lmdb_steps_1_2_3_training.sh
   lightx2v_distill_bridge.py
@@ -115,7 +120,43 @@ config: changing_resolution_distill/configs/wan_t2v_distill_stage3_x0pred_480p.j
 dit_original_ckpt: /mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt
 ```
 
-## Train
+## Train Stage 2
+
+Stage 2 trains the clean-latent resizer directly on the distill clean LMDB:
+`z0_lr -> z0_hr`. It reuses the shared
+`changing_resolution/scripts/train/train_clean_latent_resizer_stage2.py`
+trainer and keeps the checkpoint/config/output paths under the distill tree.
+
+```bash
+MAX_STEPS=50000 \
+bash changing_resolution_distill/scripts/train/run_clean_480p720p_stage2_distill_lmdb_training.sh train
+```
+
+Run it in tmux:
+
+```bash
+bash changing_resolution_distill/scripts/train/tmux_run_clean_480p720p_stage2_distill_lmdb_training.sh
+```
+
+Defaults:
+
+```text
+source: data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_5k
+config: changing_resolution_distill/configs/train_clean_480p_to_720p_lmdb_stage2_distill.yaml
+output: outputs/changing_resolution_distill_clean_480p720p_stage2_14b_cfgdistill_5k_lmdb
+```
+
+Quick checks after a checkpoint exists:
+
+```bash
+TOTAL_SAMPLES=32 GPU_IDS=0,1,2,3 \
+bash changing_resolution_distill/scripts/eval/run_clean_480p720p_stage2_distill_operator_compare_multigpu.sh
+
+LIMIT=8 CHANGE_STEP=2 USE_EMA=0 \
+bash changing_resolution_distill/scripts/eval/run_clean_480p720p_stage2_distill_chain_ab_compare.sh
+```
+
+## Train Stage 3
 
 ```bash
 HANDOFF_STEP=2 MAX_STEPS=10000 \
@@ -163,5 +204,6 @@ for experiments that intentionally resize the predicted flow.
 
 Use `configs/wan_t2v_distill_stage3_bridge_720p.example.json` as the starting
 point for a real infer config. Replace the `wan_clean_resizer_*` placeholder
-paths with the trained `stage3_14b_cfgdistill_5k` step checkpoint and local repo
-path before running `scripts/bridge/run_lightx2v_distill_bridge_infer.py`.
+paths with either the trained Stage 2 checkpoint above or a
+`stage3_14b_cfgdistill_5k` step checkpoint and local repo path before running
+`scripts/bridge/run_lightx2v_distill_bridge_infer.py`.

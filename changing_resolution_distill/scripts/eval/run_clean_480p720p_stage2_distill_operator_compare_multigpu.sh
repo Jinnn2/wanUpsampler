@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
+PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
+if [[ -f "${PATH_CONFIG}" ]]; then
+  # shellcheck source=/dev/null
+  source "${PATH_CONFIG}"
+fi
+
+LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
+MODEL_ROOT="${CR_DISTILL_MODEL_ROOT:-/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
+VAE_PATH="${CR_DISTILL_VAE_PATH:-${MODEL_ROOT}/Wan2.1_VAE.pth}"
+CR_DISTILL_STAGE2_TAG="${CR_DISTILL_STAGE2_TAG:-14b_cfgdistill_5k}"
+LMDB_DIR="${CR_DISTILL_STAGE2_LMDB_DIR:-${CR_DISTILL_CLEAN_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_480p720p_${CR_DISTILL_STAGE2_TAG}}}"
+CHECKPOINT="${CR_DISTILL_STAGE2_OPERATOR_COMPARE_CKPT:-${CR_DISTILL_STAGE2_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_clean_480p720p_stage2_${CR_DISTILL_STAGE2_TAG}_lmdb}/latest.pt}"
+TRAIN_CONFIG="${CR_DISTILL_STAGE2_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_clean_480p_to_720p_lmdb_stage2_distill.yaml}"
+OUT_DIR="${CR_DISTILL_STAGE2_OPERATOR_COMPARE_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_operator_compare_stage2}"
+
+GPU_IDS="${GPU_IDS:-0,1,2,3}"
+TOTAL_SAMPLES="${TOTAL_SAMPLES:-32}"
+SPLIT="${SPLIT:-val}"
+PRECISION="${PRECISION:-bf16}"
+USE_EMA="${USE_EMA:-0}"
+STAGE2_RESIDUAL_SKIP="${STAGE2_RESIDUAL_SKIP:-checkpoint}"
+FPS="${FPS:-16}"
+METRICS="${METRICS:-psnr ssim lpips}"
+METRIC_BATCH_SIZE="${METRIC_BATCH_SIZE:-4}"
+LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_distill_stage2_operator_compare}"
+
+export LIGHTX2V_REPO
+export PYTHONPATH="${LIGHTX2V_REPO}:${PROJECT_ROOT}:${PYTHONPATH:-}"
+
+if [[ ! -f "${CHECKPOINT}" ]]; then
+  echo "Checkpoint not found: ${CHECKPOINT}" >&2
+  exit 1
+fi
+if [[ ! -d "${LMDB_DIR}" ]]; then
+  echo "LMDB dir not found: ${LMDB_DIR}" >&2
+  exit 1
+fi
+
+IFS=',' read -r -a GPUS <<< "${GPU_IDS}"
+NUM_GPUS="${#GPUS[@]}"
+mkdir -p "${OUT_DIR}" "${LOG_DIR}"
+
+base_count=$((TOTAL_SAMPLES / NUM_GPUS))
+remainder=$((TOTAL_SAMPLES % NUM_GPUS))
+offset=0
+pids=()
+
+for rank in "${!GPUS[@]}"; do
+  count="${base_count}"
+  if (( rank < remainder )); then
+    count=$((count + 1))
+  fi
+  if (( count == 0 )); then
+    continue
+  fi
+
+  gpu="${GPUS[$rank]}"
+  part_name="$(printf "part_%02d" "${rank}")"
+  part_out="${OUT_DIR}/${part_name}"
+  log_path="${LOG_DIR}/${part_name}.log"
+  ema_args=()
+  if [[ "${USE_EMA}" == "1" ]]; then
+    ema_args=(--use_ema)
+  fi
+
+  echo "Launch ${part_name}: gpu=${gpu}, split=${SPLIT}, offset=${offset}, count=${count}"
+  (
+    cd "${PROJECT_ROOT}"
+    CUDA_VISIBLE_DEVICES="${gpu}" \
+    python changing_resolution/scripts/eval/eval_clean_resizer_operator_compare.py \
+      --data_dir "${LMDB_DIR}" \
+      --data_format lmdb \
+      --checkpoint "${CHECKPOINT}" \
+      --train_config "${TRAIN_CONFIG}" \
+      --model_root "${MODEL_ROOT}" \
+      --vae_path "${VAE_PATH}" \
+      --wan_repo "${LIGHTX2V_REPO}" \
+      --out_dir "${part_out}" \
+      --split "${SPLIT}" \
+      --offset "${offset}" \
+      --limit "${count}" \
+      --precision "${PRECISION}" \
+      --metrics ${METRICS} \
+      --metric_batch_size "${METRIC_BATCH_SIZE}" \
+      --fps "${FPS}" \
+      --model_class stage2 \
+      --stage2_residual_skip "${STAGE2_RESIDUAL_SKIP}" \
+      "${ema_args[@]}"
+  ) >"${log_path}" 2>&1 &
+  pids+=("$!")
+  offset=$((offset + count))
+done
+
+failed=0
+for pid in "${pids[@]}"; do
+  if ! wait "${pid}"; then
+    failed=1
+  fi
+done
+
+if (( failed != 0 )); then
+  echo "Distill Stage 2 operator compare failed. Check logs under: ${LOG_DIR}" >&2
+  exit 1
+fi
+
+merged_metrics="${OUT_DIR}/metrics_${SPLIT}.jsonl"
+cat "${OUT_DIR}"/part_*/metrics_"${SPLIT}"_*.jsonl > "${merged_metrics}"
+summary_path="${OUT_DIR}/summary_${SPLIT}.json"
+python - "${merged_metrics}" "${summary_path}" <<'PY'
+import json
+import math
+import sys
+from pathlib import Path
+
+metrics_path = Path(sys.argv[1])
+summary_path = Path(sys.argv[2])
+rows = [json.loads(line) for line in metrics_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+numeric = {}
+for row in rows:
+    for key, value in row.items():
+        if isinstance(value, (int, float)) and math.isfinite(float(value)):
+            numeric.setdefault(key, []).append(float(value))
+summary = {
+    "num_samples": len(rows),
+    "mean": {key: sum(values) / len(values) for key, values in sorted(numeric.items()) if values},
+}
+summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+print(json.dumps(summary["mean"], ensure_ascii=False, indent=2))
+PY
+echo "Distill Stage 2 operator compare ready: ${OUT_DIR}"
+echo "Merged metrics: ${merged_metrics}"
+echo "Summary: ${summary_path}"
