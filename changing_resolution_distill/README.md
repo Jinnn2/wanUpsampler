@@ -3,7 +3,29 @@
 This directory keeps the 4-step Wan distill changing-resolution path separate
 from the original 50-step Stage 3 workflow.
 
-The intended contract mirrors Stage 3 while changing the denoiser domain:
+## Current Direction
+
+As of 2026-06-17, the next mainline is no longer to keep scaling the old
+`x0_pred_lr -> z0_hr` Stage 3 objective. That path remains in this directory as
+a runnable baseline and ablation surface.
+
+The new plan is documented in:
+
+```text
+doc/DISTILL_LAST_STEP_SKIP_LORA_PLAN.md
+```
+
+New target:
+
+```text
+Phase 1: train a step3-only last-step-skip LoRA on the Wan 4-step distill denoiser
+         x3_lr -> z4_lr_teacher
+
+Phase 2: reuse or fine-tune the clean latent upsampler
+         z_lr_lora_clean -> z_hr_clean
+```
+
+The old Stage 3 contract mirrors Stage 3 while changing the denoiser domain:
 
 ```text
 clean LR latent z0_lr

@@ -1,14 +1,49 @@
 # Distill 训练记录
 
 > 当前链路：`changing_resolution_distill`  
-> 当前状态：10k 训练已完成，30k 训练进行中  
-> 当前主线：5k 14B CfgDistill latent pair，30k steps，EMA = 0.999
+> 当前状态：旧 `x0_pred_lr -> z0_hr` Stage 3 已完成 10k 验证并启动过 30k，作为对照保留  
+> 当前主线：转向 `last-step-skip LoRA -> clean latent upsampler`，详见 [`DISTILL_LAST_STEP_SKIP_LORA_PLAN.md`](DISTILL_LAST_STEP_SKIP_LORA_PLAN.md)
+
+## 2026-06-17 主线调整
+
+旧 distill Stage 3 训练的是：
+
+```text
+x0_pred_lr -> z0_hr
+```
+
+这条链路已经证明数据生成、训练、bridge 推理和对比视频可以跑通，但它把两个任务压在同一个 upsampler 上：
+
+```text
+1. 修正 x0_pred 中残留的一步去噪误差
+2. 完成 LR latent -> HR latent 升分
+```
+
+对于 Wan 4-step distill 这类 few-step 模型，这个定义很容易造成训练状态和真实推理轨迹不一致。下一阶段主线改为先训练 Wan distill denoiser 本体的 step3-only LoRA：
+
+```text
+x3_lr -> z4_lr_teacher
+```
+
+让第 3 步带 LoRA 直接得到 clean LR latent：
+
+```text
+noise -> step1 -> step2 -> step3 + LoRA -> z_lr_clean
+```
+
+然后再复用或微调 clean latent upsampler：
+
+```text
+z_lr_clean -> z_hr_clean
+```
+
+旧 `x0_pred_lr -> z0_hr` 结果继续作为 baseline 和消融，不再作为优先扩展方向。
 
 ## 目标
 
 `changing_resolution_distill` 是独立于原 50-step Stage 3 的新链路，面向 4-step Wan CfgDistill 模型做 480p -> 720p 的 latent handoff。
 
-核心目标是在 4-step distill 采样中，把固定插值换成学习型 latent resizer：
+旧 Stage 3 目标是在 4-step distill 采样中，把固定插值换成学习型 latent resizer：
 
 ```text
 480p distill latent
@@ -19,7 +54,7 @@
   -> continue 720p 4-step distill sampling
 ```
 
-这里的重点不是 RGB 超分，而是在 distill denoiser 的真实 handoff 域里学习 `x0_pred_lr -> z0_hr` 的桥接算子。
+这里的重点不是 RGB 超分，而是在 distill denoiser 的 handoff 域里学习 `x0_pred_lr -> z0_hr` 的桥接算子。这个目标现在降级为历史实验分支；后续主线改为先获得可靠的 `z_lr_clean`，再做 clean latent 升分。
 
 ## 当前阶段
 
@@ -266,4 +301,3 @@ resize_flow: x_next_hr = x0_hr + sigma_next * trilinear_resize(flow_pred_lr)
 - 30k 是否开始出现过拟合，例如纹理记忆、局部锐化、重复细节或时序抖动。
 
 对视频判断时，优先看 `with_ema`。如果 raw 更锐但 EMA 的主体边缘、运动连续性和高频稳定性更好，应优先把 EMA 当成候选模型。
-
