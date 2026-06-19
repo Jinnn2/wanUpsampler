@@ -13,6 +13,8 @@ JIN_ROOT="${JIN_ROOT:-/mnt/afs_2/houze}"
 DIFFSYNTH_REPO="${DIFFSYNTH_REPO:-${JIN_ROOT}/DiffSynth-Studio}"
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-${JIN_ROOT}/LightX2V}"
 CR_DISTILL_MODEL_ROOT="${CR_DISTILL_MODEL_ROOT:-${JIN_ROOT}/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
+CR_DISTILL_DIT_CKPT="${CR_DISTILL_DIT_CKPT:-${CR_DISTILL_MODEL_ROOT}/distill_model.pt}"
+CR_DISTILL_TEXT_ENCODER_CKPT="${CR_DISTILL_TEXT_ENCODER_CKPT:-${CR_DISTILL_MODEL_ROOT}/models_t5_umt5-xxl-enc-bf16.pth}"
 CR_DISTILL_LORA_CONFIG="${CR_DISTILL_LORA_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_last_step_skip_lora_distill.yaml}"
 CR_DISTILL_LORA_LMDB_DIR="${CR_DISTILL_LORA_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_last_step_skip_lora_14b_cfgdistill_5k_step3}"
 CR_DISTILL_LORA_OUT_DIR="${CR_DISTILL_LORA_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3}"
@@ -27,7 +29,7 @@ LR="${LR:-1e-4}"
 PRECISION="${PRECISION:-bf16}"
 MAX_SAMPLES="${USER_MAX_SAMPLES}"
 RESUME="${RESUME:-}"
-MODEL_PATHS="${MODEL_PATHS:-[\"${CR_DISTILL_MODEL_ROOT}\"]}"
+MODEL_PATHS="${MODEL_PATHS:-[\"${CR_DISTILL_DIT_CKPT}\",\"${CR_DISTILL_TEXT_ENCODER_CKPT}\"]}"
 MODEL_ID_WITH_ORIGIN_PATHS="${MODEL_ID_WITH_ORIGIN_PATHS:-}"
 TOKENIZER_PATH="${TOKENIZER_PATH:-}"
 
@@ -49,6 +51,14 @@ check_env() {
   fi
   if [[ ! -f "${DIFFSYNTH_REPO}/examples/wanvideo/model_training/train.py" ]]; then
     echo "DiffSynth train.py not found. Set DIFFSYNTH_REPO or run setup_last_step_skip_lora_env.sh install." >&2
+    exit 1
+  fi
+  if [[ ! -f "${CR_DISTILL_DIT_CKPT}" ]]; then
+    echo "DiT checkpoint not found: ${CR_DISTILL_DIT_CKPT}" >&2
+    exit 1
+  fi
+  if [[ ! -f "${CR_DISTILL_TEXT_ENCODER_CKPT}" ]]; then
+    echo "Text encoder checkpoint not found: ${CR_DISTILL_TEXT_ENCODER_CKPT}" >&2
     exit 1
   fi
   python - <<'PY'

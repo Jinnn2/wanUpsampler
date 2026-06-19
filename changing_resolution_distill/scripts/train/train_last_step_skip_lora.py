@@ -173,7 +173,8 @@ def normalize_model_paths(model_paths: Any) -> str | None:
     if model_paths is None:
         return None
     if isinstance(model_paths, (list, tuple)):
-        return json.dumps([str(path) for path in model_paths])
+        paths = list(itertools.chain.from_iterable(expand_model_path_entry(path) for path in model_paths))
+        return json.dumps(dedupe_keep_order(paths))
     if isinstance(model_paths, str):
         text = model_paths.strip()
         if not text:
@@ -181,11 +182,38 @@ def normalize_model_paths(model_paths: Any) -> str | None:
         try:
             parsed = json.loads(text)
         except json.JSONDecodeError:
-            return json.dumps([text])
+            return json.dumps(expand_model_path_entry(text))
         if isinstance(parsed, list):
-            return text
-        return json.dumps([str(parsed)])
-    return json.dumps([str(model_paths)])
+            paths = list(itertools.chain.from_iterable(expand_model_path_entry(path) for path in parsed))
+            return json.dumps(dedupe_keep_order(paths))
+        return json.dumps(expand_model_path_entry(parsed))
+    return json.dumps(expand_model_path_entry(model_paths))
+
+
+def expand_model_path_entry(path_like: Any) -> list[str]:
+    path = Path(str(path_like))
+    if not path.is_dir():
+        return [str(path)]
+
+    candidates = [
+        path / "distill_model.pt",
+        path / "models_t5_umt5-xxl-enc-bf16.pth",
+        path / "models_t5_umt5-xxl-enc-bf16.safetensors",
+    ]
+    existing = [str(candidate) for candidate in candidates if candidate.is_file()]
+    if existing:
+        return existing
+    return [str(path)]
+
+
+def dedupe_keep_order(paths: list[str]) -> list[str]:
+    seen = set()
+    result = []
+    for path in paths:
+        if path not in seen:
+            seen.add(path)
+            result.append(path)
+    return result
 
 
 def compute_batch_loss(module: torch.nn.Module, batch: dict[str, Any], config: dict, device: torch.device) -> tuple[torch.Tensor, dict[str, float]]:

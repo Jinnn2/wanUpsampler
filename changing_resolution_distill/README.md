@@ -175,15 +175,16 @@ bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_training.
 
 If DiffSynth cannot infer the local model files, pass either `MODEL_PATHS` or
 `MODEL_ID_WITH_ORIGIN_PATHS` through the wrapper environment. By default the
-wrapper uses `CR_DISTILL_MODEL_ROOT`, which defaults to
+wrapper uses `CR_DISTILL_DIT_CKPT` and `CR_DISTILL_TEXT_ENCODER_CKPT` under
+`CR_DISTILL_MODEL_ROOT`, which defaults to
 `/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill`. The output
 directory contains `latest.safetensors`, step safetensors, `latest.pt`, and
 `metrics.jsonl`.
 
-DiffSynth expects `MODEL_PATHS` to be a JSON list string:
+DiffSynth expects `MODEL_PATHS` to be a JSON list of concrete checkpoint files:
 
 ```bash
-MODEL_PATHS='["/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill"]' \
+MODEL_PATHS='["/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt","/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/models_t5_umt5-xxl-enc-bf16.pth"]' \
 bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_training.sh smoke
 ```
 
