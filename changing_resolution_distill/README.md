@@ -77,6 +77,9 @@ changing_resolution_distill/
     train/run_clean_480p720p_stage2_distill_lmdb_training.sh
     train/setup_last_step_skip_lora_env.sh
     train/check_last_step_skip_lora_env.sh
+    train/train_last_step_skip_lora.py
+    train/run_last_step_skip_lora_training.sh
+    train/tmux_run_last_step_skip_lora_training.sh
     train/tmux_run_clean_480p720p_stage2_distill_lmdb_training.sh
     train/tmux_run_clean_480p720p_stage2_distill_5k_10k_training.sh
     train/tmux_run_clean_480p720p_stage2_distill_5k_30k_ema999_training.sh
@@ -144,6 +147,38 @@ python changing_resolution_distill/scripts/eval/preview_last_step_skip_lora_lmdb
 This writes per-sample videos for `x3_lr`, `z4_lr_teacher`, and `z4_hr`
 (`z0_hr` in the LMDB), plus a three-column compare panel under
 `outputs/changing_resolution_distill_last_step_skip_lora_preview`.
+
+## Train Last-Step-Skip LoRA
+
+The first trainer uses DiffSynth-Studio's trainable Wan module and the cached
+latent LMDB. It does not use the LightX2V inference runner for backpropagation.
+
+Preflight:
+
+```bash
+bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_training.sh check
+```
+
+Tiny overfit smoke:
+
+```bash
+MAX_STEPS=200 MAX_SAMPLES=64 \
+bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_training.sh smoke
+```
+
+Full 10k run:
+
+```bash
+MAX_STEPS=10000 \
+bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_training.sh train
+```
+
+If DiffSynth cannot infer the local model files, pass either `MODEL_PATHS` or
+`MODEL_ID_WITH_ORIGIN_PATHS` through the wrapper environment. By default the
+wrapper uses `CR_DISTILL_MODEL_ROOT`, which defaults to
+`/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill`. The output
+directory contains `latest.safetensors`, step safetensors, `latest.pt`, and
+`metrics.jsonl`.
 
 ## Build LMDB
 
