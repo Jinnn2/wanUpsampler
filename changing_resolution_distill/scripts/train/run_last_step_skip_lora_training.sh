@@ -27,7 +27,7 @@ LR="${LR:-1e-4}"
 PRECISION="${PRECISION:-bf16}"
 MAX_SAMPLES="${USER_MAX_SAMPLES}"
 RESUME="${RESUME:-}"
-MODEL_PATHS="${MODEL_PATHS:-${CR_DISTILL_MODEL_ROOT}}"
+MODEL_PATHS="${MODEL_PATHS:-[\"${CR_DISTILL_MODEL_ROOT}\"]}"
 MODEL_ID_WITH_ORIGIN_PATHS="${MODEL_ID_WITH_ORIGIN_PATHS:-}"
 TOKENIZER_PATH="${TOKENIZER_PATH:-}"
 
@@ -53,9 +53,17 @@ check_env() {
   fi
   python - <<'PY'
 import importlib.util
-missing = [name for name in ("torch", "safetensors", "diffsynth", "lmdb", "yaml") if importlib.util.find_spec(name) is None]
+missing = [
+    name
+    for name in ("torch", "accelerate", "safetensors", "diffsynth", "modelscope", "lmdb", "yaml")
+    if importlib.util.find_spec(name) is None
+]
 if missing:
-    raise SystemExit("Missing python packages: " + ", ".join(missing))
+    raise SystemExit(
+        "Missing python packages: "
+        + ", ".join(missing)
+        + "\nRun: bash changing_resolution_distill/scripts/train/setup_last_step_skip_lora_env.sh install"
+    )
 PY
 }
 

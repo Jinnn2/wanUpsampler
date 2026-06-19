@@ -49,6 +49,13 @@ def main() -> None:
     train_dataset, val_dataset = split_dataset(dataset, config)
     print(f"dataset={len(dataset)} train={len(train_dataset)} val={len(val_dataset)}", flush=True)
 
+    module = build_wan_training_module(config, device=device)
+    module.train()
+    params = [(name, param) for name, param in module.named_parameters() if param.requires_grad]
+    if not params:
+        raise RuntimeError("No trainable parameters found. Check lora_base_model and lora_target_modules.")
+    print(f"trainable_params={sum(param.numel() for _, param in params):,}", flush=True)
+
     loader = DataLoader(
         train_dataset,
         batch_size=int(config["train"]["batch_size"]),
@@ -60,13 +67,6 @@ def main() -> None:
     if len(loader) == 0:
         raise RuntimeError("Training DataLoader is empty. Reduce batch_size or provide more samples.")
     batches = itertools.cycle(loader)
-
-    module = build_wan_training_module(config, device=device)
-    module.train()
-    params = [(name, param) for name, param in module.named_parameters() if param.requires_grad]
-    if not params:
-        raise RuntimeError("No trainable parameters found. Check lora_base_model and lora_target_modules.")
-    print(f"trainable_params={sum(param.numel() for _, param in params):,}", flush=True)
 
     optimizer = torch.optim.AdamW(
         [param for _, param in params],
@@ -149,7 +149,7 @@ def build_wan_training_module(config: dict, *, device: torch.device) -> torch.nn
     model_cfg = config["model"]
     train_cfg = config["train"]
     wan_module = WanTrainingModule(
-        model_paths=model_cfg.get("model_paths"),
+        model_paths=normalize_model_paths(model_cfg.get("model_paths")),
         model_id_with_origin_paths=model_cfg.get("model_id_with_origin_paths"),
         tokenizer_path=model_cfg.get("tokenizer_path"),
         trainable_models=None,
@@ -167,6 +167,25 @@ def build_wan_training_module(config: dict, *, device: torch.device) -> torch.nn
         device=device,
     )
     return wan_module
+
+
+def normalize_model_paths(model_paths: Any) -> str | None:
+    if model_paths is None:
+        return None
+    if isinstance(model_paths, (list, tuple)):
+        return json.dumps([str(path) for path in model_paths])
+    if isinstance(model_paths, str):
+        text = model_paths.strip()
+        if not text:
+            return None
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return json.dumps([text])
+        if isinstance(parsed, list):
+            return text
+        return json.dumps([str(parsed)])
+    return json.dumps([str(model_paths)])
 
 
 def compute_batch_loss(module: torch.nn.Module, batch: dict[str, Any], config: dict, device: torch.device) -> tuple[torch.Tensor, dict[str, float]]:

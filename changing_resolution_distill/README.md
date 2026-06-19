@@ -180,6 +180,13 @@ wrapper uses `CR_DISTILL_MODEL_ROOT`, which defaults to
 directory contains `latest.safetensors`, step safetensors, `latest.pt`, and
 `metrics.jsonl`.
 
+DiffSynth expects `MODEL_PATHS` to be a JSON list string:
+
+```bash
+MODEL_PATHS='["/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill"]' \
+bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_training.sh smoke
+```
+
 ## Build LMDB
 
 Full rebuild from new 14B CfgDistill 720p videos:
