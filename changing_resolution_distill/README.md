@@ -133,6 +133,18 @@ python changing_resolution_distill/scripts/data/check_last_step_skip_lora_lmdb.p
   --expect_samples 5000
 ```
 
+Decode-preview 5 samples:
+
+```bash
+python changing_resolution_distill/scripts/eval/preview_last_step_skip_lora_lmdb_decode.py \
+  --data_dir data/changing_resolution_distill/lmdb_last_step_skip_lora_14b_cfgdistill_5k_step3 \
+  --num_samples 5
+```
+
+This writes per-sample videos for `x3_lr`, `z4_lr_teacher`, and `z4_hr`
+(`z0_hr` in the LMDB), plus a three-column compare panel under
+`outputs/changing_resolution_distill_last_step_skip_lora_preview`.
+
 ## Build LMDB
 
 Full rebuild from new 14B CfgDistill 720p videos:
