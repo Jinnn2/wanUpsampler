@@ -9,6 +9,8 @@ JIN_ROOT="${JIN_ROOT:-/mnt/afs_2/houze}"
 PROJECT_ROOT="${PROJECT_ROOT:-${JIN_ROOT}/wanUpsampler}"
 WAN_REPO="${WAN_REPO:-${JIN_ROOT}/Wan2.1}"
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-${JIN_ROOT}/LightX2V}"
+DIFFSYNTH_REPO="${DIFFSYNTH_REPO:-${JIN_ROOT}/DiffSynth-Studio}"
+DIFFSYNTH_REF="${DIFFSYNTH_REF:-main}"
 
 MODEL_ROOT="${MODEL_ROOT:-${JIN_ROOT}/Wan-AI/Wan2.1-T2V-1.3B}"
 VAE_PATH="${VAE_PATH:-${MODEL_ROOT}/Wan2.1_VAE.pth}"
@@ -19,6 +21,9 @@ CR_DISTILL_STAGE3_TAG="${CR_DISTILL_STAGE3_TAG:-14b_cfgdistill_5k}"
 CR_DISTILL_RAW_VIDEO_DIR_1K="${CR_DISTILL_RAW_VIDEO_DIR_1K:-${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_5k}"
 CR_DISTILL_CLEAN_LMDB_DIR="${CR_DISTILL_CLEAN_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_5k}"
 CR_DISTILL_GENERATE_CONFIG="${CR_DISTILL_GENERATE_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/wan_t2v_distill_generate_720p.json}"
+CR_DISTILL_LORA_LMDB_DIR="${CR_DISTILL_LORA_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_last_step_skip_lora_14b_cfgdistill_5k_step3}"
+CR_DISTILL_LORA_CONFIG="${CR_DISTILL_LORA_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_last_step_skip_lora_distill.yaml}"
+CR_DISTILL_LORA_OUT_DIR="${CR_DISTILL_LORA_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3}"
 
 # Stage 2 changing_resolution clean-latent paths.
 CR_RAW_VIDEO_DIR="${CR_RAW_VIDEO_DIR:-${PROJECT_ROOT}/data/changing_resolution/raw_wan21_720p}"

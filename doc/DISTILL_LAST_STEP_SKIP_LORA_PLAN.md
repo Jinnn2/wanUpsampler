@@ -225,12 +225,16 @@ meta.recipe = lora3step_clean_pair
 
 ### Task 1：LoRA 数据集构建器
 
+状态：已搭建数据生成器入口，训练前仍需在 Linux GPU 环境实际生成并检查 5k LMDB。
+
 新增：
 
 ```text
 changing_resolution_distill/scripts/data/build_last_step_skip_lora_lmdb.py
 changing_resolution_distill/scripts/data/build_last_step_skip_lora_lmdb.sh
 changing_resolution_distill/scripts/data/tmux_build_last_step_skip_lora_lmdb.sh
+changing_resolution_distill/scripts/data/build_last_step_skip_lora_lmdb_multigpu.sh
+changing_resolution_distill/scripts/data/check_last_step_skip_lora_lmdb.py
 ```
 
 复用下面文件中的 persistent LightX2V runner 模式：
@@ -246,6 +250,7 @@ changing_resolution_distill/scripts/data/build_x0pred_480p720p_stage3_distill_lm
 ```text
 x3_lr: tensor produced by teacher rollout before the final step
 z4_lr_teacher: tensor produced by full teacher rollout
+z0_hr: reused clean HR latent from the existing 5000-sample clean LMDB
 prompt: source prompt
 seed: source seed
 meta:

@@ -15,6 +15,12 @@ The new plan is documented in:
 doc/DISTILL_LAST_STEP_SKIP_LORA_PLAN.md
 ```
 
+The DiffSynth-Studio based LoRA preflight environment is documented in:
+
+```text
+doc/DISTILL_LORA_ENV.md
+```
+
 New target:
 
 ```text
@@ -48,6 +54,7 @@ changing_resolution_distill/
   configs/
     wan_t2v_distill_stage3_x0pred_480p.json
     wan_t2v_distill_stage3_bridge_720p.example.json
+    train_last_step_skip_lora_distill.yaml
     train_clean_480p_to_720p_lmdb_stage2_distill.yaml
     train_x0pred_480p_to_720p_lmdb_stage3_distill.yaml
   scripts/
@@ -59,16 +66,71 @@ changing_resolution_distill/
     data/build_x0pred_480p720p_stage3_distill_lmdb.py
     data/build_x0pred_480p720p_stage3_distill_lmdb.sh
     data/build_x0pred_480p720p_stage3_distill_lmdb_multigpu.sh
+    data/build_last_step_skip_lora_lmdb.py
+    data/build_last_step_skip_lora_lmdb.sh
+    data/build_last_step_skip_lora_lmdb_multigpu.sh
+    data/tmux_build_last_step_skip_lora_lmdb.sh
+    data/check_last_step_skip_lora_lmdb.py
     data/tmux_build_x0pred_480p720p_stage3_distill_lmdb_steps_1_2_3.sh
     eval/run_clean_480p720p_stage2_distill_chain_ab_compare.sh
     eval/run_clean_480p720p_stage2_distill_operator_compare_multigpu.sh
     train/run_clean_480p720p_stage2_distill_lmdb_training.sh
+    train/setup_last_step_skip_lora_env.sh
+    train/check_last_step_skip_lora_env.sh
     train/tmux_run_clean_480p720p_stage2_distill_lmdb_training.sh
     train/tmux_run_clean_480p720p_stage2_distill_5k_10k_training.sh
     train/tmux_run_clean_480p720p_stage2_distill_5k_30k_ema999_training.sh
     train/run_x0pred_480p720p_stage3_distill_lmdb_training.sh
     train/tmux_run_x0pred_480p720p_stage3_distill_lmdb_steps_1_2_3_training.sh
   lightx2v_distill_bridge.py
+```
+
+## Build Last-Step-Skip LoRA LMDB
+
+Version A reuses the existing 5k clean 480p/720p latent LMDB and only generates
+the cached teacher `x3_lr` state:
+
+```text
+source: data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_5k
+output: data/changing_resolution_distill/lmdb_last_step_skip_lora_14b_cfgdistill_5k_step3
+fields: x3_lr, z4_lr_teacher, z0_hr, prompt, seed, meta
+```
+
+`x3_lr` and `z4_lr_teacher` are generated from the same LR teacher rollout:
+the builder saves the latent before step 3, then continues the original 4-step
+teacher to get the clean LR target. `z0_hr` is copied from the existing 5000 HR
+latents and is not regenerated.
+
+Small smoke build:
+
+```bash
+MAX_SAMPLES=8 OVERWRITE=1 \
+bash changing_resolution_distill/scripts/data/build_last_step_skip_lora_lmdb.sh
+
+python changing_resolution_distill/scripts/data/check_last_step_skip_lora_lmdb.py \
+  --expect_samples 8
+```
+
+Full 5k multi-GPU build:
+
+```bash
+TOTAL_SAMPLES=5000 GPU_IDS=0,1,2,3 OVERWRITE=1 \
+bash changing_resolution_distill/scripts/data/build_last_step_skip_lora_lmdb_multigpu.sh
+```
+
+Or in tmux:
+
+```bash
+TOTAL_SAMPLES=5000 GPU_IDS=0,1,2,3 OVERWRITE=1 \
+bash changing_resolution_distill/scripts/data/tmux_build_last_step_skip_lora_lmdb.sh
+```
+
+Final check:
+
+```bash
+python changing_resolution_distill/scripts/data/check_last_step_skip_lora_lmdb.py \
+  --data_dir data/changing_resolution_distill/lmdb_last_step_skip_lora_14b_cfgdistill_5k_step3 \
+  --expect_samples 5000
 ```
 
 ## Build LMDB

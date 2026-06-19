@@ -1,0 +1,55 @@
+# Phase 1 last-step-skip LoRA defaults.
+# This is the environment/config contract for the first DiffSynth-backed LoRA
+# trainer. The custom x3_lr -> z4_lr_teacher dataset/trainer are implemented in
+# follow-up tasks from doc/DISTILL_LAST_STEP_SKIP_LORA_PLAN.md.
+
+task:
+  name: last_step_skip_lora
+  recipe: distill_4step_step3_to_clean
+  input_key: x3_lr
+  target_key: z4_lr_teacher
+  train_step_index: 2
+  train_step_name: step3
+  target_step_name: teacher_step4_clean
+
+data:
+  lmdb_dir: data/changing_resolution_distill/lmdb_last_step_skip_lora_14b_cfgdistill_5k_step3
+  expected_keys:
+    - x3_lr
+    - z4_lr_teacher
+    - prompt
+    - seed
+    - meta
+
+model:
+  framework: diffsynth-studio
+  base_model_id: lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill
+  model_cls: wan2.1_distill
+  lora_base_model: dit
+  lora_target_modules: q,k,v,o,ffn.0,ffn.2
+  lora_rank: 32
+  lora_alpha: 32
+  freeze_base_model: true
+
+distill:
+  infer_steps: 4
+  denoising_step_list: [1000, 750, 500, 250]
+  sample_shift: 5
+  sample_guide_scale: 6
+
+train:
+  precision: bf16
+  batch_size: 1
+  grad_accum: 8
+  lr: 1.0e-4
+  max_steps: 10000
+  save_steps: 1000
+  gradient_checkpointing: true
+  gradient_checkpointing_offload: false
+  ema_decay: null
+  seed: 1234
+
+output:
+  out_dir: outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3
+  checkpoint_format: lora_only
+  remove_prefix_in_ckpt: pipe.dit.
