@@ -391,6 +391,10 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
         config["model"]["model_id_with_origin_paths"] = args.model_id_with_origin_paths
     if args.tokenizer_path is not None:
         config["model"]["tokenizer_path"] = args.tokenizer_path
+    if args.lora_rank is not None:
+        config["model"]["lora_rank"] = args.lora_rank
+    if args.lora_target_modules is not None:
+        config["model"]["lora_target_modules"] = args.lora_target_modules
     return config
 
 
@@ -435,6 +439,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model_paths")
     parser.add_argument("--model_id_with_origin_paths")
     parser.add_argument("--tokenizer_path")
+    parser.add_argument("--lora_rank", type=int)
+    parser.add_argument("--lora_target_modules")
     return parser.parse_args()
 
 

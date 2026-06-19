@@ -166,11 +166,20 @@ MAX_STEPS=200 MAX_SAMPLES=64 \
 bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_training.sh smoke
 ```
 
-Full 10k run:
+Recommended LoRA scale plans:
 
 ```bash
-MAX_STEPS=10000 \
-bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_training.sh train
+# A: debug, rank4 q/k/v/o, 64 samples, 200 steps
+bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_plan_a_debug.sh
+
+# B: first full run, rank8 q/k/v/o, 3000 steps
+bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_plan_b_rank8_qkvo.sh
+
+# C: larger q/k/v/o run, rank16, 4000 steps
+bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_plan_c_rank16_qkvo.sh
+
+# D: fallback with FFN LoRA, rank16 q/k/v/o/ffn.0/ffn.2, 4000 steps
+bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_plan_d_rank16_qkvo_ffn.sh
 ```
 
 If DiffSynth cannot infer the local model files, pass either `MODEL_PATHS` or

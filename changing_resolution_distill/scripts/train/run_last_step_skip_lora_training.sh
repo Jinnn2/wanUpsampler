@@ -32,6 +32,8 @@ RESUME="${RESUME:-}"
 MODEL_PATHS="${MODEL_PATHS:-[\"${CR_DISTILL_DIT_CKPT}\",\"${CR_DISTILL_TEXT_ENCODER_CKPT}\"]}"
 MODEL_ID_WITH_ORIGIN_PATHS="${MODEL_ID_WITH_ORIGIN_PATHS:-}"
 TOKENIZER_PATH="${TOKENIZER_PATH:-}"
+LORA_RANK="${LORA_RANK:-}"
+LORA_TARGET_MODULES="${LORA_TARGET_MODULES:-}"
 
 export CUDA_VISIBLE_DEVICES
 export DIFFSYNTH_REPO
@@ -106,6 +108,12 @@ train_lora() {
   if [[ -n "${TOKENIZER_PATH}" ]]; then
     args+=(--tokenizer_path "${TOKENIZER_PATH}")
   fi
+  if [[ -n "${LORA_RANK}" ]]; then
+    args+=(--lora_rank "${LORA_RANK}")
+  fi
+  if [[ -n "${LORA_TARGET_MODULES}" ]]; then
+    args+=(--lora_target_modules "${LORA_TARGET_MODULES}")
+  fi
 
   echo "Last-step-skip LoRA training"
   echo "  project     : ${PROJECT_ROOT}"
@@ -116,6 +124,8 @@ train_lora() {
   echo "  gpu         : ${CUDA_VISIBLE_DEVICES}"
   echo "  steps       : ${MAX_STEPS}"
   echo "  max_samples : ${MAX_SAMPLES:-all}"
+  echo "  lora_rank   : ${LORA_RANK:-config}"
+  echo "  lora_target : ${LORA_TARGET_MODULES:-config}"
 
   python "${PROJECT_ROOT}/changing_resolution_distill/scripts/train/train_last_step_skip_lora.py" "${args[@]}"
 }
