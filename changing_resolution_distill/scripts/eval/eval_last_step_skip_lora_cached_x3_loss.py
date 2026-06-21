@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import importlib.util
 import json
 import os
@@ -78,25 +79,40 @@ def eval_diffsynth(args: argparse.Namespace, indices: list[int]) -> list[dict[st
     lora_config = json.loads(json.dumps(config))
     lora_config["model"]["lora_checkpoint"] = args.lora_ckpt
 
+    rows = [dataset[index] for index in indices]
+    orig_preds: dict[int, torch.Tensor] = {}
+
     print("[cached-x3][diffsynth] loading base model")
     base_module = train_mod.build_wan_training_module(base_config, device=device).eval()
+    for sample_index, row in zip(indices, rows):
+        batch = make_cached_x3_batch(row)
+        orig_preds[sample_index] = predict_diffsynth(base_module, batch, train_mod, device).detach().cpu()
+    del base_module
+    torch.cuda.empty_cache()
+    gc.collect()
+
     print("[cached-x3][diffsynth] loading LoRA model")
     lora_module = train_mod.build_wan_training_module(lora_config, device=device).eval()
-
     records = []
-    for sample_index in indices:
-        row = dataset[sample_index]
-        batch = {
-            "x3_lr": row["x3_lr"].unsqueeze(0),
-            "z4_lr_teacher": row["z4_lr_teacher"].unsqueeze(0),
-            "prompt": [row["prompt"]],
-            "meta_json": [row["meta_json"]],
-        }
-        orig = predict_diffsynth(base_module, batch, train_mod, device)
+    for sample_index, row in zip(indices, rows):
+        batch = make_cached_x3_batch(row)
+        orig = orig_preds[sample_index]
         lora = predict_diffsynth(lora_module, batch, train_mod, device)
-        target = batch["z4_lr_teacher"].float().to(orig.device)
+        target = batch["z4_lr_teacher"].float()
         records.append(make_record(args.backend, sample_index, row, orig, lora, target))
+    del lora_module
+    torch.cuda.empty_cache()
+    gc.collect()
     return records
+
+
+def make_cached_x3_batch(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "x3_lr": row["x3_lr"].unsqueeze(0),
+        "z4_lr_teacher": row["z4_lr_teacher"].unsqueeze(0),
+        "prompt": [row["prompt"]],
+        "meta_json": [row["meta_json"]],
+    }
 
 
 @torch.no_grad()
@@ -134,6 +150,9 @@ def eval_lightx2v(args: argparse.Namespace, indices: list[int]) -> list[dict[str
 
     dataset = LastStepSkipLoRALMDBDataset(args.data_dir, dtype=torch.float32)
 
+    rows = [dataset[index] for index in indices]
+    orig_preds: dict[int, torch.Tensor] = {}
+
     print("[cached-x3][lightx2v] loading base runner")
     base_runner = build_lightx2v_runner(
         args,
@@ -143,6 +162,14 @@ def eval_lightx2v(args: argparse.Namespace, indices: list[int]) -> list[dict[str
         validate_config_paths=validate_config_paths,
         RUNNER_REGISTER=RUNNER_REGISTER,
     )
+    for sample_index, row in zip(indices, rows):
+        seed = int(row["seed"] if row["seed"] is not None else args.seed)
+        seed_all(seed)
+        orig_preds[sample_index] = predict_lightx2v(base_runner, row, args, init_empty_input_info, update_input_info_from_dict, AI_DEVICE, lora_strength=None).detach().cpu()
+    del base_runner
+    torch.cuda.empty_cache()
+    gc.collect()
+
     print("[cached-x3][lightx2v] loading LoRA runner")
     lora_runner = build_lightx2v_runner(
         args,
@@ -154,15 +181,16 @@ def eval_lightx2v(args: argparse.Namespace, indices: list[int]) -> list[dict[str
     )
 
     records = []
-    for sample_index in indices:
-        row = dataset[sample_index]
+    for sample_index, row in zip(indices, rows):
         seed = int(row["seed"] if row["seed"] is not None else args.seed)
         seed_all(seed)
-        orig = predict_lightx2v(base_runner, row, args, init_empty_input_info, update_input_info_from_dict, AI_DEVICE, lora_strength=None)
-        seed_all(seed)
+        orig = orig_preds[sample_index]
         lora = predict_lightx2v(lora_runner, row, args, init_empty_input_info, update_input_info_from_dict, AI_DEVICE, lora_strength=args.lora_strength)
-        target = row["z4_lr_teacher"].unsqueeze(0).float().to(orig.device)
+        target = row["z4_lr_teacher"].unsqueeze(0).float()
         records.append(make_record(args.backend, sample_index, row, orig, lora, target))
+    del lora_runner
+    torch.cuda.empty_cache()
+    gc.collect()
     return records
 
 
@@ -240,9 +268,9 @@ def predict_lightx2v(runner, row, args, init_empty_input_info, update_input_info
 
 
 def make_record(backend: str, sample_index: int, row: dict[str, Any], orig: torch.Tensor, lora: torch.Tensor, target: torch.Tensor) -> dict[str, Any]:
-    orig_f = orig.float()
-    lora_f = lora.float()
-    target_f = target.float()
+    orig_f = orig.detach().float().cpu()
+    lora_f = lora.detach().float().cpu()
+    target_f = target.detach().float().cpu()
     orig_l1 = torch.nn.functional.l1_loss(orig_f, target_f).item()
     lora_l1 = torch.nn.functional.l1_loss(lora_f, target_f).item()
     return {
@@ -256,7 +284,7 @@ def make_record(backend: str, sample_index: int, row: dict[str, Any], orig: torc
         "delta_l1": lora_l1 - orig_l1,
         "lora_wins": lora_l1 < orig_l1,
         "orig_lora_l1": torch.nn.functional.l1_loss(orig_f, lora_f).item(),
-        "x3_target_l1": torch.nn.functional.l1_loss(row["x3_lr"].unsqueeze(0).float().to(target_f.device), target_f).item(),
+        "x3_target_l1": torch.nn.functional.l1_loss(row["x3_lr"].unsqueeze(0).float(), target_f).item(),
     }
 
 
