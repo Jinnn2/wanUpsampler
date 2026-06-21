@@ -5,6 +5,7 @@ from pathlib import Path
 
 import torch
 from loguru import logger
+from safetensors import safe_open
 
 from changing_resolution.lightx2v_clean_bridge import WanV2CleanLatentResizerBridge
 from lightx2v.models.networks.wan.distill_model import WanDistillModel
@@ -130,6 +131,38 @@ class WanStepDistillScheduler4CleanResizerBridge(WanStepDistillScheduler):
         ).squeeze(0)
 
 
+class WanDistillModelLastStepLoRA(WanDistillModel):
+    """Wan distill model with LoRA key normalization for DiffSynth/PEFT checkpoints."""
+
+    def _load_lora_file(self, file_path):
+        if self.device.type != "cpu" and torch.distributed.is_initialized():
+            device = f"{AI_DEVICE}:{torch.distributed.get_rank()}"
+        else:
+            device = str(self.device)
+
+        def normalize_key(key: str) -> str:
+            for prefix in ("pipe.dit.", "model.diffusion_model.", "diffusion_model.", "transformer."):
+                if key.startswith(prefix):
+                    key = key[len(prefix) :]
+            key = key.replace(".lora_A.default.weight", ".lora_down.weight")
+            key = key.replace(".lora_B.default.weight", ".lora_up.weight")
+            key = key.replace(".lora_A.weight", ".lora_down.weight")
+            key = key.replace(".lora_B.weight", ".lora_up.weight")
+            key = key.replace(".lora_A", ".lora_down")
+            key = key.replace(".lora_B", ".lora_up")
+            return key
+
+        with safe_open(file_path, framework="pt", device=device) as handle:
+            tensor_dict = {
+                normalize_key(key): handle.get_tensor(key).to(GET_DTYPE())
+                for key in handle.keys()
+            }
+        self._last_lora_file_key_count = len(tensor_dict)
+        sample_keys = list(tensor_dict)[:8]
+        logger.info(f"Loaded LoRA tensors: {len(tensor_dict)} from {file_path}; sample_keys={sample_keys}")
+        return tensor_dict
+
+
 @RUNNER_REGISTER("wan2.1_distill_last_step_lora")
 class WanDistillLastStepLoRARunner(WanDistillRunner):
     """WAN 4-step distill runner with LoRA enabled only on configured denoise steps."""
@@ -154,11 +187,20 @@ class WanDistillLastStepLoRARunner(WanDistillRunner):
             "lora_path": self.lora_path,
             "lora_strength": 0.0,
         }
-        return WanDistillModel(**wan_model_kwargs)
+        model = WanDistillModelLastStepLoRA(**wan_model_kwargs)
+        branch_count = count_lora_branches(model)
+        if branch_count <= 0:
+            raise RuntimeError(
+                "LoRA checkpoint loaded but matched zero LightX2V LoRA branches. "
+                f"Check key format in: {self.lora_path}"
+            )
+        logger.info(f"Registered {branch_count} LightX2V LoRA branches from {self.lora_path}")
+        return model
 
     def run_segment(self, segment_idx=0):
         infer_steps = self.model.scheduler.infer_steps
         device_module = getattr(torch, AI_DEVICE)
+        current_lora_strength = 0.0
 
         for step_index in range(infer_steps):
             if self.video_segment_num == 1:
@@ -166,7 +208,9 @@ class WanDistillLastStepLoRARunner(WanDistillRunner):
             step_number = step_index + 1
             strength = self.lora_strength if step_number in self.lora_active_steps else 0.0
             logger.info(f"==> step_index: {step_number} / {infer_steps}, lora_strength={strength}")
-            self.model._update_lora(self.lora_path, strength)
+            if strength != current_lora_strength:
+                self.model._update_lora(self.lora_path, strength)
+                current_lora_strength = strength
             self.model.scheduler.step_pre(step_index=step_index)
             self.model.infer(self.inputs)
             self.model.scheduler.step_post()
@@ -181,6 +225,21 @@ class WanDistillLastStepLoRARunner(WanDistillRunner):
             device_module.empty_cache()
 
         return self.model.scheduler.latents
+
+
+def count_lora_branches(obj) -> int:
+    count = 0
+    if getattr(obj, "has_lora_branch", False):
+        count += 1
+    for module in getattr(obj, "_modules", {}).values():
+        count += count_lora_branches(module)
+    for parameter in getattr(obj, "_parameters", {}).values():
+        count += count_lora_branches(parameter)
+    for name in ("pre_weight", "transformer_weights", "post_weight"):
+        child = getattr(obj, name, None)
+        if child is not None:
+            count += count_lora_branches(child)
+    return count
 
 
 @RUNNER_REGISTER("wan2.1_distill_clean_resizer_bridge")
