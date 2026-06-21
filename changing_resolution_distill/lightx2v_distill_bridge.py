@@ -194,13 +194,14 @@ class WanDistillLastStepLoRARunner(WanDistillRunner):
                 "LoRA checkpoint loaded but matched zero LightX2V LoRA branches. "
                 f"Check key format in: {self.lora_path}"
             )
+        self._current_lora_strength = 0.0
         logger.info(f"Registered {branch_count} LightX2V LoRA branches from {self.lora_path}")
         return model
 
     def run_segment(self, segment_idx=0):
         infer_steps = self.model.scheduler.infer_steps
         device_module = getattr(torch, AI_DEVICE)
-        current_lora_strength = 0.0
+        current_lora_strength = float(getattr(self, "_current_lora_strength", 0.0))
 
         for step_index in range(infer_steps):
             if self.video_segment_num == 1:
@@ -211,6 +212,7 @@ class WanDistillLastStepLoRARunner(WanDistillRunner):
             if strength != current_lora_strength:
                 self.model._update_lora(self.lora_path, strength)
                 current_lora_strength = strength
+                self._current_lora_strength = strength
             self.model.scheduler.step_pre(step_index=step_index)
             self.model.infer(self.inputs)
             self.model.scheduler.step_post()
