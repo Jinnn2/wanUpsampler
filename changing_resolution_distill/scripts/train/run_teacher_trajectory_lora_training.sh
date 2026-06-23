@@ -17,15 +17,15 @@ CR_DISTILL_DIT_CKPT="${CR_DISTILL_DIT_CKPT:-${CR_DISTILL_MODEL_ROOT}/distill_mod
 CR_DISTILL_TEXT_ENCODER_CKPT="${CR_DISTILL_TEXT_ENCODER_CKPT:-${CR_DISTILL_MODEL_ROOT}/models_t5_umt5-xxl-enc-bf16.pth}"
 CR_DISTILL_TEACHER_TRAJ_CONFIG="${CR_DISTILL_TEACHER_TRAJ_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_teacher_trajectory_lora_distill.yaml}"
 CR_DISTILL_TEACHER_TRAJ_LMDB_DIR="${CR_DISTILL_TEACHER_TRAJ_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_teacher_trajectory_lora_14b_cfgdistill_5k_step3}"
-CR_DISTILL_TEACHER_TRAJ_OUT_DIR="${CR_DISTILL_TEACHER_TRAJ_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_teacher_trajectory_lora_14b_cfgdistill_5k_step3}"
+CR_DISTILL_TEACHER_TRAJ_OUT_DIR="${CR_DISTILL_TEACHER_TRAJ_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_teacher_trajectory_lora_plan_e_on_policy_velocity_rank16_qkvo_ffn}"
 
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 USER_MAX_STEPS="${MAX_STEPS:-}"
 USER_MAX_SAMPLES="${MAX_SAMPLES:-}"
-MAX_STEPS="${USER_MAX_STEPS:-10000}"
+MAX_STEPS="${USER_MAX_STEPS:-1000}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
-GRAD_ACCUM="${GRAD_ACCUM:-8}"
-LR="${LR:-1e-4}"
+GRAD_ACCUM="${GRAD_ACCUM:-1}"
+LR="${LR:-4e-5}"
 PRECISION="${PRECISION:-bf16}"
 MAX_SAMPLES="${USER_MAX_SAMPLES}"
 RESUME="${RESUME:-}"
@@ -34,6 +34,9 @@ MODEL_ID_WITH_ORIGIN_PATHS="${MODEL_ID_WITH_ORIGIN_PATHS:-}"
 TOKENIZER_PATH="${TOKENIZER_PATH:-}"
 LORA_RANK="${LORA_RANK:-}"
 LORA_TARGET_MODULES="${LORA_TARGET_MODULES:-}"
+TRAINING_MODE="${TRAINING_MODE:-}"
+ON_POLICY_LOSS_TYPE="${ON_POLICY_LOSS_TYPE:-}"
+ON_POLICY_ACTIVE_STEPS="${ON_POLICY_ACTIVE_STEPS:-}"
 
 export CUDA_VISIBLE_DEVICES
 export DIFFSYNTH_REPO
@@ -114,8 +117,17 @@ train_lora() {
   if [[ -n "${LORA_TARGET_MODULES}" ]]; then
     args+=(--lora_target_modules "${LORA_TARGET_MODULES}")
   fi
+  if [[ -n "${TRAINING_MODE}" ]]; then
+    args+=(--training_mode "${TRAINING_MODE}")
+  fi
+  if [[ -n "${ON_POLICY_LOSS_TYPE}" ]]; then
+    args+=(--on_policy_loss_type "${ON_POLICY_LOSS_TYPE}")
+  fi
+  if [[ -n "${ON_POLICY_ACTIVE_STEPS}" ]]; then
+    args+=(--on_policy_active_steps "${ON_POLICY_ACTIVE_STEPS}")
+  fi
 
-  echo "Teacher-only LoRA training"
+  echo "Teacher trajectory LoRA training"
   echo "  project     : ${PROJECT_ROOT}"
   echo "  config      : ${CR_DISTILL_TEACHER_TRAJ_CONFIG}"
   echo "  data        : ${CR_DISTILL_TEACHER_TRAJ_LMDB_DIR}"
@@ -126,6 +138,9 @@ train_lora() {
   echo "  max_samples : ${MAX_SAMPLES:-all}"
   echo "  lora_rank   : ${LORA_RANK:-config}"
   echo "  lora_target : ${LORA_TARGET_MODULES:-config}"
+  echo "  mode        : ${TRAINING_MODE:-config}"
+  echo "  op_loss     : ${ON_POLICY_LOSS_TYPE:-config}"
+  echo "  op_active   : ${ON_POLICY_ACTIVE_STEPS:-config}"
 
   python "${PROJECT_ROOT}/changing_resolution_distill/scripts/train/train_teacher_trajectory_lora.py" "${args[@]}"
 }

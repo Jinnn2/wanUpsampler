@@ -48,10 +48,10 @@ distill:
 train:
   precision: bf16
   batch_size: 1
-  grad_accum: 8
-  lr: 1.0e-4
+  grad_accum: 1
+  lr: 4.0e-5
   weight_decay: 0.01
-  max_steps: 10000
+  max_steps: 1000
   num_workers: 4
   log_every: 10
   save_every: 500
@@ -62,12 +62,17 @@ train:
   gradient_checkpointing_offload: false
   ema_decay: null
   seed: 1234
+  training_mode: on_policy
+  on_policy_loss_type: velocity_target
+  on_policy_active_steps: all_before_train
 
 loss:
   l1_weight: 1.0
   mse_weight: 0.1
+  velocity_mse_weight: 1.0
+  velocity_l1_weight: 0.0
 
 output:
-  out_dir: outputs/changing_resolution_distill_teacher_trajectory_lora_14b_cfgdistill_5k_step3
+  out_dir: outputs/changing_resolution_distill_teacher_trajectory_lora_plan_e_on_policy_velocity_rank16_qkvo_ffn
   checkpoint_format: lora_only
   remove_prefix_in_ckpt: pipe.dit.

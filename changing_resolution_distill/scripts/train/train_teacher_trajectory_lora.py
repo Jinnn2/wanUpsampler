@@ -22,8 +22,11 @@ from changing_resolution_distill.scripts.train.train_last_step_skip_lora import 
     append_metrics,
     build_wan_training_module,
     encode_prompts,
+    flow_euler_step,
     get_training_device,
     load_resume,
+    make_deterministic_noise,
+    predict_flow,
     save_training_state,
     set_seed,
 )
@@ -139,6 +142,17 @@ def compute_batch_loss(
     config: dict,
     device: torch.device,
 ) -> tuple[torch.Tensor, dict[str, float]]:
+    if str(config["train"].get("training_mode", "cached_teacher")) == "on_policy":
+        return compute_on_policy_batch_loss(module, batch, config, device)
+    return compute_cached_teacher_batch_loss(module, batch, config, device)
+
+
+def compute_cached_teacher_batch_loss(
+    module: torch.nn.Module,
+    batch: dict[str, Any],
+    config: dict,
+    device: torch.device,
+) -> tuple[torch.Tensor, dict[str, float]]:
     pipe = module.pipe
     x_pre = batch["x_pre_train_step"].to(device, dtype=pipe.torch_dtype, non_blocking=True)
     target = batch["z_teacher_final"].to(device, dtype=pipe.torch_dtype, non_blocking=True)
@@ -165,6 +179,80 @@ def compute_batch_loss(
     return total, {"loss": float(total.detach()), "l1": float(l1.detach()), "mse": float(mse.detach())}
 
 
+def compute_on_policy_batch_loss(
+    module: torch.nn.Module,
+    batch: dict[str, Any],
+    config: dict,
+    device: torch.device,
+) -> tuple[torch.Tensor, dict[str, float]]:
+    pipe = module.pipe
+    target = batch["z_teacher_final"].to(device, dtype=pipe.torch_dtype, non_blocking=True)
+    prompts = list(batch["prompt"])
+    context = encode_prompts(pipe, prompts)
+    meta = parse_batch_meta(batch)
+    sigmas = extract_sigmas_from_meta(meta, device=device)
+    train_step_index = extract_single_train_step_index(meta)
+
+    noise = make_deterministic_noise(target, batch, config, device=device)
+    x = noise
+
+    active_steps = config["train"].get("on_policy_active_steps", "all_before_train")
+    with torch.no_grad():
+        for step_index in range(train_step_index):
+            step_latents = x.to(dtype=pipe.torch_dtype)
+            flow_pred = predict_flow(
+                pipe,
+                step_latents,
+                sigmas[:, step_index],
+                context,
+                config,
+                use_lora=should_use_lora_on_policy_step(active_steps, step_index),
+            )
+            x = flow_euler_step(x, flow_pred, sigmas[:, step_index], sigmas[:, step_index + 1]).detach()
+
+    x_current = x.to(dtype=pipe.torch_dtype)
+    flow_pred = predict_flow(
+        pipe,
+        x_current,
+        sigmas[:, train_step_index],
+        context,
+        config,
+        use_lora=True,
+    )
+    sigma_v = sigmas[:, train_step_index].view(-1, 1, 1, 1, 1).clamp_min(1e-6)
+    target_f = target.float()
+    pred_clean = x_current.float() - sigma_v * flow_pred.float()
+    clean_l1 = F.l1_loss(pred_clean, target_f)
+    clean_mse = F.mse_loss(pred_clean, target_f)
+
+    loss_type = str(config["train"].get("on_policy_loss_type", "velocity_target"))
+    if loss_type == "clean_l1_mse":
+        l1_weight = float(config.get("loss", {}).get("l1_weight", 1.0))
+        mse_weight = float(config.get("loss", {}).get("mse_weight", 0.1))
+        total = l1_weight * clean_l1 + mse_weight * clean_mse
+        return total, {
+            "loss": float(total.detach()),
+            "on_policy_clean_l1": float(clean_l1.detach()),
+            "on_policy_clean_mse": float(clean_mse.detach()),
+        }
+    if loss_type != "velocity_target":
+        raise ValueError(f"Unknown on_policy_loss_type: {loss_type}")
+
+    target_flow = (x_current.float() - target_f) / sigma_v
+    velocity_mse = F.mse_loss(flow_pred.float(), target_flow.detach())
+    velocity_l1 = F.l1_loss(flow_pred.float(), target_flow.detach())
+    velocity_mse_weight = float(config.get("loss", {}).get("velocity_mse_weight", 1.0))
+    velocity_l1_weight = float(config.get("loss", {}).get("velocity_l1_weight", 0.0))
+    total = velocity_mse_weight * velocity_mse + velocity_l1_weight * velocity_l1
+    return total, {
+        "loss": float(total.detach()),
+        "velocity_mse": float(velocity_mse.detach()),
+        "velocity_l1": float(velocity_l1.detach()),
+        "on_policy_clean_l1": float(clean_l1.detach()),
+        "on_policy_clean_mse": float(clean_mse.detach()),
+    }
+
+
 def extract_train_sigma(batch: dict[str, Any]) -> torch.Tensor:
     meta_json = batch["meta_json"]
     if isinstance(meta_json, str):
@@ -179,6 +267,57 @@ def extract_train_sigma(batch: dict[str, Any]) -> torch.Tensor:
             raise KeyError("Missing teacher_trajectory_recipe.train_sigma in LMDB metadata.")
         sigmas.append(float(recipe["train_sigma"]))
     return torch.tensor(sigmas, dtype=torch.float32)
+
+
+def parse_batch_meta(batch: dict[str, Any]) -> list[dict[str, Any]]:
+    meta_json = batch["meta_json"]
+    if isinstance(meta_json, str):
+        meta_items = [meta_json]
+    else:
+        meta_items = list(meta_json)
+    return [json.loads(text) for text in meta_items]
+
+
+def extract_sigmas_from_meta(meta_items: list[dict[str, Any]], *, device: torch.device) -> torch.Tensor:
+    rows = []
+    for meta in meta_items:
+        recipe = meta.get("teacher_trajectory_recipe", {})
+        infer_steps = int(recipe.get("infer_steps", 0))
+        if infer_steps <= 0:
+            raise KeyError("Missing teacher_trajectory_recipe.infer_steps in LMDB metadata.")
+        sigmas = [None] * infer_steps
+        for step in recipe.get("executed_teacher_steps", []) + recipe.get("target_teacher_steps", []):
+            index = int(step["step_index"])
+            sigmas[index] = float(step["sigma"])
+        if any(value is None for value in sigmas):
+            raise KeyError("Incomplete teacher trajectory sigmas in LMDB metadata.")
+        rows.append([float(value) for value in sigmas])
+    return torch.tensor(rows, device=device, dtype=torch.float32)
+
+
+def extract_single_train_step_index(meta_items: list[dict[str, Any]]) -> int:
+    indices = {
+        int(meta.get("teacher_trajectory_recipe", {}).get("train_step_index", -1))
+        for meta in meta_items
+    }
+    if len(indices) != 1 or -1 in indices:
+        raise ValueError(f"Expected one valid train_step_index per batch, got {sorted(indices)}")
+    return next(iter(indices))
+
+
+def should_use_lora_on_policy_step(active_steps: Any, step_index: int) -> bool:
+    if active_steps in (None, True):
+        return True
+    if active_steps is False:
+        return False
+    if isinstance(active_steps, str):
+        text = active_steps.strip().lower()
+        if text in {"", "all_before_train", "all", "true", "1"}:
+            return True
+        if text in {"none", "false", "0"}:
+            return False
+        active_steps = [item.strip() for item in text.replace(",", " ").split() if item.strip()]
+    return (step_index + 1) in {int(step) for step in active_steps}
 
 
 @torch.no_grad()
@@ -252,7 +391,7 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
         config["output"]["out_dir"] = args.out_dir
     if args.max_samples is not None:
         config["data"]["max_samples"] = args.max_samples
-    for key in ("batch_size", "grad_accum", "lr", "max_steps", "precision"):
+    for key in ("batch_size", "grad_accum", "lr", "max_steps", "precision", "training_mode", "on_policy_loss_type", "on_policy_active_steps"):
         value = getattr(args, key)
         if value is not None:
             config["train"][key] = value
@@ -281,6 +420,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr", type=float)
     parser.add_argument("--max_steps", type=int)
     parser.add_argument("--precision", choices=["fp32", "bf16", "fp16"])
+    parser.add_argument("--training_mode", choices=["cached_teacher", "on_policy"])
+    parser.add_argument("--on_policy_loss_type", choices=["velocity_target", "clean_l1_mse"])
+    parser.add_argument("--on_policy_active_steps")
     parser.add_argument("--model_paths")
     parser.add_argument("--model_id_with_origin_paths")
     parser.add_argument("--tokenizer_path")
