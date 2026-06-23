@@ -34,6 +34,9 @@ MODEL_ID_WITH_ORIGIN_PATHS="${MODEL_ID_WITH_ORIGIN_PATHS:-}"
 TOKENIZER_PATH="${TOKENIZER_PATH:-}"
 LORA_RANK="${LORA_RANK:-}"
 LORA_TARGET_MODULES="${LORA_TARGET_MODULES:-}"
+TRAINING_MODE="${TRAINING_MODE:-}"
+ON_POLICY_TARGET="${ON_POLICY_TARGET:-}"
+SOURCE_LMDB="${SOURCE_LMDB:-${CR_DISTILL_CLEAN_LMDB_DIR:-}}"
 
 export CUDA_VISIBLE_DEVICES
 export DIFFSYNTH_REPO
@@ -114,6 +117,15 @@ train_lora() {
   if [[ -n "${LORA_TARGET_MODULES}" ]]; then
     args+=(--lora_target_modules "${LORA_TARGET_MODULES}")
   fi
+  if [[ -n "${TRAINING_MODE}" ]]; then
+    args+=(--training_mode "${TRAINING_MODE}")
+  fi
+  if [[ -n "${ON_POLICY_TARGET}" ]]; then
+    args+=(--on_policy_target "${ON_POLICY_TARGET}")
+  fi
+  if [[ -n "${SOURCE_LMDB}" ]]; then
+    args+=(--source_lmdb "${SOURCE_LMDB}")
+  fi
 
   echo "Last-step-skip LoRA training"
   echo "  project     : ${PROJECT_ROOT}"
@@ -126,6 +138,9 @@ train_lora() {
   echo "  max_samples : ${MAX_SAMPLES:-all}"
   echo "  lora_rank   : ${LORA_RANK:-config}"
   echo "  lora_target : ${LORA_TARGET_MODULES:-config}"
+  echo "  mode        : ${TRAINING_MODE:-cached_x3}"
+  echo "  op_target   : ${ON_POLICY_TARGET:-config}"
+  echo "  source_lmdb : ${SOURCE_LMDB:-metadata}"
 
   python "${PROJECT_ROOT}/changing_resolution_distill/scripts/train/train_last_step_skip_lora.py" "${args[@]}"
 }

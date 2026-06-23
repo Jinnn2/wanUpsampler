@@ -22,7 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from wan_sr.data import LastStepSkipLoRALMDBDataset  # noqa: E402
+from wan_sr.data import CleanLatentLMDBDataset, LastStepSkipLoRALMDBDataset  # noqa: E402
 from wan_sr.training.config import deep_update, load_yaml  # noqa: E402
 
 
@@ -42,7 +42,7 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(args.config, out_dir / "train_config.yaml")
 
-    dataset = LastStepSkipLoRALMDBDataset(config["data"]["lmdb_dir"], strict_channels=True)
+    dataset = build_training_dataset(config)
     max_samples = config["data"].get("max_samples")
     if max_samples is not None:
         dataset = Subset(dataset, list(range(min(int(max_samples), len(dataset)))))
@@ -216,7 +216,51 @@ def dedupe_keep_order(paths: list[str]) -> list[str]:
     return result
 
 
+class OnPolicyLastStepSkipDataset(Dataset):
+    """Adds paired source clean LR latents to cached teacher targets.
+
+    The last-step LMDB already stores source_lmdb/source_index in each sample's
+    metadata, so this wrapper can recover z0_lr_ref without rebuilding the LMDB.
+    """
+
+    def __init__(self, cached_dataset: Dataset, fallback_source_lmdb: str | Path | None = None) -> None:
+        self.cached_dataset = cached_dataset
+        self.fallback_source_lmdb = Path(fallback_source_lmdb) if fallback_source_lmdb else None
+        self.source_datasets: dict[Path, CleanLatentLMDBDataset] = {}
+
+    def __len__(self) -> int:
+        return len(self.cached_dataset)
+
+    def __getitem__(self, index: int) -> dict[str, Any]:
+        row = dict(self.cached_dataset[index])
+        meta = json.loads(row["meta_json"])
+        source_lmdb = self.fallback_source_lmdb or meta.get("source_lmdb")
+        source_index = meta.get("source_index")
+        if source_lmdb is None or source_index is None:
+            raise KeyError("On-policy LoRA training requires source_lmdb and source_index in sample metadata.")
+
+        source_path = Path(source_lmdb)
+        if source_path not in self.source_datasets:
+            self.source_datasets[source_path] = CleanLatentLMDBDataset(source_path, strict_channels=True)
+        source_row = self.source_datasets[source_path][int(source_index)]
+        row["z0_lr_ref"] = source_row["z0_lr"]
+        return row
+
+
+def build_training_dataset(config: dict) -> Dataset:
+    dataset = LastStepSkipLoRALMDBDataset(config["data"]["lmdb_dir"], strict_channels=True)
+    if str(config["train"].get("training_mode", "cached_x3")) == "on_policy":
+        dataset = OnPolicyLastStepSkipDataset(dataset, config["data"].get("source_lmdb"))
+    return dataset
+
+
 def compute_batch_loss(module: torch.nn.Module, batch: dict[str, Any], config: dict, device: torch.device) -> tuple[torch.Tensor, dict[str, float]]:
+    if str(config["train"].get("training_mode", "cached_x3")) == "on_policy":
+        return compute_on_policy_batch_loss(module, batch, config, device)
+    return compute_cached_x3_batch_loss(module, batch, config, device)
+
+
+def compute_cached_x3_batch_loss(module: torch.nn.Module, batch: dict[str, Any], config: dict, device: torch.device) -> tuple[torch.Tensor, dict[str, float]]:
     pipe = module.pipe
     x3_lr = batch["x3_lr"].to(device, dtype=pipe.torch_dtype, non_blocking=True)
     target = batch["z4_lr_teacher"].to(device, dtype=pipe.torch_dtype, non_blocking=True)
@@ -241,6 +285,180 @@ def compute_batch_loss(module: torch.nn.Module, batch: dict[str, Any], config: d
     mse_weight = float(config.get("loss", {}).get("mse_weight", 0.1))
     total = l1_weight * l1 + mse_weight * mse
     return total, {"loss": float(total.detach()), "l1": float(l1.detach()), "mse": float(mse.detach())}
+
+
+def compute_on_policy_batch_loss(module: torch.nn.Module, batch: dict[str, Any], config: dict, device: torch.device) -> tuple[torch.Tensor, dict[str, float]]:
+    pipe = module.pipe
+    target_name = str(config["train"].get("on_policy_target", "z4_lr_teacher"))
+    if target_name not in batch:
+        raise KeyError(f"Missing on-policy target '{target_name}' in batch.")
+
+    z0_lr_ref = batch["z0_lr_ref"].to(device, dtype=pipe.torch_dtype, non_blocking=True)
+    target = batch[target_name].to(device, dtype=pipe.torch_dtype, non_blocking=True)
+    prompts = list(batch["prompt"])
+    context = encode_prompts(pipe, prompts)
+    meta = parse_batch_meta(batch)
+    sigmas = extract_sigmas_from_meta(meta, device=device)
+    train_step_index = extract_single_train_step_index(meta)
+
+    noise = make_deterministic_noise(z0_lr_ref, batch, config, device=device)
+    x = add_flow_noise(z0_lr_ref.float(), noise, sigmas[:, 0])
+
+    active_steps = config["train"].get("on_policy_active_steps", "all_before_train")
+    with torch.no_grad():
+        for step_index in range(train_step_index):
+            step_latents = x.to(dtype=pipe.torch_dtype)
+            flow_pred = predict_flow(
+                pipe,
+                step_latents,
+                sigmas[:, step_index],
+                context,
+                config,
+                use_lora=should_use_lora_on_policy_step(active_steps, step_index),
+            )
+            x = flow_euler_step(x, flow_pred, sigmas[:, step_index], sigmas[:, step_index + 1]).detach()
+
+    x_current = x.to(dtype=pipe.torch_dtype)
+    flow_pred = predict_flow(
+        pipe,
+        x_current,
+        sigmas[:, train_step_index],
+        context,
+        config,
+        use_lora=True,
+    )
+    pred = x_current.float() - sigmas[:, train_step_index].view(-1, 1, 1, 1, 1) * flow_pred.float()
+    target_f = target.float()
+    l1 = F.l1_loss(pred, target_f)
+    mse = F.mse_loss(pred, target_f)
+    l1_weight = float(config.get("loss", {}).get("l1_weight", 1.0))
+    mse_weight = float(config.get("loss", {}).get("mse_weight", 0.1))
+    total = l1_weight * l1 + mse_weight * mse
+    return total, {
+        "loss": float(total.detach()),
+        "l1": float(l1.detach()),
+        "mse": float(mse.detach()),
+        "on_policy_l1": float(l1.detach()),
+    }
+
+
+def predict_flow(
+    pipe: Any,
+    latents: torch.Tensor,
+    sigma: torch.Tensor,
+    context: torch.Tensor,
+    config: dict,
+    *,
+    use_lora: bool,
+) -> torch.Tensor:
+    timesteps = (sigma * 1000.0).to(device=latents.device, dtype=pipe.torch_dtype)
+    if use_lora:
+        return pipe.model_fn(
+            dit=pipe.dit,
+            latents=latents,
+            timestep=timesteps,
+            context=context,
+            use_gradient_checkpointing=bool(config["train"].get("gradient_checkpointing", True)),
+            use_gradient_checkpointing_offload=bool(config["train"].get("gradient_checkpointing_offload", False)),
+        )
+    with temporarily_disable_trainable_params(pipe.dit):
+        return pipe.model_fn(
+            dit=pipe.dit,
+            latents=latents,
+            timestep=timesteps,
+            context=context,
+            use_gradient_checkpointing=False,
+            use_gradient_checkpointing_offload=False,
+        )
+
+
+class temporarily_disable_trainable_params:
+    def __init__(self, module: torch.nn.Module) -> None:
+        self.module = module
+        self.states: list[tuple[torch.nn.Parameter, bool]] = []
+
+    def __enter__(self) -> None:
+        for param in self.module.parameters():
+            if param.requires_grad:
+                self.states.append((param, True))
+                param.requires_grad_(False)
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        for param, state in self.states:
+            param.requires_grad_(state)
+
+
+def add_flow_noise(clean: torch.Tensor, noise: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
+    sigma_v = sigma.view(-1, 1, 1, 1, 1)
+    return (1.0 - sigma_v) * clean + sigma_v * noise
+
+
+def flow_euler_step(x: torch.Tensor, flow_pred: torch.Tensor, sigma: torch.Tensor, sigma_next: torch.Tensor) -> torch.Tensor:
+    delta = (sigma_next - sigma).view(-1, 1, 1, 1, 1)
+    return x.float() + delta * flow_pred.float()
+
+
+def make_deterministic_noise(batch_like: torch.Tensor, batch: dict[str, Any], config: dict, *, device: torch.device) -> torch.Tensor:
+    seeds = batch.get("seed")
+    if seeds is None:
+        base_seed = int(config["train"].get("seed", 1234))
+        seeds = [base_seed + i for i in range(int(batch_like.shape[0]))]
+    if torch.is_tensor(seeds):
+        seed_items = [int(seed) for seed in seeds.detach().cpu().tolist()]
+    elif isinstance(seeds, int):
+        seed_items = [int(seeds)]
+    else:
+        seed_items = [int(seed) for seed in list(seeds)]
+
+    noises = []
+    for seed in seed_items:
+        generator = torch.Generator(device=device).manual_seed(seed)
+        noises.append(torch.randn(batch_like.shape[1:], generator=generator, device=device, dtype=torch.float32))
+    return torch.stack(noises, dim=0)
+
+
+def parse_batch_meta(batch: dict[str, Any]) -> list[dict[str, Any]]:
+    meta_json = batch["meta_json"]
+    if isinstance(meta_json, str):
+        meta_items = [meta_json]
+    else:
+        meta_items = list(meta_json)
+    return [json.loads(text) for text in meta_items]
+
+
+def extract_sigmas_from_meta(meta_items: list[dict[str, Any]], *, device: torch.device) -> torch.Tensor:
+    rows = []
+    for meta in meta_items:
+        recipe = meta.get("last_step_skip_recipe", {})
+        infer_steps = int(recipe.get("infer_steps", 0))
+        if infer_steps <= 0:
+            raise KeyError("Missing last_step_skip_recipe.infer_steps in LMDB metadata.")
+        sigmas = [None] * infer_steps
+        for step in recipe.get("executed_teacher_steps", []) + recipe.get("target_teacher_steps", []):
+            index = int(step["step_index"])
+            sigmas[index] = float(step["sigma"])
+        if any(value is None for value in sigmas):
+            raise KeyError("Incomplete teacher step sigmas in LMDB metadata.")
+        rows.append([float(value) for value in sigmas])
+    return torch.tensor(rows, device=device, dtype=torch.float32)
+
+
+def extract_single_train_step_index(meta_items: list[dict[str, Any]]) -> int:
+    indices = {
+        int(meta.get("last_step_skip_recipe", {}).get("train_step_index", -1))
+        for meta in meta_items
+    }
+    if len(indices) != 1 or -1 in indices:
+        raise ValueError(f"Expected one valid train_step_index per batch, got {sorted(indices)}")
+    return next(iter(indices))
+
+
+def should_use_lora_on_policy_step(active_steps: Any, step_index: int) -> bool:
+    if active_steps in (None, "all_before_train", "all", True):
+        return True
+    if active_steps in ("none", False):
+        return False
+    return (step_index + 1) in {int(step) for step in active_steps}
 
 
 @torch.no_grad()
@@ -381,10 +599,12 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
         config["output"]["out_dir"] = args.out_dir
     if args.max_samples is not None:
         config["data"]["max_samples"] = args.max_samples
-    for key in ("batch_size", "grad_accum", "lr", "max_steps", "precision"):
+    for key in ("batch_size", "grad_accum", "lr", "max_steps", "precision", "training_mode", "on_policy_target"):
         value = getattr(args, key)
         if value is not None:
             config["train"][key] = value
+    if args.source_lmdb is not None:
+        config["data"]["source_lmdb"] = args.source_lmdb
     if args.model_paths is not None:
         config["model"]["model_paths"] = args.model_paths
     if args.model_id_with_origin_paths is not None:
@@ -436,6 +656,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr", type=float)
     parser.add_argument("--max_steps", type=int)
     parser.add_argument("--precision", choices=["fp32", "bf16", "fp16"])
+    parser.add_argument("--training_mode", choices=["cached_x3", "on_policy"])
+    parser.add_argument("--on_policy_target", choices=["z4_lr_teacher", "z0_lr_ref"])
+    parser.add_argument("--source_lmdb")
     parser.add_argument("--model_paths")
     parser.add_argument("--model_id_with_origin_paths")
     parser.add_argument("--tokenizer_path")
