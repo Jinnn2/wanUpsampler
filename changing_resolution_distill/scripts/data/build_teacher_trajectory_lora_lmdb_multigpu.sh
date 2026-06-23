@@ -14,11 +14,12 @@ fi
 TOTAL_SAMPLES="${TOTAL_SAMPLES:-5000}"
 GPU_IDS="${GPU_IDS:-0,1,2,3}"
 START_OFFSET="${START_OFFSET:-0}"
+ALLOW_FEWER_PROMPTS="${ALLOW_FEWER_PROMPTS:-0}"
 CR_DISTILL_MODEL_ROOT="${CR_DISTILL_MODEL_ROOT:-/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
 CR_DISTILL_DIT_CKPT="${CR_DISTILL_DIT_CKPT:-${CR_DISTILL_MODEL_ROOT}/distill_model.pt}"
 CR_DISTILL_MODEL_ID="${CR_DISTILL_MODEL_ID:-lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill}"
 MODEL_ROOT="${USER_MODEL_ROOT:-${CR_DISTILL_MODEL_ROOT}}"
-PROMPTS_FILE="${PROMPTS_FILE:-${CR_DISTILL_PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_generate_720p_prompts.txt}}"
+PROMPTS_FILE="${PROMPTS_FILE:-${CR_DISTILL_PROMPTS_FILE:-${CR_HF_PROMPTS_FILE:-${PROJECT_ROOT}/prompts/vidprom_filtered_extended.txt}}}"
 CONFIG_JSON="${CR_DISTILL_STAGE3_X0PRED_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/wan_t2v_distill_stage3_x0pred_480p.json}"
 if [[ -n "${USER_CR_DISTILL_TEACHER_TRAJ_LMDB_DIR}" ]]; then
   LMDB_ROOT="${CR_DISTILL_TEACHER_TRAJ_LMDB_DIR}"
@@ -45,6 +46,37 @@ for path in "${PROMPTS_FILE}" "${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}" "${M
   fi
 done
 
+PROMPT_COUNT="$(python - "${PROMPTS_FILE}" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+count = 0
+with path.open("r", encoding="utf-8") as f:
+    for line in f:
+        text = line.strip()
+        if text and not text.startswith("#"):
+            count += 1
+print(count)
+PY
+)"
+AVAILABLE_PROMPTS=$((PROMPT_COUNT - START_OFFSET))
+if (( AVAILABLE_PROMPTS <= 0 )); then
+  echo "No prompts available: prompts=${PROMPT_COUNT}, START_OFFSET=${START_OFFSET}" >&2
+  exit 1
+fi
+REQUESTED_TOTAL="${TOTAL_SAMPLES}"
+if (( TOTAL_SAMPLES > AVAILABLE_PROMPTS )); then
+  if [[ "${ALLOW_FEWER_PROMPTS}" == "1" ]]; then
+    echo "Requested TOTAL_SAMPLES=${TOTAL_SAMPLES}, but only ${AVAILABLE_PROMPTS} prompts are available from START_OFFSET=${START_OFFSET}; clamping to ${AVAILABLE_PROMPTS}." >&2
+    TOTAL_SAMPLES="${AVAILABLE_PROMPTS}"
+  else
+    echo "Requested TOTAL_SAMPLES=${TOTAL_SAMPLES}, but ${PROMPTS_FILE} only has ${PROMPT_COUNT} usable prompts and ${AVAILABLE_PROMPTS} available from START_OFFSET=${START_OFFSET}." >&2
+    echo "Provide a larger PROMPTS_FILE, lower TOTAL_SAMPLES, or set ALLOW_FEWER_PROMPTS=1 to build only the available prompts." >&2
+    exit 1
+  fi
+fi
+
 mkdir -p "${LMDB_ROOT}" "${PARTS_DIR}" "${LOG_DIR}"
 
 if [[ "${OVERWRITE}" == "1" ]]; then
@@ -57,6 +89,8 @@ echo "  project      : ${PROJECT_ROOT}"
 echo "  prompts      : ${PROMPTS_FILE}"
 echo "  lmdb_root    : ${LMDB_ROOT}"
 echo "  total_samples: ${TOTAL_SAMPLES}"
+echo "  requested    : ${REQUESTED_TOTAL}"
+echo "  prompt_count : ${PROMPT_COUNT}"
 echo "  start_offset : ${START_OFFSET}"
 echo "  distill_id   : ${CR_DISTILL_MODEL_ID}"
 echo "  model        : ${MODEL_ROOT}"

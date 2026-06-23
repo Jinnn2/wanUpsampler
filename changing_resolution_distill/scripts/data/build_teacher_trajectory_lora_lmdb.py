@@ -339,7 +339,7 @@ def parse_args() -> argparse.Namespace:
         "--prompts_file",
         default=os.environ.get(
             "CR_DISTILL_PROMPTS_FILE",
-            "changing_resolution/configs/wan_t2v_generate_720p_prompts.txt",
+            os.environ.get("CR_HF_PROMPTS_FILE", "prompts/vidprom_filtered_extended.txt"),
         ),
     )
     parser.add_argument(
