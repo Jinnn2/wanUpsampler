@@ -37,6 +37,7 @@ LORA_TARGET_MODULES="${LORA_TARGET_MODULES:-}"
 TRAINING_MODE="${TRAINING_MODE:-}"
 ON_POLICY_LOSS_TYPE="${ON_POLICY_LOSS_TYPE:-}"
 ON_POLICY_ACTIVE_STEPS="${ON_POLICY_ACTIVE_STEPS:-}"
+ON_POLICY_ROLLOUT_SOURCE="${ON_POLICY_ROLLOUT_SOURCE:-}"
 
 export CUDA_VISIBLE_DEVICES
 export DIFFSYNTH_REPO
@@ -126,6 +127,9 @@ train_lora() {
   if [[ -n "${ON_POLICY_ACTIVE_STEPS}" ]]; then
     args+=(--on_policy_active_steps "${ON_POLICY_ACTIVE_STEPS}")
   fi
+  if [[ -n "${ON_POLICY_ROLLOUT_SOURCE}" ]]; then
+    args+=(--on_policy_rollout_source "${ON_POLICY_ROLLOUT_SOURCE}")
+  fi
 
   echo "Teacher trajectory LoRA training"
   echo "  project     : ${PROJECT_ROOT}"
@@ -141,6 +145,7 @@ train_lora() {
   echo "  mode        : ${TRAINING_MODE:-config}"
   echo "  op_loss     : ${ON_POLICY_LOSS_TYPE:-config}"
   echo "  op_active   : ${ON_POLICY_ACTIVE_STEPS:-config}"
+  echo "  op_rollout  : ${ON_POLICY_ROLLOUT_SOURCE:-config}"
 
   python "${PROJECT_ROOT}/changing_resolution_distill/scripts/train/train_teacher_trajectory_lora.py" "${args[@]}"
 }

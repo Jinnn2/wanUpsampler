@@ -54,6 +54,7 @@ def main() -> None:
     max_samples = config["data"].get("max_samples")
     if max_samples is not None:
         dataset = Subset(dataset, list(range(min(int(max_samples), len(dataset)))))
+    validate_teacher_trajectory_dataset(dataset, config)
     train_dataset, val_dataset = split_dataset(dataset, config)
     print(f"dataset={len(dataset)} train={len(train_dataset)} val={len(val_dataset)}", flush=True)
 
@@ -136,6 +137,48 @@ def build_training_dataset(config: dict) -> Dataset:
     return TeacherTrajectoryLoRALMDBDataset(config["data"]["lmdb_dir"], strict_channels=True)
 
 
+def validate_teacher_trajectory_dataset(dataset: Dataset, config: dict, max_checks: int = 16) -> None:
+    expected_step = int(config.get("task", {}).get("train_step_index", 2))
+    checked = min(max_checks, len(dataset))
+    for index in range(checked):
+        row = dataset[index]
+        if row["x_pre_train_step"].shape != row["z_teacher_final"].shape:
+            raise ValueError(
+                "Teacher trajectory shape mismatch at "
+                f"sample {index}: x_pre_train_step={tuple(row['x_pre_train_step'].shape)} "
+                f"z_teacher_final={tuple(row['z_teacher_final'].shape)}"
+            )
+        meta = json.loads(row["meta_json"])
+        recipe = meta.get("teacher_trajectory_recipe", {})
+        train_step_index = int(recipe.get("train_step_index", -1))
+        if train_step_index != expected_step:
+            raise ValueError(
+                f"Expected train_step_index={expected_step}, got {train_step_index} "
+                f"at sample {index}."
+            )
+        sigmas = collect_recipe_sigmas(recipe)
+        if len(sigmas) != int(recipe.get("infer_steps", len(sigmas))):
+            raise ValueError(f"Incomplete teacher trajectory sigmas at sample {index}: {sigmas}")
+        if any(sigma < 0.0 or sigma > 1.0 for sigma in sigmas):
+            raise ValueError(
+                f"Teacher trajectory sigmas must be normalized to [0, 1], got {sigmas} "
+                f"at sample {index}."
+            )
+        if any(left <= right for left, right in zip(sigmas, sigmas[1:])):
+            raise ValueError(f"Teacher trajectory sigmas must be strictly decreasing, got {sigmas} at sample {index}.")
+    print(f"validated teacher trajectory LMDB on {checked} sample(s)", flush=True)
+
+
+def collect_recipe_sigmas(recipe: dict[str, Any]) -> list[float]:
+    infer_steps = int(recipe.get("infer_steps", 0))
+    sigmas: list[float | None] = [None] * infer_steps
+    for step in recipe.get("executed_teacher_steps", []) + recipe.get("target_teacher_steps", []):
+        index = int(step["step_index"])
+        if 0 <= index < infer_steps:
+            sigmas[index] = float(step["sigma"])
+    return [float(sigma) for sigma in sigmas if sigma is not None]
+
+
 def compute_batch_loss(
     module: torch.nn.Module,
     batch: dict[str, Any],
@@ -186,6 +229,7 @@ def compute_on_policy_batch_loss(
     device: torch.device,
 ) -> tuple[torch.Tensor, dict[str, float]]:
     pipe = module.pipe
+    x_pre = batch["x_pre_train_step"].to(device, dtype=pipe.torch_dtype, non_blocking=True)
     target = batch["z_teacher_final"].to(device, dtype=pipe.torch_dtype, non_blocking=True)
     prompts = list(batch["prompt"])
     context = encode_prompts(pipe, prompts)
@@ -193,24 +237,33 @@ def compute_on_policy_batch_loss(
     sigmas = extract_sigmas_from_meta(meta, device=device)
     train_step_index = extract_single_train_step_index(meta)
 
-    noise = make_deterministic_noise(target, batch, config, device=device)
-    x = noise
+    rollout_source = str(config["train"].get("on_policy_rollout_source", "cached_prefix"))
+    prefix_l1_to_cache = None
+    if rollout_source == "cached_prefix":
+        x_current = x_pre
+    elif rollout_source == "recompute_prefix":
+        noise = make_deterministic_noise(target, batch, config, device=device)
+        x = noise
 
-    active_steps = config["train"].get("on_policy_active_steps", "all_before_train")
-    with torch.no_grad():
-        for step_index in range(train_step_index):
-            step_latents = x.to(dtype=pipe.torch_dtype)
-            flow_pred = predict_flow(
-                pipe,
-                step_latents,
-                sigmas[:, step_index],
-                context,
-                config,
-                use_lora=should_use_lora_on_policy_step(active_steps, step_index),
-            )
-            x = flow_euler_step(x, flow_pred, sigmas[:, step_index], sigmas[:, step_index + 1]).detach()
+        active_steps = config["train"].get("on_policy_active_steps", "none")
+        with torch.no_grad():
+            for step_index in range(train_step_index):
+                step_latents = x.to(dtype=pipe.torch_dtype)
+                flow_pred = predict_flow(
+                    pipe,
+                    step_latents,
+                    sigmas[:, step_index],
+                    context,
+                    config,
+                    use_lora=should_use_lora_on_policy_step(active_steps, step_index),
+                )
+                x = flow_euler_step(x, flow_pred, sigmas[:, step_index], sigmas[:, step_index + 1]).detach()
 
-    x_current = x.to(dtype=pipe.torch_dtype)
+        prefix_l1_to_cache = F.l1_loss(x.float(), x_pre.float())
+        x_current = x.to(dtype=pipe.torch_dtype)
+    else:
+        raise ValueError(f"Unknown on_policy_rollout_source: {rollout_source}")
+
     flow_pred = predict_flow(
         pipe,
         x_current,
@@ -230,11 +283,14 @@ def compute_on_policy_batch_loss(
         l1_weight = float(config.get("loss", {}).get("l1_weight", 1.0))
         mse_weight = float(config.get("loss", {}).get("mse_weight", 0.1))
         total = l1_weight * clean_l1 + mse_weight * clean_mse
-        return total, {
+        items = {
             "loss": float(total.detach()),
             "on_policy_clean_l1": float(clean_l1.detach()),
             "on_policy_clean_mse": float(clean_mse.detach()),
         }
+        if prefix_l1_to_cache is not None:
+            items["prefix_l1_to_cache"] = float(prefix_l1_to_cache.detach())
+        return total, items
     if loss_type != "velocity_target":
         raise ValueError(f"Unknown on_policy_loss_type: {loss_type}")
 
@@ -244,13 +300,16 @@ def compute_on_policy_batch_loss(
     velocity_mse_weight = float(config.get("loss", {}).get("velocity_mse_weight", 1.0))
     velocity_l1_weight = float(config.get("loss", {}).get("velocity_l1_weight", 0.0))
     total = velocity_mse_weight * velocity_mse + velocity_l1_weight * velocity_l1
-    return total, {
+    items = {
         "loss": float(total.detach()),
         "velocity_mse": float(velocity_mse.detach()),
         "velocity_l1": float(velocity_l1.detach()),
         "on_policy_clean_l1": float(clean_l1.detach()),
         "on_policy_clean_mse": float(clean_mse.detach()),
     }
+    if prefix_l1_to_cache is not None:
+        items["prefix_l1_to_cache"] = float(prefix_l1_to_cache.detach())
+    return total, items
 
 
 def extract_train_sigma(batch: dict[str, Any]) -> torch.Tensor:
@@ -391,7 +450,17 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
         config["output"]["out_dir"] = args.out_dir
     if args.max_samples is not None:
         config["data"]["max_samples"] = args.max_samples
-    for key in ("batch_size", "grad_accum", "lr", "max_steps", "precision", "training_mode", "on_policy_loss_type", "on_policy_active_steps"):
+    for key in (
+        "batch_size",
+        "grad_accum",
+        "lr",
+        "max_steps",
+        "precision",
+        "training_mode",
+        "on_policy_loss_type",
+        "on_policy_active_steps",
+        "on_policy_rollout_source",
+    ):
         value = getattr(args, key)
         if value is not None:
             config["train"][key] = value
@@ -423,6 +492,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--training_mode", choices=["cached_teacher", "on_policy"])
     parser.add_argument("--on_policy_loss_type", choices=["velocity_target", "clean_l1_mse"])
     parser.add_argument("--on_policy_active_steps")
+    parser.add_argument("--on_policy_rollout_source", choices=["cached_prefix", "recompute_prefix"])
     parser.add_argument("--model_paths")
     parser.add_argument("--model_id_with_origin_paths")
     parser.add_argument("--tokenizer_path")

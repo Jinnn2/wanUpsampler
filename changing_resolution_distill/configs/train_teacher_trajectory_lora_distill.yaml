@@ -64,7 +64,11 @@ train:
   seed: 1234
   training_mode: on_policy
   on_policy_loss_type: velocity_target
-  on_policy_active_steps: all_before_train
+  # Use the cached LightX2V prefix state by default so the step-3 input and
+  # z_teacher_final target are from the same teacher trajectory.
+  # Set to recompute_prefix only when explicitly debugging closed-loop rollout.
+  on_policy_rollout_source: cached_prefix
+  on_policy_active_steps: none
 
 loss:
   l1_weight: 1.0

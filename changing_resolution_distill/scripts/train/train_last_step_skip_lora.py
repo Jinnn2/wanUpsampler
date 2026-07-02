@@ -361,7 +361,7 @@ def predict_flow(
             use_gradient_checkpointing=bool(config["train"].get("gradient_checkpointing", True)),
             use_gradient_checkpointing_offload=bool(config["train"].get("gradient_checkpointing_offload", False)),
         )
-    with temporarily_disable_trainable_params(pipe.dit):
+    with temporarily_zero_trainable_params(pipe.dit):
         return pipe.model_fn(
             dit=pipe.dit,
             latents=latents,
@@ -372,20 +372,22 @@ def predict_flow(
         )
 
 
-class temporarily_disable_trainable_params:
+class temporarily_zero_trainable_params:
     def __init__(self, module: torch.nn.Module) -> None:
         self.module = module
-        self.states: list[tuple[torch.nn.Parameter, bool]] = []
+        self.states: list[tuple[torch.nn.Parameter, torch.Tensor, bool]] = []
 
     def __enter__(self) -> None:
         for param in self.module.parameters():
             if param.requires_grad:
-                self.states.append((param, True))
+                self.states.append((param, param.detach().clone(), param.requires_grad))
                 param.requires_grad_(False)
+                param.data.zero_()
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
-        for param, state in self.states:
-            param.requires_grad_(state)
+        for param, value, requires_grad in self.states:
+            param.data.copy_(value)
+            param.requires_grad_(requires_grad)
 
 
 def add_flow_noise(clean: torch.Tensor, noise: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:

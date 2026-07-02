@@ -16,8 +16,8 @@ set -euo pipefail
 #   SEED=42
 #   PROMPTS_FILE=changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt
 #   LORA_CKPT=/path/to/latest.safetensors
-#   LORA_ACTIVE_STEPS=1,2,3
-#   LORA_CASE_NAME=01_lora3_all_steps
+#   LORA_ACTIVE_STEPS=3
+#   LORA_CASE_NAME=01_lora3_step3_only
 #   OUT_ROOT=outputs/changing_resolution_distill_teacher_trajectory_lora_plan_e_on_policy_10prompt_eval
 #   HEIGHT=720 WIDTH=1248 NUM_FRAMES=81
 
@@ -37,8 +37,8 @@ CR_DISTILL_DIT_CKPT="${CR_DISTILL_DIT_CKPT:-${CR_DISTILL_MODEL_ROOT}/distill_mod
 CR_DISTILL_TEACHER_TRAJ_OUT_DIR="${CR_DISTILL_TEACHER_TRAJ_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_teacher_trajectory_lora_plan_e_on_policy_velocity_rank16_qkvo_ffn}"
 LORA_CKPT="${LORA_CKPT:-${CR_DISTILL_TEACHER_TRAJ_OUT_DIR}/latest.safetensors}"
 LORA_STRENGTH="${LORA_STRENGTH:-1.0}"
-LORA_ACTIVE_STEPS="${LORA_ACTIVE_STEPS:-1,2,3}"
-LORA_CASE_NAME="${LORA_CASE_NAME:-01_lora3_all_steps}"
+LORA_ACTIVE_STEPS="${LORA_ACTIVE_STEPS:-3}"
+LORA_CASE_NAME="${LORA_CASE_NAME:-01_lora3_step3_only}"
 
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 DTYPE="${DTYPE:-BF16}"
