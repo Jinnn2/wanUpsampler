@@ -20,11 +20,26 @@ CR_DISTILL_LORA_LMDB_DIR="${CR_DISTILL_LORA_LMDB_DIR:-${PROJECT_ROOT}/data/chang
 CR_DISTILL_LORA_OUT_DIR="${CR_DISTILL_LORA_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3}"
 
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
+NUM_GPUS="${NUM_GPUS:-1}"
+DIST_BACKEND="${DIST_BACKEND:-}"
 USER_MAX_STEPS="${MAX_STEPS:-}"
 USER_MAX_SAMPLES="${MAX_SAMPLES:-}"
 MAX_STEPS="${USER_MAX_STEPS:-10000}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
-GRAD_ACCUM="${GRAD_ACCUM:-8}"
+USER_GRAD_ACCUM="${GRAD_ACCUM:-}"
+BASE_GRAD_ACCUM="${BASE_GRAD_ACCUM:-8}"
+if [[ -n "${USER_GRAD_ACCUM}" ]]; then
+  GRAD_ACCUM="${USER_GRAD_ACCUM}"
+elif (( NUM_GPUS > 1 )); then
+  if (( BASE_GRAD_ACCUM < NUM_GPUS || BASE_GRAD_ACCUM % NUM_GPUS != 0 )); then
+    echo "Cannot keep the original effective batch with BASE_GRAD_ACCUM=${BASE_GRAD_ACCUM} and NUM_GPUS=${NUM_GPUS}." >&2
+    echo "Set GRAD_ACCUM explicitly, or choose a NUM_GPUS value that divides BASE_GRAD_ACCUM." >&2
+    exit 1
+  fi
+  GRAD_ACCUM="$((BASE_GRAD_ACCUM / NUM_GPUS))"
+else
+  GRAD_ACCUM="${BASE_GRAD_ACCUM}"
+fi
 LR="${LR:-5e-5}"
 PRECISION="${PRECISION:-bf16}"
 MAX_SAMPLES="${USER_MAX_SAMPLES}"
@@ -37,6 +52,9 @@ LORA_TARGET_MODULES="${LORA_TARGET_MODULES:-}"
 TRAINING_MODE="${TRAINING_MODE:-cached_x_pre_step3}"
 
 export CUDA_VISIBLE_DEVICES
+if [[ -n "${DIST_BACKEND}" ]]; then
+  export DIST_BACKEND
+fi
 export DIFFSYNTH_REPO
 export LIGHTX2V_REPO
 export PYTHONPATH="${DIFFSYNTH_REPO}:${LIGHTX2V_REPO}:${PROJECT_ROOT}:${PYTHONPATH:-}"
@@ -62,6 +80,10 @@ check_env() {
   fi
   if [[ ! -f "${CR_DISTILL_TEXT_ENCODER_CKPT}" ]]; then
     echo "Text encoder checkpoint not found: ${CR_DISTILL_TEXT_ENCODER_CKPT}" >&2
+    exit 1
+  fi
+  if (( NUM_GPUS > 1 )) && ! command -v torchrun >/dev/null 2>&1; then
+    echo "torchrun not found. Install a PyTorch distribution that provides torchrun, or set NUM_GPUS=1." >&2
     exit 1
   fi
   python - <<'PY'
@@ -126,13 +148,22 @@ train_lora() {
   echo "  out_dir     : ${CR_DISTILL_LORA_OUT_DIR}"
   echo "  diffsynth   : ${DIFFSYNTH_REPO}"
   echo "  gpu         : ${CUDA_VISIBLE_DEVICES}"
+  echo "  num_gpus    : ${NUM_GPUS}"
+  echo "  batch_size  : ${BATCH_SIZE}"
+  echo "  grad_accum  : ${GRAD_ACCUM}"
+  echo "  eff_batch   : $((BATCH_SIZE * GRAD_ACCUM * NUM_GPUS))"
   echo "  steps       : ${MAX_STEPS}"
   echo "  max_samples : ${MAX_SAMPLES:-all}"
   echo "  lora_rank   : ${LORA_RANK:-config}"
   echo "  lora_target : ${LORA_TARGET_MODULES:-config}"
   echo "  mode        : ${TRAINING_MODE}"
 
-  python "${PROJECT_ROOT}/changing_resolution_distill/scripts/train/train_last_step_skip_lora.py" "${args[@]}"
+  if (( NUM_GPUS > 1 )); then
+    torchrun --standalone --nnodes=1 --nproc_per_node="${NUM_GPUS}" \
+      "${PROJECT_ROOT}/changing_resolution_distill/scripts/train/train_last_step_skip_lora.py" "${args[@]}"
+  else
+    python "${PROJECT_ROOT}/changing_resolution_distill/scripts/train/train_last_step_skip_lora.py" "${args[@]}"
+  fi
 }
 
 case "${MODE}" in

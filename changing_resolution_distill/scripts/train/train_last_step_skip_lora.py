@@ -8,13 +8,16 @@ import os
 import random
 import shutil
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
+import torch.distributed as dist
 import torch.nn.functional as F
 from safetensors.torch import save_file
+from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm import tqdm
 
@@ -26,102 +29,225 @@ from wan_sr.data import LastStepSkipLoRALMDBDataset  # noqa: E402
 from wan_sr.training.config import deep_update, load_yaml  # noqa: E402
 
 
+@dataclass(frozen=True)
+class DistributedContext:
+    enabled: bool
+    rank: int
+    local_rank: int
+    world_size: int
+
+    @property
+    def is_main(self) -> bool:
+        return self.rank == 0
+
+
 def main() -> None:
     args = parse_args()
     config = apply_cli_overrides(load_yaml(args.config), args)
     if str(config["train"].get("training_mode", "cached_x_pre_step3")) != "cached_x_pre_step3":
         raise ValueError("This mainline trainer only supports training_mode=cached_x_pre_step3.")
 
-    set_seed(int(config["train"].get("seed", 1234)))
-    torch.set_float32_matmul_precision("high")
+    dist_ctx = init_distributed()
+    try:
+        set_seed(int(config["train"].get("seed", 1234)) + dist_ctx.rank)
+        torch.set_float32_matmul_precision("high")
 
-    device = get_training_device()
-    precision = str(config["train"].get("precision", "bf16"))
-    autocast_dtype = torch.bfloat16 if precision == "bf16" else torch.float16
-    use_autocast = device.type == "cuda" and precision in {"bf16", "fp16"}
-    scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda" and precision == "fp16")
+        device = get_training_device(dist_ctx)
+        precision = str(config["train"].get("precision", "bf16"))
+        autocast_dtype = torch.bfloat16 if precision == "bf16" else torch.float16
+        use_autocast = device.type == "cuda" and precision in {"bf16", "fp16"}
+        scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda" and precision == "fp16")
 
-    out_dir = Path(config["output"]["out_dir"])
-    out_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(args.config, out_dir / "train_config.yaml")
+        out_dir = Path(config["output"]["out_dir"])
+        if dist_ctx.is_main:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(args.config, out_dir / "train_config.yaml")
+        barrier_if_distributed(dist_ctx)
 
-    dataset = build_training_dataset(config)
-    train_dataset, val_dataset = split_dataset(dataset, config)
-    print(f"dataset={len(dataset)} train={len(train_dataset)} val={len(val_dataset)}", flush=True)
+        dataset = build_training_dataset(config)
+        train_dataset, val_dataset = split_dataset(dataset, config)
+        log_main(
+            dist_ctx,
+            f"dataset={len(dataset)} train={len(train_dataset)} val={len(val_dataset)} "
+            f"world_size={dist_ctx.world_size}",
+        )
 
-    module = build_wan_training_module(config, device=device)
-    module.train()
-    params = [(name, param) for name, param in module.named_parameters() if param.requires_grad]
-    if not params:
-        raise RuntimeError("No trainable parameters found. Check lora_base_model and lora_target_modules.")
-    print(f"trainable_params={sum(param.numel() for _, param in params):,}", flush=True)
-
-    loader = DataLoader(
-        train_dataset,
-        batch_size=int(config["train"]["batch_size"]),
-        shuffle=True,
-        num_workers=int(config["train"].get("num_workers", 4)),
-        pin_memory=True,
-        drop_last=True,
-    )
-    if len(loader) == 0:
-        raise RuntimeError("Training DataLoader is empty. Reduce batch_size or provide more samples.")
-    batches = itertools.cycle(loader)
-
-    optimizer = torch.optim.AdamW(
-        [param for _, param in params],
-        lr=float(config["train"]["lr"]),
-        weight_decay=float(config["train"].get("weight_decay", 0.01)),
-    )
-
-    start_step = 0
-    if args.resume:
-        start_step = load_resume(Path(args.resume), module, optimizer, device)
-
-    max_steps = int(config["train"]["max_steps"])
-    grad_accum = int(config["train"].get("grad_accum", 1))
-    log_every = int(config["train"].get("log_every", 10))
-    save_every = int(config["train"].get("save_every", 500))
-    eval_every = int(config["train"].get("eval_every", 500))
-    grad_clip_norm = float(config["train"].get("grad_clip_norm", 1.0))
-    metrics_path = out_dir / "metrics.jsonl"
-    running: dict[str, float] = {}
-
-    optimizer.zero_grad(set_to_none=True)
-    progress = tqdm(range(start_step, max_steps), initial=start_step, total=max_steps, dynamic_ncols=True)
-    for step in progress:
+        module = build_wan_training_module(config, device=device)
         module.train()
-        for _ in range(grad_accum):
-            batch = next(batches)
-            with torch.autocast(device_type=device.type, dtype=autocast_dtype, enabled=use_autocast):
-                loss, loss_items = compute_batch_loss(module, batch, config, device)
-                loss = loss / grad_accum
-            scaler.scale(loss).backward()
-            for key, value in loss_items.items():
-                running[key] = running.get(key, 0.0) + float(value)
+        params = [(name, param) for name, param in module.named_parameters() if param.requires_grad]
+        if not params:
+            raise RuntimeError("No trainable parameters found. Check lora_base_model and lora_target_modules.")
+        log_main(dist_ctx, f"trainable_params={sum(param.numel() for _, param in params):,}")
 
-        if grad_clip_norm > 0:
-            scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_([param for _, param in params], grad_clip_norm)
-        scaler.step(optimizer)
-        scaler.update()
+        train_sampler = (
+            DistributedSampler(
+                train_dataset,
+                num_replicas=dist_ctx.world_size,
+                rank=dist_ctx.rank,
+                shuffle=True,
+                seed=int(config["train"].get("seed", 1234)),
+                drop_last=True,
+            )
+            if dist_ctx.enabled
+            else None
+        )
+        loader = DataLoader(
+            train_dataset,
+            batch_size=int(config["train"]["batch_size"]),
+            shuffle=train_sampler is None,
+            sampler=train_sampler,
+            num_workers=int(config["train"].get("num_workers", 4)),
+            pin_memory=device.type == "cuda",
+            drop_last=True,
+        )
+        if len(loader) == 0:
+            raise RuntimeError("Training DataLoader is empty. Reduce batch_size or provide more samples.")
+        loader_iter = iter(loader)
+        data_epoch = 0
+
+        optimizer = torch.optim.AdamW(
+            [param for _, param in params],
+            lr=float(config["train"]["lr"]),
+            weight_decay=float(config["train"].get("weight_decay", 0.01)),
+        )
+
+        start_step = 0
+        if args.resume:
+            start_step = load_resume(Path(args.resume), module, optimizer, device)
+
+        max_steps = int(config["train"]["max_steps"])
+        grad_accum = int(config["train"].get("grad_accum", 1))
+        log_every = int(config["train"].get("log_every", 10))
+        save_every = int(config["train"].get("save_every", 500))
+        eval_every = int(config["train"].get("eval_every", 500))
+        grad_clip_norm = float(config["train"].get("grad_clip_norm", 1.0))
+        metrics_path = out_dir / "metrics.jsonl"
+        running: dict[str, float] = {}
+
         optimizer.zero_grad(set_to_none=True)
+        progress = tqdm(
+            range(start_step, max_steps),
+            initial=start_step,
+            total=max_steps,
+            dynamic_ncols=True,
+            disable=not dist_ctx.is_main,
+        )
+        for step in progress:
+            module.train()
+            for _ in range(grad_accum):
+                try:
+                    batch = next(loader_iter)
+                except StopIteration:
+                    data_epoch += 1
+                    if train_sampler is not None:
+                        train_sampler.set_epoch(data_epoch)
+                    loader_iter = iter(loader)
+                    batch = next(loader_iter)
+                with torch.autocast(device_type=device.type, dtype=autocast_dtype, enabled=use_autocast):
+                    loss, loss_items = compute_batch_loss(module, batch, config, device)
+                    loss = loss / grad_accum
+                scaler.scale(loss).backward()
+                for key, value in loss_items.items():
+                    running[key] = running.get(key, 0.0) + float(value)
 
-        actual_step = step + 1
-        if actual_step % log_every == 0:
-            denom = log_every * grad_accum
-            payload = {key: value / denom for key, value in running.items()}
-            progress.set_postfix({key: f"{value:.5f}" for key, value in payload.items()})
-            append_metrics(metrics_path, {"step": actual_step, "split": "train", **payload})
-            running.clear()
+            average_trainable_gradients(params, dist_ctx)
+            scaler.unscale_(optimizer)
+            if grad_clip_norm > 0:
+                torch.nn.utils.clip_grad_norm_([param for _, param in params], grad_clip_norm)
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad(set_to_none=True)
 
-        if len(val_dataset) > 0 and eval_every > 0 and (actual_step % eval_every == 0 or actual_step == max_steps):
-            val_items = evaluate(module, val_dataset, config, device=device, precision=precision)
-            progress.write("val " + " ".join(f"{key}={value:.6f}" for key, value in val_items.items()) + f" step={actual_step}")
-            append_metrics(metrics_path, {"step": actual_step, "split": "val", **val_items})
+            actual_step = step + 1
+            if actual_step % log_every == 0:
+                denom = log_every * grad_accum
+                payload = reduce_running_metrics(running, denom, dist_ctx, device)
+                if dist_ctx.is_main:
+                    progress.set_postfix({key: f"{value:.5f}" for key, value in payload.items()})
+                    append_metrics(metrics_path, {"step": actual_step, "split": "train", **payload})
+                running.clear()
 
-        if actual_step % save_every == 0 or actual_step == max_steps:
-            save_training_state(out_dir, module, optimizer, actual_step, config)
+            should_eval = len(val_dataset) > 0 and eval_every > 0 and (actual_step % eval_every == 0 or actual_step == max_steps)
+            if should_eval and dist_ctx.is_main:
+                val_items = evaluate(module, val_dataset, config, device=device, precision=precision)
+                progress.write(
+                    "val " + " ".join(f"{key}={value:.6f}" for key, value in val_items.items()) + f" step={actual_step}"
+                )
+                append_metrics(metrics_path, {"step": actual_step, "split": "val", **val_items})
+            if should_eval:
+                barrier_if_distributed(dist_ctx)
+
+            should_save = actual_step % save_every == 0 or actual_step == max_steps
+            if should_save and dist_ctx.is_main:
+                save_training_state(out_dir, module, optimizer, actual_step, config)
+            if should_save:
+                barrier_if_distributed(dist_ctx)
+    finally:
+        cleanup_distributed(dist_ctx)
+
+
+def init_distributed() -> DistributedContext:
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    rank = int(os.environ.get("RANK", "0"))
+    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+    enabled = world_size > 1
+    if not enabled:
+        return DistributedContext(enabled=False, rank=0, local_rank=0, world_size=1)
+
+    if torch.cuda.is_available():
+        torch.cuda.set_device(local_rank)
+    backend = os.environ.get("DIST_BACKEND")
+    if not backend:
+        backend = "nccl" if torch.cuda.is_available() and dist.is_nccl_available() else "gloo"
+    if torch.cuda.is_available() and backend != "nccl":
+        raise RuntimeError("CUDA distributed LoRA training requires the NCCL backend.")
+    dist.init_process_group(backend=backend, rank=rank, world_size=world_size)
+    return DistributedContext(enabled=True, rank=rank, local_rank=local_rank, world_size=world_size)
+
+
+def cleanup_distributed(dist_ctx: DistributedContext) -> None:
+    if dist_ctx.enabled and dist.is_initialized():
+        dist.destroy_process_group()
+
+
+def barrier_if_distributed(dist_ctx: DistributedContext) -> None:
+    if dist_ctx.enabled:
+        dist.barrier()
+
+
+def log_main(dist_ctx: DistributedContext, message: str) -> None:
+    if dist_ctx.is_main:
+        print(message, flush=True)
+
+
+def average_trainable_gradients(params: list[tuple[str, torch.nn.Parameter]], dist_ctx: DistributedContext) -> None:
+    if not dist_ctx.enabled:
+        return
+    for _, param in params:
+        has_grad = torch.tensor(1 if param.grad is not None else 0, dtype=torch.int32, device=param.device)
+        dist.all_reduce(has_grad, op=dist.ReduceOp.SUM)
+        grad = param.grad if param.grad is not None else torch.zeros_like(param)
+        dist.all_reduce(grad, op=dist.ReduceOp.SUM)
+        if int(has_grad.item()) > 0:
+            param.grad = grad.div(dist_ctx.world_size)
+        else:
+            param.grad = None
+
+
+def reduce_running_metrics(
+    running: dict[str, float],
+    denom: int,
+    dist_ctx: DistributedContext,
+    device: torch.device,
+) -> dict[str, float]:
+    if not running:
+        return {}
+    keys = sorted(running)
+    values = torch.tensor([running[key] for key in keys], dtype=torch.float64, device=device)
+    if dist_ctx.enabled:
+        dist.all_reduce(values, op=dist.ReduceOp.SUM)
+    normalizer = float(denom * dist_ctx.world_size)
+    return {key: float(value) / normalizer for key, value in zip(keys, values.detach().cpu().tolist())}
 
 
 def build_training_dataset(config: dict) -> Dataset:
@@ -445,9 +571,9 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
     return config
 
 
-def get_training_device() -> torch.device:
+def get_training_device(dist_ctx: DistributedContext) -> torch.device:
     if torch.cuda.is_available():
-        return torch.device("cuda")
+        return torch.device("cuda", dist_ctx.local_rank) if dist_ctx.enabled else torch.device("cuda")
     if os.environ.get("ALLOW_CPU_TRAINING") == "1":
         return torch.device("cpu")
     raise RuntimeError("CUDA is unavailable. Set ALLOW_CPU_TRAINING=1 only for tiny smoke tests.")
