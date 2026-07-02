@@ -178,6 +178,10 @@ class WanDistillLastStepLoRARunner(WanDistillRunner):
             int(step)
             for step in config.get("lora_active_steps", [int(config.get("infer_steps", 3))])
         }
+        self.return_clean_pred_steps = {
+            int(step)
+            for step in config.get("return_clean_pred_steps", [])
+        }
 
     def load_transformer(self):
         wan_model_kwargs = {
@@ -215,6 +219,17 @@ class WanDistillLastStepLoRARunner(WanDistillRunner):
                 self._current_lora_strength = strength
             self.model.scheduler.step_pre(step_index=step_index)
             self.model.infer(self.inputs)
+            if step_number in self.return_clean_pred_steps:
+                flow_pred = self.model.scheduler.noise_pred.to(torch.float32)
+                sample = self.model.scheduler.latents.to(torch.float32)
+                sigma = self.model.scheduler.sigmas[step_index].to(device=sample.device, dtype=torch.float32)
+                self.model.scheduler.latents = (sample - sigma * flow_pred).to(dtype=self.model.scheduler.latents.dtype)
+                logger.info(f"Return clean prediction after step {step_number}; skip scheduler.step_post().")
+                if self.progress_callback:
+                    current_step = segment_idx * infer_steps + step_number
+                    total_all_steps = self.video_segment_num * infer_steps
+                    self.progress_callback((current_step / total_all_steps) * 100, 100)
+                break
             self.model.scheduler.step_post()
 
             if self.progress_callback:

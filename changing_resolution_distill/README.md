@@ -25,7 +25,7 @@ New target:
 
 ```text
 Phase 1: train a step3-only last-step-skip LoRA on the Wan 4-step distill denoiser
-         x3_lr -> z4_lr_teacher
+         x_pre_step3_lr -> z4_lr_teacher
 
 Phase 2: reuse or fine-tune the clean latent upsampler
          z_lr_lora_clean -> z_hr_clean
@@ -90,19 +90,22 @@ changing_resolution_distill/
 
 ## Build Last-Step-Skip LoRA LMDB
 
-Version A reuses the existing 5k clean 480p/720p latent LMDB and only generates
-the cached teacher `x3_lr` state:
+Version A reuses the existing 5k clean 480p/720p latent LMDB and generates the
+cached LR teacher state immediately before step 3:
 
 ```text
 source: data/changing_resolution_distill/lmdb_clean_480p720p_14b_cfgdistill_5k
 output: data/changing_resolution_distill/lmdb_last_step_skip_lora_14b_cfgdistill_5k_step3
-fields: x3_lr, z4_lr_teacher, z0_hr, prompt, seed, meta
+fields: x_pre_step3_lr, z4_lr_teacher, z0_hr, prompt, seed, meta
+legacy alias: x3_lr
 ```
 
-`x3_lr` and `z4_lr_teacher` are generated from the same LR teacher rollout:
-the builder saves the latent before step 3, then continues the original 4-step
-teacher to get the clean LR target. `z0_hr` is copied from the existing 5000 HR
-latents and is not regenerated.
+`x_pre_step3_lr` and `z4_lr_teacher` are generated from the same LR teacher
+rollout: the builder runs base step 1 and step 2, saves the latent before step
+3, then continues base step 3 and step 4 to get the clean LR teacher target.
+`z0_hr` is copied from the existing 5000 HR latents and is not regenerated.
+New shards still write the legacy `x3_lr` key as an alias so older utilities can
+read them, but training and metadata use `x_pre_step3_lr`.
 
 Small smoke build:
 
@@ -144,7 +147,7 @@ python changing_resolution_distill/scripts/eval/preview_last_step_skip_lora_lmdb
   --num_samples 5
 ```
 
-This writes per-sample videos for `x3_lr`, `z4_lr_teacher`, and `z4_hr`
+This writes per-sample videos for `x_pre_step3_lr`, `z4_lr_teacher`, and `z4_hr`
 (`z0_hr` in the LMDB), plus a three-column compare panel under
 `outputs/changing_resolution_distill_last_step_skip_lora_preview`.
 
@@ -152,6 +155,13 @@ This writes per-sample videos for `x3_lr`, `z4_lr_teacher`, and `z4_hr`
 
 The first trainer uses DiffSynth-Studio's trainable Wan module and the cached
 latent LMDB. It does not use the LightX2V inference runner for backpropagation.
+The base model is fixed and only the LoRA branch is optimized on the step3
+clean-pred objective:
+
+```text
+pred = x_pre_step3_lr - sigma_3 * flow_base+lora(x_pre_step3_lr, t3, prompt)
+loss = L1(pred, z4_lr_teacher) + 0.1 * MSE(pred, z4_lr_teacher)
+```
 
 Preflight:
 

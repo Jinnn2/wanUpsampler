@@ -1,15 +1,17 @@
-# Phase 1 last-step-skip LoRA defaults.
-# This is the environment/config contract for the first DiffSynth-backed LoRA
-# trainer. The custom x3_lr -> z4_lr_teacher dataset/trainer are implemented in
-# follow-up tasks from doc/DISTILL_LAST_STEP_SKIP_LORA_PLAN.md.
+# Phase 1 cached-x_pre_step3 LoRA defaults.
+# The LoRA is trained only for the third Wan distill denoise step:
+# x_pre_step3_lr - sigma_3 * v_base+lora(x_pre_step3_lr, t3, prompt)
+# should match the base teacher's final 4-step LR clean latent.
 
 task:
   name: last_step_skip_lora
-  recipe: distill_4step_step3_to_clean
-  input_key: x3_lr
+  recipe: distill_4step_cached_x_pre_step3_to_teacher4_clean
+  input_key: x_pre_step3_lr
   target_key: z4_lr_teacher
   train_step_index: 2
   train_step_name: step3
+  input_semantic_name: x_pre_step3_lr
+  input_alias: x2_lr
   target_step_name: teacher_step4_clean
 
 data:
@@ -18,7 +20,7 @@ data:
   val_ratio: 0.02
   val_max_samples: 64
   expected_keys:
-    - x3_lr
+    - x_pre_step3_lr
     - z4_lr_teacher
     - z0_hr
     - prompt
@@ -52,7 +54,7 @@ train:
   precision: bf16
   batch_size: 1
   grad_accum: 8
-  lr: 1.0e-4
+  lr: 5.0e-5
   weight_decay: 0.01
   max_steps: 10000
   num_workers: 4
@@ -65,10 +67,13 @@ train:
   gradient_checkpointing_offload: false
   ema_decay: null
   seed: 1234
+  training_mode: cached_x_pre_step3
 
 loss:
   l1_weight: 1.0
   mse_weight: 0.1
+  velocity_mse_weight: 0.0
+  velocity_l1_weight: 0.0
 
 output:
   out_dir: outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3

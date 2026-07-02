@@ -13,9 +13,11 @@ from torch.utils.data import Dataset
 class LastStepSkipLoRALMDBDataset(Dataset):
     """Dataset of Version A last-step-skip LoRA pairs.
 
-    Each row stores the cached teacher trajectory input for the student final
-    step (`x3_lr`), the original 4-step clean LR teacher target
-    (`z4_lr_teacher`), and the matched clean HR latent (`z0_hr`).
+    Each row stores the cached teacher trajectory input before the LoRA train
+    step (`x_pre_step3_lr` for the default step3 objective), the original
+    4-step clean LR teacher target (`z4_lr_teacher`), and the matched clean HR
+    latent (`z0_hr`). Older shards used the misleading storage key `x3_lr`;
+    this reader keeps that as a backward-compatible alias.
     """
 
     def __init__(
@@ -51,7 +53,8 @@ class LastStepSkipLoRALMDBDataset(Dataset):
         env = self._env(shard_id)
         meta = self.shard_meta[shard_id]
 
-        x3_lr = _read_array(env, "x3_lr", row_id, np.float16, tuple(meta["x3_lr_shape"]))
+        input_key = "x_pre_step3_lr" if "x_pre_step3_lr_shape" in meta else "x3_lr"
+        x_pre_step3_lr = _read_array(env, input_key, row_id, np.float16, tuple(meta[f"{input_key}_shape"]))
         z4_lr_teacher = _read_array(
             env,
             "z4_lr_teacher",
@@ -61,17 +64,19 @@ class LastStepSkipLoRALMDBDataset(Dataset):
         )
         z0_hr = _read_array(env, "z0_hr", row_id, np.float16, tuple(meta["z0_hr_shape"]))
 
-        x3_lr_tensor = torch.from_numpy(x3_lr.astype(np.float32, copy=False))
+        x_pre_step3_lr_tensor = torch.from_numpy(x_pre_step3_lr.astype(np.float32, copy=False))
         z4_lr_teacher_tensor = torch.from_numpy(z4_lr_teacher.astype(np.float32, copy=False))
         z0_hr_tensor = torch.from_numpy(z0_hr.astype(np.float32, copy=False))
 
-        if x3_lr_tensor.shape != z4_lr_teacher_tensor.shape:
-            raise ValueError(f"x3_lr/z4_lr_teacher shape mismatch at shard {self.shards[shard_id]} row {row_id}")
+        if x_pre_step3_lr_tensor.shape != z4_lr_teacher_tensor.shape:
+            raise ValueError(
+                f"x_pre_step3_lr/z4_lr_teacher shape mismatch at shard {self.shards[shard_id]} row {row_id}"
+            )
         if z4_lr_teacher_tensor.shape[0] != z0_hr_tensor.shape[0]:
             raise ValueError(f"channel mismatch at shard {self.shards[shard_id]} row {row_id}")
         if z4_lr_teacher_tensor.shape[1] != z0_hr_tensor.shape[1]:
             raise ValueError(f"latent time mismatch at shard {self.shards[shard_id]} row {row_id}")
-        if self.strict_channels and x3_lr_tensor.shape[0] != 16:
+        if self.strict_channels and x_pre_step3_lr_tensor.shape[0] != 16:
             raise ValueError(f"expected Wan z_dim=16 at shard {self.shards[shard_id]} row {row_id}")
         if z0_hr_tensor.shape[-2] <= z4_lr_teacher_tensor.shape[-2] or z0_hr_tensor.shape[-1] <= z4_lr_teacher_tensor.shape[-1]:
             raise ValueError(f"expected HR spatial size > LR at shard {self.shards[shard_id]} row {row_id}")
@@ -85,8 +90,10 @@ class LastStepSkipLoRALMDBDataset(Dataset):
         seed_text = _read_text(env, "seed", row_id, default="")
         seed = int(seed_text) if seed_text else None
 
+        x_pre_step3_lr_tensor = x_pre_step3_lr_tensor.to(self.dtype)
         return {
-            "x3_lr": x3_lr_tensor.to(self.dtype),
+            "x_pre_step3_lr": x_pre_step3_lr_tensor,
+            "x3_lr": x_pre_step3_lr_tensor,
             "z4_lr_teacher": z4_lr_teacher_tensor.to(self.dtype),
             "z0_hr": z0_hr_tensor.to(self.dtype),
             "sample_id": f"{self.shards[shard_id].name}:{row_id:06d}",
