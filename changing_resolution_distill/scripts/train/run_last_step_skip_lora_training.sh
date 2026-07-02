@@ -52,6 +52,7 @@ LORA_TARGET_MODULES="${LORA_TARGET_MODULES:-}"
 TRAINING_MODE="${TRAINING_MODE:-cached_x_pre_step3}"
 
 export CUDA_VISIBLE_DEVICES
+export NUM_GPUS
 if [[ -n "${DIST_BACKEND}" ]]; then
   export DIST_BACKEND
 fi
@@ -159,6 +160,7 @@ train_lora() {
   echo "  mode        : ${TRAINING_MODE}"
 
   if (( NUM_GPUS > 1 )); then
+    echo "  launcher    : torchrun --standalone --nnodes=1 --nproc_per_node=${NUM_GPUS}"
     torchrun --standalone --nnodes=1 --nproc_per_node="${NUM_GPUS}" \
       "${PROJECT_ROOT}/changing_resolution_distill/scripts/train/train_last_step_skip_lora.py" "${args[@]}"
   else

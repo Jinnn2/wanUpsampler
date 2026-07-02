@@ -53,6 +53,7 @@ def main() -> None:
         torch.set_float32_matmul_precision("high")
 
         device = get_training_device(dist_ctx)
+        log_rank_device(dist_ctx, device)
         precision = str(config["train"].get("precision", "bf16"))
         autocast_dtype = torch.bfloat16 if precision == "bf16" else torch.float16
         use_autocast = device.type == "cuda" and precision in {"bf16", "fp16"}
@@ -218,6 +219,17 @@ def barrier_if_distributed(dist_ctx: DistributedContext) -> None:
 def log_main(dist_ctx: DistributedContext, message: str) -> None:
     if dist_ctx.is_main:
         print(message, flush=True)
+
+
+def log_rank_device(dist_ctx: DistributedContext, device: torch.device) -> None:
+    current_cuda = torch.cuda.current_device() if torch.cuda.is_available() else "cpu"
+    print(
+        "rank_device "
+        f"rank={dist_ctx.rank} local_rank={dist_ctx.local_rank} world_size={dist_ctx.world_size} "
+        f"device={device} current_cuda={current_cuda} "
+        f"CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES', '')}",
+        flush=True,
+    )
 
 
 def average_trainable_gradients(params: list[tuple[str, torch.nn.Parameter]], dist_ctx: DistributedContext) -> None:
