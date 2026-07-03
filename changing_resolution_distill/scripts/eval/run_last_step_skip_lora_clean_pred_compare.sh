@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Compare the mainline cached-x_pre_step3 LoRA objective:
+# Compare the mainline cached-x_pre_step3 LoRA objective across 10 prompts:
 #   A. original3: base step1 + base step2 + base step3 clean prediction
 #   B. lora3:     base step1 + base step2 + LoRA step3 clean prediction
 #   C. teacher4:  base step1 + base step2 + base step3 + base step4
+#
+# Useful overrides:
+#   PROMPTS_FILE=changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt
+#   LIMIT=10
+#   SEED=42
+#   INCREMENT_SEED=1
+#   LORA_CKPT=/path/to/step_0001000.safetensors
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
@@ -26,15 +33,17 @@ LORA_STRENGTH="${LORA_STRENGTH:-1.0}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 DTYPE="${DTYPE:-BF16}"
 SEED="${SEED:-42}"
+INCREMENT_SEED="${INCREMENT_SEED:-1}"
 HEIGHT="${HEIGHT:-720}"
 WIDTH="${WIDTH:-1248}"
 NUM_FRAMES="${NUM_FRAMES:-81}"
-PROMPT="${PROMPT:-A cinematic shot of a red sports car driving through a rainy city street at night, reflections on the road, smooth camera movement.}"
+LIMIT="${LIMIT:-10}"
 NEGATIVE_PROMPT="${NEGATIVE_PROMPT:-}"
 OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_clean_pred_compare}"
 CONFIG_TEMPLATE="${CONFIG_TEMPLATE:-${PROJECT_ROOT}/changing_resolution_distill/configs/wan_t2v_distill_generate_720p.json}"
+PROMPTS_FILE="${PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt}"
 
-for path in "${LIGHTX2V_REPO}" "${CR_DISTILL_MODEL_ROOT}" "${CR_DISTILL_DIT_CKPT}" "${CONFIG_TEMPLATE}"; do
+for path in "${LIGHTX2V_REPO}" "${CR_DISTILL_MODEL_ROOT}" "${CR_DISTILL_DIT_CKPT}" "${CONFIG_TEMPLATE}" "${PROMPTS_FILE}"; do
   if [[ ! -e "${path}" ]]; then
     echo "Path not found: ${path}" >&2
     exit 1
@@ -45,7 +54,7 @@ if [[ ! -f "${LORA_CKPT}" ]]; then
   exit 1
 fi
 
-mkdir -p "${OUT_ROOT}/configs" "${OUT_ROOT}/videos"
+mkdir -p "${OUT_ROOT}/configs" "${OUT_ROOT}/videos" "${OUT_ROOT}/compare"
 
 export CUDA_VISIBLE_DEVICES
 export DTYPE
@@ -57,7 +66,8 @@ make_config() {
   local infer_steps="$2"
   local denoise_steps="$3"
   local model_cls="$4"
-  local dst="$5"
+  local lora_mode="$5"
+  local dst="$6"
 
   python - \
     "${CONFIG_TEMPLATE}" \
@@ -69,6 +79,7 @@ make_config() {
     "${infer_steps}" \
     "${denoise_steps}" \
     "${model_cls}" \
+    "${lora_mode}" \
     "${LORA_CKPT}" \
     "${LORA_STRENGTH}" \
     "${name}" <<'PY'
@@ -86,6 +97,7 @@ from pathlib import Path
     infer_steps,
     denoise_steps,
     model_cls,
+    lora_mode,
     lora_ckpt,
     lora_strength,
     name,
@@ -108,7 +120,7 @@ data.update({
 })
 
 if model_cls == "wan2.1_distill_last_step_lora":
-    strength = 0.0 if name == "original3_clean_pred" else float(lora_strength)
+    strength = 0.0 if lora_mode == "off" else float(lora_strength)
     data.update({
         "lora_dynamic_apply": True,
         "lora_active_steps": [3],
@@ -127,46 +139,73 @@ Path(dst).write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", enco
 PY
 }
 
-run_case() {
+run_case_batch() {
   local name="$1"
   local model_cls="$2"
   local infer_steps="$3"
   local denoise_steps="$4"
-  local config_path="${OUT_ROOT}/configs/${name}_seed${SEED}.json"
-  local out_video="${OUT_ROOT}/videos/${name}_seed${SEED}.mp4"
+  local lora_mode="$5"
+  local config_path="${OUT_ROOT}/configs/${name}.json"
+  local case_out_dir="${OUT_ROOT}/videos/${name}"
 
-  make_config "${name}" "${infer_steps}" "${denoise_steps}" "${model_cls}" "${config_path}"
+  make_config "${name}" "${infer_steps}" "${denoise_steps}" "${model_cls}" "${lora_mode}" "${config_path}"
+  mkdir -p "${case_out_dir}"
 
   echo "[compare] ${name}"
   echo "  model_cls : ${model_cls}"
   echo "  config    : ${config_path}"
-  echo "  output    : ${out_video}"
+  echo "  out_dir   : ${case_out_dir}"
 
-  python "${PROJECT_ROOT}/changing_resolution_distill/scripts/bridge/run_lightx2v_distill_bridge_infer.py" \
+  local seed_args=()
+  if [[ "${INCREMENT_SEED}" == "1" ]]; then
+    seed_args+=(--increment_seed)
+  fi
+
+  python "${PROJECT_ROOT}/changing_resolution_distill/scripts/bridge/run_lightx2v_distill_bridge_batch_infer.py" \
     --seed "${SEED}" \
+    "${seed_args[@]}" \
     --model_cls "${model_cls}" \
     --task "t2v" \
     --model_path "${CR_DISTILL_MODEL_ROOT}" \
     --config_json "${config_path}" \
-    --prompt "${PROMPT}" \
     --negative_prompt "${NEGATIVE_PROMPT}" \
-    --save_result_path "${out_video}" \
-    --target_video_length "${NUM_FRAMES}"
+    --target_video_length "${NUM_FRAMES}" \
+    --prompts_file "${PROMPTS_FILE}" \
+    --out_dir "${case_out_dir}" \
+    --name_prefix "${name}" \
+    --limit "${LIMIT}"
 }
 
-run_case "original3_clean_pred" "wan2.1_distill_last_step_lora" "3" "1000,750,500"
-run_case "lora3_step3_clean_pred" "wan2.1_distill_last_step_lora" "3" "1000,750,500"
-run_case "teacher4" "wan2.1_distill" "4" "1000,750,500,250"
+echo "[compare] prompts=${PROMPTS_FILE} limit=${LIMIT} seed=${SEED} increment_seed=${INCREMENT_SEED}"
+
+run_case_batch "original3_clean_pred" "wan2.1_distill_last_step_lora" "3" "1000,750,500" "off"
+run_case_batch "lora3_step3_clean_pred" "wan2.1_distill_last_step_lora" "3" "1000,750,500" "on"
+run_case_batch "teacher4" "wan2.1_distill" "4" "1000,750,500,250" "none"
 
 if command -v ffmpeg >/dev/null 2>&1; then
-  stacked="${OUT_ROOT}/videos/original3_lora3_teacher4_seed${SEED}_hstack.mp4"
-  echo "[compare] creating hstack: ${stacked}"
-  ffmpeg -y \
-    -i "${OUT_ROOT}/videos/original3_clean_pred_seed${SEED}.mp4" \
-    -i "${OUT_ROOT}/videos/lora3_step3_clean_pred_seed${SEED}.mp4" \
-    -i "${OUT_ROOT}/videos/teacher4_seed${SEED}.mp4" \
-    -filter_complex "[0:v]scale=640:-2,setpts=PTS-STARTPTS[v0];[1:v]scale=640:-2,setpts=PTS-STARTPTS[v1];[2:v]scale=640:-2,setpts=PTS-STARTPTS[v2];[v0][v1][v2]hstack=inputs=3[v]" \
-    -map "[v]" -an -c:v libx264 -pix_fmt yuv420p "${stacked}"
+  for ((i = 0; i < LIMIT; i++)); do
+    if [[ "${INCREMENT_SEED}" == "1" ]]; then
+      item_seed=$((SEED + i))
+    else
+      item_seed="${SEED}"
+    fi
+    idx="$(printf "%02d" "${i}")"
+    v0="${OUT_ROOT}/videos/original3_clean_pred/original3_clean_pred_${idx}_seed${item_seed}.mp4"
+    v1="${OUT_ROOT}/videos/lora3_step3_clean_pred/lora3_step3_clean_pred_${idx}_seed${item_seed}.mp4"
+    v2="${OUT_ROOT}/videos/teacher4/teacher4_${idx}_seed${item_seed}.mp4"
+    stacked="${OUT_ROOT}/compare/${idx}_seed${item_seed}_original3_lora3_teacher4_hstack.mp4"
+    if [[ -f "${v0}" && -f "${v1}" && -f "${v2}" ]]; then
+      echo "[compare] creating hstack index=${idx}: ${stacked}"
+      ffmpeg -y \
+        -i "${v0}" \
+        -i "${v1}" \
+        -i "${v2}" \
+        -filter_complex "[0:v]scale=640:-2,setpts=PTS-STARTPTS[v0];[1:v]scale=640:-2,setpts=PTS-STARTPTS[v1];[2:v]scale=640:-2,setpts=PTS-STARTPTS[v2];[v0][v1][v2]hstack=inputs=3[v]" \
+        -map "[v]" -an -c:v libx264 -pix_fmt yuv420p "${stacked}"
+    else
+      echo "[compare] skip hstack index=${idx}; missing one or more videos" >&2
+    fi
+  done
 else
   echo "[compare] ffmpeg not found; skip hstack"
 fi
