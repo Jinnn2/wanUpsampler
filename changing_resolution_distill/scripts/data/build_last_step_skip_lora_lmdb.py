@@ -28,6 +28,9 @@ def main() -> None:
     args = parse_args()
     prepare_output_dir(Path(args.out_dir), overwrite=args.overwrite)
 
+    # 源 LMDB 是 clean 480p/720p latent pair 数据集。这里会保留匹配的 HR
+    # latent，方便后续 clean upsampler 阶段复用；但本阶段 LoRA 目标本身只
+    # 需要下面构造出来的 LR teacher trajectory。
     source = CleanLatentLMDBDataset(args.source_lmdb, strict_channels=True)
     start_index = int(args.offset)
     if start_index < 0 or start_index >= len(source):
@@ -59,9 +62,14 @@ def main() -> None:
             z0_lr_ref = row["z0_lr"].float()
             z0_hr = row["z0_hr"].float()
             source_meta = merge_meta(row.get("meta_json", "{}"))
+            # 尽量沿用原始 clean pair 的生成 seed，保证 prompt/source sample
+            # 和重新 rollout 的 teacher trajectory 对齐。如果源 metadata 里没
+            # 有 seed，则用 base_seed + index 做确定性兜底，保证可复现。
             seed, seed_source = resolve_source_seed(source_meta, fallback=int(args.base_seed) + source_index)
 
             if generator is None:
+                # 仅用于检查数据管线是否通畅的 debug 路径。它不会产生真实
+                # LoRA trainer 所需的 train_sigma metadata。
                 x_pre_step3_lr = z0_lr_ref
                 z4_lr_teacher = z0_lr_ref
                 recipe = {
@@ -75,6 +83,9 @@ def main() -> None:
             else:
                 x_pre_step3_lr, z4_lr_teacher, recipe = generator.make_pair(z0_lr_ref, prompt=prompt, seed=seed)
 
+            # 同时保存新的显式字段名和旧的 x3_lr alias。保留 alias 是为了兼
+            # 容一些旧 eval 工具；语义上这里其实是“训练 step 之前的 latent”，
+            # 不一定应该被理解成严格执行三次更新后的 latent。
             meta = dict(source_meta)
             meta.update(
                 {
@@ -114,6 +125,8 @@ class LightX2VDistillLastStepSkipGenerator:
     """Cache the pre-train-step LR state and its matched 4-step teacher target."""
 
     def __init__(self, args: argparse.Namespace, *, device: torch.device, dtype: torch.dtype) -> None:
+        # LightX2V 这里只负责离线 teacher rollout。后面的训练脚本会用
+        # DiffSynth 做反向传播，从而更新 LoRA 权重。
         lightx2v_repo = args.lightx2v_repo or os.environ.get("LIGHTX2V_REPO")
         if lightx2v_repo and lightx2v_repo not in sys.path:
             sys.path.insert(0, lightx2v_repo)
@@ -159,6 +172,8 @@ class LightX2VDistillLastStepSkipGenerator:
         torch.set_grad_enabled(False)
         self.config = config
         self.runner = RUNNER_REGISTER[config["model_cls"]](config)
+        # 14B 模型初始化很重，所以保持 runner 常驻，并在样本循环里复用它，
+        # 避免每条样本都重新加载模型。
         self.runner.init_modules()
 
     @torch.no_grad()
@@ -185,6 +200,9 @@ class LightX2VDistillLastStepSkipGenerator:
         if train_step_index < 1 or train_step_index >= infer_steps:
             raise ValueError(f"train_step_index must be in [1, {infer_steps - 1}], got {train_step_index}")
 
+        # 从 clean LR latent 重新构造 teacher 的初始 noisy latent。如果能拿到
+        # 原始 seed，就沿用同一个 seed，使缓存轨迹仍然和 prompt/source sample
+        # 保持配对。
         z0_device = z0_lr_ref.to(device=self.device, dtype=torch.float32)
         noise = torch.randn(
             z0_device.shape,
@@ -195,6 +213,9 @@ class LightX2VDistillLastStepSkipGenerator:
         sigma0 = scheduler.sigmas[0].to(device=self.device, dtype=torch.float32)
         scheduler.latents = scheduler.add_noise(z0_device, noise, sigma0)
 
+        # 先运行 base teacher 到 LoRA 训练 step 之前，但不执行该训练 step。
+        # 默认 train_step_index=2，也就是执行 teacher step1/step2 后，把
+        # step3 之前的 latent 缓存为 x_pre_step3_lr。
         executed_steps: list[dict[str, Any]] = []
         for step_index in range(train_step_index):
             scheduler.step_pre(step_index=step_index)
@@ -219,6 +240,8 @@ class LightX2VDistillLastStepSkipGenerator:
         x_pre_step3_lr = scheduler.latents.detach().to(torch.float32).cpu()
         train_sigma = scheduler.sigmas[train_step_index].to(device=self.device, dtype=torch.float32)
 
+        # 继续运行原始 teacher 到结束。最终 latent 会作为监督目标，要求 LoRA
+        # 在缓存的训练状态上用一步 clean prediction 对齐它。
         target_steps: list[dict[str, Any]] = []
         for step_index in range(train_step_index, infer_steps):
             scheduler.step_pre(step_index=step_index)
@@ -243,6 +266,9 @@ class LightX2VDistillLastStepSkipGenerator:
         z4_lr_teacher = scheduler.latents.detach().to(torch.float32).cpu()
 
         self.runner.end_run()
+        # trainer 会从这个 recipe 里读取 train_sigma。这里保留足够 metadata，
+        # 方便检查 checkpoint 和 LMDB 是否使用了同一套 schedule、模型和 step
+        # 语义。
         recipe = {
             "mode": "lightx2v_distill",
             "recipe": "last_step_skip_lora_vA",
@@ -342,6 +368,9 @@ class ShardedLastStepSkipLoRALMDBWriter:
 
         assert self.env is not None
         row = self.row_index
+        # LMDB 存的是原始 bytes，所以 shape 和 dtype 要记录在 shard-level
+        # metadata 里。float16 压缩可以让 5k 14B trajectory cache 足够小，
+        # reader 读取时再恢复成 float32 tensor。
         x_pre_step3_lr_np = _to_numpy_fp(x_pre_step3_lr, self.compression_dtype)
         z4_lr_teacher_np = _to_numpy_fp(z4_lr_teacher, self.compression_dtype)
         z0_hr_np = _to_numpy_fp(z0_hr, self.compression_dtype)

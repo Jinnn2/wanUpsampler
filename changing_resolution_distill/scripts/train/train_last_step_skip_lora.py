@@ -44,6 +44,9 @@ class DistributedContext:
 def main() -> None:
     args = parse_args()
     config = apply_cli_overrides(load_yaml(args.config), args)
+    # 只支持很窄的 Version A：使用 LoRA 训练 step 之前缓存
+    # 好的 teacher state。on-policy rollout 需要另一套训练循环，因为当前
+    # LoRA 权重会反过来影响到达训练 state 的轨迹。
     if str(config["train"].get("training_mode", "cached_x_pre_step3")) != "cached_x_pre_step3":
         raise ValueError("This mainline trainer only supports training_mode=cached_x_pre_step3.")
 
@@ -75,6 +78,9 @@ def main() -> None:
 
         module = build_wan_training_module(config, device=device)
         module.train()
+        # DiffSynth 负责注入 LoRA 层并冻结 base model。这里以 requires_grad
+        # 作为唯一准则，保证 checkpoint 和梯度同步都和 DiffSynth 内部实际的
+        # 可训练参数保持一致。
         params = [(name, param) for name, param in module.named_parameters() if param.requires_grad]
         if not params:
             raise RuntimeError("No trainable parameters found. Check lora_base_model and lora_target_modules.")
@@ -151,6 +157,9 @@ def main() -> None:
                 for key, value in loss_items.items():
                     running[key] = running.get(key, 0.0) + float(value)
 
+            # 这里没有把模型包成 torch.nn.parallel.DistributedDataParallel，因为
+            # 可训练 Wan module 来自 DiffSynth，内部可能有自己的封装/offload
+            # 假设。做法是在各 rank 本地 backward 后，只手动平均 LoRA 参数梯度。
             average_trainable_gradients(params, dist_ctx)
             scaler.unscale_(optimizer)
             if grad_clip_norm > 0:
@@ -236,6 +245,9 @@ def average_trainable_gradients(params: list[tuple[str, torch.nn.Parameter]], di
     if not dist_ctx.enabled:
         return
     for _, param in params:
+        # 某些 LoRA target module 在某次 forward graph 里可能没有被用到。
+        # 先 all_reduce 一个 has_grad 标记，让没有梯度的 rank 用 0 参与平均，
+        # 避免留下旧梯度。
         has_grad = torch.tensor(1 if param.grad is not None else 0, dtype=torch.int32, device=param.device)
         dist.all_reduce(has_grad, op=dist.ReduceOp.SUM)
         grad = param.grad if param.grad is not None else torch.zeros_like(param)
@@ -263,6 +275,8 @@ def reduce_running_metrics(
 
 
 def build_training_dataset(config: dict) -> Dataset:
+    # dataset 同时返回显式的 x_pre_step3_lr 和兼容旧代码的 x3_lr alias；
+    # trainer 使用显式 key，避免“到底执行了几步”的语义歧义。
     dataset: Dataset = LastStepSkipLoRALMDBDataset(config["data"]["lmdb_dir"], strict_channels=True)
     max_samples = config["data"].get("max_samples")
     if max_samples is not None:
@@ -277,13 +291,21 @@ def compute_batch_loss(
     device: torch.device,
 ) -> tuple[torch.Tensor, dict[str, float]]:
     pipe = module.pipe
+    # x_pre_step3 是 LoRA 生效 step 之前缓存的 teacher state；
+    # target 是 base teacher 完整 4-step 后的 clean LR latent。
     x_pre_step3 = batch["x_pre_step3_lr"].to(device, dtype=pipe.torch_dtype, non_blocking=True)
     target = batch["z4_lr_teacher"].to(device, dtype=pipe.torch_dtype, non_blocking=True)
     prompts = list(batch["prompt"])
     sigmas = extract_train_sigma(batch).to(device=device, dtype=torch.float32)
+    # DiffSynth 的 Wan training module 期望输入 denoising timestep；而缓存
+    # LMDB 里记录的是 clean-pred 公式使用的 flow sigma。
     timesteps = (sigmas * 1000.0).to(device=device, dtype=pipe.torch_dtype)
     context = encode_prompts(pipe, prompts)
 
+    # LoRA 会改变训练 step 上预测出来的 flow。随后按照 teacher 记录时同样的
+    # 公式计算 clean prediction：
+    #   clean_pred = x_t - sigma_t * flow_pred
+    # loss 要求这一步直接对齐 teacher 完整 4-step 的终点。
     flow_pred = pipe.model_fn(
         dit=pipe.dit,
         latents=x_pre_step3,
@@ -306,6 +328,8 @@ def compute_batch_loss(
     velocity_mse_weight = float(loss_cfg.get("velocity_mse_weight", 0.0) or 0.0)
     velocity_l1_weight = float(loss_cfg.get("velocity_l1_weight", 0.0) or 0.0)
     if velocity_mse_weight > 0 or velocity_l1_weight > 0:
+        # 可选的 velocity/flow 直接监督。默认关闭，因为 clean-latent 对齐才是
+        # 当前训练契约的主目标。
         target_flow = (x_pre_step3.float() - target_f) / sigmas.view(-1, 1, 1, 1, 1).clamp_min(1e-6)
         velocity_mse = F.mse_loss(flow_pred.float(), target_flow.detach())
         velocity_l1 = F.l1_loss(flow_pred.float(), target_flow.detach())
@@ -324,6 +348,8 @@ def compute_batch_loss(
 
 @torch.no_grad()
 def encode_prompts(pipe: Any, prompts: list[str]) -> torch.Tensor:
+    # prompt encoder 是冻结的。把 padding 位置清零，可以让不同有效 token 长度
+    # 的 prompt 得到更稳定、可复现的 context tensor。
     ids, mask = pipe.tokenizer(prompts, return_mask=True, add_special_tokens=True)
     ids = ids.to(pipe.device)
     mask = mask.to(pipe.device)
@@ -335,6 +361,9 @@ def encode_prompts(pipe: Any, prompts: list[str]) -> torch.Tensor:
 
 
 def extract_train_sigma(batch: dict[str, Any]) -> torch.Tensor:
+    # 每条样本都在 metadata 里携带自己的 sigma，因此 trainer 不需要重新构造
+    # LightX2V scheduler。默认数据里它就是 scheduler.sigmas[2]，也就是第
+    # 三次 denoise 调用对应的 sigma。
     sigmas = []
     for meta in parse_batch_meta(batch):
         recipe = meta.get("last_step_skip_recipe", {})
@@ -383,6 +412,8 @@ def evaluate(module: torch.nn.Module, dataset: Dataset, config: dict, *, device:
 
 
 def build_wan_training_module(config: dict, *, device: torch.device) -> torch.nn.Module:
+    # 复用 DiffSynth 的 WanTrainingModule，避免在本仓库里重复实现 Wan 加载和
+    # LoRA 注入逻辑。
     diffsynth_repo = config.get("diffsynth_repo") or os.environ.get("DIFFSYNTH_REPO")
     if diffsynth_repo:
         if str(diffsynth_repo) not in sys.path:
@@ -406,6 +437,9 @@ def build_wan_training_module(config: dict, *, device: torch.device) -> torch.nn
 
     model_cfg = config["model"]
     train_cfg = config["train"]
+    # trainable_models=None 表示让 DiffSynth 根据下面的 LoRA 参数决定 base
+    # 冻结和 LoRA 可训练的划分。外层 optimizer 后面会按 requires_grad 过滤，
+    # 因此实际只会更新注入的 LoRA 权重。
     return WanTrainingModule(
         model_paths=normalize_model_paths(model_cfg.get("model_paths")),
         model_id_with_origin_paths=model_cfg.get("model_id_with_origin_paths"),
@@ -427,6 +461,9 @@ def build_wan_training_module(config: dict, *, device: torch.device) -> torch.nn
 
 
 def normalize_model_paths(model_paths: Any) -> str | None:
+    # DiffSynth 接受 JSON 字符串形式的 model_paths。wrapper 脚本可能传目录，
+    # 也可能传 JSON list；这里统一归一化成 WanTrainingModule 期望的具体
+    # checkpoint 文件列表。
     if model_paths is None:
         return None
     if isinstance(model_paths, (list, tuple)):
@@ -471,6 +508,8 @@ def dedupe_keep_order(paths: list[str]) -> list[str]:
 
 
 def save_training_state(out_dir: Path, module: torch.nn.Module, optimizer: torch.optim.Optimizer, step: int, config: dict) -> None:
+    # 推理用的 safetensors 只保存可训练 LoRA tensor。latest.pt 额外保存
+    # optimizer state 以支持 resume，但不应该作为运行时 LoRA artifact 使用。
     trainable_state = {
         name: param.detach().cpu()
         for name, param in module.named_parameters()
@@ -519,6 +558,7 @@ def load_resume(path: Path, module: torch.nn.Module, optimizer: torch.optim.Opti
 
 
 def split_dataset(dataset: Dataset, config: dict) -> tuple[Dataset, Dataset]:
+    # 使用确定性的 validation split，保证 resume 和多卡启动之间的指标可比较。
     total = len(dataset)
     data_cfg = config.get("data", {})
     val_ratio = float(data_cfg.get("val_ratio", 0.0))

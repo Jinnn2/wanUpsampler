@@ -12,6 +12,10 @@ set -euo pipefail
 #   SEED=42
 #   INCREMENT_SEED=1
 #   LORA_CKPT=/path/to/step_0001000.safetensors
+#
+# 这个 eval 检查的是 Phase-1 LoRA 目标本身。LoRA LMDB 来自 480p/LR teacher
+# trajectory，所以默认比较也必须跑在同一个 480p latent 分辨率上。只有在明确
+# 想测试 out-of-distribution 720p 行为时，才手动覆盖 HEIGHT/WIDTH/CONFIG_TEMPLATE。
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
@@ -34,13 +38,13 @@ CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 DTYPE="${DTYPE:-BF16}"
 SEED="${SEED:-42}"
 INCREMENT_SEED="${INCREMENT_SEED:-1}"
-HEIGHT="${HEIGHT:-720}"
-WIDTH="${WIDTH:-1248}"
+HEIGHT="${HEIGHT:-480}"
+WIDTH="${WIDTH:-832}"
 NUM_FRAMES="${NUM_FRAMES:-81}"
 LIMIT="${LIMIT:-10}"
 NEGATIVE_PROMPT="${NEGATIVE_PROMPT:-}"
-OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_clean_pred_compare}"
-CONFIG_TEMPLATE="${CONFIG_TEMPLATE:-${PROJECT_ROOT}/changing_resolution_distill/configs/wan_t2v_distill_generate_720p.json}"
+OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_clean_pred_compare_480p}"
+CONFIG_TEMPLATE="${CONFIG_TEMPLATE:-${PROJECT_ROOT}/changing_resolution_distill/configs/wan_t2v_distill_stage3_x0pred_480p.json}"
 PROMPTS_FILE="${PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt}"
 
 for path in "${LIGHTX2V_REPO}" "${CR_DISTILL_MODEL_ROOT}" "${CR_DISTILL_DIT_CKPT}" "${CONFIG_TEMPLATE}" "${PROMPTS_FILE}"; do
