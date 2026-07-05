@@ -27,6 +27,7 @@ venv/
 *.ppt
 *.pptx
 *.pptm
+doc/
 
 # OS/editor
 .DS_Store
