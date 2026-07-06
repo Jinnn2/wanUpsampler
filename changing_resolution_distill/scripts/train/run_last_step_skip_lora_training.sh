@@ -49,6 +49,7 @@ MODEL_ID_WITH_ORIGIN_PATHS="${MODEL_ID_WITH_ORIGIN_PATHS:-}"
 TOKENIZER_PATH="${TOKENIZER_PATH:-}"
 LORA_RANK="${LORA_RANK:-}"
 LORA_TARGET_MODULES="${LORA_TARGET_MODULES:-}"
+LORA_CHECKPOINT="${LORA_CHECKPOINT:-}"
 TRAINING_MODE="${TRAINING_MODE:-cached_x_pre_step3}"
 
 export CUDA_VISIBLE_DEVICES
@@ -81,6 +82,10 @@ check_env() {
   fi
   if [[ ! -f "${CR_DISTILL_TEXT_ENCODER_CKPT}" ]]; then
     echo "Text encoder checkpoint not found: ${CR_DISTILL_TEXT_ENCODER_CKPT}" >&2
+    exit 1
+  fi
+  if [[ -n "${LORA_CHECKPOINT}" && ! -f "${LORA_CHECKPOINT}" ]]; then
+    echo "LoRA checkpoint not found: ${LORA_CHECKPOINT}" >&2
     exit 1
   fi
   if (( NUM_GPUS > 1 )) && ! command -v torchrun >/dev/null 2>&1; then
@@ -138,6 +143,9 @@ train_lora() {
   if [[ -n "${LORA_TARGET_MODULES}" ]]; then
     args+=(--lora_target_modules "${LORA_TARGET_MODULES}")
   fi
+  if [[ -n "${LORA_CHECKPOINT}" ]]; then
+    args+=(--lora_checkpoint "${LORA_CHECKPOINT}")
+  fi
   if [[ -n "${TRAINING_MODE}" ]]; then
     args+=(--training_mode "${TRAINING_MODE}")
   fi
@@ -157,6 +165,7 @@ train_lora() {
   echo "  max_samples : ${MAX_SAMPLES:-all}"
   echo "  lora_rank   : ${LORA_RANK:-config}"
   echo "  lora_target : ${LORA_TARGET_MODULES:-config}"
+  echo "  lora_ckpt   : ${LORA_CHECKPOINT:-none}"
   echo "  mode        : ${TRAINING_MODE}"
 
   if (( NUM_GPUS > 1 )); then

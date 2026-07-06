@@ -620,6 +620,8 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
         config["model"]["lora_rank"] = args.lora_rank
     if args.lora_target_modules is not None:
         config["model"]["lora_target_modules"] = args.lora_target_modules
+    if args.lora_checkpoint is not None:
+        config["model"]["lora_checkpoint"] = args.lora_checkpoint
     return config
 
 
@@ -667,6 +669,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tokenizer_path")
     parser.add_argument("--lora_rank", type=int)
     parser.add_argument("--lora_target_modules")
+    parser.add_argument("--lora_checkpoint")
     return parser.parse_args()
 
 
