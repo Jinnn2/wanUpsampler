@@ -2,8 +2,9 @@
 set -euo pipefail
 
 # End-to-end distilled SR chain:
-#   LR Wan distill step1/2/base + step3 LoRA clean prediction
-#   -> Stage2 clean latent resizer z_lr -> z_hr
+#   LR Wan distill step1/2/base + step3 LoRA clean handoff
+#   -> Stage2 clean latent resizer z_lr -> z_hr + re-noise
+#   -> HR Wan distill step4/base
 #   -> WAN VAE decode at HR.
 #
 # Useful overrides:
@@ -49,9 +50,9 @@ LR_W="${LR_W:-832}"
 HR_H="${HR_H:-720}"
 HR_W="${HR_W:-1248}"
 NUM_FRAMES="${NUM_FRAMES:-81}"
-INFER_STEPS="${INFER_STEPS:-3}"
+INFER_STEPS="${INFER_STEPS:-4}"
 CHANGE_STEP="${CHANGE_STEP:-3}"
-DENOISING_STEP_LIST="${DENOISING_STEP_LIST:-1000 750 500}"
+DENOISING_STEP_LIST="${DENOISING_STEP_LIST:-1000 750 500 250}"
 GUIDE_SCALE="${GUIDE_SCALE:-6}"
 SAMPLE_SHIFT="${SAMPLE_SHIFT:-5}"
 RENOISE_MODE="${RENOISE_MODE:-random}"
@@ -84,8 +85,8 @@ for path in "${DIT_CKPT}" "${LORA_CKPT}" "${STAGE2_CHECKPOINT}" "${STAGE2_TRAIN_
     exit 1
   fi
 done
-if (( CHANGE_STEP < 1 || CHANGE_STEP > INFER_STEPS )); then
-  echo "Invalid CHANGE_STEP=${CHANGE_STEP}; must be in [1, ${INFER_STEPS}]." >&2
+if (( CHANGE_STEP < 1 || CHANGE_STEP >= INFER_STEPS )); then
+  echo "Invalid CHANGE_STEP=${CHANGE_STEP}; this chain requires at least one HR denoise step after the switch, so CHANGE_STEP must be in [1, $((INFER_STEPS - 1))]." >&2
   exit 2
 fi
 
@@ -187,7 +188,7 @@ export GUIDE_SCALE SAMPLE_SHIFT RENOISE_MODE CHANGE_STEP STAGE2_RESIDUAL_SKIP
 echo "[lora-stage2] prompts=${PROMPTS_FILE} limit=${#prompts[@]} seed=${SEED}"
 echo "[lora-stage2] lora=${LORA_CKPT} strength=${LORA_STRENGTH}"
 echo "[lora-stage2] stage2=${STAGE2_CHECKPOINT}"
-echo "[lora-stage2] size=${LR_H}x${LR_W} -> ${HR_H}x${HR_W} change_step=${CHANGE_STEP}"
+echo "[lora-stage2] size=${LR_H}x${LR_W} -> ${HR_H}x${HR_W} change_step=${CHANGE_STEP}->${INFER_STEPS}"
 
 index=0
 for prompt in "${prompts[@]}"; do

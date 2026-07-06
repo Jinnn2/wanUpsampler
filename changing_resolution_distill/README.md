@@ -15,6 +15,13 @@ The new plan is documented in:
 doc/DISTILL_LAST_STEP_SKIP_LORA_PLAN.md
 ```
 
+The complete decision chain from Stage 2 clean upsampling, old Stage 3
+`x0_pred -> z`, handoff-step selection, and the current LoRA workflow is in:
+
+```text
+doc/DISTILL_COMPLETE_WORKFLOW.md
+```
+
 The DiffSynth-Studio based LoRA preflight environment is documented in:
 
 ```text

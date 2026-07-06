@@ -355,7 +355,7 @@ class WanDistillCleanResizerBridgeRunner(WanDistillRunner):
 
 @RUNNER_REGISTER("wan2.1_distill_last_step_lora_clean_resizer_bridge")
 class WanDistillLastStepLoRACleanResizerBridgeRunner(WanDistillCleanResizerBridgeRunner):
-    """WAN 4-step distill runner: LR LoRA clean prediction -> Stage2 HR clean latent."""
+    """WAN 4-step distill runner: LR LoRA handoff -> Stage2 resize -> HR final denoise."""
 
     def __init__(self, config):
         super().__init__(config)

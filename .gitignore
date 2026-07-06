@@ -27,7 +27,8 @@ venv/
 *.ppt
 *.pptx
 *.pptm
-doc/
+doc/*
+!doc/DISTILL_COMPLETE_WORKFLOW.md
 
 # OS/editor
 .DS_Store

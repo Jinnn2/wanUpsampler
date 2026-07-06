@@ -3,6 +3,7 @@
 > 当前链路：`changing_resolution_distill`  
 > 当前状态：旧 `x0_pred_lr -> z0_hr` Stage 3 已完成 10k 验证并启动过 30k，作为对照保留  
 > 当前主线：转向 `last-step-skip LoRA -> clean latent upsampler`，详见 [`DISTILL_LAST_STEP_SKIP_LORA_PLAN.md`](DISTILL_LAST_STEP_SKIP_LORA_PLAN.md)
+> 完整逻辑链：从 Stage2、Stage3、切换点选择到当前 LoRA 工作流，详见 [`DISTILL_COMPLETE_WORKFLOW.md`](DISTILL_COMPLETE_WORKFLOW.md)
 
 ## 2026-06-17 主线调整
 
