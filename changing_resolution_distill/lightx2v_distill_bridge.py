@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 import torch
-from loguru import logger
+from loguru import logger                                                                                                                                                                                           
 from safetensors import safe_open
 
 from changing_resolution.lightx2v_clean_bridge import WanV2CleanLatentResizerBridge
