@@ -6,6 +6,7 @@ from pathlib import Path
 import torch
 from loguru import logger
 
+from lightx2v.models.networks.wan.model import WanModel
 from lightx2v.models.runners.wan.wan_runner import WanRunner
 from lightx2v.models.schedulers.wan.changing_resolution.scheduler import (
     WanScheduler4ChangingResolution,
@@ -237,6 +238,141 @@ class WanCleanResizerBridgeRunner(WanRunner):
         super().init_run()
         if hasattr(self.scheduler, "set_clean_latent_resizer"):
             self.scheduler.set_clean_latent_resizer(self.clean_latent_resizer)
+
+
+@RUNNER_REGISTER("wan2.1_tail_skip_lora")
+class WanTailSkipLoRARunner(WanRunner):
+    """WAN 50-step runner with LoRA enabled only on configured handoff steps."""
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.lora_configs = list(config.get("lora_configs") or [])
+        if len(self.lora_configs) != 1:
+            raise ValueError("wan2.1_tail_skip_lora expects exactly one LoRA config.")
+        self.lora_path = self.lora_configs[0]["path"]
+        self.lora_strength = float(self.lora_configs[0].get("strength", 1.0))
+        self.lora_active_steps = {
+            int(step)
+            for step in config.get("lora_active_steps", [int(config.get("infer_steps", 45))])
+        }
+        self.return_clean_pred_steps = {
+            int(step)
+            for step in config.get("return_clean_pred_steps", [])
+        }
+
+    def load_transformer(self):
+        wan_model_kwargs = {
+            "model_path": self.config["model_path"],
+            "config": self.config,
+            "device": self.init_device,
+            "lora_path": self.lora_path,
+            "lora_strength": 0.0,
+        }
+        model = WanModel(**wan_model_kwargs)
+        self._current_lora_strength = 0.0
+        logger.info(f"Registered WAN tail-skip LoRA from {self.lora_path}")
+        return model
+
+    def run_segment(self, segment_idx=0):
+        infer_steps = self.model.scheduler.infer_steps
+        device_module = getattr(torch, AI_DEVICE)
+        current_lora_strength = float(getattr(self, "_current_lora_strength", 0.0))
+
+        for step_index in range(infer_steps):
+            if self.video_segment_num == 1:
+                self.check_stop()
+            step_number = step_index + 1
+            strength = self.lora_strength if step_number in self.lora_active_steps else 0.0
+            logger.info(f"==> step_index: {step_number} / {infer_steps}, lora_strength={strength}")
+            if strength != current_lora_strength:
+                self.model._update_lora(self.lora_path, strength)
+                current_lora_strength = strength
+                self._current_lora_strength = strength
+            self.model.scheduler.step_pre(step_index=step_index)
+            self.model.infer(self.inputs)
+            if step_number in self.return_clean_pred_steps:
+                flow_pred = self.model.scheduler.noise_pred.to(torch.float32)
+                sample = self.model.scheduler.latents.to(torch.float32)
+                sigma = self.model.scheduler.sigmas[step_index].to(device=sample.device, dtype=torch.float32)
+                self.model.scheduler.latents = (sample - sigma * flow_pred).to(dtype=self.model.scheduler.latents.dtype)
+                logger.info(f"Return clean prediction after step {step_number}; skip scheduler.step_post().")
+                if self.progress_callback:
+                    current_step = segment_idx * infer_steps + step_number
+                    total_all_steps = self.video_segment_num * infer_steps
+                    self.progress_callback((current_step / total_all_steps) * 100, 100)
+                break
+            self.model.scheduler.step_post()
+
+            if self.progress_callback:
+                current_step = segment_idx * infer_steps + step_number
+                total_all_steps = self.video_segment_num * infer_steps
+                self.progress_callback((current_step / total_all_steps) * 100, 100)
+
+        if segment_idx is not None and segment_idx == self.video_segment_num - 1:
+            del self.inputs
+            device_module.empty_cache()
+
+        return self.model.scheduler.latents
+
+
+@RUNNER_REGISTER("wan2.1_tail_skip_lora_clean_resizer_bridge")
+class WanTailSkipLoRACleanResizerBridgeRunner(WanCleanResizerBridgeRunner):
+    """WAN 50-step runner: LR LoRA handoff -> Stage2 resize -> HR remaining steps."""
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.lora_configs = list(config.get("lora_configs") or [])
+        if len(self.lora_configs) != 1:
+            raise ValueError("wan2.1_tail_skip_lora_clean_resizer_bridge expects exactly one LoRA config.")
+        self.lora_path = self.lora_configs[0]["path"]
+        self.lora_strength = float(self.lora_configs[0].get("strength", 1.0))
+        self.lora_active_steps = {
+            int(step)
+            for step in config.get("lora_active_steps", [int(config.get("changing_resolution_steps", [45])[0])])
+        }
+
+    def load_transformer(self):
+        wan_model_kwargs = {
+            "model_path": self.config["model_path"],
+            "config": self.config,
+            "device": self.init_device,
+            "lora_path": self.lora_path,
+            "lora_strength": 0.0,
+        }
+        model = WanModel(**wan_model_kwargs)
+        self._current_lora_strength = 0.0
+        logger.info(f"Registered WAN tail-skip LoRA from {self.lora_path}")
+        return model
+
+    def run_segment(self, segment_idx=0):
+        infer_steps = self.model.scheduler.infer_steps
+        device_module = getattr(torch, AI_DEVICE)
+        current_lora_strength = float(getattr(self, "_current_lora_strength", 0.0))
+
+        for step_index in range(infer_steps):
+            if self.video_segment_num == 1:
+                self.check_stop()
+            step_number = step_index + 1
+            strength = self.lora_strength if step_number in self.lora_active_steps else 0.0
+            logger.info(f"==> step_index: {step_number} / {infer_steps}, lora_strength={strength}")
+            if strength != current_lora_strength:
+                self.model._update_lora(self.lora_path, strength)
+                current_lora_strength = strength
+                self._current_lora_strength = strength
+            self.model.scheduler.step_pre(step_index=step_index)
+            self.model.infer(self.inputs)
+            self.model.scheduler.step_post()
+
+            if self.progress_callback:
+                current_step = segment_idx * infer_steps + step_number
+                total_all_steps = self.video_segment_num * infer_steps
+                self.progress_callback((current_step / total_all_steps) * 100, 100)
+
+        if segment_idx is not None and segment_idx == self.video_segment_num - 1:
+            del self.inputs
+            device_module.empty_cache()
+
+        return self.model.scheduler.latents
 
 
 @RUNNER_REGISTER("wan2.1_clean_interp_bridge")
