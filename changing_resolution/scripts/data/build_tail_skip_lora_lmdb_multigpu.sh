@@ -18,6 +18,7 @@ INFER_STEPS="${INFER_STEPS:-50}"
 MODE="${MODE:-lightx2v}"
 PRECISION="${PRECISION:-bf16}"
 OVERWRITE="${OVERWRITE:-0}"
+RESUME="${RESUME:-0}"
 MONITOR_INTERVAL="${MONITOR_INTERVAL:-30}"
 MONITOR_TAIL_LINES="${MONITOR_TAIL_LINES:-8}"
 
@@ -50,6 +51,47 @@ if [[ ! -d "${SOURCE_LMDB}" ]] || [[ -z "$(find "${SOURCE_LMDB}" -type f -name '
   exit 1
 fi
 
+count_lmdb_samples() {
+  local root="$1"
+  if [[ ! -d "${root}" ]]; then
+    echo 0
+    return
+  fi
+  python - "${root}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+import lmdb
+
+root = Path(sys.argv[1])
+total = 0
+for shard in sorted(root.glob("shard_*")):
+    if not (shard / "data.mdb").exists():
+        continue
+    env = lmdb.open(str(shard), readonly=True, lock=False, readahead=False, meminit=False)
+    try:
+        with env.begin() as txn:
+            raw = txn.get(b"metadata")
+            if raw:
+                total += int(json.loads(raw.decode("utf-8"))["num_samples"])
+    finally:
+        env.close()
+print(total)
+PY
+}
+
+count_part_samples() {
+  local part_name="$1"
+  local total=0
+  local candidate
+  for candidate in "${PARTS_DIR}/${part_name}" "${PARTS_DIR}/${part_name}"_resume_*; do
+    [[ -d "${candidate}" ]] || continue
+    total=$((total + $(count_lmdb_samples "${candidate}")))
+  done
+  echo "${total}"
+}
+
 mkdir -p "${LMDB_ROOT}" "${PARTS_DIR}" "${LOG_DIR}"
 
 if [[ "${OVERWRITE}" == "1" ]]; then
@@ -67,6 +109,7 @@ echo "  train_step   : ${TRAIN_STEP}"
 echo "  infer_steps  : ${INFER_STEPS}"
 echo "  mode         : ${MODE}"
 echo "  precision    : ${PRECISION}"
+echo "  resume       : ${RESUME}"
 echo "  gpu_ids      : ${GPU_IDS}"
 echo "  log_dir      : ${LOG_DIR}"
 
@@ -99,8 +142,35 @@ for rank in "${!GPUS[@]}"; do
   part_name="$(printf "part_%02d" "${rank}")"
   part_lmdb="${PARTS_DIR}/${part_name}"
   log_path="${LOG_DIR}/${part_name}.log"
+  existing_count="$(count_part_samples "${part_name}")"
+  launch_offset="${offset}"
+  launch_count="${count}"
 
-  echo "Launch ${part_name}: gpu=${gpu}, offset=${offset}, count=${count}"
+  if [[ "${RESUME}" == "1" ]]; then
+    if (( existing_count == count )); then
+      echo "Skip ${part_name}: already complete (${existing_count}/${count} samples)"
+      offset=$((offset + count))
+      continue
+    fi
+    if (( existing_count > count )); then
+      echo "Existing data for ${part_name} exceeds expected samples: ${existing_count}/${count}" >&2
+      echo "Use OVERWRITE=1 if you want to rebuild from scratch." >&2
+      exit 1
+    fi
+    if (( existing_count > 0 )); then
+      launch_offset=$((offset + existing_count))
+      launch_count=$((count - existing_count))
+      part_lmdb="${PARTS_DIR}/${part_name}_resume_${existing_count}"
+      log_path="${LOG_DIR}/${part_name}_resume_${existing_count}.log"
+      echo "Resume ${part_name}: existing=${existing_count}/${count}, offset=${launch_offset}, remaining=${launch_count}"
+    fi
+  elif (( existing_count > 0 )); then
+    echo "Existing partial data found for ${part_name}: ${part_lmdb} (${existing_count}/${count} samples)" >&2
+    echo "Use RESUME=1 to keep existing samples and build only the missing tail, or OVERWRITE=1 to rebuild everything." >&2
+    exit 1
+  fi
+
+  echo "Launch ${part_name}: gpu=${gpu}, offset=${launch_offset}, count=${launch_count}"
   (
     cd "${PROJECT_ROOT}"
     CUDA_VISIBLE_DEVICES="${gpu}" \
@@ -108,8 +178,8 @@ for rank in "${!GPUS[@]}"; do
     TAIL_SKIP_LORA_LMDB_DIR="${part_lmdb}" \
     TRAIN_STEP="${TRAIN_STEP}" \
     INFER_STEPS="${INFER_STEPS}" \
-    SAMPLE_OFFSET="${offset}" \
-    MAX_SAMPLES="${count}" \
+    SAMPLE_OFFSET="${launch_offset}" \
+    MAX_SAMPLES="${launch_count}" \
     MODE="${MODE}" \
     PRECISION="${PRECISION}" \
     OVERWRITE="${OVERWRITE}" \
@@ -128,6 +198,10 @@ finished=()
 for _ in "${pids[@]}"; do
   finished+=(0)
 done
+
+if (( remaining == 0 )); then
+  echo "No workers launched; all part LMDBs were already complete."
+fi
 
 echo "Workers launched. Logs are under: ${LOG_DIR}"
 echo "The launcher prints the tail of each active worker log every ${MONITOR_INTERVAL}s."
@@ -181,8 +255,12 @@ for part_dir in "${PARTS_DIR}"/part_*; do
     shard_base="$(basename "${shard_dir}")"
     dst="${LMDB_ROOT}/shard_${part_base}_${shard_base#shard_}"
     if [[ -e "${dst}" ]]; then
+      if [[ "${RESUME}" == "1" && -d "${dst}" && -f "${dst}/data.mdb" ]]; then
+        echo "Skip already merged shard: ${dst}"
+        continue
+      fi
       echo "Merged shard already exists: ${dst}" >&2
-      echo "Set OVERWRITE=1 to rebuild and merge from scratch." >&2
+      echo "Set RESUME=1 to skip already merged shards, or OVERWRITE=1 to rebuild and merge from scratch." >&2
       exit 1
     fi
     mv "${shard_dir}" "${dst}"
@@ -190,29 +268,7 @@ for part_dir in "${PARTS_DIR}"/part_*; do
 done
 
 shard_count="$(find "${LMDB_ROOT}" -mindepth 1 -maxdepth 1 -type d -name 'shard_*' | wc -l)"
-sample_count="$(python - "${LMDB_ROOT}" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-import lmdb
-
-root = Path(sys.argv[1])
-total = 0
-for shard in sorted(root.glob("shard_*")):
-    if not (shard / "data.mdb").exists():
-        continue
-    env = lmdb.open(str(shard), readonly=True, lock=False, readahead=False, meminit=False)
-    try:
-        with env.begin() as txn:
-            raw = txn.get(b"metadata")
-            if raw:
-                total += int(json.loads(raw.decode("utf-8"))["num_samples"])
-    finally:
-        env.close()
-print(total)
-PY
-)"
+sample_count="$(count_lmdb_samples "${LMDB_ROOT}")"
 
 echo "Merged tail-skip LoRA LMDB ready: ${LMDB_ROOT}"
 echo "  shards : ${shard_count}"

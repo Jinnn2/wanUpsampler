@@ -11,6 +11,21 @@ Build the Stage 2 training data:
 bash changing_resolution/scripts/data/tmux_build_clean_lmdb_480p720p_1k_multigpu.sh
 ```
 
+Build the 50-step tail-skip LoRA LMDB on four GPUs:
+
+```bash
+TRAIN_STEP=45 TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 \
+  bash changing_resolution/scripts/data/build_tail_skip_lora_lmdb_multigpu.sh
+```
+
+Resume an interrupted tail-skip LoRA LMDB build without discarding completed
+part samples:
+
+```bash
+TRAIN_STEP=45 TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 RESUME=1 \
+  bash changing_resolution/scripts/data/build_tail_skip_lora_lmdb_multigpu.sh
+```
+
 ## train
 
 Train the Stage 2 clean-latent 480p -> 720p resizer:

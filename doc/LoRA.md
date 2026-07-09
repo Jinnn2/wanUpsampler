@@ -26,7 +26,16 @@ base model frozen，只优化 requires_grad=True 的 LoRA 参数
 
 # 当前效果评估
 现在使用四卡并行跑minibatch，一步需要30s，对应训练10000步需要3~4天，我在中间取了几个checkpoint生成视频。
-
+[1/10] idx=00 seed=42 l1 original=0.038727 lora=0.034598 winner=lora
+[2/10] idx=01 seed=43 l1 original=0.024810 lora=0.022052 winner=lora
+[3/10] idx=02 seed=44 l1 original=0.038825 lora=0.032708 winner=lora
+[4/10] idx=03 seed=45 l1 original=0.024380 lora=0.021113 winner=lora
+[5/10] idx=04 seed=46 l1 original=0.030369 lora=0.027408 winner=lora
+[6/10] idx=05 seed=47 l1 original=0.031258 lora=0.030290 winner=lora
+[7/10] idx=06 seed=48 l1 original=0.027089 lora=0.024307 winner=lora
+[8/10] idx=07 seed=49 l1 original=0.045328 lora=0.038190 winner=lora
+[9/10] idx=08 seed=50 l1 original=0.036556 lora=0.034380 winner=lora
+[10/10] idx=09 seed=51 l1 original=0.023311 lora=0.020712 winner=lora
 当前的训练中，loss能降下来，LoRA实现了部分“补细节”的功能，对照origin3，使用LoRA后的视频细节更丰富，基本实现了语义丰富的目标。
 # 当前问题
 现在的问题主要有以下几个：
