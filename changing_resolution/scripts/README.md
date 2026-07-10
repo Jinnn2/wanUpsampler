@@ -66,6 +66,22 @@ Run a small Stage 3 x0-pred sweep test:
 bash changing_resolution/scripts/eval/run_x0pred_480p720p_stage3_change_step_sweep.sh
 ```
 
+Evaluate whether the 50-step step-45 LoRA transfers to `360x624`. The output
+contains `ori_45`, `lora_45`, and an `ori_50` reference; it also writes a
+three-column visual comparison and a metric summary against `ori_50`:
+
+```bash
+LORA_CKPT=/path/to/latest.safetensors \
+bash changing_resolution/scripts/eval/run_tail_skip_lora_360p_clean_pred_compare.sh run
+```
+
+Run a configuration/path check only:
+
+```bash
+LORA_CKPT=/path/to/latest.safetensors \
+bash changing_resolution/scripts/eval/run_tail_skip_lora_360p_clean_pred_compare.sh check
+```
+
 Run the Stage 3 x0-pred sweep on four GPUs:
 
 ```bash
@@ -106,5 +122,23 @@ python changing_resolution/scripts/eval/summarize_operator_compare_table.py \
 
 `scripts/bridge/run_lightx2v_clean_bridge_infer.py` registers the Stage 2
 clean-resizer bridge for local LightX2V inference.
+
+Run one 50-step tail-skip LoRA + Stage2 full-chain sample from `480x832` to
+`720x1248`:
+
+```bash
+LORA_CKPT=/path/to/latest.safetensors \
+STAGE2_CHECKPOINT=/path/to/latest.pt \
+PROMPT="A cinematic shot of a sailboat at sunset." \
+bash changing_resolution/scripts/bridge/run_tail_skip_lora_stage2_480p720p.sh run
+```
+
+Validate paths and emit the resolved LightX2V JSON without starting inference:
+
+```bash
+LORA_CKPT=/path/to/latest.safetensors \
+STAGE2_CHECKPOINT=/path/to/latest.pt \
+bash changing_resolution/scripts/bridge/run_tail_skip_lora_stage2_480p720p.sh check
+```
 
 Retired Stage 1 and V1 scripts are under `.archive/`.
