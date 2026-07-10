@@ -5,6 +5,7 @@ from pathlib import Path
 
 import torch
 from loguru import logger
+from safetensors import safe_open
 
 from lightx2v.models.networks.wan.model import WanModel
 from lightx2v.models.runners.wan.wan_runner import WanRunner
@@ -19,6 +20,74 @@ from lightx2v.models.schedulers.wan.scheduler import WanScheduler
 from lightx2v.utils.envs import GET_DTYPE
 from lightx2v.utils.registry_factory import RUNNER_REGISTER
 from lightx2v_platform.base.global_var import AI_DEVICE
+
+
+class WanTailSkipLoRAModel(WanModel):
+    """Wan LoRA update compatible with LightX2V models that have no post_weight.
+
+    LightX2V's generic ``BaseTransformerModel._update_lora`` currently updates
+    ``pre_weight``, ``transformer_weights``, and ``post_weight`` unconditionally.
+    WanModel has no post-weight container, so a dynamic strength change fails at
+    the handoff step.  The initial dynamic LoRA registration already handles the
+    first two containers correctly; this override mirrors that behavior when
+    toggling strength during sampling.
+    """
+
+    def _load_lora_file(self, file_path):
+        if self.device.type != "cpu" and torch.distributed.is_initialized():
+            device = f"{AI_DEVICE}:{torch.distributed.get_rank()}"
+        else:
+            device = str(self.device)
+
+        def normalize_key(key: str) -> str:
+            for prefix in ("pipe.dit.", "model.diffusion_model.", "diffusion_model.", "transformer."):
+                if key.startswith(prefix):
+                    key = key[len(prefix) :]
+            key = key.replace(".lora_A.default.weight", ".lora_down.weight")
+            key = key.replace(".lora_B.default.weight", ".lora_up.weight")
+            key = key.replace(".lora_A.weight", ".lora_down.weight")
+            key = key.replace(".lora_B.weight", ".lora_up.weight")
+            key = key.replace(".lora_A", ".lora_down")
+            key = key.replace(".lora_B", ".lora_up")
+            return key
+
+        with safe_open(file_path, framework="pt", device=device) as handle:
+            tensor_dict = {
+                normalize_key(key): handle.get_tensor(key).to(GET_DTYPE())
+                for key in handle.keys()
+            }
+        logger.info(f"Loaded {len(tensor_dict)} normalized tail-skip LoRA tensors from {file_path}")
+        return tensor_dict
+
+    def _update_lora(self, lora_path, strength):
+        lora_weight = lora_path if isinstance(lora_path, dict) else self._load_lora_file(lora_path)
+        self.pre_weight.update_lora(lora_weight, strength)
+        self.transformer_weights.update_lora(lora_weight, strength)
+        post_weight = getattr(self, "post_weight", None)
+        if post_weight is not None:
+            post_weight.update_lora(lora_weight, strength)
+
+
+def count_lora_branches(obj, seen=None) -> int:
+    """Count registered LightX2V LoRA branches without double-counting modules."""
+
+    if obj is None:
+        return 0
+    if seen is None:
+        seen = set()
+    object_id = id(obj)
+    if object_id in seen:
+        return 0
+    seen.add(object_id)
+
+    count = int(bool(getattr(obj, "has_lora_branch", False)))
+    for child in getattr(obj, "_modules", {}).values():
+        count += count_lora_branches(child, seen)
+    for child in getattr(obj, "_parameters", {}).values():
+        count += count_lora_branches(child, seen)
+    for name in ("pre_weight", "transformer_weights", "post_weight"):
+        count += count_lora_branches(getattr(obj, name, None), seen)
+    return count
 
 
 class WanScheduler4CleanResizerBridgeInterface:
@@ -268,9 +337,15 @@ class WanTailSkipLoRARunner(WanRunner):
             "lora_path": self.lora_path,
             "lora_strength": 0.0,
         }
-        model = WanModel(**wan_model_kwargs)
+        model = WanTailSkipLoRAModel(**wan_model_kwargs)
+        branch_count = count_lora_branches(model)
+        if branch_count <= 0:
+            raise RuntimeError(
+                "LoRA checkpoint loaded but matched zero LightX2V LoRA branches. "
+                f"Check key format in: {self.lora_path}"
+            )
         self._current_lora_strength = 0.0
-        logger.info(f"Registered WAN tail-skip LoRA from {self.lora_path}")
+        logger.info(f"Registered {branch_count} WAN tail-skip LoRA branches from {self.lora_path}")
         return model
 
     def run_segment(self, segment_idx=0):
@@ -339,9 +414,15 @@ class WanTailSkipLoRACleanResizerBridgeRunner(WanCleanResizerBridgeRunner):
             "lora_path": self.lora_path,
             "lora_strength": 0.0,
         }
-        model = WanModel(**wan_model_kwargs)
+        model = WanTailSkipLoRAModel(**wan_model_kwargs)
+        branch_count = count_lora_branches(model)
+        if branch_count <= 0:
+            raise RuntimeError(
+                "LoRA checkpoint loaded but matched zero LightX2V LoRA branches. "
+                f"Check key format in: {self.lora_path}"
+            )
         self._current_lora_strength = 0.0
-        logger.info(f"Registered WAN tail-skip LoRA from {self.lora_path}")
+        logger.info(f"Registered {branch_count} WAN tail-skip LoRA branches from {self.lora_path}")
         return model
 
     def run_segment(self, segment_idx=0):
