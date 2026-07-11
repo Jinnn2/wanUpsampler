@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Evaluate whether a 50-step tail-skip LoRA transfers to 360p (360x624).
+# Evaluate whether a 50-step tail-skip LoRA transfers to the 360p class
+# resolution 368x640. Wan requires even spatial latent dimensions: 360x624
+# would encode to 45x78 and the DiT patch path crops the odd height to 44.
 # Every case uses the same prompt and seed:
 #   ori_45  : base Wan x0 prediction after the step-45 denoise, then stop.
 #   lora_45 : LoRA enabled only for the step-45 denoise, then stop.
@@ -35,8 +37,8 @@ TAIL_SKIP_LORA_OUT_DIR="${TAIL_SKIP_LORA_OUT_DIR:-${PROJECT_ROOT}/outputs/changi
 LORA_CKPT="${LORA_CKPT:-${TAIL_SKIP_LORA_OUT_DIR}/latest.safetensors}"
 LORA_STRENGTH="${LORA_STRENGTH:-1.0}"
 
-HEIGHT="${HEIGHT:-360}"
-WIDTH="${WIDTH:-624}"
+HEIGHT="${HEIGHT:-368}"
+WIDTH="${WIDTH:-640}"
 NUM_FRAMES="${NUM_FRAMES:-81}"
 GUIDE_SCALE="${GUIDE_SCALE:-6}"
 SAMPLE_SHIFT="${SAMPLE_SHIFT:-8}"
@@ -44,7 +46,7 @@ PRECISION="${PRECISION:-bf16}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 PROMPTS_FILE="${PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt}"
-OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_clean_pred_compare_360p}"
+OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_clean_pred_compare_360p_368x640}"
 SEED="${SEED:-9700}"
 LIMIT="${LIMIT:-10}"
 PROMPT_OFFSET="${PROMPT_OFFSET:-0}"
@@ -55,8 +57,8 @@ RUN_METRICS="${RUN_METRICS:-1}"
 METRICS="${METRICS:-l1 mse psnr temporal_l1}"
 METRICS_CPU="${METRICS_CPU:-0}"
 
-if [[ "${HEIGHT}" != "360" || "${WIDTH}" != "624" ]]; then
-  echo "This entrypoint is locked to the 360p test size 360x624." >&2
+if [[ "${HEIGHT}" != "368" || "${WIDTH}" != "640" ]]; then
+  echo "This entrypoint is locked to the 360p-class test size 368x640." >&2
   echo "Received HEIGHT=${HEIGHT}, WIDTH=${WIDTH}." >&2
   exit 2
 fi
@@ -153,7 +155,7 @@ for case_name in ori_45 lora_45 ori_50; do
 done
 
 echo "[360p LoRA eval] prompts=${PROMPTS_FILE} selected=${#prompts[@]} seed=${SEED}"
-echo "[360p LoRA eval] resolution=${HEIGHT}x${WIDTH}, step=${TRAIN_STEP}, lora=${LORA_CKPT}"
+echo "[360p LoRA eval] resolution=${HEIGHT}x${WIDTH} (latent 46x80), step=${TRAIN_STEP}, lora=${LORA_CKPT}"
 echo "[360p LoRA eval] columns: ori_45 | lora_45 | ori_50"
 
 if [[ "${MODE}" == "check" ]]; then

@@ -66,7 +66,9 @@ Run a small Stage 3 x0-pred sweep test:
 bash changing_resolution/scripts/eval/run_x0pred_480p720p_stage3_change_step_sweep.sh
 ```
 
-Evaluate whether the 50-step step-45 LoRA transfers to `360x624`. The output
+Evaluate whether the 50-step step-45 LoRA transfers to the 360p-class
+`368x640` resolution. `360x624` produces an odd latent height and is not valid
+for this Wan patch path. The output
 contains `ori_45`, `lora_45`, and an `ori_50` reference; it also writes a
 three-column visual comparison and a metric summary against `ori_50`:
 
