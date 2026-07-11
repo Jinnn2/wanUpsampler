@@ -230,7 +230,7 @@ make_compare() {
   if [[ -f "${v0}" && -f "${v1}" && -f "${v2}" ]]; then
     ffmpeg -hide_banner -loglevel error -y \
       -i "${v0}" -i "${v1}" -i "${v2}" \
-      -filter_complex "[0:v]scale=384:-2,setpts=PTS-STARTPTS[v0];[1:v]scale=384:-2,setpts=PTS-STARTPTS[v1];[2:v]scale=384:-2,setpts=PTS-STARTPTS[v2];[v0][v1][v2]hstack=inputs=3[v]" \
+      -filter_complex "[0:v]setpts=PTS-STARTPTS[v0];[1:v]setpts=PTS-STARTPTS[v1];[2:v]setpts=PTS-STARTPTS[v2];[v0][v1][v2]hstack=inputs=3[v]" \
       -map "[v]" -an -c:v libx264 -pix_fmt yuv420p "${out}"
   else
     echo "[compare] skip hstack for index=${sample_index}; missing one or more case videos." >&2
