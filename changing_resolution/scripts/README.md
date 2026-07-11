@@ -82,6 +82,14 @@ LORA_CKPT=/path/to/latest.safetensors \
 bash changing_resolution/scripts/eval/run_tail_skip_lora_360p_clean_pred_compare.sh check
 ```
 
+Run the 480p ten-prompt, three-column Stage2 comparison. The column order is
+`LoRA@45 + Stage2`, `x_pred@45 + Stage2`, and `teacher@50 + Stage2`:
+
+```bash
+LORA_CKPT=/path/to/latest.safetensors \
+bash changing_resolution/scripts/eval/run_tail_skip_lora_stage2_480p_three_way_compare.sh run
+```
+
 Run the Stage 3 x0-pred sweep on four GPUs:
 
 ```bash
