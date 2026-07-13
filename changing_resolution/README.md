@@ -82,8 +82,13 @@ Check the 2x pixel-shuffle/crop model and train its Stage2 checkpoint:
 
 ```bash
 bash changing_resolution/scripts/train/run_clean_368x640_720x1248_stage2_lmdb_training.sh model_check
-bash changing_resolution/scripts/train/run_clean_368x640_720x1248_stage2_lmdb_training.sh train
+bash changing_resolution/scripts/train/tmux_run_clean_368x640_720x1248_stage2_lmdb_training.sh
+tmux attach -t wan_cr_stage2_368x640_4gpu
 ```
+
+The dedicated launcher defaults to four GPUs (`0,1,2,3`), per-GPU batch 1,
+gradient accumulation 2, and therefore an effective batch size of 8. Override
+`CUDA_VISIBLE_DEVICES`, `BATCH_SIZE`, or `GRAD_ACCUM` when needed.
 
 Run the established ten prompts as four raw, horizontally stacked columns:
 
@@ -144,6 +149,7 @@ scripts/train/tmux_run_clean_480p720p_stage2_lmdb_training.sh
 
 scripts/data/build_clean_368x640_720x1248_lmdb_1k.sh
 scripts/train/run_clean_368x640_720x1248_stage2_lmdb_training.sh
+scripts/train/tmux_run_clean_368x640_720x1248_stage2_lmdb_training.sh
 scripts/eval/run_tail_skip_lora_stage2_360p_four_way_compare.sh
   360p-class -> 720p Stage2 data, training, and four-way LoRA evaluation.
 

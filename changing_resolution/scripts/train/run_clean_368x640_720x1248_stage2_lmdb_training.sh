@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 PATH_CONFIG="${PATH_CONFIG:-${PROJECT_ROOT}/configs/local_paths.sh}"
+CALLER_NUM_GPUS="${NUM_GPUS:-}"
+CALLER_CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-}"
 if [[ -f "${PATH_CONFIG}" ]]; then
   # shellcheck source=/dev/null
   source "${PATH_CONFIG}"
@@ -14,6 +16,12 @@ export CR_LMDB_DIR="${CR_LMDB_368X640_720X1248_DIR:-${PROJECT_ROOT}/data/changin
 export CR_STAGE2_CONFIG="${CR_STAGE2_368X640_720X1248_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_368x640_to_720x1248_lmdb_stage2.yaml}"
 export CR_STAGE2_OUT_DIR="${CR_STAGE2_368X640_720X1248_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_clean_368x640_720x1248_stage2_lmdb}"
 export SCALE_FACTOR="2.0"
+export NUM_GPUS="${CALLER_NUM_GPUS:-4}"
+export CUDA_VISIBLE_DEVICES="${CALLER_CUDA_VISIBLE_DEVICES:-0,1,2,3}"
+# Keep the original single-GPU effective batch: 1 batch * 8 accumulation = 8.
+export BATCH_SIZE="${BATCH_SIZE:-1}"
+export GRAD_ACCUM="${GRAD_ACCUM:-2}"
+export NUM_WORKERS="${NUM_WORKERS:-2}"
 
 if [[ "${1:-train}" == "model_check" ]]; then
   PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}" python - <<'PY'

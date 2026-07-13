@@ -16,8 +16,9 @@ model:
 train:
   max_steps: 50000
   batch_size: 1
-  num_workers: 8
-  grad_accum: 8
+  # Four-GPU default: effective batch = 4 ranks * batch 1 * accumulation 2 = 8.
+  num_workers: 2
+  grad_accum: 2
   lr: 0.0001
   weight_decay: 0.01
   precision: bf16

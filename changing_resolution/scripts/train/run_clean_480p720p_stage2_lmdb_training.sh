@@ -14,10 +14,12 @@ LMDB_DIR="${CR_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_480p720p_
 CONFIG="${CR_STAGE2_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage2.yaml}"
 OUT_DIR="${CR_STAGE2_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_clean_480p720p_stage2_lmdb}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
+NUM_GPUS="${NUM_GPUS:-1}"
 
 MAX_STEPS="${MAX_STEPS:-50000}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
 GRAD_ACCUM="${GRAD_ACCUM:-8}"
+NUM_WORKERS="${NUM_WORKERS:-8}"
 LR="${LR:-1e-4}"
 PRECISION="${PRECISION:-bf16}"
 HIDDEN_CHANNELS="${HIDDEN_CHANNELS:-256}"
@@ -31,6 +33,16 @@ export LIGHTX2V_REPO
 export PYTHONPATH="${LIGHTX2V_REPO}:${PROJECT_ROOT}:${PYTHONPATH:-}"
 
 MODE="${1:-train}"
+
+IFS=',' read -r -a VISIBLE_GPUS <<< "${CUDA_VISIBLE_DEVICES}"
+if (( NUM_GPUS < 1 )); then
+  echo "NUM_GPUS must be >= 1, got ${NUM_GPUS}." >&2
+  exit 2
+fi
+if (( NUM_GPUS > ${#VISIBLE_GPUS[@]} )); then
+  echo "NUM_GPUS=${NUM_GPUS} exceeds CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}." >&2
+  exit 2
+fi
 
 check_lmdb() {
   if [[ ! -d "${LMDB_DIR}" ]] || [[ -z "$(find "${LMDB_DIR}" -type f -name 'data.mdb' -print -quit 2>/dev/null)" ]]; then
@@ -48,6 +60,10 @@ missing = [name for name in ("lmdb", "torch", "yaml", "tqdm") if importlib.util.
 if missing:
     raise SystemExit("Missing python packages: " + ", ".join(missing) + ". Run: pip install -r requirements.txt")
 PY
+  if (( NUM_GPUS > 1 )) && ! command -v torchrun >/dev/null 2>&1; then
+    echo "torchrun not found. Install PyTorch torchrun or set NUM_GPUS=1." >&2
+    exit 1
+  fi
 }
 
 check_stage2_import() {
@@ -83,10 +99,16 @@ train_stage2() {
   echo "  lmdb    : ${LMDB_DIR}"
   echo "  config  : ${CONFIG}"
   echo "  out_dir : ${OUT_DIR}"
-  echo "  gpu     : ${CUDA_VISIBLE_DEVICES}"
+  echo "  gpus    : ${CUDA_VISIBLE_DEVICES} (world_size=${NUM_GPUS})"
   echo "  steps   : ${MAX_STEPS}"
+  echo "  effective batch: $((BATCH_SIZE * GRAD_ACCUM * NUM_GPUS))"
 
-  python "${PROJECT_ROOT}/changing_resolution/scripts/train/train_clean_latent_resizer_stage2.py" \
+  local launcher=(python)
+  if (( NUM_GPUS > 1 )); then
+    launcher=(torchrun --standalone --nnodes=1 --nproc_per_node="${NUM_GPUS}")
+  fi
+
+  "${launcher[@]}" "${PROJECT_ROOT}/changing_resolution/scripts/train/train_clean_latent_resizer_stage2.py" \
     --config "${CONFIG}" \
     --data_dir "${LMDB_DIR}" \
     --data_format lmdb \
@@ -96,6 +118,7 @@ train_stage2() {
     --scale_factor "${SCALE_FACTOR}" \
     --batch_size "${BATCH_SIZE}" \
     --grad_accum "${GRAD_ACCUM}" \
+    --num_workers "${NUM_WORKERS}" \
     --lr "${LR}" \
     --max_steps "${MAX_STEPS}" \
     --precision "${PRECISION}" \
