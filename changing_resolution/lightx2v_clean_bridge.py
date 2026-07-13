@@ -110,6 +110,54 @@ class WanScheduler4CleanResizerBridge(WanScheduler4ChangingResolution):
     def set_clean_latent_resizer(self, resizer):
         self.clean_latent_resizer = resizer
 
+    def prepare_latents(self, seed, latent_shape, dtype=torch.float32):
+        """Allow an exact LR latent size when pixel aspect ratios do not share one rate."""
+
+        lowres_size = self.config.get("wan_lowres_latent_size")
+        if lowres_size is None:
+            return super().prepare_latents(seed, latent_shape, dtype=dtype)
+        if len(self.config.get("resolution_rate", [])) != 1:
+            raise ValueError("wan_lowres_latent_size currently supports exactly one resolution stage")
+        if not isinstance(lowres_size, (list, tuple)) or len(lowres_size) != 2:
+            raise ValueError("wan_lowres_latent_size must be [latent_height, latent_width]")
+
+        low_h, low_w = (int(lowres_size[0]), int(lowres_size[1]))
+        if low_h <= 0 or low_w <= 0 or low_h % 2 != 0 or low_w % 2 != 0:
+            raise ValueError(
+                "wan_lowres_latent_size values must be positive even integers, "
+                f"got {(low_h, low_w)}"
+            )
+        if low_h > latent_shape[2] or low_w > latent_shape[3]:
+            raise ValueError(
+                "wan_lowres_latent_size cannot exceed target latent size: "
+                f"lowres={(low_h, low_w)}, target={tuple(latent_shape[-2:])}"
+            )
+
+        self.generator = torch.Generator(device=AI_DEVICE).manual_seed(seed)
+        self.latents_list = [
+            torch.randn(
+                latent_shape[0],
+                latent_shape[1],
+                low_h,
+                low_w,
+                dtype=dtype,
+                device=AI_DEVICE,
+                generator=self.generator,
+            ),
+            torch.randn(
+                *latent_shape,
+                dtype=dtype,
+                device=AI_DEVICE,
+                generator=self.generator,
+            ),
+        ]
+        self.latents = self.latents_list[0]
+        self.changing_resolution_index = 0
+        logger.info(
+            "Prepared explicit changing-resolution latents: "
+            f"{tuple(self.latents_list[0].shape)} -> {tuple(self.latents_list[1].shape)}"
+        )
+
     def _resize_clean_latent_to_next_stage(self, denoised_sample, target_latent_shape):
         can_use_bridge = (
             self.clean_latent_resizer is not None

@@ -22,6 +22,16 @@ LightX2V first estimates a clean latent with `x0_pred = x_t - sigma * eps`,
 resizes that clean estimate, and re-noises it before continuing diffusion.
 The training target is clean latent resizing, not noisy latent super-resolution.
 
+For the 360p-class -> 720p LoRA evaluation, Wan uses `368 x 640` instead of
+literal `360 x 624`. This keeps both latent axes even:
+
+```text
+LR RGB: 368 x 640
+HR RGB: 720 x 1248
+latent: 46 x 80 -> pixel shuffle 92 x 160 -> center crop 90 x 156
+LoRA: step 45 only, strength 0.75
+```
+
 ## Stage 2 Flow
 
 Run from the Linux machine:
@@ -59,6 +69,32 @@ Output:
 ```text
 outputs/changing_resolution_clean_480p720p_stage2_lmdb
 ```
+
+## 360p-class -> 720p LoRA four-way evaluation
+
+Build the dedicated clean-latent LMDB from the existing 720p teacher videos:
+
+```bash
+bash changing_resolution/scripts/data/build_clean_368x640_720x1248_lmdb_1k.sh lmdb
+```
+
+Check the 2x pixel-shuffle/crop model and train its Stage2 checkpoint:
+
+```bash
+bash changing_resolution/scripts/train/run_clean_368x640_720x1248_stage2_lmdb_training.sh model_check
+bash changing_resolution/scripts/train/run_clean_368x640_720x1248_stage2_lmdb_training.sh train
+```
+
+Run the established ten prompts as four raw, horizontally stacked columns:
+
+```bash
+bash changing_resolution/scripts/eval/run_tail_skip_lora_stage2_360p_four_way_compare.sh check
+bash changing_resolution/scripts/eval/run_tail_skip_lora_stage2_360p_four_way_compare.sh run
+```
+
+The column order is `ori45+Stage2`, `LoRA45+Stage2`,
+`teacher50+interpolation`, and `teacher50+Stage2`. The default LoRA strength is
+`0.75`; all cases use the same prompt and seed for each group.
 
 Run operator compare:
 
@@ -105,6 +141,11 @@ scripts/train/train_x0pred_latent_resizer_stage3.py
 scripts/train/run_clean_480p720p_stage2_lmdb_training.sh
 scripts/train/tmux_run_clean_480p720p_stage2_lmdb_training.sh
   Stage 2 training entrypoints.
+
+scripts/data/build_clean_368x640_720x1248_lmdb_1k.sh
+scripts/train/run_clean_368x640_720x1248_stage2_lmdb_training.sh
+scripts/eval/run_tail_skip_lora_stage2_360p_four_way_compare.sh
+  360p-class -> 720p Stage2 data, training, and four-way LoRA evaluation.
 
 scripts/eval/eval_clean_resizer_operator_compare.py
   Decode validation LMDB samples and compute reference metrics.

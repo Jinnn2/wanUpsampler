@@ -112,6 +112,27 @@ class SpatialRationalResampler(nn.Module):
         return self.blur_down(x)
 
 
+class SpatialIntegerResampler(nn.Module):
+    """Learned integer spatial resampler: Conv3d expansion -> pixel shuffle."""
+
+    def __init__(self, channels: int, scale: int = 2) -> None:
+        super().__init__()
+        if int(scale) != scale or int(scale) < 1:
+            raise ValueError("SpatialIntegerResampler requires a positive integer scale")
+        self.channels = int(channels)
+        self.scale = int(scale)
+        self.conv = nn.Conv3d(
+            channels,
+            channels * self.scale * self.scale,
+            kernel_size=3,
+            padding=1,
+        )
+        self.pixel_shuffle = PixelShuffle(self.scale)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.pixel_shuffle(self.conv(x))
+
+
 class WanCleanLatentResizerStage2(nn.Module):
     """LTX2-style Stage 2 clean latent resizer for Wan changing_resolution."""
 
@@ -130,14 +151,26 @@ class WanCleanLatentResizerStage2(nn.Module):
         super().__init__()
         if num_res_blocks < 2:
             raise ValueError("num_res_blocks must be at least 2")
-        if float(scale_factor) != 1.5:
-            raise ValueError("Stage 2 rational resize currently supports scale_factor=1.5 only")
         if dropout != 0:
             raise ValueError("LTX2-style Stage 2 block does not support dropout")
         if resblock_type != "ltx2":
             raise ValueError("Stage 2 currently supports resblock_type='ltx2' only")
-        if resize_op != "rational_conv3d_pixel_shuffle":
-            raise ValueError("Stage 2 currently supports resize_op='rational_conv3d_pixel_shuffle' only")
+
+        valid_resize_configs = {
+            "rational_conv3d_pixel_shuffle": 1.5,
+            "conv3d_pixel_shuffle_crop": 2.0,
+        }
+        if resize_op not in valid_resize_configs:
+            raise ValueError(
+                "Stage 2 resize_op must be 'rational_conv3d_pixel_shuffle' or "
+                "'conv3d_pixel_shuffle_crop'"
+            )
+        expected_scale = valid_resize_configs[resize_op]
+        if float(scale_factor) != expected_scale:
+            raise ValueError(
+                f"Stage 2 resize_op={resize_op!r} requires scale_factor={expected_scale}, "
+                f"got {scale_factor}"
+            )
 
         self.in_channels = int(in_channels)
         self.out_channels = int(out_channels)
@@ -154,7 +187,10 @@ class WanCleanLatentResizerStage2(nn.Module):
         pre_blocks = num_res_blocks // 2
         post_blocks = num_res_blocks - pre_blocks
         self.pre_blocks = nn.ModuleList([ResBlock(hidden_channels) for _ in range(pre_blocks)])
-        self.feature_resizer = SpatialRationalResampler(hidden_channels, scale=scale_factor)
+        if resize_op == "rational_conv3d_pixel_shuffle":
+            self.feature_resizer = SpatialRationalResampler(hidden_channels, scale=scale_factor)
+        else:
+            self.feature_resizer = SpatialIntegerResampler(hidden_channels, scale=int(scale_factor))
         self.post_blocks = nn.ModuleList([ResBlock(hidden_channels) for _ in range(post_blocks)])
         self.out = nn.Conv3d(hidden_channels, out_channels, kernel_size=3, padding=1)
 
@@ -178,7 +214,9 @@ class WanCleanLatentResizerStage2(nn.Module):
             h = block(h)
 
         h = self.feature_resizer(h)
-        if h.shape[-2:] != (target_h, target_w):
+        if self.resize_op == "conv3d_pixel_shuffle_crop":
+            h = _center_crop_spatial(h, target_h, target_w)
+        elif h.shape[-2:] != (target_h, target_w):
             raise ValueError(
                 "Stage 2 rational resizer produced unexpected spatial size: "
                 f"{tuple(h.shape[-2:])} vs {(target_h, target_w)}"
@@ -208,9 +246,28 @@ class WanCleanLatentResizerStage2(nn.Module):
         if len(output_size) != 2:
             raise ValueError("output_size must be (height, width)")
         target = (int(output_size[0]), int(output_size[1]))
-        if target != expected:
+        if self.resize_op == "rational_conv3d_pixel_shuffle" and target != expected:
             raise ValueError(f"Stage 2 rational path expects output_size={expected}, got {target}")
+        if self.resize_op == "conv3d_pixel_shuffle_crop":
+            if target[0] <= 0 or target[1] <= 0:
+                raise ValueError(f"output_size must be positive, got {target}")
+            if target[0] > expected[0] or target[1] > expected[1]:
+                raise ValueError(
+                    "Stage 2 pixel-shuffle crop path cannot enlarge beyond its native output: "
+                    f"native={expected}, requested={target}"
+                )
         return target
+
+
+def _center_crop_spatial(x: torch.Tensor, target_h: int, target_w: int) -> torch.Tensor:
+    height, width = x.shape[-2:]
+    if target_h > height or target_w > width:
+        raise ValueError(
+            f"cannot crop spatial size {(height, width)} to larger target {(target_h, target_w)}"
+        )
+    top = (height - target_h) // 2
+    left = (width - target_w) // 2
+    return x[..., top : top + target_h, left : left + target_w]
 
 
 def _valid_groups(channels: int, preferred: int = 32) -> int:
