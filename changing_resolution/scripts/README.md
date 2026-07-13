@@ -84,6 +84,16 @@ LORA_CKPT=/path/to/latest.safetensors \
 bash changing_resolution/scripts/eval/run_tail_skip_lora_360p_clean_pred_compare.sh check
 ```
 
+Sweep LoRA strength on the same 360p-class ten-prompt evaluation. Baselines are
+generated once, the comparison panels preserve the original video resolution,
+and metrics for every strength are combined into one CSV:
+
+```bash
+STRENGTHS="0.5 0.75 1.0" \
+LORA_CKPT=/path/to/latest.safetensors \
+bash changing_resolution/scripts/eval/run_tail_skip_lora_360p_strength_sweep.sh run
+```
+
 Run the 480p ten-prompt, three-column Stage2 comparison. The column order is
 `LoRA@45 + Stage2`, `x_pred@45 + Stage2`, and `teacher@50 + Stage2`:
 
