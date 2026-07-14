@@ -56,8 +56,9 @@ bash changing_resolution/scripts/eval/run_clean_480p720p_stage2_change_step_swee
 
 Sweep steps 30 through 50 at the valid 360p-class resolution (`368x640`).
 Each panel compares `step N + Stage2 + HR tail`, `step N + interpolation + HR
-tail`, and the fixed `LR step 50 + Stage2` baseline. The baseline is generated
-only once per prompt:
+tail`, and a fixed 50-step `368x640` low-resolution baseline with no latent
+upsampling. A persistent batch runner loads WAN/T5/VAE/Stage2 once and only
+replaces scheduler state between comparison jobs:
 
 ```bash
 bash changing_resolution/scripts/eval/run_clean_360p_stage2_three_way_step_sweep.sh check

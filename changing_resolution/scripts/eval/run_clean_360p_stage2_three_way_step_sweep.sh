@@ -5,7 +5,7 @@ set -euo pipefail
 # For every step N, the three output columns are:
 #   1. LR denoise step N -> new 360p Stage2 -> HR denoise steps N+1..50
 #   2. LR denoise step N -> trilinear resize -> HR denoise steps N+1..50
-#   3. LR denoise through step 50 -> new 360p Stage2 -> decode (fixed baseline)
+#   3. LR denoise through step 50 -> decode at 368x640 (no latent upsampling)
 
 MODE="${1:-run}"
 if [[ "${MODE}" != "run" && "${MODE}" != "check" ]]; then
@@ -103,7 +103,7 @@ if [[ "${MODE}" == "run" ]] && ! command -v ffmpeg >/dev/null 2>&1; then
   exit 1
 fi
 
-mkdir -p "${OUT_ROOT}"/{configs,videos/stage2_handoff,videos/interp_handoff,videos/baseline50_stage2,panels,compare}
+mkdir -p "${OUT_ROOT}"/{configs,videos/stage2_handoff,videos/interp_handoff,videos/baseline50_lowres,panels,compare}
 mapfile -t prompts < <(grep -v '^[[:space:]]*$' "${PROMPTS_FILE}" | grep -v '^[[:space:]]*#' | tail -n +"$((PROMPT_OFFSET + 1))" | head -n "${LIMIT}")
 if (( ${#prompts[@]} == 0 )); then
   echo "No prompts selected from: ${PROMPTS_FILE}" >&2
@@ -132,15 +132,15 @@ import os
 import sys
 
 path, mode, change_step = sys.argv[1], sys.argv[2], int(sys.argv[3])
-if mode not in {"stage2", "interp"}:
+if mode not in {"stage2", "interp", "baseline"}:
     raise SystemExit(f"Unsupported mode: {mode}")
 
 cfg = {
     "infer_steps": int(os.environ["INFER_STEPS"]),
     "target_video_length": int(os.environ["NUM_FRAMES"]),
     "text_len": 512,
-    "target_height": int(os.environ["HR_H"]),
-    "target_width": int(os.environ["HR_W"]),
+    "target_height": int(os.environ["LR_H"] if mode == "baseline" else os.environ["HR_H"]),
+    "target_width": int(os.environ["LR_W"] if mode == "baseline" else os.environ["HR_W"]),
     "self_attn_1_type": "flash_attn3",
     "cross_attn_1_type": "flash_attn3",
     "cross_attn_2_type": "flash_attn3",
@@ -149,14 +149,20 @@ cfg = {
     "enable_cfg": True,
     "cpu_offload": False,
     "feature_caching": "NoCaching",
-    "changing_resolution": True,
-    "resolution_rate": [int(os.environ["LR_H"]) / int(os.environ["HR_H"])],
-    "wan_lowres_latent_size": [
-        int(os.environ["LR_LATENT_H"]),
-        int(os.environ["LR_LATENT_W"]),
-    ],
-    "changing_resolution_steps": [change_step],
 }
+
+if mode in {"stage2", "interp"}:
+    cfg.update(
+        {
+            "changing_resolution": True,
+            "resolution_rate": [int(os.environ["LR_H"]) / int(os.environ["HR_H"])],
+            "wan_lowres_latent_size": [
+                int(os.environ["LR_LATENT_H"]),
+                int(os.environ["LR_LATENT_W"]),
+            ],
+            "changing_resolution_steps": [change_step],
+        }
+    )
 
 if mode == "stage2":
     cfg.update(
@@ -183,18 +189,18 @@ with open(path, "w", encoding="utf-8") as handle:
 PY
 }
 
-# Configs do not depend on prompt. The step-50 Stage2 config is also the fixed
-# baseline and is intentionally shared by every row of the sweep.
+# Configs do not depend on prompt. baseline50_lowres documents the third-column
+# path; the persistent Python runner switches schedulers without reloading weights.
 for change_step in "${steps[@]}"; do
   write_config "${OUT_ROOT}/configs/step$(printf '%02d' "${change_step}")_stage2.json" "stage2" "${change_step}"
   write_config "${OUT_ROOT}/configs/step$(printf '%02d' "${change_step}")_interp.json" "interp" "${change_step}"
 done
-write_config "${OUT_ROOT}/configs/baseline50_stage2.json" "stage2" "${INFER_STEPS}"
+write_config "${OUT_ROOT}/configs/baseline50_lowres.json" "baseline" "${INFER_STEPS}"
 
 echo "[360p three-way sweep] prompts=${#prompts[@]}, steps=${steps[*]}"
 echo "[360p three-way sweep] LR=368x640 (latent 46x80), HR=720x1248 (latent 90x156)"
 echo "[360p three-way sweep] Stage2=${STAGE2_CHECKPOINT}"
-echo "[360p three-way sweep] columns: step N + Stage2 + HR tail | step N + interp + HR tail | LR50 + Stage2"
+echo "[360p three-way sweep] columns: step N + Stage2 + HR tail | step N + interp + HR tail | LR50, no upsampling"
 
 if [[ "${MODE}" == "check" ]]; then
   echo "Check passed; configs written under ${OUT_ROOT}/configs and inference was not started."
@@ -204,27 +210,38 @@ fi
 export CUDA_VISIBLE_DEVICES LIGHTX2V_REPO
 export PYTHONPATH="${LIGHTX2V_REPO}:${PROJECT_ROOT}:${PYTHONPATH:-}"
 
-run_infer() {
-  local model_cls="$1"
-  local config_json="$2"
-  local prompt="$3"
-  local seed="$4"
-  local output="$5"
-  if [[ "${SKIP_EXISTING}" == "1" && -s "${output}" ]]; then
-    echo "  [skip] ${output}"
-    return
-  fi
-  python "${PROJECT_ROOT}/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_infer.py" \
-    --seed "${seed}" \
-    --model_cls "${model_cls}" \
-    --task t2v \
-    --model_path "${MODEL_ROOT}" \
-    --config_json "${config_json}" \
-    --prompt "${prompt}" \
-    --negative_prompt "${NEGATIVE_PROMPT}" \
-    --save_result_path "${output}" \
-    --target_video_length "${NUM_FRAMES}"
-}
+batch_args=(
+  --seed "${START_SEED}"
+  --model_cls "wan2.1_clean_resizer_bridge"
+  --task t2v
+  --model_path "${MODEL_ROOT}"
+  --config_json "${OUT_ROOT}/configs/step$(printf '%02d' "${steps[0]}")_stage2.json"
+  --prompts_file "${PROMPTS_FILE}"
+  --prompt_offset "${PROMPT_OFFSET}"
+  --limit "${LIMIT}"
+  --change_steps "${steps[*]}"
+  --infer_steps "${INFER_STEPS}"
+  --lr_height "${LR_H}"
+  --lr_width "${LR_W}"
+  --hr_height "${HR_H}"
+  --hr_width "${HR_W}"
+  --lr_latent_height "${LR_LATENT_H}"
+  --lr_latent_width "${LR_LATENT_W}"
+  --out_root "${OUT_ROOT}"
+  --negative_prompt "${NEGATIVE_PROMPT}"
+  --target_video_length "${NUM_FRAMES}"
+)
+if [[ "${SKIP_EXISTING}" == "1" ]]; then
+  batch_args+=(--skip_existing)
+elif [[ "${SKIP_EXISTING}" != "0" ]]; then
+  echo "SKIP_EXISTING must be 0 or 1." >&2
+  exit 2
+fi
+
+# One long-lived process owns WAN/T5/VAE/Stage2. Only scheduler state is
+# replaced between baseline, learned-resizer, and interpolation jobs.
+python "${PROJECT_ROOT}/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_step_sweep_batch_infer.py" \
+  "${batch_args[@]}"
 
 make_panel() {
   local input="$1"
@@ -240,13 +257,12 @@ for prompt in "${prompts[@]}"; do
   global_index=$((PROMPT_OFFSET + index))
   seed=$((START_SEED + global_index))
   sample_label="$(printf '%03d' "${global_index}")"
-  baseline="${OUT_ROOT}/videos/baseline50_stage2/${sample_label}_seed${seed}_baseline50_stage2.mp4"
-  baseline_panel="${OUT_ROOT}/panels/${sample_label}_seed${seed}_baseline50_stage2.mp4"
+  baseline="${OUT_ROOT}/videos/baseline50_lowres/${sample_label}_seed${seed}_baseline50_lowres.mp4"
+  baseline_panel="${OUT_ROOT}/panels/${sample_label}_seed${seed}_baseline50_lowres.mp4"
 
-  echo "[$((index + 1))/${#prompts[@]}] index=${sample_label} seed=${seed}: fixed LR50+Stage2 baseline"
+  echo "[$((index + 1))/${#prompts[@]}] index=${sample_label} seed=${seed}: build comparison panels"
   echo "${prompt}"
-  run_infer "wan2.1_clean_resizer_bridge" "${OUT_ROOT}/configs/baseline50_stage2.json" "${prompt}" "${seed}" "${baseline}"
-  make_panel "${baseline}" "${baseline_panel}" "LR step 50 + Stage2 baseline"
+  make_panel "${baseline}" "${baseline_panel}" "LR steps 1-50, 368x640, no upsampling"
 
   for change_step in "${steps[@]}"; do
     step_label="$(printf '%02d' "${change_step}")"
@@ -258,15 +274,7 @@ for prompt in "${prompts[@]}"; do
     compare="${OUT_ROOT}/compare/${stem}_three_way.mp4"
 
     echo "  step=${change_step}/${INFER_STEPS}"
-    if (( change_step == INFER_STEPS )); then
-      # This is exactly the fixed baseline; avoid a duplicate model run.
-      stage2_video="${baseline}"
-      make_panel "${stage2_video}" "${stage2_panel}" "LR step 50 + Stage2 (same as baseline)"
-    else
-      run_infer "wan2.1_clean_resizer_bridge" "${OUT_ROOT}/configs/step${step_label}_stage2.json" "${prompt}" "${seed}" "${stage2_video}"
-      make_panel "${stage2_video}" "${stage2_panel}" "LR step ${change_step} + Stage2 + HR to 50"
-    fi
-    run_infer "wan2.1_clean_interp_bridge" "${OUT_ROOT}/configs/step${step_label}_interp.json" "${prompt}" "${seed}" "${interp_video}"
+    make_panel "${stage2_video}" "${stage2_panel}" "LR step ${change_step} + Stage2 + HR to 50"
     make_panel "${interp_video}" "${interp_panel}" "LR step ${change_step} + interp + HR to 50"
 
     ffmpeg -hide_banner -loglevel error -y \
