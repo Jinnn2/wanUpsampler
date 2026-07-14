@@ -101,6 +101,17 @@ The column order is `ori45+Stage2`, `LoRA45+Stage2`,
 `teacher50+interpolation`, and `teacher50+Stage2`. The default LoRA strength is
 `0.75`; all cases use the same prompt and seed for each group.
 
+Evaluate the completed four-way run with the explicit two-gate protocol:
+
+```bash
+bash changing_resolution/scripts/eval/evaluate_tail_skip_lora_stage2_360p_four_way.sh
+```
+
+The full rubric is documented in
+`doc/360P_FOUR_WAY_EVAL_PROTOCOL.md`. Automatic reference metrics judge the
+LoRA effect under a shared Stage2 operator; blinded pairwise review judges
+Stage2 against interpolation because no real 720p ground truth exists.
+
 After the new near-2x Stage2 checkpoint is ready, compare it against both ways
 of reusing the old 1.5x checkpoint:
 

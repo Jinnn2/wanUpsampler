@@ -38,6 +38,65 @@ Phase 2: reuse or fine-tune the clean latent upsampler
          z_lr_lora_clean -> z_hr_clean
 ```
 
+## Dedicated 368x640 -> 720x1248 Path
+
+The 360p-class distill path is isolated from the 480p Stage2 data, config,
+checkpoint, and output directories. Wan uses `368x640` here rather than a
+literal `360p` frame: the LR latent is the valid even shape `46x80`, and the
+720p-class target latent is `90x156`.
+
+Build the dedicated clean-latent LMDB from the existing 5k CfgDistill videos:
+
+```bash
+bash changing_resolution_distill/scripts/data/build_clean_368x640_720x1248_distill_lmdb.sh check
+OVERWRITE_LMDB=1 bash changing_resolution_distill/scripts/data/build_clean_368x640_720x1248_distill_lmdb.sh lmdb
+```
+
+The Stage2 operator uses learned 2x pixel shuffle followed by a center crop:
+
+```text
+46x80 -> 92x160 -> crop 90x156
+```
+
+Build the independent `368x640` step3 LoRA teacher-state LMDB on four GPUs:
+
+```bash
+GPU_IDS=0,1,2,3 OVERWRITE=1 \
+  bash changing_resolution_distill/scripts/data/build_last_step_skip_lora_368x640_lmdb_4gpu.sh
+```
+
+Train the independent step3 LoRA on four GPUs:
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3 \
+  bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_368x640_distill_4gpu.sh check
+bash changing_resolution_distill/scripts/train/tmux_run_last_step_skip_lora_368x640_distill_4gpu.sh
+```
+
+Run the required four-GPU DDP training directly or in tmux:
+
+```bash
+bash changing_resolution_distill/scripts/train/run_clean_368x640_720x1248_stage2_distill_4gpu.sh model_check
+CUDA_VISIBLE_DEVICES=0,1,2,3 \
+  bash changing_resolution_distill/scripts/train/run_clean_368x640_720x1248_stage2_distill_4gpu.sh check
+bash changing_resolution_distill/scripts/train/tmux_run_clean_368x640_720x1248_stage2_distill_4gpu.sh
+```
+
+The launcher requires exactly four visible GPUs. Its defaults are batch size 1
+and gradient accumulation 2, giving an effective batch of 8. It automatically
+resumes from the dedicated output directory's `latest.pt`; set
+`AUTO_RESUME=0` to disable that behavior.
+
+After training, run the distill-only four-way closed-chain evaluation:
+
+```bash
+bash changing_resolution_distill/scripts/eval/run_distill_368x640_720x1248_stage2_four_way.sh check
+bash changing_resolution_distill/scripts/eval/run_distill_368x640_720x1248_stage2_four_way.sh run
+```
+
+The four cases are `base3_stage2_hr4`, `lora3_stage2_hr4`,
+`teacher4_interp`, and `teacher4_stage2`.
+
 The old Stage 3 contract mirrors Stage 3 while changing the denoiser domain:
 
 ```text

@@ -24,6 +24,13 @@ CR_DISTILL_GENERATE_CONFIG="${CR_DISTILL_GENERATE_CONFIG:-${PROJECT_ROOT}/changi
 CR_DISTILL_LORA_LMDB_DIR="${CR_DISTILL_LORA_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_last_step_skip_lora_14b_cfgdistill_5k_step3}"
 CR_DISTILL_LORA_CONFIG="${CR_DISTILL_LORA_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_last_step_skip_lora_distill.yaml}"
 CR_DISTILL_LORA_OUT_DIR="${CR_DISTILL_LORA_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3}"
+CR_DISTILL_360_STAGE2_LMDB_DIR="${CR_DISTILL_360_STAGE2_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_368x640_720x1248_14b_cfgdistill_5k}"
+CR_DISTILL_360_STAGE2_CONFIG="${CR_DISTILL_360_STAGE2_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_clean_368x640_to_720x1248_lmdb_stage2_distill.yaml}"
+CR_DISTILL_360_STAGE2_OUT_DIR="${CR_DISTILL_360_STAGE2_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb}"
+CR_DISTILL_360_LORA_LMDB_DIR="${CR_DISTILL_360_LORA_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3}"
+CR_DISTILL_360_LORA_CONFIG="${CR_DISTILL_360_LORA_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_last_step_skip_lora_368x640_distill.yaml}"
+CR_DISTILL_360_LORA_OUT_DIR="${CR_DISTILL_360_LORA_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3}"
+CR_DISTILL_360_LORA_TRAJECTORY_CONFIG="${CR_DISTILL_360_LORA_TRAJECTORY_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/wan_t2v_distill_stage3_x0pred_368x640.json}"
 
 # Stage 2 changing_resolution clean-latent paths.
 CR_RAW_VIDEO_DIR="${CR_RAW_VIDEO_DIR:-${PROJECT_ROOT}/data/changing_resolution/raw_wan21_720p}"
