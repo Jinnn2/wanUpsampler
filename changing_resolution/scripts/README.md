@@ -54,6 +54,19 @@ Sweep the changing-resolution handoff step and produce three-way panels:
 bash changing_resolution/scripts/eval/run_clean_480p720p_stage2_change_step_sweep.sh
 ```
 
+Sweep steps 30 through 50 at the valid 360p-class resolution (`368x640`).
+Each panel compares `step N + Stage2 + HR tail`, `step N + interpolation + HR
+tail`, and the fixed `LR step 50 + Stage2` baseline. The baseline is generated
+only once per prompt:
+
+```bash
+bash changing_resolution/scripts/eval/run_clean_360p_stage2_three_way_step_sweep.sh check
+bash changing_resolution/scripts/eval/run_clean_360p_stage2_three_way_step_sweep.sh run
+```
+
+Use `CHANGE_STEPS="30 35 40 45 50"` for a sparse sweep, or override
+`STAGE2_CHECKPOINT` to select a non-default new 360p Stage2 checkpoint.
+
 Run the step sweep on four GPUs:
 
 ```bash
