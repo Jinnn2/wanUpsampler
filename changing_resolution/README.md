@@ -101,6 +101,18 @@ The column order is `ori45+Stage2`, `LoRA45+Stage2`,
 `teacher50+interpolation`, and `teacher50+Stage2`. The default LoRA strength is
 `0.75`; all cases use the same prompt and seed for each group.
 
+After the new near-2x Stage2 checkpoint is ready, compare it against both ways
+of reusing the old 1.5x checkpoint:
+
+```bash
+bash changing_resolution/scripts/eval/run_tail_skip_lora_stage2_360p_new_old_three_way_compare.sh check
+bash changing_resolution/scripts/eval/run_tail_skip_lora_stage2_360p_new_old_three_way_compare.sh run
+```
+
+The three raw-video columns are `new Stage2`, `old Stage2 direct` (native
+`46x80 -> 69x120`, then interpolation to `90x156`), and `interpolate to
+60x104 first -> old Stage2 -> 90x156`.
+
 Run operator compare:
 
 ```bash
@@ -151,7 +163,8 @@ scripts/data/build_clean_368x640_720x1248_lmdb_1k.sh
 scripts/train/run_clean_368x640_720x1248_stage2_lmdb_training.sh
 scripts/train/tmux_run_clean_368x640_720x1248_stage2_lmdb_training.sh
 scripts/eval/run_tail_skip_lora_stage2_360p_four_way_compare.sh
-  360p-class -> 720p Stage2 data, training, and four-way LoRA evaluation.
+scripts/eval/run_tail_skip_lora_stage2_360p_new_old_three_way_compare.sh
+  360p-class -> 720p Stage2 data, training, and LoRA evaluations.
 
 scripts/eval/eval_clean_resizer_operator_compare.py
   Decode validation LMDB samples and compute reference metrics.

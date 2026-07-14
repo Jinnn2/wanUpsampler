@@ -242,7 +242,32 @@ class WanV2CleanLatentResizerBridge:
         )
 
         batch = latent.unsqueeze(0).to(device=self.device, dtype=self.dtype)
-        pred = self.resizer(batch, output_size=target_latent_shape[-2:]).squeeze(0)
+        input_latent_size = self.config.get("wan_clean_resizer_input_latent_size")
+        if input_latent_size is not None:
+            if not isinstance(input_latent_size, (list, tuple)) or len(input_latent_size) != 2:
+                raise ValueError("wan_clean_resizer_input_latent_size must be [height, width]")
+            input_h, input_w = (int(input_latent_size[0]), int(input_latent_size[1]))
+            if input_h <= 0 or input_w <= 0:
+                raise ValueError(
+                    "wan_clean_resizer_input_latent_size values must be positive, "
+                    f"got {(input_h, input_w)}"
+                )
+            logger.info(
+                "Pre-interpolate clean latent before Stage2: "
+                f"{tuple(batch.shape[-2:])} -> {(input_h, input_w)}"
+            )
+            batch = torch.nn.functional.interpolate(
+                batch,
+                size=(batch.shape[2], input_h, input_w),
+                mode="trilinear",
+                align_corners=False,
+            )
+
+        use_native_output = bool(self.config.get("wan_clean_resizer_native_output", False))
+        requested_output_size = None if use_native_output else target_latent_shape[-2:]
+        if use_native_output:
+            logger.info("Run Stage2 at its native scale, then align its output to the target latent size.")
+        pred = self.resizer(batch, output_size=requested_output_size).squeeze(0)
 
         if tuple(pred.shape) != target_latent_shape:
             logger.warning(
@@ -253,6 +278,7 @@ class WanV2CleanLatentResizerBridge:
                 pred.unsqueeze(0),
                 size=target_latent_shape[1:],
                 mode="trilinear",
+                align_corners=False,
             ).squeeze(0)
 
         return pred.to(dtype=latent.dtype, device=latent.device)
