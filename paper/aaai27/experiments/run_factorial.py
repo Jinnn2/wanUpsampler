@@ -194,6 +194,14 @@ def reuse_existing(args: argparse.Namespace, case: Case, label: str, seed: int, 
 
 def existing_aliases(family: str, case: Case, label: str, seed: int) -> list[Path]:
     aliases = [Path("videos") / case.name / f"{case.name}_{label}_seed{seed}.mp4"]
+    if family == "wan50" and case.handoff == "base":
+        sample_label = f"{int(label):03d}"
+        suffix = "interp" if case.resizer == "interp" else "stage2"
+        aliases.append(
+            Path("videos")
+            / f"{suffix}_handoff"
+            / f"{sample_label}_seed{seed}_step{case.step:02d}_{suffix}.mp4"
+        )
     if family == "wan50" and case.step == 45 and case.resizer == "stage2":
         old = "ori45_stage2" if case.handoff == "base" else "lora45_stage2"
         aliases.append(Path("videos") / old / f"{old}_{label}_seed{seed}.mp4")
