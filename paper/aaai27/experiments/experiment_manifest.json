@@ -72,7 +72,7 @@
       "group": "prereq",
       "kind": "artifact",
       "note": "Existing 5k distilled 720p raw videos are required to rebuild the clean-latent LMDB.",
-      "evidence": [{"glob": "${CR_DISTILL_RAW_VIDEO_DIR_1K}/*.mp4", "min_count": 5000, "min_bytes": 1024}]
+      "evidence": [{"glob": "${CR_DISTILL_RAW_VIDEO_DIR_1K}/**/*.mp4", "min_count": 5000, "min_bytes": 1024}]
     },
     {
       "id": "distill_stage2_lmdb",

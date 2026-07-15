@@ -25,6 +25,7 @@ def main() -> None:
     args = parse_args()
     root = Path(args.project_root).resolve()
     report = {}
+    counts = {}
     for name, (top, required_tokens, file_patterns) in PATTERNS.items():
         candidates = []
         top_dir = root / top
@@ -44,13 +45,16 @@ def main() -> None:
                             "mtime": stat.st_mtime,
                         }
                     )
+        counts[name] = len(candidates)
         report[name] = sorted(candidates, key=lambda item: item["mtime"], reverse=True)[: args.limit]
 
     output = root / "outputs/aaai27_experiments/_state/artifact_candidates.json"
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    payload = {"counts": counts, "candidates": report}
+    output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     for name, candidates in report.items():
-        print(f"{name}: {len(candidates)} candidate(s)")
+        suffix = f"; showing newest {len(candidates)}" if counts[name] > len(candidates) else ""
+        print(f"{name}: {counts[name]} candidate(s){suffix}")
         for candidate in candidates:
             print(f"  {candidate['size_bytes']:>14}  {candidate['path']}")
     print(f"Report: {output}")
