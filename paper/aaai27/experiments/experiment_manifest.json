@@ -1,0 +1,211 @@
+{
+  "defaults": {
+    "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+    "MODEL_ROOT": "/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B",
+    "VAE_PATH": "${MODEL_ROOT}/Wan2.1_VAE.pth",
+    "AAAI_PROMPTS": "${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt",
+    "AAAI_RESULTS": "${PROJECT_ROOT}/outputs/aaai27_experiments",
+    "WAN50_STAGE2_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_clean_368x640_720x1248_stage2_lmdb/latest.pt",
+    "WAN50_STAGE2_CONFIG": "${PROJECT_ROOT}/changing_resolution/configs/train_clean_368x640_to_720x1248_lmdb_stage2.yaml",
+    "WAN50_STAGE2_480_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_clean_480p720p_stage2_lmdb/latest.pt",
+    "WAN50_LORA40_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_step40_to_step50/latest.safetensors",
+    "WAN50_LORA45_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_step45_to_step50/latest.safetensors",
+    "DISTILL_STAGE2_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb/latest.pt",
+    "DISTILL_STAGE2_CONFIG": "${PROJECT_ROOT}/changing_resolution_distill/configs/train_clean_368x640_to_720x1248_lmdb_stage2_distill.yaml",
+    "DISTILL_LORA3_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3/latest.safetensors",
+    "WAN50_FACTORIAL": "${AAAI_RESULTS}/factorial_wan50",
+    "DISTILL_FACTORIAL": "${AAAI_RESULTS}/factorial_distill4"
+  },
+  "tasks": [
+    {
+      "id": "wan50_stage2_checkpoint",
+      "group": "prereq",
+      "kind": "artifact",
+      "note": "Reuse the trained 368x640 Stage2 checkpoint or finish its existing training job.",
+      "evidence": [{"glob": "${WAN50_STAGE2_CKPT}"}]
+    },
+    {
+      "id": "wan50_stage2_480_checkpoint",
+      "group": "prereq",
+      "kind": "artifact",
+      "note": "Reuse the trained 480x832 Stage2 checkpoint for the 1.5x operator table.",
+      "evidence": [{"glob": "${WAN50_STAGE2_480_CKPT}"}]
+    },
+    {
+      "id": "wan50_lora_checkpoints",
+      "group": "prereq",
+      "kind": "artifact",
+      "note": "Both frozen step40 and step45 LoRA checkpoints are required.",
+      "evidence": [{"glob": "${WAN50_LORA40_CKPT}"}, {"glob": "${WAN50_LORA45_CKPT}"}]
+    },
+    {
+      "id": "distill_checkpoints",
+      "group": "prereq",
+      "kind": "artifact",
+      "note": "Reuse the frozen four-step Stage2 and step3 LoRA checkpoints.",
+      "evidence": [{"glob": "${DISTILL_STAGE2_CKPT}"}, {"glob": "${DISTILL_LORA3_CKPT}"}]
+    },
+    {
+      "id": "stage2_operator_480p",
+      "group": "operator",
+      "depends_on": ["wan50_stage2_480_checkpoint"],
+      "commands": [
+        "CR_STAGE2_OPERATOR_COMPARE_CKPT=${WAN50_STAGE2_480_CKPT} TOTAL_SAMPLES=50 SPLIT=val bash changing_resolution/scripts/eval/run_clean_480p720p_stage2_operator_compare_multigpu.sh",
+        "python changing_resolution/scripts/eval/summarize_operator_compare_table.py --input outputs/changing_resolution_operator_compare_stage2 --split val"
+      ],
+      "evidence": [{"glob": "${PROJECT_ROOT}/outputs/changing_resolution_operator_compare_stage2/tables/summary_val.json"}]
+    },
+    {
+      "id": "stage2_operator_368p",
+      "group": "operator",
+      "depends_on": ["wan50_stage2_checkpoint"],
+      "commands": [
+        "python changing_resolution/scripts/eval/eval_clean_resizer_operator_compare.py --data_dir data/changing_resolution/lmdb_368x640_720x1248_1k --data_format lmdb --checkpoint ${WAN50_STAGE2_CKPT} --train_config ${WAN50_STAGE2_CONFIG} --model_root ${MODEL_ROOT} --vae_path ${VAE_PATH} --wan_repo ${LIGHTX2V_REPO} --out_dir ${AAAI_RESULTS}/operator_368p --split val --limit 50 --metrics psnr ssim lpips",
+        "python changing_resolution/scripts/eval/summarize_operator_compare_table.py --input ${AAAI_RESULTS}/operator_368p --split val"
+      ],
+      "evidence": [{"glob": "${AAAI_RESULTS}/operator_368p/tables/summary_val.json"}]
+    },
+    {
+      "id": "wan50_endpoint_step45",
+      "group": "endpoint",
+      "depends_on": ["wan50_lora_checkpoints"],
+      "commands": [
+        "TRAIN_STEP=45 LORA_CKPT=${WAN50_LORA45_CKPT} LIMIT=10 SKIP_EXISTING=1 bash changing_resolution/scripts/eval/run_tail_skip_lora_360p_clean_pred_compare.sh run"
+      ],
+      "evidence": [{"glob": "${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_clean_pred_compare_360p_368x640/metrics/original_lora_teacher_summary.csv"}]
+    },
+    {
+      "id": "wan50_handoff_sweep",
+      "group": "ablation",
+      "depends_on": ["wan50_stage2_checkpoint"],
+      "commands": [
+        "CHANGE_STEPS='30 35 40 45 50' LIMIT=10 SKIP_EXISTING=1 bash changing_resolution/scripts/eval/run_clean_360p_stage2_three_way_step_sweep.sh run"
+      ],
+      "evidence": [{"glob": "${PROJECT_ROOT}/outputs/changing_resolution_clean_360p_stage2_three_way_step_sweep/compare/*.mp4", "min_count": 50, "min_bytes": 1024}]
+    },
+    {
+      "id": "wan50_factorial",
+      "group": "factorial",
+      "depends_on": ["wan50_stage2_checkpoint", "wan50_lora_checkpoints"],
+      "commands": [
+        "python paper/aaai27/experiments/run_factorial.py run --family wan50 --steps 40 45 --prompts ${AAAI_PROMPTS} --out-root ${WAN50_FACTORIAL} --stage2-checkpoint ${WAN50_STAGE2_CKPT} --stage2-train-config ${WAN50_STAGE2_CONFIG} --lora-checkpoint 40=${WAN50_LORA40_CKPT} --lora-checkpoint 45=${WAN50_LORA45_CKPT} --reuse-root outputs/changing_resolution_tail_skip_lora_stage2_four_way_360p --limit 10 --seed 9700"
+      ],
+      "evidence": [{"glob": "${WAN50_FACTORIAL}/videos/*/*.mp4", "min_count": 80, "min_bytes": 1024}]
+    },
+    {
+      "id": "distill_factorial",
+      "group": "factorial",
+      "depends_on": ["distill_checkpoints"],
+      "commands": [
+        "python paper/aaai27/experiments/run_factorial.py run --family distill4 --steps 3 --prompts ${AAAI_PROMPTS} --out-root ${DISTILL_FACTORIAL} --stage2-checkpoint ${DISTILL_STAGE2_CKPT} --stage2-train-config ${DISTILL_STAGE2_CONFIG} --lora-checkpoint 3=${DISTILL_LORA3_CKPT} --reuse-root outputs/changing_resolution_distill_stage2_four_way_368x640_720x1248 --limit 10 --seed 9800 --lora-strength 1.0 --stage2-use-ema"
+      ],
+      "evidence": [{"glob": "${DISTILL_FACTORIAL}/videos/*/*.mp4", "min_count": 40, "min_bytes": 1024}]
+    },
+    {
+      "id": "legacy_quality_efficiency",
+      "group": "efficiency",
+      "depends_on": ["wan50_stage2_checkpoint"],
+      "commands": [
+        "BENCH_CASES=direct_720p,stage3_bridge_720p REPEATS=5 bash changing_resolution/scripts/eval/benchmark_generation_time.sh"
+      ],
+      "evidence": [{"glob": "${PROJECT_ROOT}/outputs/changing_resolution_time_compare/time_summary.csv", "min_bytes": 64}]
+    },
+    {
+      "id": "wan50_lora_strength",
+      "group": "ablation",
+      "depends_on": ["wan50_lora_checkpoints"],
+      "commands": [
+        "TRAIN_STEP=45 STRENGTHS='0.5 0.75 1.0' LORA_CKPT=${WAN50_LORA45_CKPT} LIMIT=10 SKIP_EXISTING=1 bash changing_resolution/scripts/eval/run_tail_skip_lora_360p_strength_sweep.sh run"
+      ],
+      "evidence": [{"glob": "${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_strength_sweep_360p_368x640/metrics/strength_sweep_summary.csv", "min_bytes": 64}]
+    },
+    {
+      "id": "distill_checkpoint_selection",
+      "group": "ablation",
+      "depends_on": ["distill_checkpoints"],
+      "commands": [
+        "LIMIT=10 SKIP_COMPLETED=1 bash changing_resolution_distill/scripts/eval/run_last_step_skip_lora_checkpoint_sweep_480p.sh"
+      ],
+      "evidence": [{"glob": "${PROJECT_ROOT}/outputs/eval_lora_ckpt_sweep_480p/checkpoint_metric_summary.csv", "min_bytes": 64}]
+    },
+    {
+      "id": "distill_renoise_ablation",
+      "group": "ablation",
+      "commands": [
+        "MODES='random resize_flow' OUT_ROOT=${AAAI_RESULTS}/ablation_distill_renoise bash changing_resolution_distill/scripts/eval/old/01_run_interp_renoise_ab.sh"
+      ],
+      "evidence": [{"glob": "${AAAI_RESULTS}/ablation_distill_renoise/videos/*.mp4", "min_count": 2, "min_bytes": 1024}]
+    },
+    {
+      "id": "direct_stage3_compare",
+      "group": "baseline",
+      "commands": [
+        "LIMIT=10 SKIP_EXISTING=1 bash changing_resolution/scripts/eval/run_x0pred_480p720p_stage3_three_model_compare.sh"
+      ],
+      "evidence": [{"glob": "${PROJECT_ROOT}/outputs/changing_resolution_stage3_three_model_compare/compare/*.mp4", "min_count": 10, "min_bytes": 1024}]
+    },
+    {
+      "id": "lora_architecture_loss_ablation",
+      "group": "ablation",
+      "kind": "artifact",
+      "note": "Requires frozen qkvo/qkvo+FFN, rank 8/16/32, and loss-variant checkpoints evaluated on one held-out manifest.",
+      "evidence": [{"glob": "${AAAI_RESULTS}/ablations/lora_architecture_loss.csv", "min_bytes": 64}]
+    },
+    {
+      "id": "stage2_architecture_loss_ablation",
+      "group": "ablation",
+      "kind": "artifact",
+      "note": "Requires matched 2D/3D, residual/direct, rational/crop, and loss-variant Stage2 checkpoints.",
+      "evidence": [{"glob": "${AAAI_RESULTS}/ablations/stage2_architecture_loss.csv", "min_bytes": 64}]
+    },
+    {
+      "id": "peak_memory_and_loading_overhead",
+      "group": "efficiency",
+      "kind": "artifact",
+      "note": "Wall-clock exists, but peak CUDA memory and isolated Stage2/LoRA loading overhead still need instrumented fresh runs.",
+      "evidence": [{"glob": "${AAAI_RESULTS}/efficiency/quality_efficiency.csv", "min_bytes": 64}]
+    },
+    {
+      "id": "generalization_and_failures",
+      "group": "generalization",
+      "kind": "artifact",
+      "note": "Requires unseen prompts/motions, natural-video or codec inputs, cross-checkpoint tests, and curated failure cases.",
+      "evidence": [{"glob": "${AAAI_RESULTS}/generalization/summary.csv", "min_bytes": 64}]
+    },
+    {
+      "id": "vbench_factorials",
+      "group": "metrics",
+      "kind": "external",
+      "note": "Set up the official VBench/VBench2 environment, then provide its result JSONs under the canonical result folders.",
+      "depends_on": ["wan50_factorial", "distill_factorial"],
+      "evidence": [
+        {"glob": "${WAN50_FACTORIAL}/metrics/vbench*.json"},
+        {"glob": "${DISTILL_FACTORIAL}/metrics/vbench*.json"}
+      ]
+    },
+    {
+      "id": "blind_review_package",
+      "group": "human",
+      "depends_on": ["wan50_factorial", "distill_factorial"],
+      "commands": [
+        "python paper/aaai27/experiments/prepare_blind_review.py --factorial-root ${WAN50_FACTORIAL}",
+        "python paper/aaai27/experiments/prepare_blind_review.py --factorial-root ${DISTILL_FACTORIAL}"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_FACTORIAL}/review/human_ratings.csv", "min_bytes": 64},
+        {"glob": "${DISTILL_FACTORIAL}/review/human_ratings.csv", "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "human_blind_review",
+      "group": "human",
+      "kind": "manual",
+      "note": "Requires independent blinded raters; completed CSVs must be placed in both factorial review folders.",
+      "depends_on": ["blind_review_package"],
+      "evidence": [
+        {"glob": "${WAN50_FACTORIAL}/review/human_ratings_completed.csv", "min_bytes": 64},
+        {"glob": "${DISTILL_FACTORIAL}/review/human_ratings_completed.csv", "min_bytes": 64}
+      ]
+    }
+  ]
+}

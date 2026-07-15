@@ -559,6 +559,71 @@ class WanCleanInterpBridgeRunner(WanRunner):
         self.scheduler = WanScheduler4CleanResizerBridgeInterface(scheduler_class, self.config)
 
 
+@RUNNER_REGISTER("wan2.1_tail_skip_lora_clean_interp_bridge")
+class WanTailSkipLoRACleanInterpBridgeRunner(WanCleanInterpBridgeRunner):
+    """WAN 50-step runner: step-local LoRA handoff -> interpolation -> HR suffix."""
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.lora_configs = list(config.get("lora_configs") or [])
+        if len(self.lora_configs) != 1:
+            raise ValueError("wan2.1_tail_skip_lora_clean_interp_bridge expects exactly one LoRA config.")
+        self.lora_path = self.lora_configs[0]["path"]
+        self.lora_strength = float(self.lora_configs[0].get("strength", 1.0))
+        self.lora_active_steps = {
+            int(step)
+            for step in config.get("lora_active_steps", [int(config.get("changing_resolution_steps", [45])[0])])
+        }
+
+    def load_transformer(self):
+        model = WanTailSkipLoRAModel(
+            model_path=self.config["model_path"],
+            config=self.config,
+            device=self.init_device,
+            lora_path=self.lora_path,
+            lora_strength=0.0,
+        )
+        branch_count = count_lora_branches(model)
+        if branch_count <= 0:
+            raise RuntimeError(
+                "LoRA checkpoint loaded but matched zero LightX2V LoRA branches. "
+                f"Check key format in: {self.lora_path}"
+            )
+        self._current_lora_strength = 0.0
+        logger.info(f"Registered {branch_count} WAN tail-skip LoRA branches from {self.lora_path}")
+        return model
+
+    def run_segment(self, segment_idx=0):
+        infer_steps = self.model.scheduler.infer_steps
+        device_module = getattr(torch, AI_DEVICE)
+        current_lora_strength = float(getattr(self, "_current_lora_strength", 0.0))
+
+        for step_index in range(infer_steps):
+            if self.video_segment_num == 1:
+                self.check_stop()
+            step_number = step_index + 1
+            strength = self.lora_strength if step_number in self.lora_active_steps else 0.0
+            logger.info(f"==> step_index: {step_number} / {infer_steps}, lora_strength={strength}")
+            if strength != current_lora_strength:
+                self.model._update_lora(self.lora_path, strength)
+                current_lora_strength = strength
+                self._current_lora_strength = strength
+            self.model.scheduler.step_pre(step_index=step_index)
+            self.model.infer(self.inputs)
+            self.model.scheduler.step_post()
+
+            if self.progress_callback:
+                current_step = segment_idx * infer_steps + step_number
+                total_all_steps = self.video_segment_num * infer_steps
+                self.progress_callback((current_step / total_all_steps) * 100, 100)
+
+        if segment_idx is not None and segment_idx == self.video_segment_num - 1:
+            del self.inputs
+            device_module.empty_cache()
+
+        return self.model.scheduler.latents
+
+
 @RUNNER_REGISTER("wan2.1_partial_denoise_decode")
 class WanPartialDenoiseDecodeRunner(WanRunner):
     """Decode the clean x0 estimate after N steps from a full-step WAN schedule."""

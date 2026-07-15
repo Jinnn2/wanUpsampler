@@ -1,0 +1,212 @@
+% English translation/layout draft. The current canonical writing source is
+% main_zh.md; synchronize this file only after the Chinese argument is stable.
+\documentclass[letterpaper]{article}
+\usepackage[submission]{aaai2027}
+\usepackage[hyphens]{url}
+\usepackage{graphicx}
+\urlstyle{rm}
+\def\UrlFont{\rm}
+\usepackage{natbib}
+\usepackage{caption}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\frenchspacing
+
+\pdfinfo{
+/TemplateVersion (2027.1)
+}
+
+\setcounter{secnumdepth}{0}
+
+\title{Trajectory-Aligned Latent Handoff for Efficient High-Resolution Video Diffusion}
+\author{Anonymous Submission}
+\affiliations{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Running every denoising step of a video diffusion model at the target resolution is expensive. Mixed-resolution sampling reduces this cost by constructing content at low resolution and switching to high resolution near the end of the trajectory. Existing interpolation-based switches, however, conflate two errors: the current low-resolution clean estimate has not yet reached the endpoint of its denoising trajectory, and a fixed resizer cannot model the nonlinear correspondence between independently encoded low- and high-resolution video latents. We introduce Trajectory-Aligned Latent Handoff (TALH), which assigns these errors to separate modules. A step-localized LoRA adapter maps the clean estimate at the handoff step toward the endpoint of a complete low-resolution teacher trajectory. A lightweight clean-latent upsampler then lifts the corrected latent to the high-resolution latent space, after which the sample is re-noised and high-resolution denoising resumes. Because the adapter is inactive before handoff, cached-prefix training exactly matches the inference-time handoff state under a fixed deterministic prefix. We instantiate TALH for both a 50-step Wan sampler and a four-step distilled Wan sampler. A preliminary ten-sample study reduces low-resolution endpoint L1 by 10.88\%; the complete evaluation measures operator accuracy, temporal consistency, generation quality, and end-to-end efficiency.
+\end{abstract}
+
+\section{Introduction}
+
+Latent video diffusion models generate increasingly long and high-resolution clips, but their cost grows rapidly with the number of spatiotemporal tokens. Wan~\cite{wan2025} is a representative example: executing all transformer evaluations on a $720\times1248$ latent grid is substantially more expensive than establishing layout and motion on a smaller grid. This motivates \emph{mixed-resolution sampling}, where early denoising runs at low resolution (LR), the latent is enlarged at an intermediate step, and only the suffix runs at high resolution (HR). The approach is attractive because it changes the spatial cost of inference without retraining the base generator.
+
+The standard implementation uses trilinear interpolation of either the intermediate noisy latent or a one-step clean estimate~\cite{lightx2v2026}. This treatment hides two distinct sources of handoff error. First, at step $s<T$, the denoiser's clean estimate generally differs from the endpoint that a complete LR trajectory would reach. Second, latent grids obtained by separately resizing a video and encoding it with a video VAE are not exactly scale equivariant. A fixed interpolator therefore cannot recover their model-specific nonlinear correspondence. Asking one small upsampler to map the early clean estimate directly to an HR endpoint also mixes trajectory correction with spatial lifting, making the learned operator tightly coupled to a particular timestep and scheduler.
+
+We propose \emph{Trajectory-Aligned Latent Handoff} (TALH), illustrated in Figure~\ref{fig:overview}. TALH decomposes the switch into (i) a denoiser-side, handoff-localized LoRA~\cite{hu2022lora} that predicts a teacher-endpoint-like LR clean latent and (ii) a clean-latent Stage2 operator that maps the corrected LR latent to HR. The HR prediction is re-noised at the next scheduled noise level and passed back to the frozen Wan denoiser for the remaining steps. This factorization gives each component a stationary target: the LoRA learns a timestep-specific tail correction, while Stage2 learns only a cross-resolution VAE-latent mapping.
+
+\begin{figure*}[t]
+\centering
+\fbox{\shortstack{LR base\\denoising prefix}}
+$\longrightarrow$
+\fbox{\shortstack{Base + LoRA at\\handoff step $s$}}
+$\longrightarrow$
+\fbox{\shortstack{clean LR latent\\aligned to endpoint}}
+$\longrightarrow$
+\fbox{\shortstack{Stage2 latent\\lifting $L\!\rightarrow\!H$}}
+$\longrightarrow$
+\fbox{\shortstack{re-noise and HR\\denoising suffix}}
+\caption{TALH separates dynamic-resolution handoff into trajectory correction and spatial latent lifting. The 50-step model uses $s\in\{40,45\}$ with teacher endpoint $T=50$; the distilled model uses $s=3$ with $T=4$. All Wan parameters are frozen, and the LoRA is active only at $s$.}
+\label{fig:overview}
+\end{figure*}
+
+Our contributions are threefold. First, we formulate mixed-resolution diffusion handoff as two measurable errors---LR trajectory endpoint error and cross-resolution latent lifting error---and optimize them separately. Second, we introduce handoff-localized endpoint distillation and identify a condition under which cached-prefix training is state-consistent with inference. Third, we build one evaluation framework spanning a conventional 50-step Wan2.1 model and a four-step distilled model, including a factorial separation of LoRA and upsampler effects. The Stage2 backbone is adapted from the LTX-2 latent upsampler~\cite{hacohen2026ltx2}; our claimed novelty lies in the trajectory-aware handoff system rather than PixelShuffle or latent upsampling in isolation.
+
+\section{Related Work}
+
+\paragraph{Latent video generation and super-resolution.}
+Latent diffusion moves synthesis into a compressed representation~\cite{rombach2022ldm}. Video LDM~\cite{blattmann2023videoldm}, Imagen Video~\cite{ho2022imagenvideo}, and LaVie~\cite{wang2023lavie} use spatial or temporal cascades to obtain high-resolution video. LTX-Video~\cite{hacohen2024ltxvideo} and LTX-2~\cite{hacohen2026ltx2} jointly develop video latent representations and transformer generation, with LTX-2 exposing a spatial latent upsampler. Recent latent-cascade systems such as SimpleGVR~\cite{xie2025simplegvr} and LUVE~\cite{zhao2026luve} similarly separate low-resolution generation from refinement. RGB video super-resolution methods instead recover a final video from an already generated or captured LR video, using diffusion, temporal adaptation, motion guidance, or adversarial priors~\cite{zhou2024upscale,chen2024sateco,yang2024mgld,xu2024videogigagan}. TALH operates before VAE decoding and remains inside one Wan sampling trajectory.
+
+\paragraph{Mixed-resolution sampling.}
+LightX2V provides a training-free changing-resolution scheduler based on latent interpolation~\cite{lightx2v2026}. RALU~\cite{jeong2025ralu} analyzes aliasing and resolution-dependent noise mismatch in training-free mixed-resolution diffusion transformers. We instead learn a clean-latent lifting operator, explicitly correct the LR trajectory before lifting, and re-noise using an HR noise bank.
+
+\paragraph{Few-step and on-policy distillation.}
+Progressive distillation~\cite{salimans2022progressive}, consistency models~\cite{song2023consistency}, LCM~\cite{luo2023lcm}, and distribution matching~\cite{yin2024dmd,yin2024dmd2} reduce sampling steps through trajectory, consistency, or distribution objectives. VideoLCM~\cite{wang2023videolcm} and Motion Consistency Model~\cite{zhai2024mcm} adapt these ideas to video. Self-Forcing~\cite{huang2025selfforcing}, D-OPSD~\cite{jiang2026dopsd}, and AnyFlow~\cite{gu2026anyflow} emphasize matching training states to student-visited states. TALH does not distill the complete generator. It corrects a single handoff evaluation of an existing sampler; this restricted intervention yields the cached-state property derived below.
+
+\section{Method}
+
+\subsection{Problem Formulation}
+
+Let $v_\phi(x_s,s,c)$ be a frozen Wan flow predictor at step $s$, conditioned on text $c$. Let $T$ denote the total number of denoiser evaluations. Superscripts $L$ and $H$ identify LR and HR latent domains. We use $x_s^L$ for the noisy LR state entering evaluation $s$, $z_T^L$ for the clean endpoint produced by a complete LR teacher rollout, and $(z_0^L,z_0^H)$ for clean latent pairs obtained by encoding resized versions of the same video. TALH learns a localized adapter $\Delta\theta_s$ and a Stage2 operator $U_\psi$:
+\begin{equation}
+x_s^L \xrightarrow{v_{\phi+\Delta\theta_s}}
+\widetilde z_s^L \xrightarrow{U_\psi}
+\widehat z_s^H \xrightarrow{\text{re-noise}}
+x_{s+1}^H.
+\label{eq:pipeline}
+\end{equation}
+The two modules are trained independently. This avoids co-resident backpropagation through a multi-billion-parameter denoiser and prevents Stage2 from absorbing timestep-specific denoising residuals.
+
+\subsection{Clean-Latent Stage2}
+
+The Stage2 operator receives and predicts 16-channel Wan VAE latents without changing the temporal dimension:
+\begin{equation}
+U_\psi:\mathbb{R}^{16\times F\times h\times w}
+\rightarrow\mathbb{R}^{16\times F\times H\times W}.
+\end{equation}
+Following the encoder--resizer--decoder pattern of the LTX-2 spatial upsampler~\cite{hacohen2026ltx2}, our default network uses a 3D convolutional stem, eight 3D residual blocks at width 256, a spatial resampler between the fourth and fifth blocks, and a 3D output projection. It has two resampling configurations. For $480\times832\rightarrow720\times1248$, the latent grid changes from $60\times104$ to $90\times156$. Channels are expanded by nine, spatial PixelShuffle enlarges the grid by three, and a fixed binomial blur with stride two yields the rational $3/2$ scale. For $368\times640\rightarrow720\times1248$, a $46\times80$ grid is PixelShuffled by two and center-cropped from $92\times160$ to $90\times156$.
+
+Given a clean latent pair, Stage2 minimizes
+\begin{align}
+\mathcal{L}_{\mathrm{S2}}={}&\mathcal{L}_{\mathrm{charb}}
++\lambda_l\lVert D(\widehat z_0^H)-z_0^L\rVert_1 \nonumber\\
+&+\lambda_t\lVert\Delta_F\widehat z_0^H-\Delta_Fz_0^H\rVert_1,
+\label{eq:s2loss}
+\end{align}
+where $\mathcal{L}_{\mathrm{charb}}=\mathbb{E}\sqrt{(\widehat z_0^H-z_0^H)^2+\epsilon^2}$, $D$ maps an HR latent back to the LR grid, and $\Delta_F$ is a first-order temporal difference. We use $(\lambda_l,\lambda_t,\epsilon)=(0.2,0.1,10^{-3})$. These losses constrain pointwise accuracy, LR content preservation, and temporal changes, respectively.
+
+\subsection{Handoff-Localized Endpoint LoRA}
+
+At handoff only, rank-$r$ LoRA updates are applied to attention projections $q,k,v,o$ and FFN projections. For the flow parameterization used by Wan, the adapted one-step clean estimate is
+\begin{equation}
+\widetilde z_s^L=x_s^L-\sigma_s
+v_{\phi+\Delta\theta_s}(x_s^L,s,c).
+\label{eq:cleanpred}
+\end{equation}
+The target $z_T^L$ is generated by the frozen base model using the same prompt, seed, initial noise, and LR scheduler, but completing all $T$ evaluations. The default objective is
+\begin{equation}
+\mathcal{L}_{\mathrm{end}}=
+\lVert\widetilde z_s^L-z_T^L\rVert_1+
+0.1\lVert\widetilde z_s^L-z_T^L\rVert_2^2.
+\label{eq:loraloss}
+\end{equation}
+For earlier handoffs we additionally test a temporal-difference term with weight $0.05$. Direct flow supervision using $v^*=(x_s^L-z_T^L)/\sigma_s$ is retained as an ablation.
+
+\paragraph{Why a cached prefix is state-consistent.}
+The LoRA is disabled for every $k<s$. Under a deterministic sampler and fixed prompt embeddings, seed, scheduler, and guidance, the adapted and base processes therefore apply identical transition functions before the handoff. By induction, $x_k^{\mathrm{adapted}}=x_k^{\mathrm{base}}$ for every $k\leq s$. Consequently, a cached base state at $s$ is the exact inference-time input visited by the localized adapter, not an approximation to a student state. This argument ceases to hold if LoRA affects any prefix step, if scheduler or conditioning changes, or if unmatched stochastic operations occur. Multi-step extensions should then use student rollouts and same-state teacher supervision, as in on-policy distillation methods~\cite{jiang2026dopsd,gu2026anyflow}.
+
+\subsection{Resolution Lifting and Trajectory Continuation}
+
+After endpoint correction, $\widehat z_s^H=U_\psi(\widetilde z_s^L)$. If $s<T$, we construct the next HR state using an HR-resolution noise sample $\epsilon^H$:
+\begin{equation}
+x_{s+1}^H=(1-\sigma_{s+1})\widehat z_s^H+
+\sigma_{s+1}\epsilon^H.
+\label{eq:renoise}
+\end{equation}
+The frozen Wan denoiser then executes evaluations $s+1,\ldots,T$ on the HR grid. Using resized LR flow instead of fresh or fixed HR noise is evaluated separately because it couples new spatial frequencies to interpolation artifacts.
+
+We instantiate two schedules. The standard Wan2.1 T2V-1.3B setup uses $T=50$, sample shift 8, classifier-free guidance 6, and $s\in\{40,45\}$. The Wan2.1 T2V-14B StepDistill-CfgDistill setup uses four evaluations at nominal timesteps $[1000,750,500,250]$, sample shift 5, and $s=3$. Thus, the latter runs two base LR steps, one LR LoRA step, and one HR suffix step.
+
+\section{Experiments}
+
+\subsection{Experimental Questions and Data}
+
+We ask whether (Q1) learned lifting improves over trilinear interpolation, (Q2) LoRA reduces LR endpoint error, (Q3) endpoint alignment improves the final HR video rather than only latent metrics, (Q4) the factorization transfers from 50 steps to a four-step sampler, and (Q5) earlier handoff improves the quality--efficiency Pareto frontier.
+
+For the 50-step route, approximately 1,000 teacher-generated clips contain 81 frames at $720\times1248$ and 16 fps. Bicubic LR versions at $480\times832$ or $368\times640$ and the HR videos are independently encoded by the Wan VAE to form Stage2 pairs. The distilled route uses approximately 5,000 teacher-generated clips from Wan2.1 T2V-14B StepDistill-CfgDistill. Its LoRA records pair the state entering step 3 with the complete step-4 LR endpoint. Training and evaluation prompts and seeds are disjoint.
+
+The current data model is intentionally narrow: videos are teacher-generated and degradation is resize-only. We therefore evaluate model-specific generative upscaling and do not claim general real-world video restoration. Generalization to natural-video latents, codec degradation, and other VAEs is reserved for analysis.
+
+\subsection{Training and Baselines}
+
+Stage2 is trained with AdamW at learning rate $10^{-4}$ for up to 50k updates in bfloat16, with EMA decay $0.9999$. LoRA uses AdamW at $5\times10^{-5}$ for up to 10k updates, rank/alpha $32/32$, and bfloat16. The final paper will report effective batch size, hardware, training time, seed set, checkpoint-selection criterion, and actual trainable parameter counts.
+
+Our core baselines are: (i) Full-HR, (ii) Full-LR, (iii) interpolation handoff, (iv) base denoiser plus Stage2, (v) LoRA plus interpolation, (vi) complete TALH, (vii) teacher endpoint plus Stage2 as a clean-input upper bound, and (viii) a direct Stage3 model trained from handoff clean prediction to HR endpoint. The $\{\text{base},\text{LoRA}\}\times\{\text{interpolation},\text{Stage2}\}$ design isolates both main effects and their interaction. Incompatible external upsamplers are discussed at the system level rather than compared using mismatched VAE latents.
+
+\subsection{Metrics and Protocol}
+
+For LR endpoint alignment we report latent L1/MSE, decoded LPIPS~\cite{zhang2018lpips}, PSNR/SSIM, temporal latent difference, and per-sample win rate. Stage2 evaluation uses paired latent and decoded metrics plus temporal difference error. Complete generation uses VBench~\cite{huang2024vbench}, text--video alignment, temporal perceptual or flow-warp error, and blinded human preference over detail, artifacts, temporal stability, and structure. Because generated videos lack real HR ground truth, PSNR is not used to rank complete generations. Efficiency reporting includes wall-clock latency, peak memory, LR/HR step allocation, module-loading overhead, and speedup over Full-HR.
+
+All paired comparisons share prompt, seed, initial noise, scheduler, and guidance. LoRA is compared under the same spatial operator; Stage2 and interpolation begin from the same teacher endpoint when measuring the operator. Human comparisons hide method identities and randomize ordering. Final results will include the number of trials, dispersion or confidence intervals, and paired statistical tests.
+
+\section{Results and Analysis}
+
+\subsection{Preliminary Endpoint Alignment}
+
+The only result currently mature enough to report is a ten-sample development study for the four-step sampler. LoRA reduces mean endpoint L1 from $0.0320653$ to $0.0285758$, a relative reduction of $10.88\%$, and improves all ten paired samples (Table~\ref{tab:pilot}). This supports the local trajectory-correction objective but does not yet establish final video quality or generalization. The submission version will replace this pilot with a frozen checkpoint and a disjoint, larger test set.
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lccc}
+\toprule
+Method & Endpoint L1 $\downarrow$ & Rel. & Wins \\
+\midrule
+Base step 3 & 0.03207 & -- & 0/10 \\
+LoRA step 3 & 0.02858 & $-10.88\%$ & 10/10 \\
+\bottomrule
+\end{tabular}
+\caption{Preliminary four-step endpoint alignment. These development results are not the final test-set evaluation.}
+\label{tab:pilot}
+\end{table}
+
+\subsection{Required Main Results}
+
+Table~\ref{tab:factorial} is the central submission table. It must show that LoRA improves a fixed resizer, Stage2 improves a fixed handoff state, and their combination improves final quality without negating the speed benefit. A second operator table will compare latent lifting at $480\text{p}\rightarrow720\text{p}$ and $368\text{p}\rightarrow720\text{p}$. The final quality--efficiency table will compare Full-HR, interpolation, direct Stage3, and TALH for both samplers. We leave cells explicit rather than infer unmeasured values.
+
+\begin{table*}[t]
+\centering
+\begin{tabular}{llccccc}
+\toprule
+Handoff & Resizer & VBench $\uparrow$ & Anchor LPIPS $\downarrow$ & Temp. err. $\downarrow$ & Human pref. $\uparrow$ & Time $\downarrow$ \\
+\midrule
+Base & Interpolation & TBD & TBD & TBD & TBD & TBD \\
+Base & Stage2 & TBD & TBD & TBD & TBD & TBD \\
+LoRA & Interpolation & TBD & TBD & TBD & TBD & TBD \\
+LoRA & Stage2 (TALH) & TBD & TBD & TBD & TBD & TBD \\
+\bottomrule
+\end{tabular}
+\caption{Planned factorial evaluation. ``Anchor'' denotes the same-prompt, same-seed reference chosen before evaluation; its construction and limitations will be reported with the final results.}
+\label{tab:factorial}
+\end{table*}
+
+\subsection{Ablations}
+
+The primary ablations vary handoff step ($30,35,40,45$ for the 50-step model and $1,2,3$ for the distilled model), LoRA targets and rank, endpoint versus flow and temporal losses, cached versus recomputed prefixes, Stage2 resampling architecture and loss terms, re-noise strategy, and training distribution. In particular, evaluating Stage2 on both teacher endpoints and LoRA predictions measures whether trajectory correction introduces a new distribution shift. Comparing a step-only adapter with a LoRA-active prefix tests the boundary of the cached-state argument.
+
+\section{Discussion and Limitations}
+
+TALH's central hypothesis is that timestep-specific correction belongs in the semantically capable denoiser, while spatial lifting should be learned on a stable clean-latent domain. The decomposition is useful only if endpoint gains survive Stage2 and the HR suffix; the factorial experiment is therefore more important than a standalone latent loss reduction.
+
+The method has several limitations. Stage2 is strongly inspired by the LTX-2 latent upsampler and contributes limited backbone novelty. Its mapping can be specific to the Wan VAE, teacher distribution, and resize recipe. LoRA is bounded by the quality of its base-teacher endpoint and currently requires a checkpoint for a fixed handoff step. Cached-prefix consistency does not extend to multi-step adaptation. Finally, generated resize-only training pairs do not represent real-world degradations, and complete generations have no unique HR ground truth. We address the last issue with multiple no-reference, anchor-based, temporal, and human measures rather than a single fidelity metric.
+
+\section{Conclusion}
+
+We presented TALH, a trajectory-aligned resolution handoff for video diffusion. A localized LoRA corrects the LR tail trajectory, a clean-latent Stage2 performs spatial lifting, and re-noising reconnects the result to the HR suffix. The formulation exposes measurable responsibilities for both learned components and applies to conventional and step-distilled Wan samplers. A complete claim of quality and efficiency awaits the controlled factorial, generalization, and human evaluations specified in this draft.
+
+\bibliography{references}
+
+\end{document}

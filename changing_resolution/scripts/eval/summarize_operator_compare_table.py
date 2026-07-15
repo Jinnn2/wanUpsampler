@@ -1,4 +1,4 @@
-    from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import csv
@@ -27,6 +27,10 @@ DEFAULT_COLUMNS = [
     "interp_temporal_l1",
     "trained_temporal_l1",
     "temporal_l1_delta_trained_minus_interp",
+    "target_hf_energy",
+    "interp_hf_energy",
+    "trained_hf_energy",
+    "hf_energy_error_delta_trained_minus_interp",
     "compare",
 ]
 
@@ -36,6 +40,7 @@ SUMMARY_METRICS = [
     ("ssim", "higher"),
     ("lpips", "lower"),
     ("temporal_l1", "lower"),
+    ("hf_energy_error", "lower"),
 ]
 
 
@@ -113,6 +118,9 @@ def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
     row = dict(row)
     row["temporal_l1_delta_trained_minus_interp"] = finite_or_nan(row.get("trained_temporal_l1")) - finite_or_nan(
         row.get("interp_temporal_l1")
+    )
+    row["hf_energy_error_delta_trained_minus_interp"] = finite_or_nan(row.get("trained_hf_energy_error")) - finite_or_nan(
+        row.get("interp_hf_energy_error")
     )
     paths = row.get("paths")
     if isinstance(paths, dict):

@@ -488,3 +488,67 @@ class WanDistillInterpBridgeRunner(WanDistillRunner):
         if self.config["feature_caching"] != "NoCaching":
             raise NotImplementedError("wan2.1_distill_interp_bridge currently supports only NoCaching.")
         self.scheduler = WanStepDistillScheduler4CleanResizerBridge(self.config)
+
+
+@RUNNER_REGISTER("wan2.1_distill_last_step_lora_interp_bridge")
+class WanDistillLastStepLoRAInterpBridgeRunner(WanDistillInterpBridgeRunner):
+    """WAN four-step runner: step-local LoRA handoff -> interpolation -> HR suffix."""
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.lora_configs = list(config.get("lora_configs") or [])
+        if len(self.lora_configs) != 1:
+            raise ValueError("wan2.1_distill_last_step_lora_interp_bridge expects exactly one LoRA config.")
+        self.lora_path = self.lora_configs[0]["path"]
+        self.lora_strength = float(self.lora_configs[0].get("strength", 1.0))
+        self.lora_active_steps = {
+            int(step) for step in config.get("lora_active_steps", [int(config.get("infer_steps", 3))])
+        }
+
+    def load_transformer(self):
+        model = WanDistillModelLastStepLoRA(
+            model_path=self.config["model_path"],
+            config=self.config,
+            device=self.init_device,
+            lora_path=self.lora_path,
+            lora_strength=0.0,
+        )
+        branch_count = count_lora_branches(model)
+        if branch_count <= 0:
+            raise RuntimeError(
+                "LoRA checkpoint loaded but matched zero LightX2V LoRA branches. "
+                f"Check key format in: {self.lora_path}"
+            )
+        self._current_lora_strength = 0.0
+        logger.info(f"Registered {branch_count} LightX2V LoRA branches from {self.lora_path}")
+        return model
+
+    def run_segment(self, segment_idx=0):
+        infer_steps = self.model.scheduler.infer_steps
+        device_module = getattr(torch, AI_DEVICE)
+        current_lora_strength = float(getattr(self, "_current_lora_strength", 0.0))
+
+        for step_index in range(infer_steps):
+            if self.video_segment_num == 1:
+                self.check_stop()
+            step_number = step_index + 1
+            strength = self.lora_strength if step_number in self.lora_active_steps else 0.0
+            logger.info(f"==> step_index: {step_number} / {infer_steps}, lora_strength={strength}")
+            if strength != current_lora_strength:
+                self.model._update_lora(self.lora_path, strength)
+                current_lora_strength = strength
+                self._current_lora_strength = strength
+            self.model.scheduler.step_pre(step_index=step_index)
+            self.model.infer(self.inputs)
+            self.model.scheduler.step_post()
+
+            if self.progress_callback:
+                current_step = segment_idx * infer_steps + step_number
+                total_all_steps = self.video_segment_num * infer_steps
+                self.progress_callback((current_step / total_all_steps) * 100, 100)
+
+        if segment_idx is not None and segment_idx == self.video_segment_num - 1:
+            del self.inputs
+            device_module.empty_cache()
+
+        return self.model.scheduler.latents

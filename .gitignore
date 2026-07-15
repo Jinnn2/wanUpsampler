@@ -30,6 +30,8 @@ venv/
 doc/*
 !doc/DISTILL_COMPLETE_WORKFLOW.md
 !doc/360P_FOUR_WAY_EVAL_PROTOCOL.md
+!doc/PAPER_DRAFT_OUTLINE.md
+/paper/aaai27/build/
 
 # OS/editor
 .DS_Store

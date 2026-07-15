@@ -295,6 +295,9 @@ def compute_metrics(
     trained_pixel_mse = float(F.mse_loss(trained_video, target_video))
     interp_temporal = temporal_l1(interp_video, target_video)
     trained_temporal = temporal_l1(trained_video, target_video)
+    target_hf_energy = high_frequency_energy(target_video)
+    interp_hf_energy = high_frequency_energy(interp_video)
+    trained_hf_energy = high_frequency_energy(trained_video)
     interp_similarity = similarity.compute(interp_video, target_video, batch_size=metric_batch_size)
     trained_similarity = similarity.compute(trained_video, target_video, batch_size=metric_batch_size)
     return {
@@ -317,6 +320,11 @@ def compute_metrics(
         - interp_similarity.get("lpips", float("nan")),
         "interp_temporal_l1": interp_temporal,
         "trained_temporal_l1": trained_temporal,
+        "target_hf_energy": target_hf_energy,
+        "interp_hf_energy": interp_hf_energy,
+        "trained_hf_energy": trained_hf_energy,
+        "interp_hf_energy_error": abs(interp_hf_energy - target_hf_energy),
+        "trained_hf_energy_error": abs(trained_hf_energy - target_hf_energy),
         "paths": paths,
     }
 
@@ -325,6 +333,14 @@ def temporal_l1(pred: torch.Tensor, target: torch.Tensor) -> float:
     if pred.shape[0] < 2:
         return 0.0
     return float(((pred[1:] - pred[:-1]) - (target[1:] - target[:-1])).abs().mean())
+
+
+def high_frequency_energy(video: torch.Tensor) -> float:
+    if video.shape[1] < 2 or video.shape[2] < 2:
+        return 0.0
+    horizontal = (video[:, :, 1:] - video[:, :, :-1]).abs().mean()
+    vertical = (video[:, 1:, :] - video[:, :-1, :]).abs().mean()
+    return float((horizontal + vertical) * 0.5)
 
 
 def psnr(mse: float) -> float:
