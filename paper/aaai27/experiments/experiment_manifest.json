@@ -13,6 +13,8 @@
     "DISTILL_STAGE2_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb/latest.pt",
     "DISTILL_STAGE2_CONFIG": "${PROJECT_ROOT}/changing_resolution_distill/configs/train_clean_368x640_to_720x1248_lmdb_stage2_distill.yaml",
     "DISTILL_LORA3_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3/latest.safetensors",
+    "DISTILL_LORA_480_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/latest.safetensors",
+    "DISTILL_LORA_STRENGTH": "1.0",
     "CR_DISTILL_RAW_VIDEO_DIR_1K": "${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_5k",
     "WAN50_FACTORIAL": "${AAAI_RESULTS}/factorial_wan50",
     "DISTILL_FACTORIAL": "${AAAI_RESULTS}/factorial_distill4"
@@ -101,6 +103,15 @@
       "evidence": [{"glob": "${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3/**/data.mdb"}]
     },
     {
+      "id": "distill_480lora_transfer_sweep",
+      "group": "ablation",
+      "depends_on": ["distill_stage2_checkpoint"],
+      "commands": [
+        "LORA_CKPT=${DISTILL_LORA_480_CKPT} STAGE2_CHECKPOINT=${DISTILL_STAGE2_CKPT} STRENGTHS='0.25 0.5 0.75 1.0' LIMIT=10 bash changing_resolution_distill/scripts/eval/run_distill_368x640_480p_lora_transfer_sweep.sh"
+      ],
+      "evidence": [{"glob": "${AAAI_RESULTS}/distill_480p_lora_transfer_368p/transfer_sweep_summary.csv", "min_bytes": 64}]
+    },
+    {
       "id": "distill_lora3_checkpoint",
       "group": "train",
       "depends_on": ["distill_lora3_lmdb"],
@@ -183,7 +194,7 @@
       "group": "factorial",
       "depends_on": ["distill_stage2_checkpoint", "distill_lora3_checkpoint"],
       "commands": [
-        "python paper/aaai27/experiments/run_factorial.py run --family distill4 --steps 3 --prompts ${AAAI_PROMPTS} --out-root ${DISTILL_FACTORIAL} --stage2-checkpoint ${DISTILL_STAGE2_CKPT} --stage2-train-config ${DISTILL_STAGE2_CONFIG} --lora-checkpoint 3=${DISTILL_LORA3_CKPT} --reuse-root outputs/changing_resolution_distill_stage2_four_way_368x640_720x1248 --limit 10 --seed 9800 --lora-strength 1.0 --stage2-use-ema"
+        "python paper/aaai27/experiments/run_factorial.py run --family distill4 --steps 3 --prompts ${AAAI_PROMPTS} --out-root ${DISTILL_FACTORIAL} --stage2-checkpoint ${DISTILL_STAGE2_CKPT} --stage2-train-config ${DISTILL_STAGE2_CONFIG} --lora-checkpoint 3=${DISTILL_LORA3_CKPT} --reuse-root outputs/changing_resolution_distill_stage2_four_way_368x640_720x1248 --limit 10 --seed 9800 --lora-strength ${DISTILL_LORA_STRENGTH} --stage2-use-ema"
       ],
       "evidence": [{"glob": "${DISTILL_FACTORIAL}/videos/*/*.mp4", "min_count": 40, "min_bytes": 1024}]
     },

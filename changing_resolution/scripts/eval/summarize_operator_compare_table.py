@@ -84,12 +84,18 @@ def resolve_metrics_path(input_path: str, split: str) -> Path:
         return path
 
     merged = path / f"metrics_{split}.jsonl"
-    if merged.is_file():
-        return merged
-
-    part_files = sorted(path.glob(f"part_*/metrics_{split}_*.jsonl"))
+    # A regular single-process evaluation writes its offset/limit into the
+    # filename, while distributed evaluations put the same files under
+    # part_* directories.  Treat both layouts as mergeable metric parts.
+    part_files = sorted(path.glob(f"metrics_{split}_offset*_limit*.jsonl"))
+    part_files.extend(sorted(path.glob(f"part_*/metrics_{split}_*.jsonl")))
     if not part_files:
+        if merged.is_file():
+            return merged
         raise FileNotFoundError(f"No metrics_{split}.jsonl or part metrics found under {path}")
+
+    if len(part_files) == 1:
+        return part_files[0]
 
     merged.parent.mkdir(parents=True, exist_ok=True)
     with merged.open("w", encoding="utf-8") as out:
