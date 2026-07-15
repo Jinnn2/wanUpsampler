@@ -136,7 +136,11 @@ def write_config(path: Path, args: argparse.Namespace, family: dict[str, object]
                 "lora_dynamic_apply": True,
                 "lora_active_steps": [case.step],
                 "lora_configs": [
-                    {"name": "wan2.1", "path": lora_checkpoint(args, case.step), "strength": args.lora_strength}
+                    {
+                        "name": "wan2.1",
+                        "path": lora_checkpoint(args, case.step),
+                        "strength": args.lora_strength_step.get(case.step, args.lora_strength),
+                    }
                 ],
             }
         )
@@ -281,12 +285,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-frames", type=int, default=81)
     parser.add_argument("--guide-scale", type=float, default=6.0)
     parser.add_argument("--lora-strength", type=float, default=0.75)
+    parser.add_argument("--lora-strength-step", action="append", default=[], metavar="STEP=VALUE")
     parser.add_argument("--renoise-mode", default="random")
     parser.add_argument("--stage2-use-ema", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--skip-existing", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--negative-prompt", default="")
     args = parser.parse_args()
     args.lora_checkpoint = parse_step_paths(args.lora_checkpoint)
+    args.lora_strength_step = {step: float(value) for step, value in parse_step_paths(args.lora_strength_step).items()}
     return args
 
 

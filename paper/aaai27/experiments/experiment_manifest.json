@@ -8,7 +8,7 @@
     "WAN50_STAGE2_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_clean_368x640_720x1248_stage2_lmdb/latest.pt",
     "WAN50_STAGE2_CONFIG": "${PROJECT_ROOT}/changing_resolution/configs/train_clean_368x640_to_720x1248_lmdb_stage2.yaml",
     "WAN50_STAGE2_480_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_clean_480p720p_stage2_lmdb/latest.pt",
-    "WAN50_LORA40_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_step40_to_step50/latest.safetensors",
+    "WAN50_LORA40_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_step40_to_step50_temporal/latest.safetensors",
     "WAN50_LORA45_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_step45_to_step50/latest.safetensors",
     "DISTILL_STAGE2_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb/latest.pt",
     "DISTILL_STAGE2_CONFIG": "${PROJECT_ROOT}/changing_resolution_distill/configs/train_clean_368x640_to_720x1248_lmdb_stage2_distill.yaml",
@@ -110,11 +110,19 @@
       "evidence": [{"glob": "${DISTILL_LORA3_CKPT}"}]
     },
     {
-      "id": "stage2_operator_480p",
+      "id": "stage2_operator_480p_metrics",
       "group": "operator",
       "depends_on": ["wan50_stage2_480_checkpoint"],
       "commands": [
-        "CR_STAGE2_OPERATOR_COMPARE_CKPT=${WAN50_STAGE2_480_CKPT} TOTAL_SAMPLES=50 SPLIT=val bash changing_resolution/scripts/eval/run_clean_480p720p_stage2_operator_compare_multigpu.sh",
+        "CR_STAGE2_OPERATOR_COMPARE_CKPT=${WAN50_STAGE2_480_CKPT} TOTAL_SAMPLES=50 SPLIT=val bash changing_resolution/scripts/eval/run_clean_480p720p_stage2_operator_compare_multigpu.sh"
+      ],
+      "evidence": [{"glob": "${PROJECT_ROOT}/outputs/changing_resolution_operator_compare_stage2/metrics_val.jsonl", "min_bytes": 64}]
+    },
+    {
+      "id": "stage2_operator_480p",
+      "group": "operator",
+      "depends_on": ["stage2_operator_480p_metrics"],
+      "commands": [
         "python changing_resolution/scripts/eval/summarize_operator_compare_table.py --input outputs/changing_resolution_operator_compare_stage2 --split val"
       ],
       "evidence": [{"glob": "${PROJECT_ROOT}/outputs/changing_resolution_operator_compare_stage2/tables/summary_val.json"}]
@@ -152,7 +160,7 @@
       "group": "factorial",
       "depends_on": ["wan50_stage2_checkpoint", "wan50_lora40_checkpoint", "wan50_lora45_checkpoint"],
       "commands": [
-        "python paper/aaai27/experiments/run_factorial.py run --family wan50 --steps 40 45 --prompts ${AAAI_PROMPTS} --out-root ${WAN50_FACTORIAL} --stage2-checkpoint ${WAN50_STAGE2_CKPT} --stage2-train-config ${WAN50_STAGE2_CONFIG} --lora-checkpoint 40=${WAN50_LORA40_CKPT} --lora-checkpoint 45=${WAN50_LORA45_CKPT} --reuse-root outputs/changing_resolution_clean_360p_stage2_three_way_step_sweep --reuse-root outputs/changing_resolution_tail_skip_lora_stage2_four_way_360p --limit 10 --seed 9700"
+        "python paper/aaai27/experiments/run_factorial.py run --family wan50 --steps 40 45 --prompts ${AAAI_PROMPTS} --out-root ${WAN50_FACTORIAL} --stage2-checkpoint ${WAN50_STAGE2_CKPT} --stage2-train-config ${WAN50_STAGE2_CONFIG} --lora-checkpoint 40=${WAN50_LORA40_CKPT} --lora-checkpoint 45=${WAN50_LORA45_CKPT} --lora-strength 0.75 --lora-strength-step 40=1.0 --reuse-root outputs/changing_resolution_clean_360p_stage2_three_way_step_sweep --reuse-root outputs/changing_resolution_tail_skip_lora_stage2_four_way_360p --limit 10 --seed 9700"
       ],
       "evidence": [{"glob": "${WAN50_FACTORIAL}/videos/*/*.mp4", "min_count": 80, "min_bytes": 1024}]
     },
