@@ -39,6 +39,7 @@ from changing_resolution_distill.scripts.train.train_last_step_skip_lora import 
     strip_prefix,
 )
 from wan_sr.data import TailSkipLoRALMDBDataset  # noqa: E402
+from wan_sr.losses.latent_losses import temporal_difference_loss  # noqa: E402
 from wan_sr.training.config import deep_update, load_yaml  # noqa: E402
 
 
@@ -220,6 +221,12 @@ def compute_batch_loss(
     total = float(loss_cfg.get("l1_weight", 1.0)) * l1 + float(loss_cfg.get("mse_weight", 0.1)) * mse
     items = {"loss": float(total.detach()), "clean_l1": float(l1.detach()), "clean_mse": float(mse.detach())}
 
+    temporal_weight = float(loss_cfg.get("temporal_weight", 0.0) or 0.0)
+    if temporal_weight > 0:
+        temporal_l1 = temporal_difference_loss(pred, target_f)
+        total = total + temporal_weight * temporal_l1
+        items.update({"loss": float(total.detach()), "clean_temporal_l1": float(temporal_l1.detach())})
+
     velocity_mse_weight = float(loss_cfg.get("velocity_mse_weight", 0.0) or 0.0)
     velocity_l1_weight = float(loss_cfg.get("velocity_l1_weight", 0.0) or 0.0)
     if velocity_mse_weight > 0 or velocity_l1_weight > 0:
@@ -383,6 +390,7 @@ def save_training_state(out_dir: Path, module: torch.nn.Module, optimizer: torch
         "target_step": str(config["task"].get("target_step", config.get("wan", {}).get("infer_steps", ""))),
         "lora_rank": str(config["model"].get("lora_rank", "")),
         "lora_target_modules": str(config["model"].get("lora_target_modules", "")),
+        "temporal_weight": str(config.get("loss", {}).get("temporal_weight", 0.0)),
     }
     safetensors_path = out_dir / f"step_{step:07d}.safetensors"
     save_file(lora_state, safetensors_path, metadata=metadata)
@@ -428,7 +436,13 @@ def apply_cli_overrides(config: dict, args: argparse.Namespace) -> dict:
                 "precision": "bf16",
                 "training_mode": "cached_x_pre_step",
             },
-            "loss": {"l1_weight": 1.0, "mse_weight": 0.1, "velocity_mse_weight": 0.0, "velocity_l1_weight": 0.0},
+            "loss": {
+                "l1_weight": 1.0,
+                "mse_weight": 0.1,
+                "temporal_weight": 0.0,
+                "velocity_mse_weight": 0.0,
+                "velocity_l1_weight": 0.0,
+            },
             "output": {"out_dir": "outputs/changing_resolution_tail_skip_lora_step45_to_step50"},
         },
         config,

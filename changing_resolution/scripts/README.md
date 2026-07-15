@@ -28,6 +28,17 @@ TRAIN_STEP=45 TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 RESUME=1 \
 
 ## train
 
+Train the step40 tail-skip LoRA with an additional temporal-difference loss.
+It reuses the step40 LMDB and writes to a separate `_temporal` output directory:
+
+```bash
+TRAIN_STEP=40 TAIL_SKIP_LORA_VARIANT=temporal NUM_GPUS=4 CUDA_VISIBLE_DEVICES=0,1,2,3 \
+  bash changing_resolution/scripts/train/run_tail_skip_lora_training.sh smoke
+
+TRAIN_STEP=40 TAIL_SKIP_LORA_VARIANT=temporal NUM_GPUS=4 CUDA_VISIBLE_DEVICES=0,1,2,3 \
+  bash changing_resolution/scripts/train/run_tail_skip_lora_training.sh train
+```
+
 Train the Stage 2 clean-latent 480p -> 720p resizer:
 
 ```bash

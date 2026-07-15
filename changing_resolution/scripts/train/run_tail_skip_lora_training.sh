@@ -17,9 +17,14 @@ MODEL_CKPT="${MODEL_CKPT:-${MODEL_ROOT}/diffusion_pytorch_model.safetensors}"
 TEXT_ENCODER_CKPT="${TEXT_ENCODER_CKPT:-${MODEL_ROOT}/models_t5_umt5-xxl-enc-bf16.pth}"
 
 TRAIN_STEP="${TRAIN_STEP:-45}"
-CONFIG="${TAIL_SKIP_LORA_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_tail_skip_lora_step${TRAIN_STEP}.yaml}"
+TAIL_SKIP_LORA_VARIANT="${TAIL_SKIP_LORA_VARIANT:-}"
+VARIANT_SUFFIX=""
+if [[ -n "${TAIL_SKIP_LORA_VARIANT}" ]]; then
+  VARIANT_SUFFIX="_${TAIL_SKIP_LORA_VARIANT}"
+fi
+CONFIG="${TAIL_SKIP_LORA_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_tail_skip_lora_step${TRAIN_STEP}${VARIANT_SUFFIX}.yaml}"
 LMDB_DIR="${TAIL_SKIP_LORA_LMDB_DIR:-${PROJECT_ROOT}/data/changing_resolution/lmdb_tail_skip_lora_step${TRAIN_STEP}_to_step50}"
-OUT_DIR="${TAIL_SKIP_LORA_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_step${TRAIN_STEP}_to_step50}"
+OUT_DIR="${TAIL_SKIP_LORA_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_step${TRAIN_STEP}_to_step50${VARIANT_SUFFIX}}"
 
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 NUM_GPUS="${NUM_GPUS:-1}"
@@ -159,6 +164,7 @@ train_lora() {
   echo "  diffsynth   : ${DIFFSYNTH_REPO}"
   echo "  model       : ${MODEL_ROOT}"
   echo "  train_step  : ${TRAIN_STEP}"
+  echo "  variant     : ${TAIL_SKIP_LORA_VARIANT:-baseline}"
   echo "  num_gpus    : ${NUM_GPUS}"
   echo "  grad_accum  : ${GRAD_ACCUM}"
   echo "  eff_batch   : $((BATCH_SIZE * GRAD_ACCUM * NUM_GPUS))"
