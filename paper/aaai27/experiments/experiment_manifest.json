@@ -13,6 +13,7 @@
     "DISTILL_STAGE2_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb/latest.pt",
     "DISTILL_STAGE2_CONFIG": "${PROJECT_ROOT}/changing_resolution_distill/configs/train_clean_368x640_to_720x1248_lmdb_stage2_distill.yaml",
     "DISTILL_LORA3_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3/latest.safetensors",
+    "CR_DISTILL_RAW_VIDEO_DIR_1K": "${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_5k",
     "WAN50_FACTORIAL": "${AAAI_RESULTS}/factorial_wan50",
     "DISTILL_FACTORIAL": "${AAAI_RESULTS}/factorial_distill4"
   },
@@ -69,7 +70,7 @@
       "group": "prereq",
       "kind": "artifact",
       "note": "Existing 5k distilled 720p raw videos are required to rebuild the clean-latent LMDB.",
-      "evidence": [{"glob": "${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_5k/*.mp4", "min_count": 5000, "min_bytes": 1024}]
+      "evidence": [{"glob": "${CR_DISTILL_RAW_VIDEO_DIR_1K}/*.mp4", "min_count": 5000, "min_bytes": 1024}]
     },
     {
       "id": "distill_stage2_lmdb",

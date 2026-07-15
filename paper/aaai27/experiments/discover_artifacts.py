@@ -6,12 +6,18 @@ from pathlib import Path
 
 
 PATTERNS = {
-    "wan50_lora40": ("outputs", "*tail_skip*lora*step40*", ("latest.safetensors", "step_*.safetensors")),
-    "distill_stage2_368p": ("outputs", "*distill*clean*368x640*stage2*", ("latest.pt", "step_*.pt")),
-    "distill_lora3_368p": ("outputs", "*distill*last_step*368x640*", ("latest.safetensors", "step_*.safetensors")),
-    "wan50_lora40_lmdb": ("data", "*tail_skip*lora*step40*", ("data.mdb",)),
-    "distill_stage2_lmdb": ("data", "*distill*clean*368x640*", ("data.mdb",)),
-    "distill_lora3_lmdb": ("data", "*distill*last_step*368x640*", ("data.mdb",)),
+    "wan50_lora40": ("outputs", ("tail_skip", "lora", "step40"), ("latest.safetensors", "step_*.safetensors")),
+    "distill_stage2_368p": ("outputs", ("distill", "clean", "368x640", "stage2"), ("latest.pt", "step_*.pt")),
+    "distill_lora3_368p": (
+        "outputs",
+        ("distill", "last_step", "368x640"),
+        ("latest.safetensors", "step_*.safetensors"),
+    ),
+    "wan50_lora40_lmdb": ("data", ("tail_skip", "lora", "step40"), ("data.mdb",)),
+    "distill_stage2_lmdb": ("data", ("distill", "clean", "368x640"), ("data.mdb",)),
+    "distill_lora3_lmdb": ("data", ("distill", "last_step", "368x640"), ("data.mdb",)),
+    "distill_raw_videos": ("data", ("distill", "raw"), ("*.mp4",)),
+    "operator_480_metrics": ("outputs", ("operator_compare_stage2",), ("metrics*.jsonl", "summary*.json")),
 }
 
 
@@ -19,25 +25,25 @@ def main() -> None:
     args = parse_args()
     root = Path(args.project_root).resolve()
     report = {}
-    for name, (top, directory_pattern, file_patterns) in PATTERNS.items():
+    for name, (top, required_tokens, file_patterns) in PATTERNS.items():
         candidates = []
         top_dir = root / top
         if top_dir.is_dir():
-            for directory in top_dir.glob(directory_pattern):
-                if not directory.is_dir():
-                    continue
-                for file_pattern in file_patterns:
-                    for path in directory.rglob(file_pattern):
-                        if not path.is_file() or path.stat().st_size == 0:
-                            continue
-                        stat = path.stat()
-                        candidates.append(
-                            {
-                                "path": str(path),
-                                "size_bytes": stat.st_size,
-                                "mtime": stat.st_mtime,
-                            }
-                        )
+            for file_pattern in file_patterns:
+                for path in top_dir.rglob(file_pattern):
+                    normalized = path.as_posix().lower()
+                    if not all(token in normalized for token in required_tokens):
+                        continue
+                    if not path.is_file() or path.stat().st_size == 0:
+                        continue
+                    stat = path.stat()
+                    candidates.append(
+                        {
+                            "path": str(path),
+                            "size_bytes": stat.st_size,
+                            "mtime": stat.st_mtime,
+                        }
+                    )
         report[name] = sorted(candidates, key=lambda item: item["mtime"], reverse=True)[: args.limit]
 
     output = root / "outputs/aaai27_experiments/_state/artifact_candidates.json"

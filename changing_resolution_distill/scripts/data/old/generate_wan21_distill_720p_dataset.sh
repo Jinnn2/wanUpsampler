@@ -67,7 +67,7 @@ dst.parent.mkdir(parents=True, exist_ok=True)
 dst.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 PY
 
-python "${PROJECT_ROOT}/changing_resolution_distill/scripts/data/generate_wan21_distill_720p_dataset.py" \
+python "${SCRIPT_DIR}/generate_wan21_distill_720p_dataset.py" \
   --seed "${START_SEED}" \
   --model_cls wan2.1_distill \
   --task t2v \
