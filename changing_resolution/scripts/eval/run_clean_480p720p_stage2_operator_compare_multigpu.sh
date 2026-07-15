@@ -17,7 +17,8 @@ CHECKPOINT="${CR_STAGE2_OPERATOR_COMPARE_CKPT:-${CR_STAGE2_OUT_DIR:-${PROJECT_RO
 TRAIN_CONFIG="${CR_STAGE2_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_480p_to_720p_lmdb_stage2.yaml}"
 OUT_DIR="${CR_STAGE2_OPERATOR_COMPARE_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_operator_compare_stage2}"
 
-GPU_IDS="${GPU_IDS:-0,1,2,3}"
+CALLER_CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-}"
+GPU_IDS="${GPU_IDS:-${CALLER_CUDA_VISIBLE_DEVICES}}"
 TOTAL_SAMPLES="${TOTAL_SAMPLES:-32}"
 SPLIT="${SPLIT:-val}"
 PRECISION="${PRECISION:-bf16}"
@@ -30,6 +31,19 @@ LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_stage2_operator_com
 
 export LIGHTX2V_REPO
 export PYTHONPATH="${LIGHTX2V_REPO}:${PROJECT_ROOT}:${PYTHONPATH:-}"
+
+if [[ -z "${GPU_IDS}" ]]; then
+  visible_gpu_count="$(python - <<'PY'
+import torch
+print(torch.cuda.device_count())
+PY
+)"
+  if (( visible_gpu_count < 1 )); then
+    echo "CUDA is unavailable in the operator-compare environment." >&2
+    exit 1
+  fi
+  GPU_IDS="$(seq -s, 0 $((visible_gpu_count - 1)))"
+fi
 
 if [[ ! -f "${CHECKPOINT}" ]]; then
   echo "Checkpoint not found: ${CHECKPOINT}" >&2
@@ -48,6 +62,7 @@ base_count=$((TOTAL_SAMPLES / NUM_GPUS))
 remainder=$((TOTAL_SAMPLES % NUM_GPUS))
 offset=0
 pids=()
+part_names=()
 
 for rank in "${!GPUS[@]}"; do
   count="${base_count}"
@@ -92,6 +107,7 @@ for rank in "${!GPUS[@]}"; do
       "${ema_args[@]}"
   ) >"${log_path}" 2>&1 &
   pids+=("$!")
+  part_names+=("${part_name}")
   offset=$((offset + count))
 done
 
@@ -104,11 +120,19 @@ done
 
 if (( failed != 0 )); then
   echo "Stage 2 operator compare failed. Check logs under: ${LOG_DIR}" >&2
+  for log_path in "${LOG_DIR}"/part_*.log; do
+    [[ -f "${log_path}" ]] || continue
+    echo "===== ${log_path} (last 80 lines) =====" >&2
+    tail -n 80 "${log_path}" >&2
+  done
   exit 1
 fi
 
 merged_metrics="${OUT_DIR}/metrics_${SPLIT}.jsonl"
-cat "${OUT_DIR}"/part_*/metrics_"${SPLIT}"_*.jsonl > "${merged_metrics}"
+: > "${merged_metrics}"
+for part_name in "${part_names[@]}"; do
+  cat "${OUT_DIR}/${part_name}"/metrics_"${SPLIT}"_*.jsonl >> "${merged_metrics}"
+done
 summary_path="${OUT_DIR}/summary_${SPLIT}.json"
 python - "${merged_metrics}" "${summary_path}" <<'PY'
 import json

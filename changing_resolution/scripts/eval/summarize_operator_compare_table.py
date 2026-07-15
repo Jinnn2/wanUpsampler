@@ -147,6 +147,8 @@ def build_summary(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
         interp_values = finite_values(row.get(interp_key) for row in rows)
         trained_values = finite_values(row.get(trained_key) for row in rows)
         delta_values = finite_values(row.get(delta_key) for row in rows)
+        if not interp_values or not trained_values or not delta_values:
+            continue
         win_count = count_wins(rows, interp_key, trained_key, direction)
 
         summary.append(
@@ -181,10 +183,7 @@ def count_wins(rows: list[dict[str, Any]], interp_key: str, trained_key: str, di
 
 def finite_values(values: Any) -> list[float]:
     result = [finite_or_nan(value) for value in values]
-    result = [value for value in result if math.isfinite(value)]
-    if not result:
-        raise ValueError("Expected at least one finite value")
-    return result
+    return [value for value in result if math.isfinite(value)]
 
 
 def finite_or_nan(value: Any) -> float:

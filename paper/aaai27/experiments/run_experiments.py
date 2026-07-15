@@ -115,11 +115,19 @@ def audit_task(task: dict[str, Any], environment: dict[str, str]) -> dict[str, s
     descriptions = []
     complete = True
     for spec in evidence_specs:
-        pattern = expand(spec["glob"], environment)
-        matches = glob_files(pattern)
+        raw_patterns = spec.get("globs")
+        if raw_patterns is None:
+            raw_patterns = [spec["glob"]]
+        patterns = [expand(pattern, environment) for pattern in raw_patterns]
+        matches_by_path = {
+            str(path.resolve()): path
+            for pattern in patterns
+            for path in glob_files(pattern)
+        }
+        matches = list(matches_by_path.values())
         matches = [item for item in matches if item.is_file() and item.stat().st_size >= int(spec.get("min_bytes", 1))]
         required = int(spec.get("min_count", 1))
-        descriptions.append(f"{len(matches)}/{required} {pattern}")
+        descriptions.append(f"{len(matches)}/{required} {' OR '.join(patterns)}")
         complete = complete and len(matches) >= required
     return {
         "id": task["id"],

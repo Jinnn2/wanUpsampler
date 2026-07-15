@@ -117,7 +117,13 @@
       "commands": [
         "CR_STAGE2_OPERATOR_COMPARE_CKPT=${WAN50_STAGE2_480_CKPT} TOTAL_SAMPLES=50 SPLIT=val bash changing_resolution/scripts/eval/run_clean_480p720p_stage2_operator_compare_multigpu.sh"
       ],
-      "evidence": [{"glob": "${PROJECT_ROOT}/outputs/changing_resolution_operator_compare_stage2/metrics_val.jsonl", "min_bytes": 64}]
+      "evidence": [{
+        "globs": [
+          "${PROJECT_ROOT}/outputs/changing_resolution_operator_compare_stage2/metrics_val.jsonl",
+          "${PROJECT_ROOT}/outputs/changing_resolution_operator_compare_stage2/part_*/metrics_val_*.jsonl"
+        ],
+        "min_bytes": 64
+      }]
     },
     {
       "id": "stage2_operator_480p",
