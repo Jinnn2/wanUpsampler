@@ -32,18 +32,82 @@
       "evidence": [{"glob": "${WAN50_STAGE2_480_CKPT}"}]
     },
     {
-      "id": "wan50_lora_checkpoints",
+      "id": "wan50_clean_lmdb",
       "group": "prereq",
       "kind": "artifact",
-      "note": "Both frozen step40 and step45 LoRA checkpoints are required.",
-      "evidence": [{"glob": "${WAN50_LORA40_CKPT}"}, {"glob": "${WAN50_LORA45_CKPT}"}]
+      "note": "Existing 480p/720p clean LMDB used as the step40 trajectory source.",
+      "evidence": [{"glob": "${PROJECT_ROOT}/data/changing_resolution/lmdb_480p720p_1k/**/data.mdb"}]
     },
     {
-      "id": "distill_checkpoints",
+      "id": "wan50_lora40_lmdb",
+      "group": "data",
+      "depends_on": ["wan50_clean_lmdb"],
+      "commands": [
+        "TRAIN_STEP=40 TOTAL_SAMPLES=1000 GPU_IDS=0,1,2,3 RESUME=1 bash changing_resolution/scripts/data/build_tail_skip_lora_lmdb_multigpu.sh"
+      ],
+      "evidence": [{"glob": "${PROJECT_ROOT}/data/changing_resolution/lmdb_tail_skip_lora_step40_to_step50/**/data.mdb"}]
+    },
+    {
+      "id": "wan50_lora40_checkpoint",
+      "group": "train",
+      "depends_on": ["wan50_lora40_lmdb"],
+      "commands": [
+        "TRAIN_STEP=40 NUM_GPUS=4 CUDA_VISIBLE_DEVICES=0,1,2,3 bash changing_resolution/scripts/train/run_tail_skip_lora_training.sh check",
+        "TRAIN_STEP=40 NUM_GPUS=4 CUDA_VISIBLE_DEVICES=0,1,2,3 bash changing_resolution/scripts/train/run_tail_skip_lora_training.sh train"
+      ],
+      "evidence": [{"glob": "${WAN50_LORA40_CKPT}"}]
+    },
+    {
+      "id": "wan50_lora45_checkpoint",
       "group": "prereq",
       "kind": "artifact",
-      "note": "Reuse the frozen four-step Stage2 and step3 LoRA checkpoints.",
-      "evidence": [{"glob": "${DISTILL_STAGE2_CKPT}"}, {"glob": "${DISTILL_LORA3_CKPT}"}]
+      "note": "Reuse the frozen step45 LoRA checkpoint.",
+      "evidence": [{"glob": "${WAN50_LORA45_CKPT}"}]
+    },
+    {
+      "id": "distill_raw_5k",
+      "group": "prereq",
+      "kind": "artifact",
+      "note": "Existing 5k distilled 720p raw videos are required to rebuild the clean-latent LMDB.",
+      "evidence": [{"glob": "${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_5k/*.mp4", "min_count": 5000, "min_bytes": 1024}]
+    },
+    {
+      "id": "distill_stage2_lmdb",
+      "group": "data",
+      "depends_on": ["distill_raw_5k"],
+      "commands": [
+        "CUDA_VISIBLE_DEVICES=0 bash changing_resolution_distill/scripts/data/build_clean_368x640_720x1248_distill_lmdb.sh lmdb"
+      ],
+      "evidence": [{"glob": "${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_368x640_720x1248_14b_cfgdistill_5k/**/data.mdb"}]
+    },
+    {
+      "id": "distill_stage2_checkpoint",
+      "group": "train",
+      "depends_on": ["distill_stage2_lmdb"],
+      "commands": [
+        "CUDA_VISIBLE_DEVICES=0,1,2,3 bash changing_resolution_distill/scripts/train/run_clean_368x640_720x1248_stage2_distill_4gpu.sh model_check",
+        "CUDA_VISIBLE_DEVICES=0,1,2,3 bash changing_resolution_distill/scripts/train/run_clean_368x640_720x1248_stage2_distill_4gpu.sh train"
+      ],
+      "evidence": [{"glob": "${DISTILL_STAGE2_CKPT}"}]
+    },
+    {
+      "id": "distill_lora3_lmdb",
+      "group": "data",
+      "depends_on": ["distill_stage2_lmdb"],
+      "commands": [
+        "GPU_IDS=0,1,2,3 TOTAL_SAMPLES=5000 bash changing_resolution_distill/scripts/data/build_last_step_skip_lora_368x640_lmdb_4gpu.sh"
+      ],
+      "evidence": [{"glob": "${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3/**/data.mdb"}]
+    },
+    {
+      "id": "distill_lora3_checkpoint",
+      "group": "train",
+      "depends_on": ["distill_lora3_lmdb"],
+      "commands": [
+        "CUDA_VISIBLE_DEVICES=0,1,2,3 bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_368x640_distill_4gpu.sh check",
+        "CUDA_VISIBLE_DEVICES=0,1,2,3 bash changing_resolution_distill/scripts/train/run_last_step_skip_lora_368x640_distill_4gpu.sh train"
+      ],
+      "evidence": [{"glob": "${DISTILL_LORA3_CKPT}"}]
     },
     {
       "id": "stage2_operator_480p",
@@ -68,7 +132,7 @@
     {
       "id": "wan50_endpoint_step45",
       "group": "endpoint",
-      "depends_on": ["wan50_lora_checkpoints"],
+      "depends_on": ["wan50_lora45_checkpoint"],
       "commands": [
         "TRAIN_STEP=45 LORA_CKPT=${WAN50_LORA45_CKPT} LIMIT=10 SKIP_EXISTING=1 bash changing_resolution/scripts/eval/run_tail_skip_lora_360p_clean_pred_compare.sh run"
       ],
@@ -86,20 +150,34 @@
     {
       "id": "wan50_factorial",
       "group": "factorial",
-      "depends_on": ["wan50_stage2_checkpoint", "wan50_lora_checkpoints"],
+      "depends_on": ["wan50_stage2_checkpoint", "wan50_lora40_checkpoint", "wan50_lora45_checkpoint"],
       "commands": [
         "python paper/aaai27/experiments/run_factorial.py run --family wan50 --steps 40 45 --prompts ${AAAI_PROMPTS} --out-root ${WAN50_FACTORIAL} --stage2-checkpoint ${WAN50_STAGE2_CKPT} --stage2-train-config ${WAN50_STAGE2_CONFIG} --lora-checkpoint 40=${WAN50_LORA40_CKPT} --lora-checkpoint 45=${WAN50_LORA45_CKPT} --reuse-root outputs/changing_resolution_clean_360p_stage2_three_way_step_sweep --reuse-root outputs/changing_resolution_tail_skip_lora_stage2_four_way_360p --limit 10 --seed 9700"
       ],
       "evidence": [{"glob": "${WAN50_FACTORIAL}/videos/*/*.mp4", "min_count": 80, "min_bytes": 1024}]
     },
     {
+      "id": "wan50_factorial_reuse_source",
+      "group": "reuse",
+      "kind": "artifact",
+      "note": "Optional legacy LoRA45+Stage2 videos; factorial generation still works when absent.",
+      "evidence": [{"glob": "${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_stage2_four_way_360p/videos/lora45_stage2/*.mp4", "min_count": 10, "min_bytes": 1024}]
+    },
+    {
       "id": "distill_factorial",
       "group": "factorial",
-      "depends_on": ["distill_checkpoints"],
+      "depends_on": ["distill_stage2_checkpoint", "distill_lora3_checkpoint"],
       "commands": [
         "python paper/aaai27/experiments/run_factorial.py run --family distill4 --steps 3 --prompts ${AAAI_PROMPTS} --out-root ${DISTILL_FACTORIAL} --stage2-checkpoint ${DISTILL_STAGE2_CKPT} --stage2-train-config ${DISTILL_STAGE2_CONFIG} --lora-checkpoint 3=${DISTILL_LORA3_CKPT} --reuse-root outputs/changing_resolution_distill_stage2_four_way_368x640_720x1248 --limit 10 --seed 9800 --lora-strength 1.0 --stage2-use-ema"
       ],
       "evidence": [{"glob": "${DISTILL_FACTORIAL}/videos/*/*.mp4", "min_count": 40, "min_bytes": 1024}]
+    },
+    {
+      "id": "distill_factorial_reuse_source",
+      "group": "reuse",
+      "kind": "artifact",
+      "note": "Optional legacy Base3/LoRA3+Stage2 videos; factorial generation still works when absent.",
+      "evidence": [{"glob": "${PROJECT_ROOT}/outputs/changing_resolution_distill_stage2_four_way_368x640_720x1248/videos/*3_stage2_hr4/*.mp4", "min_count": 20, "min_bytes": 1024}]
     },
     {
       "id": "legacy_quality_efficiency",
@@ -113,7 +191,7 @@
     {
       "id": "wan50_lora_strength",
       "group": "ablation",
-      "depends_on": ["wan50_lora_checkpoints"],
+      "depends_on": ["wan50_lora45_checkpoint"],
       "commands": [
         "TRAIN_STEP=45 STRENGTHS='0.5 0.75 1.0' LORA_CKPT=${WAN50_LORA45_CKPT} LIMIT=10 SKIP_EXISTING=1 bash changing_resolution/scripts/eval/run_tail_skip_lora_360p_strength_sweep.sh run"
       ],
@@ -122,7 +200,6 @@
     {
       "id": "distill_checkpoint_selection",
       "group": "ablation",
-      "depends_on": ["distill_checkpoints"],
       "commands": [
         "LIMIT=10 SKIP_COMPLETED=1 bash changing_resolution_distill/scripts/eval/run_last_step_skip_lora_checkpoint_sweep_480p.sh"
       ],
