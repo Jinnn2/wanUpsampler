@@ -3,6 +3,11 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from pathlib import Path
+
+repo_root = str(Path(__file__).resolve().parents[3])
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
 
 lightx2v_repo = os.environ.get("LIGHTX2V_REPO")
 if lightx2v_repo and lightx2v_repo not in sys.path:
@@ -94,4 +99,3 @@ def parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     torch.set_grad_enabled(False)
     main()
-
