@@ -5,6 +5,10 @@ import os
 import sys
 from pathlib import Path
 
+repo_root = str(Path(__file__).resolve().parents[3])
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
 lightx2v_repo = os.environ.get("LIGHTX2V_REPO")
 if lightx2v_repo and lightx2v_repo not in sys.path:
     sys.path.insert(0, lightx2v_repo)
