@@ -15,17 +15,29 @@ export CR_LMDB_DIR="${CR_DISTILL_360_STAGE2_LMDB_DIR:-${PROJECT_ROOT}/data/chang
 export CR_STAGE2_CONFIG="${CR_DISTILL_360_STAGE2_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_clean_368x640_to_720x1248_lmdb_stage2_distill.yaml}"
 export CR_STAGE2_OUT_DIR="${CR_DISTILL_360_STAGE2_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb}"
 export SCALE_FACTOR=2.0
-export NUM_GPUS=4
 export CUDA_VISIBLE_DEVICES="${CALLER_CUDA_VISIBLE_DEVICES:-0,1,2,3}"
 export BATCH_SIZE="${BATCH_SIZE:-1}"
-export GRAD_ACCUM="${GRAD_ACCUM:-2}"
-export NUM_WORKERS="${NUM_WORKERS:-2}"
 
-IFS=',' read -r -a VISIBLE_GPUS <<< "${CUDA_VISIBLE_DEVICES}"
-if (( ${#VISIBLE_GPUS[@]} != 4 )); then
-  echo "This launcher requires exactly four visible GPUs; got CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}." >&2
+AVAILABLE_GPUS="$(python - <<'PY'
+import torch
+print(torch.cuda.device_count())
+PY
+)"
+if (( AVAILABLE_GPUS < 1 )); then
+  echo "No CUDA device is available; CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}." >&2
   exit 2
 fi
+export NUM_GPUS="${NUM_GPUS:-${AVAILABLE_GPUS}}"
+if (( NUM_GPUS > AVAILABLE_GPUS )); then
+  echo "NUM_GPUS=${NUM_GPUS} exceeds the ${AVAILABLE_GPUS} CUDA device(s) available at runtime." >&2
+  exit 2
+fi
+
+# Keep the historical effective batch and total loader-worker budget close to 8
+# whether this job runs on one, two, or four allocated GPUs.
+export GRAD_ACCUM="${GRAD_ACCUM:-$(( (8 + NUM_GPUS - 1) / NUM_GPUS ))}"
+export NUM_WORKERS="${NUM_WORKERS:-$(( (8 + NUM_GPUS - 1) / NUM_GPUS ))}"
+echo "Distill Stage2 runtime: available_gpus=${AVAILABLE_GPUS} world_size=${NUM_GPUS} grad_accum=${GRAD_ACCUM}"
 
 MODE="${1:-train}"
 if [[ "${MODE}" == "model_check" ]]; then
