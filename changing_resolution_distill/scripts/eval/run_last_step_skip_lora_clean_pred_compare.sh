@@ -33,6 +33,8 @@ CR_DISTILL_DIT_CKPT="${CR_DISTILL_DIT_CKPT:-${CR_DISTILL_MODEL_ROOT}/distill_mod
 CR_DISTILL_LORA_OUT_DIR="${CR_DISTILL_LORA_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3}"
 LORA_CKPT="${LORA_CKPT:-${CR_DISTILL_LORA_OUT_DIR}/latest.safetensors}"
 LORA_STRENGTH="${LORA_STRENGTH:-1.0}"
+CASES="${CASES:-original lora teacher}"
+CREATE_COMPARE="${CREATE_COMPARE:-1}"
 
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 DTYPE="${DTYPE:-BF16}"
@@ -182,11 +184,15 @@ run_case_batch() {
 
 echo "[compare] prompts=${PROMPTS_FILE} limit=${LIMIT} seed=${SEED} increment_seed=${INCREMENT_SEED}"
 
-run_case_batch "original3_clean_pred" "wan2.1_distill_last_step_lora" "3" "1000,750,500" "off"
-run_case_batch "lora3_step3_clean_pred" "wan2.1_distill_last_step_lora" "3" "1000,750,500" "on"
-run_case_batch "teacher4" "wan2.1_distill" "4" "1000,750,500,250" "none"
+case_enabled() {
+  [[ " ${CASES} " == *" $1 "* ]]
+}
 
-if command -v ffmpeg >/dev/null 2>&1; then
+case_enabled original && run_case_batch "original3_clean_pred" "wan2.1_distill_last_step_lora" "3" "1000,750,500" "off"
+case_enabled lora && run_case_batch "lora3_step3_clean_pred" "wan2.1_distill_last_step_lora" "3" "1000,750,500" "on"
+case_enabled teacher && run_case_batch "teacher4" "wan2.1_distill" "4" "1000,750,500,250" "none"
+
+if [[ "${CREATE_COMPARE}" == "1" ]] && command -v ffmpeg >/dev/null 2>&1; then
   for ((i = 0; i < LIMIT; i++)); do
     if [[ "${INCREMENT_SEED}" == "1" ]]; then
       item_seed=$((SEED + i))
@@ -210,6 +216,6 @@ if command -v ffmpeg >/dev/null 2>&1; then
       echo "[compare] skip hstack index=${idx}; missing one or more videos" >&2
     fi
   done
-else
+elif [[ "${CREATE_COMPARE}" == "1" ]]; then
   echo "[compare] ffmpeg not found; skip hstack"
 fi

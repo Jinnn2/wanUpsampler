@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -25,7 +26,7 @@ def main() -> None:
     args = parse_args()
     family = family_config(args)
     prompts = load_prompts(Path(args.prompts), args.prompt_offset, args.limit)
-    cases = build_cases(args.family, args.steps)
+    cases = build_cases(args.family, args.steps, args.handoffs, args.resizers)
     out_root = Path(args.out_root)
     (out_root / "configs").mkdir(parents=True, exist_ok=True)
     (out_root / "videos").mkdir(parents=True, exist_ok=True)
@@ -82,7 +83,7 @@ def family_config(args: argparse.Namespace) -> dict[str, object]:
     }
 
 
-def build_cases(family: str, steps: list[int]) -> list[Case]:
+def build_cases(family: str, steps: list[int], handoffs: list[str], resizers: list[str]) -> list[Case]:
     infer_steps = 50 if family == "wan50" else 4
     for step in steps:
         if step < 1 or step >= infer_steps:
@@ -90,8 +91,8 @@ def build_cases(family: str, steps: list[int]) -> list[Case]:
     return [
         Case(f"step{step}_{handoff}_{resizer}", step, handoff, resizer)
         for step in steps
-        for handoff in ("base", "lora")
-        for resizer in ("interp", "stage2")
+        for handoff in handoffs
+        for resizer in resizers
     ]
 
 
@@ -245,14 +246,38 @@ def load_prompts(path: Path, offset: int, limit: int) -> list[str]:
 
 
 def write_run_manifest(out_root: Path, args: argparse.Namespace, prompts: list[str], cases: list[Case]) -> None:
+    lora_artifacts = {
+        str(step): artifact_fingerprint(Path(path))
+        for step, path in args.lora_checkpoint.items()
+        if any(case.handoff == "lora" and case.step == step for case in cases)
+    }
     payload = {
         "family": args.family,
         "seed_base": args.seed,
         "prompt_offset": args.prompt_offset,
         "prompts": prompts,
         "cases": [case.__dict__ for case in cases],
+        "lora_artifacts": lora_artifacts,
     }
-    (out_root / "run_manifest.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (out_root / args.manifest_name).write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def artifact_fingerprint(path: Path) -> dict[str, object]:
+    resolved = path.resolve()
+    result: dict[str, object] = {
+        "requested_path": str(path),
+        "resolved_path": str(resolved),
+    }
+    if not resolved.is_file():
+        result["missing"] = True
+        return result
+    stat = resolved.stat()
+    digest = hashlib.sha256()
+    with resolved.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    result.update({"size_bytes": stat.st_size, "mtime_ns": stat.st_mtime_ns, "sha256": digest.hexdigest()})
+    return result
 
 
 def parse_step_paths(values: list[str]) -> dict[int, str]:
@@ -271,6 +296,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("mode", choices=["check", "run"])
     parser.add_argument("--family", choices=["wan50", "distill4"], required=True)
     parser.add_argument("--steps", nargs="+", type=int, required=True)
+    parser.add_argument("--handoffs", nargs="+", choices=["base", "lora"], default=["base", "lora"])
+    parser.add_argument("--resizers", nargs="+", choices=["interp", "stage2"], default=["interp", "stage2"])
     parser.add_argument("--prompts", default=str(REPO_ROOT / "changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt"))
     parser.add_argument("--out-root", required=True)
     parser.add_argument("--model-root")
@@ -290,7 +317,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stage2-use-ema", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--skip-existing", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--negative-prompt", default="")
+    parser.add_argument("--manifest-name", default="run_manifest.json")
     args = parser.parse_args()
+    if Path(args.manifest_name).name != args.manifest_name:
+        parser.error("--manifest-name must be a file name, not a path")
     args.lora_checkpoint = parse_step_paths(args.lora_checkpoint)
     args.lora_strength_step = {step: float(value) for step, value in parse_step_paths(args.lora_strength_step).items()}
     return args
