@@ -25,7 +25,7 @@ from lightx2v_platform.registry_factory import PLATFORM_DEVICE_REGISTER
 
 def main() -> None:
     args = parse_args()
-    prompts = load_prompts(Path(args.prompts_file), limit=args.limit)
+    prompts = load_prompts(Path(args.prompts_file), offset=args.prompt_offset, limit=args.limit)
     if not prompts:
         raise SystemExit(f"No prompts found in {args.prompts_file}")
 
@@ -43,12 +43,25 @@ def main() -> None:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    jobs = []
+    for index, prompt in enumerate(prompts, start=args.prompt_offset):
+        seed = args.seed + index if args.increment_seed else args.seed
+        output_path = out_dir / f"{args.name_prefix}_{index:02d}_seed{seed}.mp4"
+        if args.skip_existing and output_path.is_file() and output_path.stat().st_size > 0:
+            logger.info(f"[batch:skip] {output_path}")
+            continue
+        jobs.append((index, prompt, seed, output_path))
+
+    if not jobs:
+        logger.info(f"[batch] all {len(prompts)} output(s) already exist; skip model initialization")
+        if dist.is_initialized():
+            dist.destroy_process_group()
+        return
+
     with ProfilingContext4DebugL1("Batch Total Cost"):
         runner = RUNNER_REGISTER[config["model_cls"]](config)
         runner.init_modules()
-        for index, prompt in enumerate(prompts):
-            seed = args.seed + index if args.increment_seed else args.seed
-            output_path = out_dir / f"{args.name_prefix}_{index:02d}_seed{seed}.mp4"
+        for index, prompt, seed, output_path in jobs:
             input_info = init_empty_input_info(args.task, args.support_tasks)
             payload = vars(args).copy()
             payload.update(
@@ -71,15 +84,14 @@ def main() -> None:
         logger.info("Distributed process group cleaned up")
 
 
-def load_prompts(path: Path, *, limit: int) -> list[str]:
+def load_prompts(path: Path, *, offset: int, limit: int) -> list[str]:
     prompts = []
     for line in path.read_text(encoding="utf-8").splitlines():
         text = line.strip()
         if text and not text.startswith("#"):
             prompts.append(text)
-        if limit > 0 and len(prompts) >= limit:
-            break
-    return prompts
+    selected = prompts[offset : offset + limit] if limit > 0 else prompts[offset:]
+    return selected
 
 
 def parse_args() -> argparse.Namespace:
@@ -119,6 +131,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out_dir", type=str, required=True)
     parser.add_argument("--name_prefix", type=str, required=True)
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--prompt-offset", type=int, default=0)
+    parser.add_argument("--skip-existing", action="store_true")
     return parser.parse_args()
 
 

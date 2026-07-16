@@ -152,25 +152,27 @@ fi
 export CUDA_VISIBLE_DEVICES LIGHTX2V_REPO
 export PYTHONPATH="${LIGHTX2V_REPO}:${PROJECT_ROOT}:${PYTHONPATH:-}"
 
-run_infer() {
-  local case_name="$1" index="$2" prompt="$3" seed="$4"
-  local model_cls output
+run_case_batch() {
+  local case_name="$1"
+  local model_cls
   case "${case_name}" in
     lora3_stage2_hr4) model_cls=wan2.1_distill_last_step_lora_clean_resizer_bridge ;;
     teacher4_interp) model_cls=wan2.1_distill_interp_bridge ;;
     *) model_cls=wan2.1_distill_clean_resizer_bridge ;;
   esac
-  output="${OUT_ROOT}/videos/${case_name}/${case_name}_${index}_seed${seed}.mp4"
-  mkdir -p "$(dirname "${output}")"
-  if [[ "${SKIP_EXISTING}" == "1" && -s "${output}" ]]; then
-    echo "  [skip] ${output}"
-    return
+  local output_dir="${OUT_ROOT}/videos/${case_name}"
+  mkdir -p "${output_dir}"
+  local skip_args=()
+  if [[ "${SKIP_EXISTING}" == "1" ]]; then
+    skip_args+=(--skip-existing)
   fi
-  python "${PROJECT_ROOT}/changing_resolution_distill/scripts/bridge/run_lightx2v_distill_bridge_infer.py" \
-    --seed "${seed}" --model_cls "${model_cls}" --task t2v --model_path "${MODEL_ROOT}" \
-    --config_json "${OUT_ROOT}/configs/${case_name}.json" --prompt "${prompt}" \
-    --negative_prompt "${NEGATIVE_PROMPT}" --save_result_path "${output}" \
-    --target_video_length "${NUM_FRAMES}"
+  python "${PROJECT_ROOT}/changing_resolution_distill/scripts/bridge/run_lightx2v_distill_bridge_batch_infer.py" \
+    --seed "${SEED}" --increment_seed \
+    --model_cls "${model_cls}" --task t2v --model_path "${MODEL_ROOT}" \
+    --config_json "${OUT_ROOT}/configs/${case_name}.json" \
+    --negative_prompt "${NEGATIVE_PROMPT}" --target_video_length "${NUM_FRAMES}" \
+    --prompts_file "${PROMPTS_FILE}" --out_dir "${output_dir}" --name_prefix "${case_name}" \
+    --prompt-offset "${PROMPT_OFFSET}" --limit "${LIMIT}" "${skip_args[@]}"
 }
 
 make_compare() {
@@ -193,14 +195,14 @@ make_compare() {
 }
 
 if [[ "${MODE}" == "run" ]]; then
+  for case_name in base3_stage2_hr4 lora3_stage2_hr4 teacher4_interp teacher4_stage2; do
+    echo "[batch] case=${case_name}; model weights load once for ${#prompts[@]} prompt(s)"
+    run_case_batch "${case_name}"
+  done
   for ((i=0; i<${#prompts[@]}; i++)); do
     sample_index=$((PROMPT_OFFSET + i))
     sample_label="$(printf '%02d' "${sample_index}")"
     sample_seed=$((SEED + sample_index))
-    echo "[$((i + 1))/${#prompts[@]}] index=${sample_label} seed=${sample_seed}"
-    for case_name in base3_stage2_hr4 lora3_stage2_hr4 teacher4_interp teacher4_stage2; do
-      run_infer "${case_name}" "${sample_label}" "${prompts[$i]}" "${sample_seed}"
-    done
     make_compare "${sample_label}" "${sample_seed}"
   done
 fi
