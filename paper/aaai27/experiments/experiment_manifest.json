@@ -192,9 +192,9 @@
     {
       "id": "distill_factorial",
       "group": "factorial",
-      "depends_on": ["distill_stage2_checkpoint", "distill_lora3_checkpoint"],
+      "depends_on": ["distill_stage2_checkpoint", "distill_480lora_transfer_sweep"],
       "commands": [
-        "python paper/aaai27/experiments/run_factorial.py run --family distill4 --steps 3 --prompts ${AAAI_PROMPTS} --out-root ${DISTILL_FACTORIAL} --stage2-checkpoint ${DISTILL_STAGE2_CKPT} --stage2-train-config ${DISTILL_STAGE2_CONFIG} --lora-checkpoint 3=${DISTILL_LORA3_CKPT} --reuse-root outputs/changing_resolution_distill_stage2_four_way_368x640_720x1248 --limit 10 --seed 9800 --lora-strength ${DISTILL_LORA_STRENGTH} --stage2-use-ema"
+        "python paper/aaai27/experiments/run_factorial.py run --family distill4 --steps 3 --prompts ${AAAI_PROMPTS} --out-root ${DISTILL_FACTORIAL} --stage2-checkpoint ${DISTILL_STAGE2_CKPT} --stage2-train-config ${DISTILL_STAGE2_CONFIG} --lora-checkpoint 3=${DISTILL_LORA_480_CKPT} --reuse-root ${AAAI_RESULTS}/distill_480p_lora_transfer_368p/strength_0p75 --limit 10 --seed 9800 --lora-strength ${DISTILL_LORA_STRENGTH} --stage2-use-ema"
       ],
       "evidence": [{"glob": "${DISTILL_FACTORIAL}/videos/*/*.mp4", "min_count": 40, "min_bytes": 1024}]
     },

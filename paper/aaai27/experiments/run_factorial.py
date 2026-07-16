@@ -41,6 +41,10 @@ def main() -> None:
         print(f"Check passed: {len(cases)} cases, {len(prompts)} prompts; configs={out_root / 'configs'}")
         return
 
+    if args.family == "distill4":
+        run_distill_batch(args, family, cases, prompts)
+        return
+
     for index, prompt in enumerate(prompts, start=args.prompt_offset):
         seed = args.seed + index
         label = f"{index:02d}"
@@ -55,6 +59,60 @@ def main() -> None:
                 print(f"[reuse] {reused} -> {output}", flush=True)
                 continue
             run_inference(args, family, case, prompt, seed, output)
+
+
+def run_distill_batch(
+    args: argparse.Namespace, family: dict[str, object], cases: list[Case], prompts: list[str]
+) -> None:
+    batch_bridge = REPO_ROOT / "changing_resolution_distill/scripts/bridge/run_lightx2v_distill_bridge_batch_infer.py"
+    for case in cases:
+        # Populate any validated legacy/reuse results first. The batch runner
+        # then generates only the still-missing outputs with one model load.
+        for index, _prompt in enumerate(prompts, start=args.prompt_offset):
+            seed = args.seed + index
+            label = f"{index:02d}"
+            output = Path(args.out_root) / "videos" / case.name / f"{case.name}_{label}_seed{seed}.mp4"
+            output.parent.mkdir(parents=True, exist_ok=True)
+            if output.is_file() and output.stat().st_size > 0 and args.skip_existing:
+                continue
+            reused = reuse_existing(args, case, label, seed, output)
+            if reused:
+                print(f"[reuse] {reused} -> {output}", flush=True)
+
+        class_key = f"{case.handoff}_{case.resizer}_cls"
+        command = [
+            sys.executable,
+            str(batch_bridge),
+            "--seed",
+            str(args.seed),
+            "--increment_seed",
+            "--model_cls",
+            str(family[class_key]),
+            "--task",
+            "t2v",
+            "--model_path",
+            str(family["model_root"]),
+            "--config_json",
+            str(Path(args.out_root) / "configs" / f"{case.name}.json"),
+            "--negative_prompt",
+            args.negative_prompt,
+            "--target_video_length",
+            str(args.num_frames),
+            "--prompts_file",
+            args.prompts,
+            "--out_dir",
+            str(Path(args.out_root) / "videos" / case.name),
+            "--name_prefix",
+            case.name,
+            "--prompt-offset",
+            str(args.prompt_offset),
+            "--limit",
+            str(args.limit),
+        ]
+        if args.skip_existing:
+            command.append("--skip-existing")
+        print(f"[batch] {case.name}: one model load for {len(prompts)} prompt(s)", flush=True)
+        subprocess.run(command, cwd=REPO_ROOT, check=True)
 
 
 def family_config(args: argparse.Namespace) -> dict[str, object]:
