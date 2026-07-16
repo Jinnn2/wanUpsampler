@@ -174,7 +174,8 @@ run_infer() {
 }
 
 make_compare() {
-  local index="$1" seed="$2" out="${OUT_ROOT}/compare/${index}_seed${seed}_four_way.mp4"
+  local index="$1" seed="$2"
+  local out="${OUT_ROOT}/compare/${index}_seed${seed}_four_way.mp4"
   command -v ffmpeg >/dev/null 2>&1 || return
   local inputs=() filters=() labels=() i=0 video
   for case_name in base3_stage2_hr4 lora3_stage2_hr4 teacher4_interp teacher4_stage2; do
