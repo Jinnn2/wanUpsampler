@@ -13,8 +13,8 @@
     "DISTILL_STAGE2_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb/latest.pt",
     "DISTILL_STAGE2_CONFIG": "${PROJECT_ROOT}/changing_resolution_distill/configs/train_clean_368x640_to_720x1248_lmdb_stage2_distill.yaml",
     "DISTILL_LORA3_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3/latest.safetensors",
-    "DISTILL_LORA_480_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/latest.safetensors",
-    "DISTILL_LORA_STRENGTH": "1.0",
+    "DISTILL_LORA_480_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/step_0010000.safetensors",
+    "DISTILL_LORA_STRENGTH": "0.75",
     "CR_DISTILL_RAW_VIDEO_DIR_1K": "${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_5k",
     "WAN50_FACTORIAL": "${AAAI_RESULTS}/factorial_wan50",
     "DISTILL_FACTORIAL": "${AAAI_RESULTS}/factorial_distill4"
@@ -107,7 +107,7 @@
       "group": "ablation",
       "depends_on": ["distill_stage2_checkpoint"],
       "commands": [
-        "LORA_CKPT=${DISTILL_LORA_480_CKPT} STAGE2_CHECKPOINT=${DISTILL_STAGE2_CKPT} STRENGTHS='0.25 0.5 0.75 1.0' LIMIT=10 bash changing_resolution_distill/scripts/eval/run_distill_368x640_480p_lora_transfer_sweep.sh"
+        "LORA_CKPT=${DISTILL_LORA_480_CKPT} STAGE2_CHECKPOINT=${DISTILL_STAGE2_CKPT} STRENGTHS='${DISTILL_LORA_STRENGTH}' LIMIT=10 bash changing_resolution_distill/scripts/eval/run_distill_368x640_480p_lora_transfer_sweep.sh"
       ],
       "evidence": [{"glob": "${AAAI_RESULTS}/distill_480p_lora_transfer_368p/transfer_sweep_summary.csv", "min_bytes": 64}]
     },
