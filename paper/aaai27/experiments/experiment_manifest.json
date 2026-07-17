@@ -15,6 +15,10 @@
     "DISTILL_LORA3_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3/latest.safetensors",
     "DISTILL_LORA_480_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/step_0010000.safetensors",
     "DISTILL_LORA_STRENGTH": "0.75",
+    "VBENCH_ROOT": "/mnt/afs_2/houze/VBench",
+    "LORA_ABLATION_REGISTRY": "${AAAI_RESULTS}/ablations/lora_registry.json",
+    "STAGE2_ABLATION_REGISTRY": "${AAAI_RESULTS}/ablations/stage2_registry.json",
+    "QUALITY_EFFICIENCY_SPEC": "${AAAI_RESULTS}/efficiency/benchmark_spec.json",
     "CR_DISTILL_RAW_VIDEO_DIR_1K": "${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_5k",
     "WAN50_FACTORIAL": "${AAAI_RESULTS}/factorial_wan50",
     "DISTILL_FACTORIAL": "${AAAI_RESULTS}/factorial_distill4"
@@ -252,6 +256,9 @@
       "group": "ablation",
       "kind": "artifact",
       "note": "Requires frozen qkvo/qkvo+FFN, rank 8/16/32, and loss-variant checkpoints evaluated on one held-out manifest.",
+      "commands": [
+        "python paper/aaai27/experiments/compile_ablation_results.py --kind lora --registry ${LORA_ABLATION_REGISTRY} --output ${AAAI_RESULTS}/ablations/lora_architecture_loss.csv"
+      ],
       "evidence": [{"glob": "${AAAI_RESULTS}/ablations/lora_architecture_loss.csv", "min_bytes": 64}]
     },
     {
@@ -259,6 +266,9 @@
       "group": "ablation",
       "kind": "artifact",
       "note": "Requires matched 2D/3D, residual/direct, rational/crop, and loss-variant Stage2 checkpoints.",
+      "commands": [
+        "python paper/aaai27/experiments/compile_ablation_results.py --kind stage2 --registry ${STAGE2_ABLATION_REGISTRY} --output ${AAAI_RESULTS}/ablations/stage2_architecture_loss.csv"
+      ],
       "evidence": [{"glob": "${AAAI_RESULTS}/ablations/stage2_architecture_loss.csv", "min_bytes": 64}]
     },
     {
@@ -266,21 +276,89 @@
       "group": "efficiency",
       "kind": "artifact",
       "note": "Wall-clock exists, but peak CUDA memory and isolated Stage2/LoRA loading overhead still need instrumented fresh runs.",
+      "commands": [
+        "python paper/aaai27/experiments/benchmark_quality_efficiency.py --spec ${QUALITY_EFFICIENCY_SPEC} --output ${AAAI_RESULTS}/efficiency/quality_efficiency.csv --gpu 0 --warmup 1 --repeats 5"
+      ],
       "evidence": [{"glob": "${AAAI_RESULTS}/efficiency/quality_efficiency.csv", "min_bytes": 64}]
+    },
+    {
+      "id": "generalization_videos",
+      "group": "generalization",
+      "depends_on": ["wan50_factorial", "distill_factorial"],
+      "commands": [
+        "python paper/aaai27/experiments/run_factorial.py run --family wan50 --steps 45 --prompts paper/aaai27/experiments/generalization_prompts_20.txt --out-root ${AAAI_RESULTS}/generalization/factorial_wan50 --stage2-checkpoint ${WAN50_STAGE2_CKPT} --stage2-train-config ${WAN50_STAGE2_CONFIG} --lora-checkpoint 45=${WAN50_LORA45_CKPT} --limit 20 --seed 11000 --lora-strength 0.75",
+        "python paper/aaai27/experiments/run_factorial.py run --family distill4 --steps 3 --prompts paper/aaai27/experiments/generalization_prompts_20.txt --out-root ${AAAI_RESULTS}/generalization/factorial_distill4 --stage2-checkpoint ${DISTILL_STAGE2_CKPT} --stage2-train-config ${DISTILL_STAGE2_CONFIG} --lora-checkpoint 3=${DISTILL_LORA_480_CKPT} --limit 20 --seed 12000 --lora-strength ${DISTILL_LORA_STRENGTH} --stage2-use-ema",
+        "python paper/aaai27/experiments/run_vbench_factorials.py prepare --factorial-root ${AAAI_RESULTS}/generalization/factorial_wan50",
+        "python paper/aaai27/experiments/run_vbench_factorials.py prepare --factorial-root ${AAAI_RESULTS}/generalization/factorial_distill4"
+      ],
+      "evidence": [
+        {"glob": "${AAAI_RESULTS}/generalization/factorial_wan50/videos/*/*.mp4", "min_count": 80, "min_bytes": 1024},
+        {"glob": "${AAAI_RESULTS}/generalization/factorial_distill4/videos/*/*.mp4", "min_count": 80, "min_bytes": 1024}
+      ]
+    },
+    {
+      "id": "generalization_vbench",
+      "group": "generalization",
+      "kind": "external",
+      "depends_on": ["generalization_videos"],
+      "commands": [
+        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${AAAI_RESULTS}/generalization/factorial_wan50 --vbench-root ${VBENCH_ROOT}",
+        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${AAAI_RESULTS}/generalization/factorial_distill4 --vbench-root ${VBENCH_ROOT}"
+      ],
+      "evidence": [
+        {"glob": "${AAAI_RESULTS}/generalization/factorial_wan50/metrics/vbench_v1_custom.json", "min_bytes": 64},
+        {"glob": "${AAAI_RESULTS}/generalization/factorial_distill4/metrics/vbench_v1_custom.json", "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "generalization_review_package",
+      "group": "generalization",
+      "depends_on": ["generalization_videos"],
+      "commands": [
+        "python paper/aaai27/experiments/prepare_blind_review.py --factorial-root ${AAAI_RESULTS}/generalization/factorial_wan50",
+        "python paper/aaai27/experiments/prepare_blind_review.py --factorial-root ${AAAI_RESULTS}/generalization/factorial_distill4"
+      ],
+      "evidence": [
+        {"glob": "${AAAI_RESULTS}/generalization/factorial_wan50/review/human_ratings.csv", "min_bytes": 64},
+        {"glob": "${AAAI_RESULTS}/generalization/factorial_distill4/review/human_ratings.csv", "min_bytes": 64}
+      ]
     },
     {
       "id": "generalization_and_failures",
       "group": "generalization",
-      "kind": "artifact",
-      "note": "Requires unseen prompts/motions, natural-video or codec inputs, cross-checkpoint tests, and curated failure cases.",
+      "kind": "manual",
+      "depends_on": ["generalization_vbench", "generalization_review_package"],
+      "note": "Merge three completed rater ballots in each generalization root, run aggregate_human_review.py, then run collect_generalization.py.",
+      "commands": [
+        "python paper/aaai27/experiments/aggregate_human_review.py summarize --factorial-root ${AAAI_RESULTS}/generalization/factorial_wan50 --min-raters 3",
+        "python paper/aaai27/experiments/aggregate_human_review.py summarize --factorial-root ${AAAI_RESULTS}/generalization/factorial_distill4 --min-raters 3",
+        "python paper/aaai27/experiments/collect_generalization.py --factorial-root ${AAAI_RESULTS}/generalization/factorial_wan50 --factorial-root ${AAAI_RESULTS}/generalization/factorial_distill4 --output ${AAAI_RESULTS}/generalization/summary.csv"
+      ],
       "evidence": [{"glob": "${AAAI_RESULTS}/generalization/summary.csv", "min_bytes": 64}]
+    },
+    {
+      "id": "vbench_factorial_inputs",
+      "group": "metrics",
+      "depends_on": ["wan50_factorial", "distill_factorial"],
+      "commands": [
+        "python paper/aaai27/experiments/run_vbench_factorials.py prepare --factorial-root ${WAN50_FACTORIAL}",
+        "python paper/aaai27/experiments/run_vbench_factorials.py prepare --factorial-root ${DISTILL_FACTORIAL}"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_FACTORIAL}/metrics/vbench_inputs/*/prompt_map.json", "min_count": 8, "min_bytes": 64},
+        {"glob": "${DISTILL_FACTORIAL}/metrics/vbench_inputs/*/prompt_map.json", "min_count": 4, "min_bytes": 64}
+      ]
     },
     {
       "id": "vbench_factorials",
       "group": "metrics",
       "kind": "external",
-      "note": "Set up the official VBench/VBench2 environment, then provide its result JSONs under the canonical result folders.",
-      "depends_on": ["wan50_factorial", "distill_factorial"],
+      "note": "Run run_vbench_factorials.py run for both roots in a pinned official VBench environment; it writes canonical per-family JSONs.",
+      "depends_on": ["vbench_factorial_inputs"],
+      "commands": [
+        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${WAN50_FACTORIAL} --vbench-root ${VBENCH_ROOT}",
+        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${DISTILL_FACTORIAL} --vbench-root ${VBENCH_ROOT}"
+      ],
       "evidence": [
         {"glob": "${WAN50_FACTORIAL}/metrics/vbench*.json"},
         {"glob": "${DISTILL_FACTORIAL}/metrics/vbench*.json"}
@@ -307,7 +385,9 @@
       "depends_on": ["blind_review_package"],
       "evidence": [
         {"glob": "${WAN50_FACTORIAL}/review/human_ratings_completed.csv", "min_bytes": 64},
-        {"glob": "${DISTILL_FACTORIAL}/review/human_ratings_completed.csv", "min_bytes": 64}
+        {"glob": "${DISTILL_FACTORIAL}/review/human_ratings_completed.csv", "min_bytes": 64},
+        {"glob": "${WAN50_FACTORIAL}/review/human_review_summary.json", "min_bytes": 64},
+        {"glob": "${DISTILL_FACTORIAL}/review/human_review_summary.json", "min_bytes": 64}
       ]
     }
   ]

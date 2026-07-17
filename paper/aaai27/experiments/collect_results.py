@@ -94,10 +94,26 @@ def collect_inventory(
             / "distill_480p_lora_transfer_368p/strength_0p75/evaluation/distill_360p_metrics.csv"
         ),
         "timing_raw": load_csv_source(project_root / "outputs/changing_resolution_time_compare/time_summary.csv"),
-        "lora_architecture_loss": load_csv_source(results_root / "ablations/lora_architecture_loss.csv"),
-        "stage2_architecture_loss": load_csv_source(results_root / "ablations/stage2_architecture_loss.csv"),
-        "quality_efficiency": load_csv_source(results_root / "efficiency/quality_efficiency.csv"),
-        "generalization": load_csv_source(results_root / "generalization/summary.csv"),
+        "lora_architecture_loss": load_validated_csv(
+            results_root / "ablations/lora_architecture_loss.csv",
+            {"axis", "variant", "checkpoint", "metric", "samples", "variant_mean"},
+            min_rows=6,
+        ),
+        "stage2_architecture_loss": load_validated_csv(
+            results_root / "ablations/stage2_architecture_loss.csv",
+            {"axis", "variant", "checkpoint", "metric", "samples", "stage2_mean"},
+            min_rows=6,
+        ),
+        "quality_efficiency": load_validated_csv(
+            results_root / "efficiency/quality_efficiency.csv",
+            {"family", "case", "measurement", "repeats", "elapsed_mean_s", "peak_memory_gib", "quality_metric", "quality_value"},
+            min_rows=8,
+        ),
+        "generalization": load_validated_csv(
+            results_root / "generalization/summary.csv",
+            {"family", "category", "case", "samples", "metric", "mean", "severe_failure_rate"},
+            min_rows=8,
+        ),
     }
 
     sources["timing_summary"] = summarize_timing(sources["timing_raw"])
@@ -198,6 +214,29 @@ def load_csv_source(path: Path) -> dict[str, Any]:
     if not rows:
         return {**base, "status": "invalid", "row_count": 0, "rows": [], "message": "CSV has no data rows"}
     return {**base, "status": "complete", "row_count": len(rows), "columns": list(rows[0]), "rows": rows}
+
+
+def load_validated_csv(path: Path, required_columns: set[str], min_rows: int) -> dict[str, Any]:
+    source = load_csv_source(path)
+    if source["status"] != "complete":
+        return source
+    missing = sorted(required_columns - set(source.get("columns", [])))
+    problems = []
+    if missing:
+        problems.append("missing columns: " + ", ".join(missing))
+    if source["row_count"] < min_rows:
+        problems.append(f"found {source['row_count']} rows, expected at least {min_rows}")
+    empty_required = [
+        index + 2
+        for index, row in enumerate(source["rows"])
+        if any(not str(row.get(column, "")).strip() for column in required_columns)
+    ]
+    if empty_required:
+        problems.append(f"required values are empty on {len(empty_required)} rows")
+    if problems:
+        source["status"] = "invalid"
+        source["message"] = "; ".join(problems)
+    return source
 
 
 def load_json_source(path: Path) -> dict[str, Any]:
@@ -470,8 +509,21 @@ def inspect_json_files(root: Path, pattern: str) -> dict[str, Any]:
     for path in files:
         try:
             data = json.loads(path.read_text(encoding="utf-8-sig"))
-            parsed.append({"path": str(path), "numeric_metrics": flatten_numeric(data)})
-        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            numeric = flatten_numeric(data)
+            if not numeric:
+                raise ValueError("JSON contains no finite numeric metrics")
+            if path.name.startswith("vbench_v1_custom"):
+                if data.get("benchmark") != "VBench" or data.get("mode") != "custom_input":
+                    raise ValueError("canonical VBench metadata is missing")
+                cases = data.get("cases")
+                if (
+                    not isinstance(cases, dict)
+                    or not cases
+                    or any(not isinstance(item, dict) or not item.get("numeric_metrics") for item in cases.values())
+                ):
+                    raise ValueError("canonical VBench cases are incomplete")
+            parsed.append({"path": str(path), "numeric_metrics": numeric})
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
             invalid.append({"path": str(path), "error": str(exc)})
     status = "complete" if parsed and not invalid else "invalid" if invalid else "missing"
     return {
@@ -497,16 +549,38 @@ def flatten_numeric(value: Any, prefix: str = "") -> dict[str, float]:
 def inspect_human_review(root: Path) -> dict[str, Any]:
     ballot = load_csv_source(root / "review/human_ratings.csv")
     completed = load_csv_source(root / "review/human_ratings_completed.csv")
+    summary = load_json_source(root / "review/human_review_summary.json")
     required_suffix = "_winner_A_B_tie"
     completed_rows = 0
+    validation_errors: list[str] = []
     if completed["status"] == "complete":
         rating_columns = [column for column in completed.get("columns", []) if column.endswith(required_suffix)]
-        for row in completed["rows"]:
-            if rating_columns and all(str(row.get(column, "")).strip() for column in rating_columns):
+        required = {"blind_id", "rater_id", "confidence_1_to_5", "severe_failure_A_B_neither"}
+        if not required.issubset(completed.get("columns", [])):
+            validation_errors.append("completed ratings must include blind_id, rater_id, confidence, and severe-failure columns")
+        raters_by_blind: dict[str, set[str]] = defaultdict(set)
+        for row_number, row in enumerate(completed["rows"], start=2):
+            winner_values = [str(row.get(column, "")).strip() for column in rating_columns]
+            rater = str(row.get("rater_id", "")).strip()
+            blind_id = str(row.get("blind_id", "")).strip()
+            valid = bool(rating_columns) and all(value in {"A", "B", "tie"} for value in winner_values)
+            valid = valid and str(row.get("confidence_1_to_5", "")).strip() in {"1", "2", "3", "4", "5"}
+            valid = valid and str(row.get("severe_failure_A_B_neither", "")).strip() in {"A", "B", "neither"}
+            if valid and rater and blind_id:
                 completed_rows += 1
-    completed_status = "complete" if completed["status"] == "complete" and completed_rows == completed["row_count"] else completed["status"]
-    if completed["status"] == "complete" and completed_rows != completed["row_count"]:
+                raters_by_blind[blind_id].add(rater)
+            else:
+                validation_errors.append(f"invalid completed rating at line {row_number}")
+        ballot_ids = {str(row.get("blind_id", "")).strip() for row in ballot.get("rows", [])}
+        insufficient = [blind_id for blind_id in ballot_ids if len(raters_by_blind[blind_id]) < 3]
+        if insufficient:
+            validation_errors.append(f"{len(insufficient)} blind pairs have fewer than 3 independent raters")
+    completed_status = "complete" if completed["status"] == "complete" and not validation_errors else completed["status"]
+    if completed["status"] == "complete" and validation_errors:
         completed_status = "invalid"
+    if completed_status == "complete" and summary["status"] != "complete":
+        completed_status = summary["status"]
+        validation_errors.append("validated human-review summary is missing or invalid")
     return {
         "root": str(root),
         "ballot_status": ballot["status"],
@@ -514,8 +588,11 @@ def inspect_human_review(root: Path) -> dict[str, Any]:
         "completed_status": completed_status,
         "completed_rows": completed_rows,
         "completed_total_rows": completed["row_count"],
-        "completed_message": completed.get("message", "")
-        or f"{completed_rows}/{completed['row_count']} rows have every winner field filled",
+        "summary_status": summary["status"],
+        "summary": summary.get("data"),
+        "completed_message": "; ".join(validation_errors)
+        or completed.get("message", "")
+        or f"{completed_rows}/{completed['row_count']} valid rating rows",
     }
 
 
@@ -572,6 +649,12 @@ def write_outputs(output_root: Path, inventory: dict[str, Any]) -> None:
         "generalization": inventory["sources"]["generalization"]["rows"],
         "factorial_coverage": factorial_coverage_rows(inventory["factorials"]),
         "task_audit": inventory["task_audit"],
+        "human_review_wan50": (inventory["external"]["human_review"]["wan50"].get("summary") or {}).get(
+            "preferences", []
+        ),
+        "human_review_distill4": (inventory["external"]["human_review"]["distill4"].get("summary") or {}).get(
+            "preferences", []
+        ),
     }
     for name, rows in source_names.items():
         write_csv(compiled / f"{name}.csv", rows)

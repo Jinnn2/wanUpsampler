@@ -86,6 +86,145 @@ official VBench environment. Put its per-video and aggregate JSON outputs in
 each factorial folder's `metrics/` directory; `audit` will then mark that
 evidence complete.
 
+### Canonical VBench execution
+
+Pin an official VBench checkout and override `VBENCH_ROOT` when it is not at
+the manifest default. The preparation step verifies every expected factorial
+video and writes the required absolute-video-path-to-prompt JSON mappings.
+
+```bash
+python paper/aaai27/experiments/run_experiments.py run --task vbench_factorial_inputs
+
+VBENCH_ROOT=/path/to/VBench \
+python paper/aaai27/experiments/run_experiments.py run --task vbench_factorials
+```
+
+`run_vbench_factorials.py` evaluates each factorial case separately using the
+six dimensions supported by VBench custom-input mode and creates one canonical
+`metrics/vbench_v1_custom.json` per family. It refuses to collect a family if
+any case lacks numeric official output.
+
+### Independent human ratings
+
+Create one copy of `human_ratings.csv` for each rater. Each rater must fill all
+winner fields with `A`, `B`, or `tie`, confidence with an integer from 1 to 5,
+and severe failure with `A`, `B`, or `neither`. Merge three completed ballots
+without exposing `_private/human_review_key.csv`:
+
+```bash
+python paper/aaai27/experiments/aggregate_human_review.py merge \
+  --factorial-root outputs/aaai27_experiments/factorial_wan50 \
+  --rater r1=/path/wan50_rater1.csv \
+  --rater r2=/path/wan50_rater2.csv \
+  --rater r3=/path/wan50_rater3.csv
+
+python paper/aaai27/experiments/aggregate_human_review.py merge \
+  --factorial-root outputs/aaai27_experiments/factorial_distill4 \
+  --rater r1=/path/distill_rater1.csv \
+  --rater r2=/path/distill_rater2.csv \
+  --rater r3=/path/distill_rater3.csv
+
+python paper/aaai27/experiments/run_experiments.py audit --task human_blind_review
+```
+
+The merge validates that every rater judged every blind pair exactly once.
+The summary then unblinds locally and writes preference and severe-failure
+statistics while retaining the original completed ratings.
+
+### Controlled ablation registries
+
+The LoRA and Stage2 table tasks consume registries rather than silently mixing
+unmatched legacy runs. A LoRA registry entry has this shape:
+
+```json
+{
+  "variants": [{
+    "axis": "rank",
+    "variant": "qkvo_ffn_rank16_main_loss",
+    "target_modules": "qkvo+ffn",
+    "rank": 16,
+    "loss": "main",
+    "train_steps": 10000,
+    "train_seed": 202707,
+    "lora_strength": 0.75,
+    "checkpoint": "/absolute/path/step_0010000.safetensors",
+    "metrics_csv": "/absolute/path/strength_metric_summary.csv",
+    "columns": {"metric": "metric", "value": "lora_mean", "samples": "samples", "better": "better"}
+  }]
+}
+```
+
+Place at least six controlled variants covering `target_modules`, `rank`, and
+`loss` in
+`outputs/aaai27_experiments/ablations/lora_registry.json`. Stage2 uses the same
+layout but covers `architecture` and `loss`, and replaces the LoRA fields with `architecture`, `prediction_mode`,
+`loss`, `train_steps`, and `train_seed`; map `columns.value` to the Stage2 mean
+column. Store it as `stage2_registry.json`. Then run:
+
+```bash
+python paper/aaai27/experiments/run_experiments.py run \
+  --task lora_architecture_loss_ablation
+python paper/aaai27/experiments/run_experiments.py run \
+  --task stage2_architecture_loss_ablation
+```
+
+Both outputs include checkpoint SHA-256 provenance.
+
+### Quality-efficiency benchmark
+
+Create `outputs/aaai27_experiments/efficiency/benchmark_spec.json` with eight
+fresh-process cases (four Wan50 and four Distill4):
+
+```json
+{
+  "cases": [{
+    "family": "wan50",
+    "name": "base_interp",
+    "measurement": "end_to_end_generation",
+    "command": "the exact one-video generation command",
+    "quality_metric": "vbench.imaging_quality",
+    "quality_value": 0.0,
+    "environment": {}
+  }]
+}
+```
+
+Replace `quality_value` with the already collected metric for that exact case;
+never use a placeholder in the final spec. Add separate load-only commands with
+`measurement` set to `base_load`, `lora_injection`, or `stage2_load`; for those
+rows use `quality_metric: "not_applicable"` and omit `quality_value`. Run on an
+otherwise idle GPU:
+
+```bash
+python paper/aaai27/experiments/run_experiments.py run \
+  --task peak_memory_and_loading_overhead
+```
+
+The benchmark uses one warm-up and five measured fresh processes, reporting
+wall time and peak `nvidia-smi` memory above the pre-command baseline. This is
+whole-process GPU memory, not PyTorch allocator-only memory.
+
+### Unseen-prompt generalization
+
+The repository includes a frozen 20-prompt set covering motion, camera motion,
+identity/structure, fine detail, and occlusion/lighting. Generate 160 videos:
+
+```bash
+python paper/aaai27/experiments/run_experiments.py run --task generalization_videos
+VBENCH_ROOT=/path/to/VBench \
+python paper/aaai27/experiments/run_experiments.py run --task generalization_vbench
+python paper/aaai27/experiments/run_experiments.py run --task generalization_review_package
+```
+
+Obtain and merge three ratings per family using the same merge command above,
+but point `--factorial-root` at the two roots under
+`outputs/aaai27_experiments/generalization/`. Finally:
+
+```bash
+python paper/aaai27/experiments/run_experiments.py run \
+  --task generalization_and_failures
+```
+
 For paired metric columns, produce a bootstrap confidence interval and exact
 sign-test result with:
 
