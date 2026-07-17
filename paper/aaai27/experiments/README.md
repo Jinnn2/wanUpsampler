@@ -61,6 +61,22 @@ python paper/aaai27/experiments/run_experiments.py run --task blind_review_packa
 python paper/aaai27/experiments/run_experiments.py collect
 ```
 
+Collection writes three complementary artifacts under
+`outputs/aaai27_experiments/`:
+
+- `result_inventory.json`: versioned machine-readable inventory, strict
+  factorial filename/seed/config validation, provenance, and missing evidence;
+- `paper_tables.md`: operator, endpoint, strength, transfer, factorial,
+  timing, ablation, VBench, and human-review tables;
+- `compiled_tables/*.csv`: normalized tables for direct paper import.
+
+Missing evidence is reported but does not stop normal collection. Once every
+required result is expected to exist, use strict mode as the final gate:
+
+```bash
+python paper/aaai27/experiments/collect_results.py --strict
+```
+
 Give raters only `review/human_ratings.csv` and `review/blinded/`. Keep
 `_private/human_review_key.csv` hidden. After rating, place the completed file
 at `review/human_ratings_completed.csv`.

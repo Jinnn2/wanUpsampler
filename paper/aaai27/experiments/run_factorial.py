@@ -316,6 +316,17 @@ def write_run_manifest(out_root: Path, args: argparse.Namespace, prompts: list[s
         "prompts": prompts,
         "cases": [case.__dict__ for case in cases],
         "lora_artifacts": lora_artifacts,
+        "stage2_artifact": artifact_fingerprint(Path(args.stage2_checkpoint)),
+        "stage2_train_config": str(Path(args.stage2_train_config).resolve()),
+        "reuse_roots": [str(Path(path).resolve()) for path in args.reuse_root],
+        "settings": {
+            "num_frames": args.num_frames,
+            "guide_scale": args.guide_scale,
+            "lora_strength_default": args.lora_strength,
+            "lora_strength_by_step": args.lora_strength_step,
+            "renoise_mode": args.renoise_mode,
+            "stage2_use_ema": args.stage2_use_ema,
+        },
     }
     (out_root / args.manifest_name).write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
