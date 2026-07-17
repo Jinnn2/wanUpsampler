@@ -26,12 +26,22 @@ def main() -> None:
     rng = random.Random(args.review_seed)
     ballots: list[dict[str, str]] = []
     keys: list[dict[str, str]] = []
+    available_steps = sorted({int(case["step"]) for case in manifest["cases"]})
+    selected_steps = set(args.step or available_steps)
+    unknown_steps = sorted(selected_steps - set(available_steps))
+    if unknown_steps:
+        raise SystemExit(f"Requested steps are absent from the factorial: {unknown_steps}")
+    selected_comparisons = set(args.comparison or [])
     for sample_index, _prompt in enumerate(manifest["prompts"], start=int(manifest["prompt_offset"])):
         seed = int(manifest["seed_base"]) + sample_index
         label = f"{sample_index:02d}"
-        for step in sorted({int(case["step"]) for case in manifest["cases"]}):
+        for step in available_steps:
+            if step not in selected_steps:
+                continue
             pairs = comparison_pairs(step)
             for comparison, left_case, right_case in pairs:
+                if selected_comparisons and comparison not in selected_comparisons:
+                    continue
                 source_left = case_video(root, left_case, label, seed)
                 source_right = case_video(root, right_case, label, seed)
                 if not source_left.is_file() or not source_right.is_file():
@@ -39,9 +49,15 @@ def main() -> None:
                 if rng.random() < 0.5:
                     source_left, source_right = source_right, source_left
                     left_case, right_case = right_case, left_case
-                blind_id = hashlib.sha256(
-                    f"{args.review_seed}:{manifest['family']}:{sample_index}:{seed}:{comparison}".encode()
-                ).hexdigest()[:12]
+                blind_id = make_blind_id(
+                    args.review_seed,
+                    str(manifest["family"]),
+                    sample_index,
+                    seed,
+                    comparison,
+                    step,
+                    multi_step=len(available_steps) > 1,
+                )
                 blind_left = video_dir / f"{blind_id}_A.mp4"
                 blind_right = video_dir / f"{blind_id}_B.mp4"
                 link(source_left, blind_left)
@@ -85,6 +101,24 @@ def comparison_pairs(step: int) -> list[tuple[str, str, str]]:
     ]
 
 
+def make_blind_id(
+    review_seed: int,
+    family: str,
+    sample_index: int,
+    seed: int,
+    comparison: str,
+    step: int,
+    *,
+    multi_step: bool,
+) -> str:
+    identity = f"{review_seed}:{family}:{sample_index}:{seed}:{comparison}"
+    # Preserve IDs for single-step families such as distill4, while
+    # disambiguating Wan50 packages that contain both step40 and step45.
+    if multi_step:
+        identity += f":step{step}"
+    return hashlib.sha256(identity.encode()).hexdigest()[:12]
+
+
 def case_video(root: Path, case: str, label: str, seed: int) -> Path:
     return root / "videos" / case / f"{case}_{label}_seed{seed}.mp4"
 
@@ -111,6 +145,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create method-hidden, randomized A/B review pairs.")
     parser.add_argument("--factorial-root", required=True)
     parser.add_argument("--review-seed", type=int, default=202707)
+    parser.add_argument("--step", type=int, action="append", default=[])
+    parser.add_argument(
+        "--comparison",
+        action="append",
+        choices=["stage2_at_base", "lora_with_interp", "lora_with_stage2", "talh_vs_plain_handoff"],
+        default=[],
+    )
     return parser.parse_args()
 
 

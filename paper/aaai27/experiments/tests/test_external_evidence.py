@@ -8,6 +8,7 @@ from pathlib import Path
 
 from paper.aaai27.experiments.aggregate_human_review import merge, read_csv, summarize, validate_completed
 from paper.aaai27.experiments.collect_results import inspect_human_review
+from paper.aaai27.experiments.prepare_blind_review import make_blind_id
 from paper.aaai27.experiments.run_vbench_factorials import collect_results, prepare_inputs
 
 
@@ -42,6 +43,14 @@ class VBenchFactorialTest(unittest.TestCase):
 
 
 class HumanReviewTest(unittest.TestCase):
+    def test_multistep_blind_ids_do_not_collide_and_single_step_ids_stay_stable(self) -> None:
+        step40 = make_blind_id(1, "wan50", 0, 10, "comparison", 40, multi_step=True)
+        step45 = make_blind_id(1, "wan50", 0, 10, "comparison", 45, multi_step=True)
+        distill_a = make_blind_id(1, "distill4", 0, 10, "comparison", 3, multi_step=False)
+        distill_b = make_blind_id(1, "distill4", 0, 10, "comparison", 99, multi_step=False)
+        self.assertNotEqual(step40, step45)
+        self.assertEqual(distill_a, distill_b)
+
     def test_merges_three_raters_and_unblinds(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
