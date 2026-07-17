@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import json
 import math
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -31,7 +32,7 @@ def main() -> None:
     if args.action == "run":
         if not args.vbench_root:
             raise SystemExit("--vbench-root (or VBENCH_ROOT) is required for action=run")
-        run_all(root, inputs, Path(args.vbench_root).resolve(), args.dimensions, args.ngpus)
+        run_all(root, inputs, Path(args.vbench_root).resolve(), args.dimensions, args.ngpus, args.python)
     output = collect_results(root, manifest, args.dimensions, Path(args.vbench_root).resolve() if args.vbench_root else None)
     print(f"Canonical VBench JSON: {output}")
 
@@ -64,7 +65,12 @@ def prepare_inputs(root: Path, manifest: dict[str, Any]) -> dict[str, Path]:
 
 
 def run_all(
-    root: Path, inputs: dict[str, Path], vbench_root: Path, dimensions: list[str], ngpus: int
+    root: Path,
+    inputs: dict[str, Path],
+    vbench_root: Path,
+    dimensions: list[str],
+    ngpus: int,
+    python: str,
 ) -> None:
     evaluate = vbench_root / "evaluate.py"
     if not evaluate.is_file():
@@ -88,9 +94,9 @@ def run_all(
             str(output),
         ]
         command = (
-            ["torchrun", f"--nproc_per_node={ngpus}", "--standalone", *base]
+            [python, "-m", "torch.distributed.run", f"--nproc_per_node={ngpus}", "--standalone", *base]
             if ngpus > 1
-            else [sys.executable, *base]
+            else [python, *base]
         )
         print(f"[VBench] {case}", flush=True)
         subprocess.run(command, cwd=vbench_root, check=True)
@@ -169,6 +175,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("action", choices=["prepare", "run", "collect"])
     parser.add_argument("--factorial-root", required=True)
     parser.add_argument("--vbench-root", default=None)
+    parser.add_argument(
+        "--python",
+        default=os.environ.get("VBENCH_PYTHON", sys.executable),
+        help="Python executable from the isolated VBench environment",
+    )
     parser.add_argument("--dimension", dest="dimensions", action="append", default=[])
     parser.add_argument("--ngpus", type=int, default=1)
     args = parser.parse_args()

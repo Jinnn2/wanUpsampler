@@ -107,7 +107,7 @@ def collect_inventory(
         "quality_efficiency": load_validated_csv(
             results_root / "efficiency/quality_efficiency.csv",
             {"family", "case", "measurement", "repeats", "elapsed_mean_s", "peak_memory_gib", "quality_metric", "quality_value"},
-            min_rows=8,
+            min_rows=4,
         ),
         "generalization": load_validated_csv(
             results_root / "generalization/summary.csv",

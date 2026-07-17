@@ -19,12 +19,23 @@ def main() -> None:
     spec_path = Path(args.spec).resolve()
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     rows: list[dict[str, Any]] = []
+    raw_rows: list[dict[str, Any]] = []
     for case in spec.get("cases", []):
         validate_case(case)
         durations: list[float] = []
         peaks: list[float] = []
         for repeat in range(args.warmup + args.repeats):
             elapsed, peak = measure(case["command"], args.gpu, Path(args.workdir), case.get("environment", {}))
+            raw_rows.append(
+                {
+                    "family": case["family"],
+                    "case": case["name"],
+                    "phase": "warmup" if repeat < args.warmup else "measured",
+                    "repeat": repeat if repeat < args.warmup else repeat - args.warmup,
+                    "elapsed_s": elapsed,
+                    "peak_memory_gib": peak,
+                }
+            )
             if repeat >= args.warmup:
                 durations.append(elapsed)
                 peaks.append(peak)
@@ -37,11 +48,15 @@ def main() -> None:
                 "repeats": args.repeats,
                 "elapsed_mean_s": statistics.mean(durations),
                 "elapsed_std_s": statistics.stdev(durations) if len(durations) > 1 else 0.0,
+                "elapsed_median_s": statistics.median(durations),
                 "inference_mean_s": statistics.mean(durations),
                 "inference_std_s": statistics.stdev(durations) if len(durations) > 1 else 0.0,
                 "peak_memory_gib": max(peaks),
+                "peak_memory_mean_gib": statistics.mean(peaks),
                 "quality_metric": case["quality_metric"],
                 "quality_value": case.get("quality_value", "NA"),
+                "quality_components": json.dumps(case.get("quality_components", {}), sort_keys=True),
+                "vbench_source": case.get("vbench_source", ""),
                 "command": case["command"],
             }
         )
@@ -51,7 +66,13 @@ def main() -> None:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
+    raw_output = output.with_name(f"{output.stem}_raw{output.suffix}")
+    with raw_output.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(raw_rows[0]))
+        writer.writeheader()
+        writer.writerows(raw_rows)
     print(f"Quality-efficiency CSV: {output}")
+    print(f"Raw measurements      : {raw_output}")
 
 
 def validate_case(case: dict[str, Any]) -> None:

@@ -16,9 +16,11 @@
     "DISTILL_LORA_480_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/step_0010000.safetensors",
     "DISTILL_LORA_STRENGTH": "0.75",
     "VBENCH_ROOT": "/mnt/afs_2/houze/VBench",
+    "VBENCH_PYTHON": "/opt/conda/envs/vbench/bin/python",
     "LORA_ABLATION_REGISTRY": "${AAAI_RESULTS}/ablations/lora_registry.json",
     "STAGE2_ABLATION_REGISTRY": "${AAAI_RESULTS}/ablations/stage2_registry.json",
     "QUALITY_EFFICIENCY_SPEC": "${AAAI_RESULTS}/efficiency/benchmark_spec.json",
+    "WAN_PYTHON": "/opt/conda/bin/python",
     "CR_DISTILL_RAW_VIDEO_DIR_1K": "${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_5k",
     "WAN50_FACTORIAL": "${AAAI_RESULTS}/factorial_wan50",
     "DISTILL_FACTORIAL": "${AAAI_RESULTS}/factorial_distill4"
@@ -272,10 +274,20 @@
       "evidence": [{"glob": "${AAAI_RESULTS}/ablations/stage2_architecture_loss.csv", "min_bytes": 64}]
     },
     {
+      "id": "quality_efficiency_spec",
+      "group": "efficiency",
+      "depends_on": ["vbench_factorials"],
+      "commands": [
+        "python paper/aaai27/experiments/prepare_quality_efficiency.py --output ${QUALITY_EFFICIENCY_SPEC} --python ${WAN_PYTHON}"
+      ],
+      "evidence": [{"glob": "${QUALITY_EFFICIENCY_SPEC}", "min_bytes": 256}]
+    },
+    {
       "id": "peak_memory_and_loading_overhead",
       "group": "efficiency",
       "kind": "artifact",
-      "note": "Wall-clock exists, but peak CUDA memory and isolated Stage2/LoRA loading overhead still need instrumented fresh runs.",
+      "depends_on": ["quality_efficiency_spec"],
+      "note": "Four final cold-start cases: Wan50/Distill4 base+interp versus LoRA+Stage2, with one warm-up and five measured repetitions.",
       "commands": [
         "python paper/aaai27/experiments/benchmark_quality_efficiency.py --spec ${QUALITY_EFFICIENCY_SPEC} --output ${AAAI_RESULTS}/efficiency/quality_efficiency.csv --gpu 0 --warmup 1 --repeats 5"
       ],
@@ -302,8 +314,8 @@
       "kind": "external",
       "depends_on": ["generalization_videos"],
       "commands": [
-        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${AAAI_RESULTS}/generalization/factorial_wan50 --vbench-root ${VBENCH_ROOT}",
-        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${AAAI_RESULTS}/generalization/factorial_distill4 --vbench-root ${VBENCH_ROOT}"
+        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${AAAI_RESULTS}/generalization/factorial_wan50 --vbench-root ${VBENCH_ROOT} --python ${VBENCH_PYTHON}",
+        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${AAAI_RESULTS}/generalization/factorial_distill4 --vbench-root ${VBENCH_ROOT} --python ${VBENCH_PYTHON}"
       ],
       "evidence": [
         {"glob": "${AAAI_RESULTS}/generalization/factorial_wan50/metrics/vbench_v1_custom.json", "min_bytes": 64},
@@ -356,8 +368,8 @@
       "note": "Run run_vbench_factorials.py run for both roots in a pinned official VBench environment; it writes canonical per-family JSONs.",
       "depends_on": ["vbench_factorial_inputs"],
       "commands": [
-        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${WAN50_FACTORIAL} --vbench-root ${VBENCH_ROOT}",
-        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${DISTILL_FACTORIAL} --vbench-root ${VBENCH_ROOT}"
+        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${WAN50_FACTORIAL} --vbench-root ${VBENCH_ROOT} --python ${VBENCH_PYTHON}",
+        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${DISTILL_FACTORIAL} --vbench-root ${VBENCH_ROOT} --python ${VBENCH_PYTHON}"
       ],
       "evidence": [
         {"glob": "${WAN50_FACTORIAL}/metrics/vbench*.json"},

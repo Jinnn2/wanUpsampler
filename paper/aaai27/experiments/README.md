@@ -91,11 +91,15 @@ evidence complete.
 Pin an official VBench checkout and override `VBENCH_ROOT` when it is not at
 the manifest default. The preparation step verifies every expected factorial
 video and writes the required absolute-video-path-to-prompt JSON mappings.
+VBench rejects PyTorch builds newer than CUDA 12.1, so keep it in a separate
+environment and set `VBENCH_PYTHON`; do not downgrade the Wan inference
+environment.
 
 ```bash
 python paper/aaai27/experiments/run_experiments.py run --task vbench_factorial_inputs
 
 VBENCH_ROOT=/path/to/VBench \
+VBENCH_PYTHON=/path/to/vbench/environment/bin/python \
 python paper/aaai27/experiments/run_experiments.py run --task vbench_factorials
 ```
 
@@ -172,37 +176,30 @@ Both outputs include checkpoint SHA-256 provenance.
 
 ### Quality-efficiency benchmark
 
-Create `outputs/aaai27_experiments/efficiency/benchmark_spec.json` with eight
-fresh-process cases (four Wan50 and four Distill4):
+After both canonical VBench files exist, generate the four final fresh-process
+cases automatically:
 
-```json
-{
-  "cases": [{
-    "family": "wan50",
-    "name": "base_interp",
-    "measurement": "end_to_end_generation",
-    "command": "the exact one-video generation command",
-    "quality_metric": "vbench.imaging_quality",
-    "quality_value": 0.0,
-    "environment": {}
-  }]
-}
+```bash
+python paper/aaai27/experiments/run_experiments.py run \
+  --task quality_efficiency_spec
 ```
 
-Replace `quality_value` with the already collected metric for that exact case;
-never use a placeholder in the final spec. Add separate load-only commands with
-`measurement` set to `base_load`, `lora_injection`, or `stage2_load`; for those
-rows use `quality_metric: "not_applicable"` and omit `quality_value`. Run on an
-otherwise idle GPU:
+The cases are Wan50 step45 and Distill4 step3, each comparing `base_interp`
+against the selected `lora_stage2` configuration. Quality is linked from the
+five continuous custom-input VBench dimensions; dynamic degree remains a
+separate metric. Each benchmark command uses one fixed prompt/seed, disables
+skip-existing, and runs in a fresh Wan process. Run on an otherwise idle GPU
+from the base Wan environment, not the isolated VBench environment:
 
 ```bash
 python paper/aaai27/experiments/run_experiments.py run \
   --task peak_memory_and_loading_overhead
 ```
 
-The benchmark uses one warm-up and five measured fresh processes, reporting
-wall time and peak `nvidia-smi` memory above the pre-command baseline. This is
-whole-process GPU memory, not PyTorch allocator-only memory.
+The benchmark uses one warm-up and five measured fresh processes per case,
+reporting mean/std/median wall time, raw repetitions, and peak `nvidia-smi`
+memory above the pre-command baseline. This is cold-start single-video
+end-to-end cost and whole-process GPU memory, not PyTorch allocator-only memory.
 
 ### Unseen-prompt generalization
 
