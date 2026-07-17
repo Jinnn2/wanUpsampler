@@ -47,6 +47,11 @@ class ResultExportTest(unittest.TestCase):
                 "canonical_results_root": str(results),
                 "sources": {
                     "endpoint": {"status": "complete", "path": str(summary), "rows": []},
+                    "endpoint_paired_statistics": {
+                        "status": "complete",
+                        "path": f"derived from {summary}",
+                        "rows": [{"metric": "l1"}],
+                    },
                     "lora_architecture_loss": {"status": "missing", "path": "missing.csv", "rows": []},
                     "stage2_architecture_loss": {"status": "missing", "path": "missing.csv", "rows": []},
                     "generalization": {"status": "missing", "path": "missing.csv", "rows": []},

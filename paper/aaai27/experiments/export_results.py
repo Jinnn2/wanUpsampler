@@ -158,7 +158,14 @@ def copy_source_trees(
     for name, source in inventory.get("sources", {}).items():
         if source.get("status") != "complete" or not source.get("path"):
             continue
-        path = Path(source["path"]).resolve()
+        raw_path = str(source["path"])
+        # Collection-generated summaries live in result_inventory.json and
+        # compiled_tables; their path is descriptive, not a filesystem path.
+        # The corresponding raw source is a separate entry and is copied by
+        # this same loop.
+        if raw_path.startswith("derived from "):
+            continue
+        path = Path(raw_path).resolve()
         if not path.exists():
             raise SystemExit(f"Inventory marks source complete but its path is missing: {name}: {path}")
         tree, destination = source_tree_destination(path, name, project_root, results_root, staging)
