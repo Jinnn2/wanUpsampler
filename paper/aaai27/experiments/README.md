@@ -232,6 +232,82 @@ python paper/aaai27/experiments/paired_statistics.py \
   --output path/to/lpips_stats.json --lower-is-better
 ```
 
+### Final closure experiments: step40, efficiency, and step45 review
+
+The final step40 experiment evaluates strengths 0.5, 0.75, and 1.0 at three
+levels: LR endpoint distance, end-to-end VBench, and blinded temporal/detail
+preference. The endpoint task also writes paired bootstrap intervals and exact
+sign-test results. The end-to-end factorial reuses Base cases and generates one
+LoRA+interpolation and one LoRA+Stage2 case per strength.
+
+```bash
+python paper/aaai27/experiments/run_experiments.py run \
+  --task wan50_lora40_endpoint_strength
+python paper/aaai27/experiments/run_experiments.py run \
+  --task wan50_lora40_strength_vbench
+python paper/aaai27/experiments/run_experiments.py run \
+  --task wan50_lora40_strength_vbench_statistics
+python paper/aaai27/experiments/run_experiments.py run \
+  --task wan50_lora40_strength_review_package
+```
+
+Give three raters separate copies of
+`outputs/aaai27_experiments/wan50_step40_strength/review/human_ratings.csv`.
+After they finish, merge and summarize them:
+
+```bash
+python paper/aaai27/experiments/aggregate_human_review.py merge \
+  --factorial-root outputs/aaai27_experiments/wan50_step40_strength \
+  --rater r1=/path/step40_strength_r1.csv \
+  --rater r2=/path/step40_strength_r2.csv \
+  --rater r3=/path/step40_strength_r3.csv
+```
+
+The summary includes raw vote counts, prompt-level majority preferences with
+bootstrap confidence intervals and exact sign tests, and Fleiss' kappa for
+each comparison/dimension. Select the final step40 strength from the complete
+endpoint/VBench/human evidence, then pass it to the four-way benchmark through
+the environment. The four cases share model, prompts, seeds, frame count, and
+output resolution: Full-HR50, TALH@40, TALH@45, and Full-LR50+Stage2+1HR.
+The last case retains the canonical 50-step LR schedule and performs one extra
+HR evaluation at the lowest-noise HR timestep; it is not a substituted
+51-step schedule.
+
+```bash
+WAN50_LORA40_STRENGTH_FINAL=0.75 WAN50_LORA45_STRENGTH_FINAL=0.75 \
+python paper/aaai27/experiments/run_experiments.py run \
+  --task wan50_final_quality_efficiency_vbench
+
+WAN50_LORA40_STRENGTH_FINAL=0.75 WAN50_LORA45_STRENGTH_FINAL=0.75 \
+python paper/aaai27/experiments/run_experiments.py run \
+  --task wan50_final_quality_efficiency_benchmark
+```
+
+The benchmark uses one warm-up and five measured fresh processes per case.
+It records LR/HR/total denoiser evaluations, cold-start latency, raw repeats,
+whole-process peak GPU memory, individual VBench components, and the explicitly
+labeled five-dimension convenience mean.
+
+Step45 ratings are isolated from the existing step40 package, so preparing
+them cannot overwrite earlier ballots or private keys:
+
+```bash
+python paper/aaai27/experiments/run_experiments.py run \
+  --task wan50_step45_review_package
+
+python paper/aaai27/experiments/aggregate_human_review.py merge \
+  --factorial-root outputs/aaai27_experiments/factorial_wan50 \
+  --review-name step45 \
+  --rater r1=/path/step45_r1.csv \
+  --rater r2=/path/step45_r2.csv \
+  --rater r3=/path/step45_r3.csv
+```
+
+The step45 ballot is under `review/step45/`, with its hidden key under
+`_private/step45/`. Audit the three final groups with `--group final_step40`,
+`--group final_step45`, and `--group final_efficiency`; manual human tasks are
+complete only after their three ballots have been merged.
+
 ## 4. Export a frozen result bundle
 
 Run collection immediately before export. The exporter requires an exact
@@ -266,3 +342,27 @@ Videos are excluded unless `--include-videos` is set. `_private` review keys
 and task logs are excluded by default; add `--include-private` and
 `--include-logs` only for the internal master archive. Do not publish that
 private archive as anonymous supplementary material.
+
+If the canonical `outputs/aaai27_experiments` directory is accidentally
+deleted after the export directory was completed, verify and preview a restore
+without writing anything:
+
+```bash
+python paper/aaai27/experiments/restore_results.py \
+  --export-root exports/aaai27_final_YYYYMMDD
+```
+
+On the same filesystem, restore videos with hard links to avoid allocating a
+second copy of the large immutable media. Mutable JSON, CSV, manifests, and
+other metadata are copied so later collection cannot modify the export backup:
+
+```bash
+python paper/aaai27/experiments/restore_results.py \
+  --export-root exports/aaai27_final_YYYYMMDD \
+  --execute --hardlink
+```
+
+The restore verifies every entry in `SHA256SUMS`, accepts only paths that were
+originally under the recorded canonical result root, assembles them in a new
+temporary directory, and atomically renames that directory into place. It
+refuses to overwrite an existing result root.

@@ -16,8 +16,7 @@ def main() -> None:
     args = parse_args()
     root = Path(args.factorial_root)
     manifest = json.loads((root / "run_manifest.json").read_text(encoding="utf-8"))
-    review_dir = root / "review"
-    private_dir = root / "_private"
+    review_dir, private_dir = review_paths(root, args.review_name)
     video_dir = review_dir / "blinded"
     review_dir.mkdir(parents=True, exist_ok=True)
     private_dir.mkdir(parents=True, exist_ok=True)
@@ -38,7 +37,7 @@ def main() -> None:
         for step in available_steps:
             if step not in selected_steps:
                 continue
-            pairs = comparison_pairs(step)
+            pairs = comparison_pairs(step, manifest)
             for comparison, left_case, right_case in pairs:
                 if selected_comparisons and comparison not in selected_comparisons:
                     continue
@@ -57,6 +56,7 @@ def main() -> None:
                     comparison,
                     step,
                     multi_step=len(available_steps) > 1,
+                    namespace=args.review_name,
                 )
                 blind_left = video_dir / f"{blind_id}_A.mp4"
                 blind_right = video_dir / f"{blind_id}_B.mp4"
@@ -91,7 +91,15 @@ def main() -> None:
     print(f"Private key  : {private_dir / 'human_review_key.csv'}")
 
 
-def comparison_pairs(step: int) -> list[tuple[str, str, str]]:
+def comparison_pairs(step: int, manifest: dict | None = None) -> list[tuple[str, str, str]]:
+    configured = (manifest or {}).get("review_pairs")
+    if configured is not None:
+        pairs = []
+        for item in configured:
+            pair_step = int(item.get("step", step))
+            if pair_step == step:
+                pairs.append((str(item["comparison"]), str(item["left_case"]), str(item["right_case"])))
+        return pairs
     prefix = f"step{step}"
     return [
         ("stage2_at_base", f"{prefix}_base_interp", f"{prefix}_base_stage2"),
@@ -110,13 +118,22 @@ def make_blind_id(
     step: int,
     *,
     multi_step: bool,
+    namespace: str = "default",
 ) -> str:
     identity = f"{review_seed}:{family}:{sample_index}:{seed}:{comparison}"
     # Preserve IDs for single-step families such as distill4, while
     # disambiguating Wan50 packages that contain both step40 and step45.
     if multi_step:
         identity += f":step{step}"
+    if namespace != "default":
+        identity += f":review={namespace}"
     return hashlib.sha256(identity.encode()).hexdigest()[:12]
+
+
+def review_paths(root: Path, review_name: str) -> tuple[Path, Path]:
+    if review_name == "default":
+        return root / "review", root / "_private"
+    return root / "review" / review_name, root / "_private" / review_name
 
 
 def case_video(root: Path, case: str, label: str, seed: int) -> Path:
@@ -145,14 +162,21 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create method-hidden, randomized A/B review pairs.")
     parser.add_argument("--factorial-root", required=True)
     parser.add_argument("--review-seed", type=int, default=202707)
+    parser.add_argument(
+        "--review-name",
+        default="default",
+        help="Named review package; non-default packages are isolated under review/NAME and _private/NAME.",
+    )
     parser.add_argument("--step", type=int, action="append", default=[])
     parser.add_argument(
         "--comparison",
         action="append",
-        choices=["stage2_at_base", "lora_with_interp", "lora_with_stage2", "talh_vs_plain_handoff"],
         default=[],
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if Path(args.review_name).name != args.review_name or args.review_name in {"", ".", ".."}:
+        parser.error("--review-name must be one path-safe directory name")
+    return args
 
 
 if __name__ == "__main__":

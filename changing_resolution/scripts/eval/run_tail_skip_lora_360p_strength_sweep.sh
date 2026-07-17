@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Sweep step-45 LoRA strength at the valid 360p-class resolution 368x640.
+# Sweep a handoff-step LoRA strength at the valid 360p-class resolution 368x640.
 # Shared cases are generated once:
-#   ori_45 -> LoRA strengths -> ori_50
-# Each LoRA case is evaluated against ori_50 with ori_45 as the baseline.
+#   ori_${TRAIN_STEP} -> LoRA strengths -> ori_${INFER_STEPS}
+# Each LoRA case is evaluated against the full teacher endpoint with the
+# unmodified handoff prediction as the baseline.
 
 MODE="${1:-run}"
 if [[ "${MODE}" != "run" && "${MODE}" != "check" ]]; then
@@ -26,7 +27,7 @@ LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 TRAIN_STEP="${TRAIN_STEP:-45}"
 INFER_STEPS="${INFER_STEPS:-50}"
-TAIL_SKIP_LORA_OUT_DIR="${TAIL_SKIP_LORA_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_step${TRAIN_STEP}_to_step50}"
+TAIL_SKIP_LORA_OUT_DIR="${TAIL_SKIP_LORA_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_step${TRAIN_STEP}_to_step${INFER_STEPS}}"
 LORA_CKPT="${LORA_CKPT:-${TAIL_SKIP_LORA_OUT_DIR}/latest.safetensors}"
 
 HEIGHT="${HEIGHT:-368}"
@@ -39,7 +40,14 @@ CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 STRENGTHS="${STRENGTHS:-0.5 0.75 1.0}"
 PROMPTS_FILE="${PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt}"
-OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_strength_sweep_360p_368x640}"
+if [[ -z "${OUT_ROOT:-}" ]]; then
+  if [[ "${TRAIN_STEP}" == "45" && "${INFER_STEPS}" == "50" ]]; then
+    # Preserve the canonical path used by the already-frozen step45 results.
+    OUT_ROOT="${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_strength_sweep_360p_368x640"
+  else
+    OUT_ROOT="${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_strength_sweep_step${TRAIN_STEP}_360p_368x640"
+  fi
+fi
 SEED="${SEED:-9700}"
 LIMIT="${LIMIT:-10}"
 PROMPT_OFFSET="${PROMPT_OFFSET:-0}"
@@ -103,9 +111,11 @@ PY
 
 strength_cases=()
 strength_pairs=()
+BASE_CASE="ori_${TRAIN_STEP}"
+TEACHER_CASE="ori_${INFER_STEPS}"
 for strength in "${strength_values[@]}"; do
   tag="$(strength_tag "${strength}")"
-  case_name="lora_45_s${tag}"
+  case_name="lora_${TRAIN_STEP}_s${tag}"
   strength_cases+=("${case_name}")
   strength_pairs+=("${strength}:${case_name}")
 done
@@ -117,7 +127,7 @@ if [[ "${#prompts[@]}" -eq 0 ]]; then
   exit 1
 fi
 
-export LORA_CKPT TRAIN_STEP INFER_STEPS HEIGHT WIDTH NUM_FRAMES GUIDE_SCALE SAMPLE_SHIFT
+export LORA_CKPT TRAIN_STEP INFER_STEPS HEIGHT WIDTH NUM_FRAMES GUIDE_SCALE SAMPLE_SHIFT TEACHER_CASE
 
 write_config() {
   local output="$1"
@@ -147,7 +157,7 @@ config = {
     "compare_name": case_name,
 }
 
-if case_name != "ori_50":
+if case_name != os.environ["TEACHER_CASE"]:
     config.update(
         {
             "lora_dynamic_apply": True,
@@ -169,8 +179,8 @@ with open(path, "w", encoding="utf-8") as handle:
 PY
 }
 
-write_config "${OUT_ROOT}/configs/ori_45.json" "ori_45" "0"
-write_config "${OUT_ROOT}/configs/ori_50.json" "ori_50" "0"
+write_config "${OUT_ROOT}/configs/${BASE_CASE}.json" "${BASE_CASE}" "0"
+write_config "${OUT_ROOT}/configs/${TEACHER_CASE}.json" "${TEACHER_CASE}" "0"
 for index in "${!strength_values[@]}"; do
   write_config \
     "${OUT_ROOT}/configs/${strength_cases[${index}]}.json" \
@@ -178,7 +188,7 @@ for index in "${!strength_values[@]}"; do
     "${strength_values[${index}]}"
 done
 
-column_names=(ori_45 "${strength_cases[@]}" ori_50)
+column_names=("${BASE_CASE}" "${strength_cases[@]}" "${TEACHER_CASE}")
 column_text="$(IFS=' | '; echo "${column_names[*]}")"
 echo "[360p strength sweep] prompts=${PROMPTS_FILE} selected=${#prompts[@]} seed=${SEED}"
 echo "[360p strength sweep] resolution=${HEIGHT}x${WIDTH} (latent 46x80), step=${TRAIN_STEP}"
@@ -262,11 +272,11 @@ for prompt in "${prompts[@]}"; do
 
   echo "[$((index + 1))/${#prompts[@]}] index=${sample_label} seed=${sample_seed}"
   echo "${prompt}"
-  run_infer "wan2.1_tail_skip_lora" "ori_45" "${sample_label}" "${prompt}" "${sample_seed}"
+  run_infer "wan2.1_tail_skip_lora" "${BASE_CASE}" "${sample_label}" "${prompt}" "${sample_seed}"
   for case_name in "${strength_cases[@]}"; do
     run_infer "wan2.1_tail_skip_lora" "${case_name}" "${sample_label}" "${prompt}" "${sample_seed}"
   done
-  run_infer "wan2.1" "ori_50" "${sample_label}" "${prompt}" "${sample_seed}"
+  run_infer "wan2.1" "${TEACHER_CASE}" "${sample_label}" "${prompt}" "${sample_seed}"
   make_compare "${sample_label}" "${sample_seed}"
   index=$((index + 1))
 done
@@ -284,9 +294,9 @@ if [[ "${RUN_METRICS}" == "1" ]]; then
     result_dir="${OUT_ROOT}/metrics/${case_name}"
     python "${PROJECT_ROOT}/changing_resolution_distill/scripts/eval/eval_last_step_skip_lora_video_closeness.py" \
       --out_root "${OUT_ROOT}" \
-      --original_case ori_45 \
+      --original_case "${BASE_CASE}" \
       --lora_case "${case_name}" \
-      --teacher_case ori_50 \
+      --teacher_case "${TEACHER_CASE}" \
       --result_dir "${result_dir}" \
       --metrics "${metric_args[@]}" \
       --primary_metric "${PRIMARY_METRIC}" \

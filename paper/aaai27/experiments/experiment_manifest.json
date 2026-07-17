@@ -23,7 +23,12 @@
     "WAN_PYTHON": "/opt/conda/bin/python",
     "CR_DISTILL_RAW_VIDEO_DIR_1K": "${PROJECT_ROOT}/data/changing_resolution_distill/raw_wan21_14b_cfgdistill_720p_5k",
     "WAN50_FACTORIAL": "${AAAI_RESULTS}/factorial_wan50",
-    "DISTILL_FACTORIAL": "${AAAI_RESULTS}/factorial_distill4"
+    "DISTILL_FACTORIAL": "${AAAI_RESULTS}/factorial_distill4",
+    "WAN50_STEP40_ENDPOINT_STRENGTH": "${AAAI_RESULTS}/wan50_step40_endpoint_strength",
+    "WAN50_STEP40_STRENGTH": "${AAAI_RESULTS}/wan50_step40_strength",
+    "WAN50_FINAL_QUALITY_EFFICIENCY": "${AAAI_RESULTS}/quality_efficiency_final",
+    "WAN50_LORA40_STRENGTH_FINAL": "1.0",
+    "WAN50_LORA45_STRENGTH_FINAL": "0.75"
   },
   "tasks": [
     {
@@ -400,6 +405,181 @@
         {"glob": "${DISTILL_FACTORIAL}/review/human_ratings_completed.csv", "min_bytes": 64},
         {"glob": "${WAN50_FACTORIAL}/review/human_review_summary.json", "min_bytes": 64},
         {"glob": "${DISTILL_FACTORIAL}/review/human_review_summary.json", "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "wan50_lora40_endpoint_strength",
+      "group": "final_step40",
+      "depends_on": ["wan50_lora40_checkpoint"],
+      "commands": [
+        "TRAIN_STEP=40 INFER_STEPS=50 LORA_CKPT=${WAN50_LORA40_CKPT} OUT_ROOT=${WAN50_STEP40_ENDPOINT_STRENGTH} STRENGTHS='0.5 0.75 1.0' LIMIT=10 SEED=9700 SKIP_EXISTING=1 bash changing_resolution/scripts/eval/run_tail_skip_lora_360p_strength_sweep.sh run",
+        "python paper/aaai27/experiments/compile_endpoint_strength_statistics.py --sweep-root ${WAN50_STEP40_ENDPOINT_STRENGTH}"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_STEP40_ENDPOINT_STRENGTH}/metrics/strength_sweep_summary.csv", "min_bytes": 64},
+        {"glob": "${WAN50_STEP40_ENDPOINT_STRENGTH}/metrics/strength_paired_statistics.csv", "min_bytes": 64},
+        {"glob": "${WAN50_STEP40_ENDPOINT_STRENGTH}/videos/*/*.mp4", "min_count": 50, "min_bytes": 1024}
+      ]
+    },
+    {
+      "id": "wan50_lora40_strength_factorial",
+      "group": "final_step40",
+      "depends_on": ["wan50_stage2_checkpoint", "wan50_lora40_checkpoint"],
+      "commands": [
+        "${WAN_PYTHON} paper/aaai27/experiments/run_step40_strength_factorial.py run --out-root ${WAN50_STEP40_STRENGTH} --stage2-checkpoint ${WAN50_STAGE2_CKPT} --stage2-train-config ${WAN50_STAGE2_CONFIG} --lora-checkpoint ${WAN50_LORA40_CKPT} --python ${WAN_PYTHON}"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_STEP40_STRENGTH}/run_manifest.json", "min_bytes": 256},
+        {"glob": "${WAN50_STEP40_STRENGTH}/videos/*/*.mp4", "min_count": 80, "min_bytes": 1024}
+      ]
+    },
+    {
+      "id": "wan50_lora40_strength_vbench_inputs",
+      "group": "final_step40",
+      "depends_on": ["wan50_lora40_strength_factorial"],
+      "commands": [
+        "python paper/aaai27/experiments/run_vbench_factorials.py prepare --factorial-root ${WAN50_STEP40_STRENGTH}"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_STEP40_STRENGTH}/metrics/vbench_inputs/*/prompt_map.json", "min_count": 8, "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "wan50_lora40_strength_vbench",
+      "group": "final_step40",
+      "kind": "external",
+      "depends_on": ["wan50_lora40_strength_vbench_inputs"],
+      "commands": [
+        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${WAN50_STEP40_STRENGTH} --vbench-root ${VBENCH_ROOT} --python ${VBENCH_PYTHON}"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_STEP40_STRENGTH}/metrics/vbench_v1_custom.json", "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "wan50_lora40_strength_vbench_statistics",
+      "group": "final_step40",
+      "depends_on": ["wan50_lora40_strength_vbench"],
+      "commands": [
+        "python paper/aaai27/experiments/compile_vbench_paired_statistics.py --factorial-root ${WAN50_STEP40_STRENGTH}"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_STEP40_STRENGTH}/metrics/vbench_paired_statistics.csv", "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "wan50_lora40_strength_review_package",
+      "group": "final_step40",
+      "depends_on": ["wan50_lora40_strength_factorial"],
+      "commands": [
+        "python paper/aaai27/experiments/prepare_blind_review.py --factorial-root ${WAN50_STEP40_STRENGTH}"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_STEP40_STRENGTH}/review/human_ratings.csv", "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "wan50_lora40_strength_human_review",
+      "group": "final_step40",
+      "kind": "manual",
+      "note": "Merge three independent completed step40-strength ballots, then summarize at vote and prompt levels.",
+      "depends_on": ["wan50_lora40_strength_review_package"],
+      "commands": [
+        "python paper/aaai27/experiments/aggregate_human_review.py summarize --factorial-root ${WAN50_STEP40_STRENGTH} --min-raters 3"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_STEP40_STRENGTH}/review/human_ratings_completed.csv", "min_bytes": 64},
+        {"glob": "${WAN50_STEP40_STRENGTH}/review/human_review_summary.json", "min_bytes": 64},
+        {"glob": "${WAN50_STEP40_STRENGTH}/review/human_review_prompt_summary.csv", "min_bytes": 64},
+        {"glob": "${WAN50_STEP40_STRENGTH}/review/human_review_agreement.csv", "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "wan50_step45_review_package",
+      "group": "final_step45",
+      "depends_on": ["wan50_factorial"],
+      "commands": [
+        "python paper/aaai27/experiments/prepare_blind_review.py --factorial-root ${WAN50_FACTORIAL} --step 45 --review-name step45"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_FACTORIAL}/review/step45/human_ratings.csv", "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "wan50_step45_human_review",
+      "group": "final_step45",
+      "kind": "manual",
+      "note": "Merge three independent step45 ballots into review/step45 before running the summary command.",
+      "depends_on": ["wan50_step45_review_package"],
+      "commands": [
+        "python paper/aaai27/experiments/aggregate_human_review.py summarize --factorial-root ${WAN50_FACTORIAL} --review-name step45 --min-raters 3"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_FACTORIAL}/review/step45/human_ratings_completed.csv", "min_bytes": 64},
+        {"glob": "${WAN50_FACTORIAL}/review/step45/human_review_summary.json", "min_bytes": 64},
+        {"glob": "${WAN50_FACTORIAL}/review/step45/human_review_prompt_summary.csv", "min_bytes": 64},
+        {"glob": "${WAN50_FACTORIAL}/review/step45/human_review_agreement.csv", "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "wan50_final_quality_efficiency_videos",
+      "group": "final_efficiency",
+      "depends_on": ["wan50_stage2_checkpoint", "wan50_lora40_checkpoint", "wan50_lora45_checkpoint"],
+      "commands": [
+        "${WAN_PYTHON} paper/aaai27/experiments/run_final_quality_efficiency.py run --out-root ${WAN50_FINAL_QUALITY_EFFICIENCY} --stage2-checkpoint ${WAN50_STAGE2_CKPT} --stage2-train-config ${WAN50_STAGE2_CONFIG} --lora40-checkpoint ${WAN50_LORA40_CKPT} --lora45-checkpoint ${WAN50_LORA45_CKPT} --step40-strength ${WAN50_LORA40_STRENGTH_FINAL} --step45-strength ${WAN50_LORA45_STRENGTH_FINAL} --python ${WAN_PYTHON}"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/run_manifest.json", "min_bytes": 256},
+        {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/videos/*/*.mp4", "min_count": 40, "min_bytes": 1024}
+      ]
+    },
+    {
+      "id": "wan50_final_quality_efficiency_vbench_inputs",
+      "group": "final_efficiency",
+      "depends_on": ["wan50_final_quality_efficiency_videos"],
+      "commands": [
+        "python paper/aaai27/experiments/run_vbench_factorials.py prepare --factorial-root ${WAN50_FINAL_QUALITY_EFFICIENCY}"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/metrics/vbench_inputs/*/prompt_map.json", "min_count": 4, "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "wan50_final_quality_efficiency_vbench",
+      "group": "final_efficiency",
+      "kind": "external",
+      "depends_on": ["wan50_final_quality_efficiency_vbench_inputs"],
+      "commands": [
+        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${WAN50_FINAL_QUALITY_EFFICIENCY} --vbench-root ${VBENCH_ROOT} --python ${VBENCH_PYTHON}",
+        "python paper/aaai27/experiments/compile_vbench_paired_statistics.py --factorial-root ${WAN50_FINAL_QUALITY_EFFICIENCY}"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/metrics/vbench_v1_custom.json", "min_bytes": 64},
+        {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/metrics/vbench_paired_statistics.csv", "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "wan50_final_quality_efficiency_spec",
+      "group": "final_efficiency",
+      "depends_on": ["wan50_final_quality_efficiency_vbench"],
+      "commands": [
+        "${WAN_PYTHON} paper/aaai27/experiments/run_final_quality_efficiency.py benchmark-spec --out-root ${WAN50_FINAL_QUALITY_EFFICIENCY} --stage2-checkpoint ${WAN50_STAGE2_CKPT} --stage2-train-config ${WAN50_STAGE2_CONFIG} --lora40-checkpoint ${WAN50_LORA40_CKPT} --lora45-checkpoint ${WAN50_LORA45_CKPT} --step40-strength ${WAN50_LORA40_STRENGTH_FINAL} --step45-strength ${WAN50_LORA45_STRENGTH_FINAL} --python ${WAN_PYTHON}"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/benchmark_spec.json", "min_bytes": 256}
+      ]
+    },
+    {
+      "id": "wan50_final_quality_efficiency_benchmark",
+      "group": "final_efficiency",
+      "kind": "artifact",
+      "depends_on": ["wan50_final_quality_efficiency_spec"],
+      "commands": [
+        "python paper/aaai27/experiments/benchmark_quality_efficiency.py --spec ${WAN50_FINAL_QUALITY_EFFICIENCY}/benchmark_spec.json --output ${WAN50_FINAL_QUALITY_EFFICIENCY}/quality_efficiency.csv --gpu 0 --warmup 1 --repeats 5"
+      ],
+      "evidence": [
+        {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/quality_efficiency.csv", "min_bytes": 64},
+        {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/quality_efficiency_raw.csv", "min_bytes": 64}
       ]
     }
   ]

@@ -383,6 +383,82 @@ class WanCleanResizerBridgeRunner(WanRunner):
             self.scheduler.set_clean_latent_resizer(self.clean_latent_resizer)
 
 
+@RUNNER_REGISTER("wan2.1_full_lr_stage2_one_hr")
+class WanFullLRStage2OneHRRunner(WanCleanResizerBridgeRunner):
+    """Run the complete LR trajectory, lift its endpoint, then add one HR refinement.
+
+    The first ``infer_steps`` evaluations use the canonical LR schedule.  At
+    the final step the clean LR endpoint is lifted by Stage2.  We then re-noise
+    it at the lowest-noise timestep of the corresponding HR-shifted schedule
+    and perform exactly one additional HR denoiser evaluation.  This keeps the
+    LR prefix identical to the normal 50-step sampler instead of replacing it
+    with a different 51-step schedule.
+    """
+
+    def __init__(self, config):
+        super().__init__(config)
+        infer_steps = int(config["infer_steps"])
+        if [int(step) for step in config.get("changing_resolution_steps", [])] != [infer_steps]:
+            raise ValueError(
+                "wan2.1_full_lr_stage2_one_hr requires changing_resolution_steps=[infer_steps]"
+            )
+
+    def run_segment(self, segment_idx=0):
+        infer_steps = self.model.scheduler.infer_steps
+        device_module = getattr(torch, AI_DEVICE)
+        total_evaluations = infer_steps + 1
+
+        for step_index in range(infer_steps):
+            if self.video_segment_num == 1:
+                self.check_stop()
+            step_number = step_index + 1
+            logger.info(f"==> LR step_index: {step_number} / {infer_steps}")
+            self.model.scheduler.step_pre(step_index=step_index)
+            self.model.infer(self.inputs)
+            if step_number == infer_steps:
+                # Finish the canonical LR solver update all the way to sigma=0.
+                # Calling through the mixin bypasses its configured step-50
+                # resolution switch while preserving the father scheduler.
+                super(WanScheduler4ChangingResolution, self.model.scheduler).step_post()
+            else:
+                self.model.scheduler.step_post()
+            if self.progress_callback:
+                self.progress_callback((step_number / total_evaluations) * 100, 100)
+
+        scheduler = self.model.scheduler
+        clean_lr = scheduler.latents
+        target_latent_shape = scheduler.latents_list[scheduler.changing_resolution_index + 1].shape
+        clean_hr = scheduler._resize_clean_latent_to_next_stage(clean_lr, target_latent_shape)
+        scheduler.changing_resolution_index += 1
+        shift_increment = float(self.config.get("wan_final_refine_shift_increment", 1.0))
+        scheduler.set_timesteps(
+            infer_steps,
+            device=AI_DEVICE,
+            shift=scheduler.sample_shift + shift_increment,
+        )
+        final_index = infer_steps - 1
+        refine_timestep = scheduler.timesteps[final_index]
+        hr_noise = scheduler.latents_list[-1]
+        scheduler.latents = scheduler.add_noise(clean_hr, hr_noise, refine_timestep)
+        logger.info(
+            "==> one extra HR refinement at the lowest-noise timestep: "
+            f"t={float(refine_timestep)} shift_increment={shift_increment}"
+        )
+        scheduler.step_pre(step_index=final_index)
+        self.model.infer(self.inputs)
+        model_output = scheduler.noise_pred.to(torch.float32)
+        sample = scheduler.latents.to(torch.float32)
+        sigma = scheduler.sigmas[final_index].to(device=sample.device, dtype=torch.float32)
+        scheduler.latents = (sample - sigma * model_output).to(dtype=clean_hr.dtype)
+
+        if self.progress_callback:
+            self.progress_callback(100, 100)
+        if segment_idx is not None and segment_idx == self.video_segment_num - 1:
+            del self.inputs
+            device_module.empty_cache()
+        return scheduler.latents
+
+
 @RUNNER_REGISTER("wan2.1_tail_skip_lora")
 class WanTailSkipLoRARunner(WanRunner):
     """WAN 50-step runner with LoRA enabled only on configured handoff steps."""

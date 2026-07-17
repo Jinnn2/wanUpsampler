@@ -54,10 +54,19 @@ def collect_inventory(
     checkpoint_tag = Path(environment["DISTILL_LORA_480_CKPT"]).stem
     wan_factorial = Path(environment["WAN50_FACTORIAL"])
     distill_factorial = Path(environment["DISTILL_FACTORIAL"])
+    step40_endpoint = Path(environment["WAN50_STEP40_ENDPOINT_STRENGTH"])
+    step40_strength = Path(environment["WAN50_STEP40_STRENGTH"])
+    final_quality_efficiency = Path(environment["WAN50_FINAL_QUALITY_EFFICIENCY"])
     if not wan_factorial.is_absolute():
         wan_factorial = project_root / wan_factorial
     if not distill_factorial.is_absolute():
         distill_factorial = project_root / distill_factorial
+    if not step40_endpoint.is_absolute():
+        step40_endpoint = project_root / step40_endpoint
+    if not step40_strength.is_absolute():
+        step40_strength = project_root / step40_strength
+    if not final_quality_efficiency.is_absolute():
+        final_quality_efficiency = project_root / final_quality_efficiency
 
     sources: dict[str, Any] = {
         "operator_480p": load_json_source(
@@ -75,6 +84,39 @@ def collect_inventory(
         "wan50_lora_strength": load_csv_source(
             project_root
             / "outputs/changing_resolution_tail_skip_lora_strength_sweep_360p_368x640/metrics/strength_sweep_summary.csv"
+        ),
+        "wan50_step40_endpoint_strength": load_csv_source(
+            step40_endpoint / "metrics/strength_sweep_summary.csv"
+        ),
+        "wan50_step40_endpoint_paired_statistics": load_validated_csv(
+            step40_endpoint / "metrics/strength_paired_statistics.csv",
+            {
+                "step",
+                "strength_tag",
+                "case",
+                "metric",
+                "samples",
+                "oriented_improvement_mean",
+                "bootstrap_ci_low",
+                "bootstrap_ci_high",
+                "two_sided_sign_test_p",
+            },
+            min_rows=3,
+        ),
+        "wan50_step40_vbench_paired_statistics": load_validated_csv(
+            step40_strength / "metrics/vbench_paired_statistics.csv",
+            {
+                "comparison",
+                "case_a",
+                "case_b",
+                "metric",
+                "samples",
+                "delta_b_minus_a_mean",
+                "bootstrap_ci_low",
+                "bootstrap_ci_high",
+                "two_sided_sign_test_p",
+            },
+            min_rows=15,
         ),
         "distill_checkpoint_metrics": load_csv_source(
             project_root / "outputs/eval_lora_ckpt_sweep_480p/checkpoint_metric_summary.csv"
@@ -109,6 +151,38 @@ def collect_inventory(
             {"family", "case", "measurement", "repeats", "elapsed_mean_s", "peak_memory_gib", "quality_metric", "quality_value"},
             min_rows=4,
         ),
+        "wan50_final_quality_efficiency": load_validated_csv(
+            final_quality_efficiency / "quality_efficiency.csv",
+            {
+                "family",
+                "case",
+                "measurement",
+                "lr_evaluations",
+                "hr_evaluations",
+                "total_evaluations",
+                "repeats",
+                "elapsed_mean_s",
+                "peak_memory_gib",
+                "quality_metric",
+                "quality_value",
+            },
+            min_rows=4,
+        ),
+        "wan50_final_vbench_paired_statistics": load_validated_csv(
+            final_quality_efficiency / "metrics/vbench_paired_statistics.csv",
+            {
+                "comparison",
+                "case_a",
+                "case_b",
+                "metric",
+                "samples",
+                "delta_b_minus_a_mean",
+                "bootstrap_ci_low",
+                "bootstrap_ci_high",
+                "two_sided_sign_test_p",
+            },
+            min_rows=20,
+        ),
         "generalization": load_validated_csv(
             results_root / "generalization/summary.csv",
             {"family", "category", "case", "samples", "metric", "mean", "severe_failure_rate"},
@@ -124,6 +198,12 @@ def collect_inventory(
     factorials = {
         "wan50": inspect_factorial(wan_factorial, expected_family="wan50"),
         "distill4": inspect_factorial(distill_factorial, expected_family="distill4"),
+        "wan50_step40_strength": inspect_factorial(
+            step40_strength, expected_family="wan50_step40_strength"
+        ),
+        "wan50_quality_efficiency": inspect_factorial(
+            final_quality_efficiency, expected_family="wan50_quality_efficiency"
+        ),
     }
     ablations = {
         "distill_renoise": inspect_video_set(
@@ -144,10 +224,20 @@ def collect_inventory(
         "vbench": {
             "wan50": inspect_json_files(wan_factorial / "metrics", "vbench*.json"),
             "distill4": inspect_json_files(distill_factorial / "metrics", "vbench*.json"),
+            "wan50_step40_strength": inspect_json_files(step40_strength / "metrics", "vbench*.json"),
+            "wan50_quality_efficiency": inspect_json_files(
+                final_quality_efficiency / "metrics", "vbench*.json"
+            ),
         },
         "human_review": {
             "wan50": inspect_human_review(wan_factorial),
             "distill4": inspect_human_review(distill_factorial),
+            "wan50_step40_strength": inspect_human_review(
+                step40_strength, require_extended_summary=True
+            ),
+            "wan50_step45": inspect_human_review(
+                wan_factorial, review_name="step45", require_extended_summary=True
+            ),
         },
     }
     task_audit = audit_manifest_tasks(manifest, environment)
@@ -183,7 +273,7 @@ def collect_inventory(
             )
 
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "project_root": str(project_root),
         "canonical_results_root": str(results_root),
@@ -192,6 +282,11 @@ def collect_inventory(
             "distill_lora_checkpoint": environment["DISTILL_LORA_480_CKPT"],
             "distill_lora_strength": environment["DISTILL_LORA_STRENGTH"],
             "distill_stage2_checkpoint": environment["DISTILL_STAGE2_CKPT"],
+            "wan50_lora40_checkpoint": environment["WAN50_LORA40_CKPT"],
+            "wan50_lora40_strength": environment["WAN50_LORA40_STRENGTH_FINAL"],
+            "wan50_lora45_checkpoint": environment["WAN50_LORA45_CKPT"],
+            "wan50_lora45_strength": environment["WAN50_LORA45_STRENGTH_FINAL"],
+            "wan50_stage2_checkpoint": environment["WAN50_STAGE2_CKPT"],
         },
         "task_audit": task_audit,
         "sources": sources,
@@ -441,6 +536,8 @@ def inspect_factorial(root: Path, expected_family: str) -> dict[str, Any]:
         "prompt_offset": prompt_offset,
         "prompt_count": len(prompts),
         "lora_artifacts": manifest.get("lora_artifacts", {}),
+        "lora_artifact": manifest.get("lora_artifact"),
+        "artifacts": manifest.get("artifacts", {}),
         "stage2_artifact": manifest.get("stage2_artifact"),
         "settings": manifest.get("settings", {}),
         "reuse_roots": manifest.get("reuse_roots", []),
@@ -457,19 +554,45 @@ def inspect_factorial_config(path: Path, case: dict[str, Any]) -> tuple[list[str
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         return [f"invalid config JSON: {exc}"], {"path": str(path)}
     issues = []
-    expected_lora = case["handoff"] == "lora"
-    expected_stage2 = case["resizer"] == "stage2"
+    if config.get("compare_name") != case["name"]:
+        issues.append(f"compare_name mismatch: {config.get('compare_name')!r}")
+
+    if {"handoff", "resizer", "step"}.issubset(case):
+        expected_lora = case["handoff"] == "lora"
+        expected_stage2 = case["resizer"] == "stage2"
+        expected_step = int(case["step"])
+        if list(config.get("changing_resolution_steps", [])) != [expected_step]:
+            issues.append(f"handoff step mismatch: {config.get('changing_resolution_steps')!r}")
+    elif {"lr_evaluations", "hr_evaluations", "total_evaluations"}.issubset(case):
+        expected_protocols = {
+            "full_hr50": (0, 50, 50, None, False, False),
+            "talh40": (40, 10, 50, 40, True, True),
+            "talh45": (45, 5, 50, 45, True, True),
+            "full_lr50_stage2_1hr": (50, 1, 51, 50, False, True),
+        }
+        protocol = expected_protocols.get(str(case["name"]))
+        if protocol is None:
+            return [*issues, f"unknown quality-efficiency case: {case['name']}"], {"path": str(path)}
+        expected_counts = tuple(int(case[key]) for key in ("lr_evaluations", "hr_evaluations", "total_evaluations"))
+        if expected_counts != protocol[:3]:
+            issues.append(f"evaluation budget mismatch: {expected_counts!r}, expected {protocol[:3]!r}")
+        expected_step, expected_lora, expected_stage2 = protocol[3:]
+        if expected_step is None:
+            if config.get("changing_resolution") or config.get("changing_resolution_steps"):
+                issues.append("full_hr50 must not enable changing resolution")
+        elif list(config.get("changing_resolution_steps", [])) != [expected_step]:
+            issues.append(f"handoff step mismatch: {config.get('changing_resolution_steps')!r}")
+        if int(config.get("infer_steps", -1)) != 50:
+            issues.append(f"infer_steps mismatch: {config.get('infer_steps')!r}")
+    else:
+        return [*issues, "unsupported case schema in run manifest"], {"path": str(path)}
+
     has_lora = bool(config.get("lora_configs"))
     has_stage2 = bool(config.get("wan_clean_resizer_ckpt"))
     if has_lora != expected_lora:
         issues.append(f"LoRA config mismatch (expected={expected_lora}, found={has_lora})")
     if has_stage2 != expected_stage2:
         issues.append(f"Stage2 config mismatch (expected={expected_stage2}, found={has_stage2})")
-    if config.get("compare_name") != case["name"]:
-        issues.append(f"compare_name mismatch: {config.get('compare_name')!r}")
-    expected_step = int(case["step"])
-    if list(config.get("changing_resolution_steps", [])) != [expected_step]:
-        issues.append(f"handoff step mismatch: {config.get('changing_resolution_steps')!r}")
     if expected_lora and list(config.get("lora_active_steps", [])) != [expected_step]:
         issues.append(f"LoRA active step mismatch: {config.get('lora_active_steps')!r}")
     lora = config.get("lora_configs", [{}])[0] if has_lora else {}
@@ -546,10 +669,17 @@ def flatten_numeric(value: Any, prefix: str = "") -> dict[str, float]:
     return result
 
 
-def inspect_human_review(root: Path) -> dict[str, Any]:
-    ballot = load_csv_source(root / "review/human_ratings.csv")
-    completed = load_csv_source(root / "review/human_ratings_completed.csv")
-    summary = load_json_source(root / "review/human_review_summary.json")
+def inspect_human_review(
+    root: Path,
+    review_name: str = "default",
+    require_extended_summary: bool = False,
+) -> dict[str, Any]:
+    review = root / "review" if review_name == "default" else root / "review" / review_name
+    ballot = load_csv_source(review / "human_ratings.csv")
+    completed = load_csv_source(review / "human_ratings_completed.csv")
+    summary = load_json_source(review / "human_review_summary.json")
+    prompt_summary = load_csv_source(review / "human_review_prompt_summary.csv")
+    agreement = load_csv_source(review / "human_review_agreement.csv")
     required_suffix = "_winner_A_B_tie"
     completed_rows = 0
     validation_errors: list[str] = []
@@ -581,8 +711,16 @@ def inspect_human_review(root: Path) -> dict[str, Any]:
     if completed_status == "complete" and summary["status"] != "complete":
         completed_status = summary["status"]
         validation_errors.append("validated human-review summary is missing or invalid")
+    if completed_status == "complete" and require_extended_summary:
+        if prompt_summary["status"] != "complete":
+            completed_status = prompt_summary["status"]
+            validation_errors.append("prompt-level majority summary is missing or invalid")
+        if agreement["status"] != "complete":
+            completed_status = agreement["status"]
+            validation_errors.append("inter-rater agreement summary is missing or invalid")
     return {
-        "root": str(root),
+        "root": str(review),
+        "review_name": review_name,
         "ballot_status": ballot["status"],
         "ballot_rows": ballot["row_count"],
         "completed_status": completed_status,
@@ -590,6 +728,10 @@ def inspect_human_review(root: Path) -> dict[str, Any]:
         "completed_total_rows": completed["row_count"],
         "summary_status": summary["status"],
         "summary": summary.get("data"),
+        "prompt_summary_status": prompt_summary["status"],
+        "prompt_summary": prompt_summary.get("rows", []),
+        "agreement_status": agreement["status"],
+        "agreement": agreement.get("rows", []),
         "completed_message": "; ".join(validation_errors)
         or completed.get("message", "")
         or f"{completed_rows}/{completed['row_count']} valid rating rows",
@@ -641,21 +783,30 @@ def write_outputs(output_root: Path, inventory: dict[str, Any]) -> None:
         "distill_368p_lora_strength": inventory["sources"]["distill_368p_lora_strength"]["rows"],
         "distill_480lora_transfer_368p": inventory["sources"]["distill_480lora_transfer_368p"]["rows"],
         "wan50_endpoint_paired_statistics": inventory["sources"]["wan50_endpoint_paired_statistics"]["rows"],
+        "wan50_step40_endpoint_strength": inventory["sources"]["wan50_step40_endpoint_strength"]["rows"],
+        "wan50_step40_endpoint_paired_statistics": inventory["sources"][
+            "wan50_step40_endpoint_paired_statistics"
+        ]["rows"],
+        "wan50_step40_vbench_paired_statistics": inventory["sources"][
+            "wan50_step40_vbench_paired_statistics"
+        ]["rows"],
         "distill_transfer_paired_statistics": inventory["sources"]["distill_transfer_paired_statistics"]["rows"],
         "timing_summary": inventory["sources"]["timing_summary"]["rows"],
         "lora_architecture_loss": inventory["sources"]["lora_architecture_loss"]["rows"],
         "stage2_architecture_loss": inventory["sources"]["stage2_architecture_loss"]["rows"],
         "quality_efficiency": inventory["sources"]["quality_efficiency"]["rows"],
+        "wan50_final_quality_efficiency": inventory["sources"]["wan50_final_quality_efficiency"]["rows"],
+        "wan50_final_vbench_paired_statistics": inventory["sources"][
+            "wan50_final_vbench_paired_statistics"
+        ]["rows"],
         "generalization": inventory["sources"]["generalization"]["rows"],
         "factorial_coverage": factorial_coverage_rows(inventory["factorials"]),
         "task_audit": inventory["task_audit"],
-        "human_review_wan50": (inventory["external"]["human_review"]["wan50"].get("summary") or {}).get(
-            "preferences", []
-        ),
-        "human_review_distill4": (inventory["external"]["human_review"]["distill4"].get("summary") or {}).get(
-            "preferences", []
-        ),
     }
+    for family, result in inventory["external"]["human_review"].items():
+        source_names[f"human_review_{family}"] = (result.get("summary") or {}).get("preferences", [])
+        source_names[f"human_review_prompt_{family}"] = result.get("prompt_summary", [])
+        source_names[f"human_review_agreement_{family}"] = result.get("agreement", [])
     for name, rows in source_names.items():
         write_csv(compiled / f"{name}.csv", rows)
 
@@ -715,6 +866,11 @@ def render_markdown(inventory: dict[str, Any]) -> str:
         f"- Distill LoRA: `{inventory['final_configuration']['distill_lora_checkpoint']}`",
         f"- Distill LoRA strength: `{inventory['final_configuration']['distill_lora_strength']}`",
         f"- Distill Stage2: `{inventory['final_configuration']['distill_stage2_checkpoint']}`",
+        f"- Wan50 step40 LoRA: `{inventory['final_configuration']['wan50_lora40_checkpoint']}`",
+        f"- Wan50 step40 strength: `{inventory['final_configuration']['wan50_lora40_strength']}`",
+        f"- Wan50 step45 LoRA: `{inventory['final_configuration']['wan50_lora45_checkpoint']}`",
+        f"- Wan50 step45 strength: `{inventory['final_configuration']['wan50_lora45_strength']}`",
+        f"- Wan50 Stage2: `{inventory['final_configuration']['wan50_stage2_checkpoint']}`",
         "",
     ]
     lines.extend(render_task_summary(inventory["task_audit"]))
@@ -727,6 +883,24 @@ def render_markdown(inventory: dict[str, Any]) -> str:
         )
     )
     lines.extend(render_metric_source("Wan50 LoRA strength", inventory["sources"]["wan50_lora_strength"], group="strength"))
+    lines.extend(
+        render_csv_source(
+            "Wan50 step40 endpoint strength sweep",
+            inventory["sources"]["wan50_step40_endpoint_strength"],
+        )
+    )
+    lines.extend(
+        render_csv_source(
+            "Wan50 step40 endpoint paired statistics",
+            inventory["sources"]["wan50_step40_endpoint_paired_statistics"],
+        )
+    )
+    lines.extend(
+        render_csv_source(
+            "Wan50 step40 VBench paired statistics",
+            inventory["sources"]["wan50_step40_vbench_paired_statistics"],
+        )
+    )
     lines.extend(
         render_metric_source(
             "Distill checkpoint selection (L1 ranking)", inventory["sources"]["distill_checkpoint_rank_l1"], group="checkpoint"
@@ -757,6 +931,18 @@ def render_markdown(inventory: dict[str, Any]) -> str:
     lines.extend(render_csv_source("LoRA architecture/loss ablation", inventory["sources"]["lora_architecture_loss"]))
     lines.extend(render_csv_source("Stage2 architecture/loss ablation", inventory["sources"]["stage2_architecture_loss"]))
     lines.extend(render_csv_source("Peak memory and quality–efficiency", inventory["sources"]["quality_efficiency"]))
+    lines.extend(
+        render_csv_source(
+            "Wan50 final quality–efficiency benchmark",
+            inventory["sources"]["wan50_final_quality_efficiency"],
+        )
+    )
+    lines.extend(
+        render_csv_source(
+            "Wan50 final quality VBench paired statistics",
+            inventory["sources"]["wan50_final_vbench_paired_statistics"],
+        )
+    )
     lines.extend(render_csv_source("Generalization and failure cases", inventory["sources"]["generalization"]))
     lines.extend(render_ablations(inventory["ablations"]))
     lines.extend(render_external(inventory["external"]))
@@ -899,15 +1085,24 @@ def render_ablations(ablations: dict[str, Any]) -> list[str]:
 
 def render_external(external: dict[str, Any]) -> list[str]:
     lines = ["## External evidence", "", "| Family | VBench | VBench files | Blind ballot rows | Completed rating rows | Human status |", "|---|---|---:|---:|---:|---|"]
-    for family in ("wan50", "distill4"):
-        vbench = external["vbench"][family]
-        human = external["human_review"][family]
+    families = list(dict.fromkeys([*external["vbench"], *external["human_review"]]))
+    for family in families:
+        vbench = external["vbench"].get(family)
+        human = external["human_review"].get(family)
+        if vbench is None or human is None:
+            lines.append(
+                f"| {md(family)} | {md(vbench['status'] if vbench else 'not collected')} | "
+                f"{len(vbench['files']) if vbench else 0} | {human['ballot_rows'] if human else 0} | "
+                f"{human['completed_rows'] if human else 0}/{human['completed_total_rows'] if human else 0} | "
+                f"{md(human['completed_status'] if human else 'not collected')} |"
+            )
+            continue
         lines.append(
             f"| {family} | {vbench['status']} | {len(vbench['files'])} | {human['ballot_rows']} | "
             f"{human['completed_rows']}/{human['completed_total_rows']} | {human['completed_status']} |"
         )
     numeric_rows = []
-    for family in ("wan50", "distill4"):
+    for family in external["vbench"]:
         for file in external["vbench"][family]["files"]:
             for metric, value in sorted(file["numeric_metrics"].items()):
                 numeric_rows.append((family, file["path"], metric, value))
