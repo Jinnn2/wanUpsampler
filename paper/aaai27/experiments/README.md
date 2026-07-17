@@ -231,3 +231,38 @@ python paper/aaai27/experiments/paired_statistics.py \
   --a-field base_lpips --b-field talh_lpips \
   --output path/to/lpips_stats.json --lower-is-better
 ```
+
+## 4. Export a frozen result bundle
+
+Run collection immediately before export. The exporter requires an exact
+allowlist match: it stops if a declared omission unexpectedly exists or if any
+additional issue appears. For the final AAAI snapshot where the two controlled
+architecture/loss ablations and unseen-prompt generalization were intentionally
+not run:
+
+```bash
+python paper/aaai27/experiments/collect_results.py
+
+python paper/aaai27/experiments/export_results.py \
+  --output-root exports/aaai27_final_YYYYMMDD \
+  --allow-missing sources.lora_architecture_loss \
+  --allow-missing sources.stage2_architecture_loss \
+  --allow-missing sources.generalization \
+  --include-videos \
+  --include-checkpoints \
+  --archive
+```
+
+The output directory must be new and must be outside `outputs/`. It contains:
+
+- `core/`: inventory, paper tables, normalized CSVs, and declared omissions;
+- `evidence/`: canonical and legacy result trees, factorials, and ablations;
+- `models/`: final referenced checkpoints when `--include-checkpoints` is set;
+- `provenance/`: task state, tracked code, Git state/diff, environment, and the
+  original-to-exported path map;
+- `SHA256SUMS` and `export_manifest.json` for integrity and export settings.
+
+Videos are excluded unless `--include-videos` is set. `_private` review keys
+and task logs are excluded by default; add `--include-private` and
+`--include-logs` only for the internal master archive. Do not publish that
+private archive as anonymous supplementary material.
