@@ -87,7 +87,7 @@ def measure(command: str, gpu: int, cwd: Path, extra_environment: dict[str, str]
     environment["CUDA_VISIBLE_DEVICES"] = str(gpu)
     baseline = gpu_memory_mib(gpu)
     started = time.perf_counter()
-    process = subprocess.Popen(["bash", "-lc", command], cwd=cwd, env=environment)
+    process = subprocess.Popen(["bash", "-c", command], cwd=cwd, env=environment)
     peak = baseline
     while process.poll() is None:
         peak = max(peak, gpu_memory_mib(gpu))

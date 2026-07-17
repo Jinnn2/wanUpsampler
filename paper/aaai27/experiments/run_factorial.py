@@ -112,7 +112,7 @@ def run_distill_batch(
         if args.skip_existing:
             command.append("--skip-existing")
         print(f"[batch] {case.name}: one model load for {len(prompts)} prompt(s)", flush=True)
-        subprocess.run(command, cwd=REPO_ROOT, check=True)
+        subprocess.run(command, cwd=REPO_ROOT, check=True, env=inference_environment())
 
 
 def family_config(args: argparse.Namespace) -> dict[str, object]:
@@ -240,7 +240,21 @@ def run_inference(
         str(args.num_frames),
     ]
     print(f"[run] {case.name} seed={seed}", flush=True)
-    subprocess.run(command, cwd=REPO_ROOT, check=True)
+    subprocess.run(command, cwd=REPO_ROOT, check=True, env=inference_environment())
+
+
+def inference_environment() -> dict[str, str]:
+    environment = dict(os.environ)
+    lightx2v_repo = environment.get("LIGHTX2V_REPO", "/mnt/afs_2/houze/LightX2V")
+    diffsynth_repo = environment.get("DIFFSYNTH_REPO", "/mnt/afs_2/houze/DiffSynth-Studio")
+    existing = environment.get("PYTHONPATH", "")
+    entries = [lightx2v_repo, diffsynth_repo, str(REPO_ROOT)]
+    if existing:
+        entries.append(existing)
+    environment["LIGHTX2V_REPO"] = lightx2v_repo
+    environment["DIFFSYNTH_REPO"] = diffsynth_repo
+    environment["PYTHONPATH"] = os.pathsep.join(entries)
+    return environment
 
 
 def reuse_existing(args: argparse.Namespace, case: Case, label: str, seed: int, output: Path) -> Path | None:

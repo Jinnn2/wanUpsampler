@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shlex
 from pathlib import Path
 from typing import Any
@@ -132,6 +133,15 @@ def main() -> None:
             vbench=distill_vbench,
         ),
     ]
+    lightx2v_repo = Path(os.environ.get("LIGHTX2V_REPO", "/mnt/afs_2/houze/LightX2V")).resolve()
+    diffsynth_repo = Path(os.environ.get("DIFFSYNTH_REPO", "/mnt/afs_2/houze/DiffSynth-Studio")).resolve()
+    pythonpath = ":".join([str(lightx2v_repo), str(diffsynth_repo), str(root)])
+    for case in cases:
+        case["environment"] = {
+            "LIGHTX2V_REPO": str(lightx2v_repo),
+            "DIFFSYNTH_REPO": str(diffsynth_repo),
+            "PYTHONPATH": pythonpath,
+        }
     output = Path(args.output)
     if not output.is_absolute():
         output = root / output
