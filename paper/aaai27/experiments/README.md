@@ -4,6 +4,12 @@ This directory provides a resumable layer over the existing training and
 evaluation scripts. Run it on the Linux GPU host where `/mnt/afs_2/houze`
 and the existing `outputs/` tree are available.
 
+Paper-facing terminology is functional: TAA (internal LoRA labels), CLL
+(internal Stage2 labels), HTR (re-noise plus HR suffix), JTSL (internal Stage3),
+Native-HR (Full-HR), and VBench-5 (the internal `Quality5` field). Commands,
+registries, case names, and CSV schemas deliberately retain their original
+internal labels for reproducibility.
+
 ## 1. Audit existing remote results
 
 ```bash
@@ -366,3 +372,23 @@ The restore verifies every entry in `SHA256SUMS`, accepts only paths that were
 originally under the recorded canonical result root, assembles them in a new
 temporary directory, and atomically renames that directory into place. It
 refuses to overwrite an existing result root.
+
+## 5. Merge a base core with a closure archive
+
+When a closure run intentionally exports only newly completed evidence, merge
+it with the last verified base `core` before editing paper tables:
+
+```powershell
+python paper/aaai27/experiments/integrate_result_snapshots.py `
+  --base-core "C:\path\to\aaai27_final_20260717\core\core" `
+  --incremental-archive "C:\path\to\aaai27_closure_20260718_incremental.tar.gz" `
+  --output-root "paper\aaai27\results\integrated_20260718"
+```
+
+The merger verifies every archive checksum in the tar stream, so raw VBench
+files whose timestamp names contain Windows-illegal colons do not need to be
+extracted. It prefers complete closure tables, falls back to the base core for
+declared omissions, unions factorial coverage, and recomputes the final
+step45 strength=0.75 paired endpoint statistics from raw samples. The generated
+`integration_manifest.json` records provenance, final checkpoint strengths,
+remaining evidence gaps, and interpretation constraints.

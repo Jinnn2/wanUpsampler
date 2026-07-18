@@ -65,13 +65,24 @@ pdflatex -output-directory=build main.tex
 
 The current machine did not have PDFLaTeX installed at workspace setup time. Do not switch to XeLaTeX for the submission: the official author kit requires PDFLaTeX.
 
-## Evidence still required
+## Result status (2026-07-18)
 
-- Stage2 operator metrics for both 1.5x and 2x-crop paths.
-- Frozen-checkpoint 50-step and 4-step LoRA tests on held-out prompts and seeds.
-- Complete Base/LoRA x Interpolation/Stage2 factorial evaluation.
-- Full-HR and direct Stage3 quality-efficiency baselines.
-- Handoff-step, LoRA rank/module/loss, Stage2 architecture/loss, and re-noise ablations.
-- Hardware, batch size, training time, run count, variance, and statistical tests.
-- Blinded human evaluation and failure cases.
-- LTX-2 source attribution and license review before releasing code.
+The frozen base core and closure archive have been merged under
+`results/integrated_20260718/`. The Chinese result analysis is in
+`results/RESULTS_ANALYSIS_ZH.md`; `main_zh.md` v0.8 contains the paper-facing
+tables and conclusions. The merged evidence now covers both Clean Latent Lifter (CLL) operators,
+final step40/step45 endpoint tests, the Wan50 and distill4 factorials, prompt-level
+human review, Native-HR quality-efficiency, and the Endpoint Re-entry Baseline.
+
+The following experiments are deliberately out of scope and will not be run;
+they must be stated as limitations rather than future required evidence:
+
+- TAA rank/module/loss and CLL architecture/loss controlled ablations.
+- Unseen-prompt/domain/checkpoint generalization.
+- A matched quantitative CLL-versus-JTSL comparison; JTSL remains only
+  a qualitative motivation.
+
+Reported training resources are 4×NVIDIA H100, approximately 33 wall-clock
+hours for TAA (implemented with LoRA) and 8 wall-clock hours for CLL. Non-experimental paper work
+still includes the final failure-case figure and LTX-2 attribution/license
+review.

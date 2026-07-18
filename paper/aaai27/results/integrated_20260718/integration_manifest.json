@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-07-18T05:47:45.606631+00:00",
+  "sources": {
+    "base_core": "C:\\Users\\jinho\\Downloads\\aaai27_final_20260717\\core\\core",
+    "base_inventory_generated_at_utc": "2026-07-17T09:17:30.885113+00:00",
+    "incremental_archive": "C:\\Users\\jinho\\Downloads\\aaai27_closure_20260718_incremental.tar.gz",
+    "incremental_archive_sha256": "df0a64f4ec5871a043321acd3e504a9d91dd9dde6d2266258602e51d8121aed9",
+    "incremental_inventory_generated_at_utc": "2026-07-18T03:51:21.252631+00:00"
+  },
+  "archive_verification": {
+    "checksummed_files": 747,
+    "missing": 0,
+    "mismatched": 0,
+    "windows_illegal_colon_members": 48,
+    "status": "verified"
+  },
+  "compiled_table_merge": {
+    "tables": {
+      "distill_368p_lora_strength.csv": "incremental",
+      "distill_480lora_transfer_368p.csv": "base_fallback",
+      "distill_checkpoint_metrics.csv": "incremental",
+      "distill_checkpoint_rank_l1.csv": "incremental",
+      "distill_transfer_paired_statistics.csv": "base_fallback",
+      "factorial_coverage.csv": "union",
+      "generalization.csv": "incremental_empty",
+      "human_review_agreement_distill4.csv": "incremental_empty",
+      "human_review_agreement_wan50.csv": "incremental_empty",
+      "human_review_agreement_wan50_step40_strength.csv": "incremental",
+      "human_review_agreement_wan50_step45.csv": "incremental",
+      "human_review_distill4.csv": "base_fallback",
+      "human_review_prompt_distill4.csv": "incremental_empty",
+      "human_review_prompt_wan50.csv": "incremental_empty",
+      "human_review_prompt_wan50_step40_strength.csv": "incremental",
+      "human_review_prompt_wan50_step45.csv": "incremental",
+      "human_review_wan50.csv": "base_fallback",
+      "human_review_wan50_step40_strength.csv": "incremental",
+      "human_review_wan50_step45.csv": "incremental",
+      "lora_architecture_loss.csv": "incremental_empty",
+      "operator_368p.csv": "base_fallback",
+      "operator_480p.csv": "incremental",
+      "quality_efficiency.csv": "base_fallback",
+      "stage2_architecture_loss.csv": "incremental_empty",
+      "task_audit.csv": "incremental",
+      "timing_summary.csv": "incremental",
+      "wan50_endpoint_paired_statistics.csv": "incremental",
+      "wan50_endpoint_step45.csv": "incremental",
+      "wan50_final_quality_efficiency.csv": "incremental",
+      "wan50_final_vbench_paired_statistics.csv": "incremental",
+      "wan50_lora_strength.csv": "incremental",
+      "wan50_step40_endpoint_paired_statistics.csv": "incremental",
+      "wan50_step40_endpoint_strength.csv": "incremental",
+      "wan50_step40_vbench_paired_statistics.csv": "incremental"
+    },
+    "counts": {
+      "incremental": 20,
+      "base_fallback": 6,
+      "union": 1,
+      "incremental_empty": 7
+    }
+  },
+  "derived_tables": [
+    "compiled_tables/wan50_step45_final_endpoint_paired_statistics.csv",
+    "compiled_tables/vbench_case_summary.csv",
+    "compiled_tables/factorial_vbench_effects.csv",
+    "compiled_tables/quality_efficiency_summary.csv",
+    "compiled_tables/wan50_final_quality5_paired_statistics.csv"
+  ],
+  "final_configuration": {
+    "distill_lora_checkpoint": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/step_0010000.safetensors",
+    "distill_lora_strength": "0.75",
+    "distill_stage2_checkpoint": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb/latest.pt",
+    "wan50_lora40_checkpoint": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_tail_skip_lora_step40_to_step50_temporal/latest.safetensors",
+    "wan50_lora40_strength": "0.75",
+    "wan50_lora45_checkpoint": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_tail_skip_lora_step45_to_step50/latest.safetensors",
+    "wan50_lora45_strength": "0.75",
+    "wan50_stage2_checkpoint": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_clean_368x640_720x1248_stage2_lmdb/latest.pt"
+  },
+  "reported_training_resources": {
+    "gpu_model": "NVIDIA H100",
+    "gpu_count": 4,
+    "lora_wall_clock_hours": 33,
+    "stage2_wall_clock_hours": 8,
+    "source": "author-reported on 2026-07-18"
+  },
+  "paper_terminology": {
+    "lora_internal": "Trajectory Alignment Adapter (TAA)",
+    "stage2_internal": "Clean Latent Lifter (CLL)",
+    "stage3_internal": "Joint Trajectory-Scale Lifter (JTSL)",
+    "renoise_hr_suffix": "High-Resolution Trajectory Re-entry (HTR)",
+    "full_hr_internal": "Native-HR Sampling",
+    "quality5_internal": "VBench-5"
+  },
+  "intentionally_omitted_experiments": [
+    "sources.generalization",
+    "sources.lora_architecture_loss",
+    "sources.stage2_architecture_loss"
+  ],
+  "interpretation_constraints": [
+    "Step45 final TAA statistics use strength 0.75 raw paired samples from the LoRA implementation, not the legacy strength 1.0 paired table.",
+    "VBench-5 (internal quality5) is the unweighted mean of subject consistency, background consistency, motion smoothness, aesthetic quality, and imaging quality.",
+    "Human-review inference uses ten prompt-level majority outcomes; thirty individual ratings are clustered descriptive observations.",
+    "TAA endpoint improvement and end-to-end perceptual improvement are distinct claims.",
+    "Peak GPU memory is approximately unchanged across the final Wan50 efficiency cases."
+  ]
+}
