@@ -174,7 +174,7 @@ write_group() {
   mkdir -p "$out"
 
   copy_required "$NATIVE_DIR/ori_50_${index}_seed${seed}.mp4" \
-    "$out/01_Native-HR.mp4"
+    "$out/01_Native-HR-estimated.mp4"
 
   if [[ "$group" == "TALH-Q_spatial_detail" ]]; then
     copy_required "$FACTORIAL_DIR/step40_base_interp/step40_base_interp_${index}_seed${seed}.mp4" \
@@ -211,7 +211,8 @@ infer_steps=50
 sample_shift=8
 cfg=6
 frames=81
-resolution=720x1248
+estimated_reference_resolution=368x640
+handoff_output_resolution=720x1248
 EOF
 }
 
@@ -238,10 +239,13 @@ Source final export: $FINAL_EXPORT
 Source incremental export: $INCREMENTAL_EXPORT
 TALH-Q final source: ${Q_FINAL_DIR:-MISSING}
 
-Within every prompt directory, prompt, seed, scheduler settings, frame count,
-and output resolution are aligned. Native-HR is named ori_50 in the legacy
-export. The old factorial step40_lora_stage2 result is intentionally excluded
-because its LoRA strength is 1.0 rather than the final 0.75.
+Within every prompt directory, prompt, seed, scheduler settings, and frame count
+are aligned. Native-HR (estimated) is the content-aligned 368x640 full LR
+trajectory named ori_50 in the legacy export. It is provided for qualitative
+context only; the other three rows are 720x1248 outputs. The actual 720p
+Native-HR Sampling baseline is used in quantitative experiments. The old
+factorial step40_lora_stage2 result is intentionally excluded because its LoRA
+strength is 1.0 rather than the final 0.75.
 EOF
 
 (

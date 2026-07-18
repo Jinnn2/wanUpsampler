@@ -1,0 +1,77 @@
+{
+  "source": "Audited TALH qualitative videos plus the locked inference panel from fig_talh_overview.png.",
+  "layout": "Panel (a) above panel (b).",
+  "prompt_index": 5,
+  "seed": 9705,
+  "frame_zero_based": 40,
+  "frame_displayed_one_based": 41,
+  "crop_name": "A",
+  "crop_box_in_1248x720": [
+    180,
+    220,
+    680,
+    720
+  ],
+  "native_hr_estimated_note": "Content-aligned 640x368 full LR trajectory used for context only; its actual frame and normalized Crop A are displayed; it is not used as a 720p sharpness baseline.",
+  "overview_inference_panel": {
+    "path": "C:\\Codes\\wanUpsampler\\paper\\aaai27\\figures\\fig_talh_overview.png",
+    "source_sha256": "51bbeb9f8fe192f41a4f384f20da691bfbc73ad02a777b4fd030ec04e502ae60",
+    "crop_box": [
+      0,
+      0,
+      1774,
+      409
+    ],
+    "displayed_crop_sha256": "cceb18cb69dd1ad1fd0eb70bfa3ec1554cdfe8faf72f301487a168d8fbb943f6"
+  },
+  "operating_points": {
+    "TALH-Q": {
+      "handoff_step": 40,
+      "lr_hr_evaluations": [
+        40,
+        10
+      ],
+      "speedup": 1.83,
+      "vbench5_retained_percent": 97.76
+    },
+    "TALH-E": {
+      "handoff_step": 45,
+      "lr_hr_evaluations": [
+        45,
+        5
+      ],
+      "speedup": 2.22,
+      "vbench5_retained_percent": 97.53
+    }
+  },
+  "videos": [
+    {
+      "method": "Native-HR (estimated)",
+      "path": "C:\\Codes\\wanUpsampler\\outputs\\aaai27_figure_work\\talh_figure_video_candidates\\TALH-Q_spatial_detail\\prompt_05_seed9705\\01_Native-HR.mp4",
+      "video_sha256": "8761d89d1023bc5d3ec965aa46ae4e608d338abd51c55c628c2513972f9e43cb",
+      "decoded_frame_sha256": "69f72a3867b78cd0caf72d7fb28e100f850b7fca852f4786e8b663866f198d72",
+      "displayed_crop_sha256": "ff271306dd8eb6e1655e5ad0866853b1d87922dbf301c32bb06a95d7b743448a"
+    },
+    {
+      "method": "Trilinear @ 40",
+      "path": "C:\\Codes\\wanUpsampler\\outputs\\aaai27_figure_work\\talh_figure_video_candidates\\TALH-Q_spatial_detail\\prompt_05_seed9705\\02_Trilinear-at-40.mp4",
+      "video_sha256": "affff7f4cf97c85215d343c7adc32c30595e5a4e718ff7a7d31f1bc152e72858",
+      "decoded_frame_sha256": "4739276efb68336a62e697906d75cca5a09158d59f68d95968cd8e62f6210785",
+      "displayed_crop_sha256": "acaf6050c977b62f285aefa35b648e8298d37f63053469df97377d12846ea6ef"
+    },
+    {
+      "method": "CLL-only @ 40",
+      "path": "C:\\Codes\\wanUpsampler\\outputs\\aaai27_figure_work\\talh_figure_video_candidates\\TALH-Q_spatial_detail\\prompt_05_seed9705\\03_CLL-only-at-40.mp4",
+      "video_sha256": "44759c5e0a97867df18bf444f762c8a7864d5b7be6513af493a23f03025d86a4",
+      "decoded_frame_sha256": "e09ab2d36db7a9f65cf4f446b48850e1e2d0ab585ba6ce0675bcc6984b529912",
+      "displayed_crop_sha256": "3860c1fc77abfdc31b4123ab9e4a7c5eb1f30d9e644b19c07e88d90be33e5e59"
+    },
+    {
+      "method": "TALH-Q @ 40",
+      "path": "C:\\Codes\\wanUpsampler\\outputs\\aaai27_figure_work\\talh_figure_video_candidates\\TALH-Q_spatial_detail\\prompt_05_seed9705\\04_TALH-Q-at-40.mp4",
+      "video_sha256": "cb6637667bcb19006a175ce8fc6e91b0c834fa0c27b3f252adcfd2225cb0d813",
+      "decoded_frame_sha256": "893f72cbf18a75a327f6181d6f7ec3b84179d4a1fe621306401a2c198d474053",
+      "displayed_crop_sha256": "469a90231fa096b395a54051dca942044c4e32d87108d62fb203059e63b98eca"
+    }
+  ]
+}
