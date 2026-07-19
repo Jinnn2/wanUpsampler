@@ -272,12 +272,22 @@ python paper/aaai27/experiments/aggregate_human_review.py merge \
 The summary includes raw vote counts, prompt-level majority preferences with
 bootstrap confidence intervals and exact sign tests, and Fleiss' kappa for
 each comparison/dimension. Select the final step40 strength from the complete
-endpoint/VBench/human evidence, then pass it to the four-way benchmark through
-the environment. The four cases share model, prompts, seeds, frame count, and
-output resolution: Full-HR50, TALH@40, TALH@45, and Full-LR50+Stage2+1HR.
-The last case retains the canonical 50-step LR schedule and performs one extra
-HR evaluation at the lowest-noise HR timestep; it is not a substituted
-51-step schedule.
+endpoint/VBench/human evidence, then pass it to the unified Pareto benchmark
+through the environment. The default 13 cases share model, prompts, seeds,
+frame count, and output resolution:
+
+- Native-HR50;
+- LightX2V changing-resolution handoffs at steps 40, 45, and 48;
+- TALH handoffs at steps 40 and 45;
+- Full-LR50 + CLL with 0, 1, 2, and 5 additional HR refinements;
+- uniform RALU-style NT-matching adaptations at steps 40, 45, and 48.
+
+Every Endpoint case retains the canonical 50-step LR schedule, lifts the clean
+endpoint once, and then performs exactly K extra evaluations on the final K
+timesteps of the HR-shifted schedule. The RALU-style cases implement the
+single-transition analytical noise/timestep re-entry and a truncated shifted
+HR suffix; they are explicitly not labeled as the full region-adaptive RALU
+pipeline.
 
 ```bash
 WAN50_LORA40_STRENGTH_FINAL=0.75 WAN50_LORA45_STRENGTH_FINAL=0.75 \
@@ -293,6 +303,16 @@ The benchmark uses one warm-up and five measured fresh processes per case.
 It records LR/HR/total denoiser evaluations, cold-start latency, raw repeats,
 whole-process peak GPU memory, individual VBench components, and the explicitly
 labeled five-dimension convenience mean.
+
+For a smoke test or a partial rerun, select method families explicitly:
+
+```bash
+python paper/aaai27/experiments/run_final_quality_efficiency.py check \
+  --methods lightx2v endpoint ralu \
+  --lightx2v-handoff-steps 40 45 48 \
+  --endpoint-refinement-steps 0 1 2 5 \
+  --ralu-handoff-steps 40 45 48
+```
 
 Step45 ratings are isolated from the existing step40 package, so preparing
 them cannot overwrite earlier ballots or private keys:

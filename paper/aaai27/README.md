@@ -2,8 +2,9 @@
 
 ## Current source of truth
 
-- `main_polished.md`: complete polished English manuscript and the sole textual source of truth for the current paper.
-- `main.tex` + `body_polished.tex`: full, unabridged AAAI-27 LaTeX rendering of `main_polished.md`. No substantive content is removed to meet a page budget at this stage.
+- `main.tex` + `body_polished.tex`: current AAAI-27 submission source. `main.tex` directly inputs `body_polished.tex`; this is the source used for every current PDF export.
+- `main_polished.md`: earlier full-length English writing source. It is retained for prose comparison but is no longer synchronized with the condensed LaTeX submission source.
+- `body_polished_restored.tex`: archived restored full-length LaTeX body. It is not included by `main.tex`.
 - `body_condensed_7page.tex`: archived seven-page condensation experiment. It is retained only for comparison and is not included by `main.tex`.
 - `supplementary.tex`: anonymous supplementary document containing the extended qualitative panel and detailed operator, alignment, and human-review tables.
 - `main_zh.md`: Chinese writing source retained for terminology and formula cross-checking.
@@ -45,7 +46,12 @@ The primary contribution uses video-latent and resolution-specific structure, so
 
 ## Page status
 
-The current main PDF deliberately restores the complete manuscript and does not enforce a submission-length target. In the present float layout, the document has 12 pages in total and the final full-width table and conclusion share page 11 with the beginning of the references. Any later compression should be performed explicitly against `main_polished.md`, with author approval of substantive cuts.
+As of 2026-07-20, the submission PDF has 8 pages in total: the technical
+content ends on page 7 and page 8 contains references only. The former main-paper
+Table 3 is retained as the more complete Supplementary Table S2, Figure 4 has
+been removed, and the remaining result floats are distributed across pages 6--7.
+The verified export is `main_7page_latest.pdf`. Copy it to `main.pdf` after
+closing any PDF viewer that holds the latter file open.
 
 ## Page budget (future submission pass)
 

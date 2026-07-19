@@ -530,7 +530,7 @@
       ],
       "evidence": [
         {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/run_manifest.json", "min_bytes": 256},
-        {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/videos/*/*.mp4", "min_count": 40, "min_bytes": 1024}
+        {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/videos/*/*.mp4", "min_count": 130, "min_bytes": 1024}
       ]
     },
     {
@@ -541,7 +541,7 @@
         "python paper/aaai27/experiments/run_vbench_factorials.py prepare --factorial-root ${WAN50_FINAL_QUALITY_EFFICIENCY}"
       ],
       "evidence": [
-        {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/metrics/vbench_inputs/*/prompt_map.json", "min_count": 4, "min_bytes": 64}
+        {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/metrics/vbench_inputs/*/prompt_map.json", "min_count": 13, "min_bytes": 64}
       ]
     },
     {

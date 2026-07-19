@@ -15,25 +15,31 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from paper.aaai27.experiments.prepare_quality_efficiency import QUALITY_DIMENSIONS, vbench_case_scores
+from paper.aaai27.experiments.prepare_quality_efficiency import (  # noqa: E402
+    QUALITY_DIMENSIONS,
+    vbench_case_scores,
+)
 
 
 @dataclass(frozen=True)
 class Case:
     name: str
+    method: str
     model_cls: str
     lr_evaluations: int
     hr_evaluations: int
     total_evaluations: int
     handoff_step: int | None = None
     lora_strength: float | None = None
+    refinement_steps: int | None = None
+    reschedule_mode: str = "canonical"
 
 
 def main() -> None:
     args = parse_args()
     root = Path(args.out_root).resolve()
     cases = build_cases(args)
-    validate_inputs(args)
+    validate_inputs(args, cases)
     (root / "configs").mkdir(parents=True, exist_ok=True)
     for case in cases:
         write_config(root / "configs" / f"{case.name}.json", args, case)
@@ -51,12 +57,94 @@ def main() -> None:
 
 
 def build_cases(args: argparse.Namespace) -> list[Case]:
-    return [
-        Case("full_hr50", "wan2.1", 0, 50, 50),
-        Case("talh40", "wan2.1_tail_skip_lora_clean_resizer_bridge", 40, 10, 50, 40, args.step40_strength),
-        Case("talh45", "wan2.1_tail_skip_lora_clean_resizer_bridge", 45, 5, 50, 45, args.step45_strength),
-        Case("full_lr50_stage2_1hr", "wan2.1_full_lr_stage2_one_hr", 50, 1, 51, 50),
-    ]
+    methods = set(getattr(args, "methods", ["native", "lightx2v", "talh", "endpoint", "ralu"]))
+    lightx2v_steps = tuple(getattr(args, "lightx2v_handoff_steps", [40, 45, 48]))
+    ralu_steps = tuple(getattr(args, "ralu_handoff_steps", [40, 45, 48]))
+    endpoint_steps = tuple(getattr(args, "endpoint_refinement_steps", [0, 1, 2, 5]))
+    for label, values in (("LightX2V", lightx2v_steps), ("RALU-style", ralu_steps)):
+        invalid = [step for step in values if step < 1 or step >= 50]
+        if invalid:
+            raise SystemExit(f"Invalid {label} handoff step(s) {invalid}; expected [1, 49]")
+    invalid_refinements = [step for step in endpoint_steps if step < 0 or step > 50]
+    if invalid_refinements:
+        raise SystemExit(f"Invalid Endpoint refinement step(s) {invalid_refinements}; expected [0, 50]")
+
+    cases: list[Case] = []
+    if "native" in methods:
+        cases.append(Case("full_hr50", "native", "wan2.1", 0, 50, 50))
+    if "lightx2v" in methods:
+        cases.extend(
+            Case(
+                f"lightx2v_cr{step}",
+                "lightx2v",
+                "wan2.1_clean_interp_bridge",
+                step,
+                50 - step,
+                50,
+                handoff_step=step,
+            )
+            for step in lightx2v_steps
+        )
+    if "talh" in methods:
+        cases.extend(
+            [
+                Case(
+                    "talh40",
+                    "talh",
+                    "wan2.1_tail_skip_lora_clean_resizer_bridge",
+                    40,
+                    10,
+                    50,
+                    handoff_step=40,
+                    lora_strength=args.step40_strength,
+                ),
+                Case(
+                    "talh45",
+                    "talh",
+                    "wan2.1_tail_skip_lora_clean_resizer_bridge",
+                    45,
+                    5,
+                    50,
+                    handoff_step=45,
+                    lora_strength=args.step45_strength,
+                ),
+            ]
+        )
+    if "endpoint" in methods:
+        cases.extend(
+            Case(
+                f"full_lr50_stage2_{steps}hr",
+                "endpoint",
+                "wan2.1_full_lr_stage2_k_hr",
+                50,
+                steps,
+                50 + steps,
+                handoff_step=50,
+                refinement_steps=steps,
+                reschedule_mode="lowest_noise_hr_suffix",
+            )
+            for steps in endpoint_steps
+        )
+    if "ralu" in methods:
+        cases.extend(
+            Case(
+                f"ralu_nt{step}",
+                "ralu",
+                "wan2.1_ralu_nt_interp_bridge",
+                step,
+                50 - step,
+                50,
+                handoff_step=step,
+                reschedule_mode="ralu_eq7_truncated_shifted_suffix",
+            )
+            for step in ralu_steps
+        )
+    if not cases:
+        raise SystemExit("No quality-efficiency cases selected")
+    names = [case.name for case in cases]
+    if len(names) != len(set(names)):
+        raise SystemExit("Quality-efficiency case names are not unique")
+    return cases
 
 
 def base_config(args: argparse.Namespace, case: Case) -> dict[str, Any]:
@@ -80,13 +168,18 @@ def base_config(args: argparse.Namespace, case: Case) -> dict[str, Any]:
 
 def write_config(path: Path, args: argparse.Namespace, case: Case) -> None:
     config = base_config(args, case)
-    if case.name != "full_hr50":
+    if case.method != "native":
         config.update(
             {
                 "changing_resolution": True,
                 "resolution_rate": [368 / 720],
                 "wan_lowres_latent_size": [46, 80],
                 "changing_resolution_steps": [case.handoff_step],
+            }
+        )
+    if case.method in {"talh", "endpoint"}:
+        config.update(
+            {
                 "wan_clean_resizer_repo": str(REPO_ROOT),
                 "wan_clean_resizer_ckpt": str(Path(args.stage2_checkpoint).resolve()),
                 "wan_clean_resizer_train_config": str(Path(args.stage2_train_config).resolve()),
@@ -94,9 +187,14 @@ def write_config(path: Path, args: argparse.Namespace, case: Case) -> None:
                 "wan_clean_resizer_use_ema": args.stage2_use_ema,
             }
         )
-    if case.name == "full_lr50_stage2_1hr":
+    if case.method == "endpoint":
+        config["wan_final_refine_steps"] = case.refinement_steps
         config["wan_final_refine_shift_increment"] = args.final_refine_shift_increment
-    if case.name in {"talh40", "talh45"}:
+    if case.method == "ralu":
+        config["wan_ralu_noise_c"] = getattr(args, "ralu_noise_c", 0.25)
+        config["wan_ralu_suffix_shift"] = getattr(args, "ralu_suffix_shift", 8.0)
+        config["wan_ralu_adaptation"] = "uniform_nt_matching_without_region_adaptive_stage"
+    if case.method == "talh":
         checkpoint = args.lora40_checkpoint if case.handoff_step == 40 else args.lora45_checkpoint
         config.update(
             {
@@ -165,28 +263,23 @@ def run_case(
 
 
 def write_manifest(root: Path, args: argparse.Namespace, prompts: list[str], cases: list[Case]) -> None:
+    case_names = {case.name for case in cases}
+    artifacts: dict[str, Any] = {}
+    if any(case.method in {"talh", "endpoint"} for case in cases):
+        artifacts["stage2"] = artifact_fingerprint(Path(args.stage2_checkpoint))
+    if "talh40" in case_names:
+        artifacts["lora40"] = artifact_fingerprint(Path(args.lora40_checkpoint))
+    if "talh45" in case_names:
+        artifacts["lora45"] = artifact_fingerprint(Path(args.lora45_checkpoint))
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "family": "wan50_quality_efficiency",
         "seed_base": args.seed,
         "prompt_offset": args.prompt_offset,
         "prompts": prompts,
         "cases": [asdict(case) for case in cases],
-        "analysis_pairs": [
-            {
-                "comparison": f"full_hr50_vs_{case.name}",
-                "left_case": "full_hr50",
-                "right_case": case.name,
-            }
-            for case in cases
-            if case.name != "full_hr50"
-        ]
-        + [{"comparison": "talh45_vs_talh40", "left_case": "talh45", "right_case": "talh40"}],
-        "artifacts": {
-            "stage2": artifact_fingerprint(Path(args.stage2_checkpoint)),
-            "lora40": artifact_fingerprint(Path(args.lora40_checkpoint)),
-            "lora45": artifact_fingerprint(Path(args.lora45_checkpoint)),
-        },
+        "analysis_pairs": build_analysis_pairs(cases),
+        "artifacts": artifacts,
         "settings": {
             "model_root": str(Path(args.model_root).resolve()),
             "prompts_file": str(Path(args.prompts).resolve()),
@@ -196,11 +289,62 @@ def write_manifest(root: Path, args: argparse.Namespace, prompts: list[str], cas
             "step45_strength": args.step45_strength,
             "final_refine_shift_increment": args.final_refine_shift_increment,
             "stage2_use_ema": args.stage2_use_ema,
+            "lightx2v_handoff_steps": list(getattr(args, "lightx2v_handoff_steps", [40, 45, 48])),
+            "endpoint_refinement_steps": list(getattr(args, "endpoint_refinement_steps", [0, 1, 2, 5])),
+            "ralu_handoff_steps": list(getattr(args, "ralu_handoff_steps", [40, 45, 48])),
+            "ralu_noise_c": getattr(args, "ralu_noise_c", 0.25),
+            "ralu_suffix_shift": getattr(args, "ralu_suffix_shift", 8.0),
+            "ralu_scope": "uniform NT-matching Wan adaptation; no region-adaptive middle stage",
         },
     }
     (root / "run_manifest.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
+
+
+def build_analysis_pairs(cases: list[Case]) -> list[dict[str, str]]:
+    by_name = {case.name: case for case in cases}
+    pairs: list[dict[str, str]] = []
+    if "full_hr50" in by_name:
+        pairs.extend(
+            {
+                "comparison": f"full_hr50_vs_{case.name}",
+                "left_case": "full_hr50",
+                "right_case": case.name,
+            }
+            for case in cases
+            if case.name != "full_hr50"
+        )
+    for step in sorted(
+        {
+            int(case.handoff_step)
+            for case in cases
+            if case.handoff_step is not None and case.handoff_step < 50
+        }
+    ):
+        candidates = [f"lightx2v_cr{step}", f"ralu_nt{step}", f"talh{step}"]
+        available = [name for name in candidates if name in by_name]
+        for left, right in zip(available, available[1:]):
+            pairs.append(
+                {
+                    "comparison": f"{left}_vs_{right}",
+                    "left_case": left,
+                    "right_case": right,
+                }
+            )
+    endpoint_cases = sorted(
+        (case for case in cases if case.method == "endpoint"),
+        key=lambda case: int(case.refinement_steps or 0),
+    )
+    for left, right in zip(endpoint_cases, endpoint_cases[1:]):
+        pairs.append(
+            {
+                "comparison": f"{left.name}_vs_{right.name}",
+                "left_case": left.name,
+                "right_case": right.name,
+            }
+        )
+    return pairs
 
 
 def write_benchmark_spec(root: Path, args: argparse.Namespace, cases: list[Case]) -> None:
@@ -231,9 +375,13 @@ def write_benchmark_spec(root: Path, args: argparse.Namespace, cases: list[Case]
                 "quality_components": components,
                 "vbench_source": str(vbench),
                 "protocol": {
+                    "method": case.method,
                     "lr_evaluations": case.lr_evaluations,
                     "hr_evaluations": case.hr_evaluations,
                     "total_evaluations": case.total_evaluations,
+                    "handoff_step": case.handoff_step,
+                    "refinement_steps": case.refinement_steps,
+                    "reschedule_mode": case.reschedule_mode,
                 },
                 "environment": benchmark_environment(),
             }
@@ -276,15 +424,15 @@ def inference_environment() -> dict[str, str]:
     return environment
 
 
-def validate_inputs(args: argparse.Namespace) -> None:
-    required = [
-        Path(args.prompts),
-        Path(args.model_root),
-        Path(args.stage2_checkpoint),
-        Path(args.stage2_train_config),
-        Path(args.lora40_checkpoint),
-        Path(args.lora45_checkpoint),
-    ]
+def validate_inputs(args: argparse.Namespace, cases: list[Case]) -> None:
+    required = [Path(args.prompts), Path(args.model_root)]
+    if any(case.method in {"talh", "endpoint"} for case in cases):
+        required.extend([Path(args.stage2_checkpoint), Path(args.stage2_train_config)])
+    case_names = {case.name for case in cases}
+    if "talh40" in case_names:
+        required.append(Path(args.lora40_checkpoint))
+    if "talh45" in case_names:
+        required.append(Path(args.lora45_checkpoint))
     missing = [str(path) for path in required if not path.exists()]
     if missing:
         raise SystemExit("Missing final quality-efficiency inputs:\n  " + "\n  ".join(missing))
@@ -318,7 +466,9 @@ def artifact_fingerprint(path: Path) -> dict[str, Any]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the final four-way Wan50 quality-efficiency comparison.")
+    parser = argparse.ArgumentParser(
+        description="Run the unified Wan50 Pareto suite with LightX2V, Endpoint, TALH, and RALU-style cases."
+    )
     parser.add_argument("mode", choices=["check", "run", "benchmark-spec"])
     parser.add_argument(
         "--out-root", default=str(REPO_ROOT / "outputs/aaai27_experiments/quality_efficiency_final")
@@ -348,6 +498,28 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--step40-strength", type=float, default=1.0)
     parser.add_argument("--step45-strength", type=float, default=0.75)
+    parser.add_argument(
+        "--methods",
+        nargs="+",
+        choices=["native", "lightx2v", "talh", "endpoint", "ralu"],
+        default=["native", "lightx2v", "talh", "endpoint", "ralu"],
+        help="Method families to include in this run.",
+    )
+    parser.add_argument("--lightx2v-handoff-steps", nargs="+", type=int, default=[40, 45, 48])
+    parser.add_argument("--endpoint-refinement-steps", nargs="+", type=int, default=[0, 1, 2, 5])
+    parser.add_argument("--ralu-handoff-steps", nargs="+", type=int, default=[40, 45, 48])
+    parser.add_argument(
+        "--ralu-noise-c",
+        type=float,
+        default=0.25,
+        help="RALU covariance scale c; 0.25 is the exact 2x nearest-neighbor projection value.",
+    )
+    parser.add_argument(
+        "--ralu-suffix-shift",
+        type=float,
+        default=8.0,
+        help="Flow shift used to sample the truncated post-transition HR suffix.",
+    )
     parser.add_argument("--final-refine-shift-increment", type=float, default=1.0)
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--prompt-offset", type=int, default=0)
@@ -360,7 +532,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-existing", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--negative-prompt", default="")
     parser.add_argument("--python", default=sys.executable)
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.ralu_noise_c <= 0.0 or args.ralu_noise_c > 0.25:
+        parser.error("--ralu-noise-c must be in (0, 0.25] for the 2x nearest projection")
+    if args.ralu_suffix_shift <= 0.0:
+        parser.error("--ralu-suffix-shift must be positive")
+    return args
 
 
 if __name__ == "__main__":

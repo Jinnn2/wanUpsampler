@@ -564,26 +564,48 @@ def inspect_factorial_config(path: Path, case: dict[str, Any]) -> tuple[list[str
         if list(config.get("changing_resolution_steps", [])) != [expected_step]:
             issues.append(f"handoff step mismatch: {config.get('changing_resolution_steps')!r}")
     elif {"lr_evaluations", "hr_evaluations", "total_evaluations"}.issubset(case):
-        expected_protocols = {
-            "full_hr50": (0, 50, 50, None, False, False),
-            "talh40": (40, 10, 50, 40, True, True),
-            "talh45": (45, 5, 50, 45, True, True),
-            "full_lr50_stage2_1hr": (50, 1, 51, 50, False, True),
-        }
-        protocol = expected_protocols.get(str(case["name"]))
-        if protocol is None:
-            return [*issues, f"unknown quality-efficiency case: {case['name']}"], {"path": str(path)}
-        expected_counts = tuple(int(case[key]) for key in ("lr_evaluations", "hr_evaluations", "total_evaluations"))
-        if expected_counts != protocol[:3]:
-            issues.append(f"evaluation budget mismatch: {expected_counts!r}, expected {protocol[:3]!r}")
-        expected_step, expected_lora, expected_stage2 = protocol[3:]
+        name = str(case["name"])
+        method = str(case.get("method") or quality_efficiency_method_from_name(name))
+        expected_counts = tuple(
+            int(case[key]) for key in ("lr_evaluations", "hr_evaluations", "total_evaluations")
+        )
+        expected_step = case.get("handoff_step")
+        expected_step = int(expected_step) if expected_step is not None else None
+        expected_lora = method == "talh"
+        expected_stage2 = method in {"talh", "endpoint"}
+
+        lr_evals, hr_evals, total_evals = expected_counts
+        if method == "native":
+            if expected_counts != (0, 50, 50):
+                issues.append(f"Native-HR evaluation budget mismatch: {expected_counts!r}")
+        elif method in {"lightx2v", "talh", "ralu"}:
+            expected_budget = (expected_step, 50 - int(expected_step or 0), 50)
+            if expected_counts != expected_budget:
+                issues.append(f"mixed-resolution evaluation budget mismatch: {expected_counts!r}, expected {expected_budget!r}")
+        elif method == "endpoint":
+            refinement_steps = int(case.get("refinement_steps", hr_evals))
+            expected_budget = (50, refinement_steps, 50 + refinement_steps)
+            if expected_counts != expected_budget:
+                issues.append(f"Endpoint evaluation budget mismatch: {expected_counts!r}, expected {expected_budget!r}")
+            if int(config.get("wan_final_refine_steps", -1)) != refinement_steps:
+                issues.append(
+                    "Endpoint refinement config mismatch: "
+                    f"{config.get('wan_final_refine_steps')!r}, expected {refinement_steps}"
+                )
+        else:
+            return [*issues, f"unknown quality-efficiency method: {method!r}"], {"path": str(path)}
         if expected_step is None:
             if config.get("changing_resolution") or config.get("changing_resolution_steps"):
-                issues.append("full_hr50 must not enable changing resolution")
+                issues.append("Native-HR must not enable changing resolution")
         elif list(config.get("changing_resolution_steps", [])) != [expected_step]:
             issues.append(f"handoff step mismatch: {config.get('changing_resolution_steps')!r}")
         if int(config.get("infer_steps", -1)) != 50:
             issues.append(f"infer_steps mismatch: {config.get('infer_steps')!r}")
+        if method == "ralu":
+            if config.get("wan_ralu_adaptation") != "uniform_nt_matching_without_region_adaptive_stage":
+                issues.append("RALU adaptation scope is missing or mislabeled")
+            if not 0.0 < float(config.get("wan_ralu_noise_c", 0.0)) <= 0.25:
+                issues.append(f"invalid RALU covariance scale: {config.get('wan_ralu_noise_c')!r}")
     else:
         return [*issues, "unsupported case schema in run manifest"], {"path": str(path)}
 
@@ -604,12 +626,30 @@ def inspect_factorial_config(path: Path, case: dict[str, Any]) -> tuple[list[str
         "stage2_train_config": config.get("wan_clean_resizer_train_config"),
         "stage2_use_ema": config.get("wan_clean_resizer_use_ema"),
         "renoise_mode": config.get("wan_distill_bridge_renoise_mode"),
+        "final_refine_steps": config.get("wan_final_refine_steps"),
+        "ralu_noise_c": config.get("wan_ralu_noise_c"),
+        "ralu_suffix_shift": config.get("wan_ralu_suffix_shift"),
+        "ralu_adaptation": config.get("wan_ralu_adaptation"),
     }
     for key in ("lora_checkpoint", "stage2_checkpoint", "stage2_train_config"):
         value = provenance[key]
         if value and not Path(str(value)).is_file():
             issues.append(f"configured {key} does not exist: {value}")
     return issues, provenance
+
+
+def quality_efficiency_method_from_name(name: str) -> str:
+    if name == "full_hr50":
+        return "native"
+    if name.startswith("lightx2v_cr"):
+        return "lightx2v"
+    if name.startswith("talh"):
+        return "talh"
+    if name.startswith("full_lr50_stage2_"):
+        return "endpoint"
+    if name.startswith("ralu_nt"):
+        return "ralu"
+    return "unknown"
 
 
 def inspect_video_set(root: Path, pattern: str, expected_min: int) -> dict[str, Any]:

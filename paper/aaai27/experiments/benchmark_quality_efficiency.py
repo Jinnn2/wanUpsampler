@@ -30,6 +30,7 @@ def main() -> None:
                 {
                     "family": case["family"],
                     "case": case["name"],
+                    "method": case.get("protocol", {}).get("method", "NA"),
                     "phase": "warmup" if repeat < args.warmup else "measured",
                     "repeat": repeat if repeat < args.warmup else repeat - args.warmup,
                     "elapsed_s": elapsed,
@@ -43,10 +44,14 @@ def main() -> None:
             {
                 "family": case["family"],
                 "case": case["name"],
+                "method": case.get("protocol", {}).get("method", "NA"),
                 "measurement": case.get("measurement", "end_to_end_generation"),
                 "lr_evaluations": case.get("protocol", {}).get("lr_evaluations", "NA"),
                 "hr_evaluations": case.get("protocol", {}).get("hr_evaluations", "NA"),
                 "total_evaluations": case.get("protocol", {}).get("total_evaluations", "NA"),
+                "handoff_step": case.get("protocol", {}).get("handoff_step", "NA"),
+                "refinement_steps": case.get("protocol", {}).get("refinement_steps", "NA"),
+                "reschedule_mode": case.get("protocol", {}).get("reschedule_mode", "NA"),
                 "gpu": args.gpu,
                 "repeats": args.repeats,
                 "elapsed_mean_s": statistics.mean(durations),
