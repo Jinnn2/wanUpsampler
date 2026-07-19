@@ -1,0 +1,479 @@
+[]
+
+-   Skip to main content
+
+[AAAI]
+
+AAAI
+
+Association for the Advancement of Artificial Intelligence
+
+Menu
+
+-   -   
+
+    -   [AAAI]
+        AAAI
+
+        Association for the Advancement of Artificial Intelligence
+
+Menu
+
+-   
+
+-   [About AAAI]About AAAI
+    -   News
+    -   Officers and Committees
+    -   Staff
+    -   Bylaws
+    -   Awards
+        -   Fellows Program
+        -   Classic Paper Award
+        -   Dissertation Award
+        -   Distinguished Service Award
+        -   Allen Newell Award
+        -   Outstanding Paper Award
+        -   AI for Humanity Award
+        -   Feigenbaum Prize
+        -   Patrick Henry Winston Outstanding Educator Award
+        -   Engelmore Award
+        -   AAAI ISEF Awards
+        -   Senior Member Status
+        -   Conference Awards
+    -   Partnerships
+    -   Resources
+    -   Mailing Lists
+    -   Past Presidential Addresses
+    -   AAAI 2025 Presidential Panel on the Future of AI Research
+    -   Presidential Panel on Long-Term AI Futures
+    -   Past Policy Reports
+        -   The Role of Intelligent Systems in the National Information
+            Infrastructure (1995)
+        -   A Report to ARPA on Twenty-First Century Intelligent
+            Systems (1994)
+    -   Logos
+
+-   [aaai-icon_ethics-diversity-line-yellow]Ethics & Plurality
+
+-   [Conference talk bubble]Conferences & Symposia
+    -   AAAI Conference
+    -   AIES AAAI/ACM
+    -   AIIDE
+    -   EAAI
+    -   HCOMP
+    -   IAAI
+    -   ICWSM
+    -   Spring Symposia
+    -   Summer Symposia
+    -   Fall Symposia
+    -   Code of Conduct for Conferences and Events
+
+-   [Publications]Publications
+    -   AI Magazine
+    -   Conference Proceedings
+    -   AAAI Publication Policies & Guidelines
+    -   Request to Reproduce Copyrighted Materials
+    -   Contribute
+    -   Order Proceedings
+
+-   [aaai-icon_ai-magazine-line-yellow]AI Magazine
+
+-   [Membership]Membership
+    -   Member Login
+    -   Chapters
+    -   Call for Proposals: AAAI-Sponsored “AIx” Pop-Up Events Worldwide
+
+-   
+
+    ------------------------------------------------------------------------
+
+-   [Career Center]AI Jobs
+
+-   [aaai-icon_ai-topics-line-yellow]AITopics
+
+-   [aaai-icon_contact-line-yellow]Contact
+
+-   
+
+    ------------------------------------------------------------------------
+
+-   Twitter
+
+-   Facebook
+
+-   LinkedIn
+
+Home / Conferences / AAAI Conference on Artificial Intelligence /
+AAAI-27 /
+
+June 30, 2026
+
+[]
+
+The 41st Annual AAAI Conference on Artificial Intelligence
+
+February 16 – February 23, 2027 | Montréal, Canada
+
+[]
+
+-   AAAI-27
+-   EAAI-27
+-   IAAI-27
+-   Attend
+    -   Student Scholar Volunteer Program
+-   Calls
+    -   Main Technical Track
+    -   Doctoral Consortium
+    -   EAAI-27
+    -   Journal Track
+    -   IAAI-27
+    -   New Faculty Highlights
+    -   Senior Member Presentation Track
+    -   Special Track on AI for Social Impact
+
+AAAI-27 Author Kit
+
+Main Conference Timetable for Authors
+
+Note: all deadlines are “anywhere on earth” (UTC-12)
+
+June 17, 2026
+OpenReview submission site opens for author registration
+
+June 30, 2026
+OpenReview submission site opens for paper submission
+
+July 21, 2026
+Abstracts due at 11:59 PM UTC-12
+
+July 28, 2026
+Full papers due at 11:59 PM UTC-12
+
+July 31, 2026
+Supplementary material and code due by 11:59 PM UTC-12
+
+September 24, 2026
+Notification of Phase 1 rejections
+
+October 19-25, 2026
+Author feedback window
+
+November 30, 2026
+Notification of final acceptance or rejection
+(Main Technical Track)
+
+December 14, 2026~~
+~~Submission of camera-ready files
+(Main Technical Track)
+
+February 16-23, 2027
+AAAI-27 Conference
+
+Note: Deadlines are track-specific and may differ from those
+listed above. Track-specific deadlines are listed on their respective
+CFP.
+
+AAAI-27 Submission Instructions
+
+Author Registration
+
+Authors must register at the AAAI-27 web-based technical track paper
+submission site before they can submit abstracts and papers. To avoid
+last-minute congestion, authors are encouraged to register well in
+advance of the abstract deadline. Authors are required to use the same
+OpenReview account (i.e., associated with the same email address) across
+all submissions and review assignments.
+
+Given the size of the conference, all authors of AAAI-27 submissions
+will be expected to join the conference’s reviewer pool unless prevented
+by extenuating circumstances. Potential reviewers will be vetted based
+on their research experience, and depending on this experience, may be
+selected as program committee or senior program committee members.
+
+Abstract and Paper Submission
+
+Every submission requires both an abstract submission and a
+corresponding paper submission. For regular papers, abstracts must be
+submitted by July 21, 2026 and full papers must be submitted by July 28,
+2026. There will be no individual exceptions. If you experience any
+technical problems with the OpenReview site, please contact the AAAI-27
+Workflow Chairs at workflowchairs@aaai.zendesk.com.
+
+Submissions will not be accepted by e-mail or any other mechanism other
+than OpenReview. After submission, the system will not automatically
+send a confirmation of receipt. If you want to receive a confirmation
+email, please click the paper ID to view the submission, and then click
+the “Email” button at the top right to send the confirmation to yourself
+or all the authors. AAAI will contact authors again only if problems are
+encountered with papers. We intend to close the submission system
+exactly at the deadline. Once the deadline has passed, we regret that we
+will be unable to make individual exceptions or to correspond with
+authors regarding circumstances that prevented timely submission.
+
+At the time of abstract submission, authors should include a full title
+for their paper and a complete abstract in the fields provided.
+Submissions that have “placeholder” (e.g., test or xyz) titles or
+abstracts (or none at all) will be deleted. Authors of such vacuous
+submissions will be notified that their abstract has been deleted and
+will not be allowed to submit a full paper. The Program Chairs also
+reserve the right to reject papers without review if they change their
+abstracts substantially between the abstract and final deadlines.
+
+Papers must be formatted in AAAI two-column, camera-ready style; see the
+AAAI-27 author kit for details. Papers must be in trouble-free,
+high-resolution PDF format, formatted for US Letter (8.5″ x 11″) paper,
+using Type 1 or TrueType fonts. AAAI submissions are anonymous and must
+conform to the instructions (detailed below) for double-blind review.
+The authors must remove all author and affiliation information from
+their submission for review, and may replace it with other information,
+such as paper number and keywords. The main submission PDF can have up
+to 9 pages, with pages 8–9 reserved exclusively for references. That is,
+the main paper can have up to 7 pages of non-references content.
+Acknowledgements should be omitted from papers submitted for review, and
+any ethical statements or similar considerations, if included, must be
+included in the 7 content pages.
+Only PDF files are required at the time of submission for review;
+authors will additionally need to submit paper source files if their
+paper is accepted for publication.
+
+Submission Limit per Author
+
+Each individual author is limited to no more than a combined limit of 10
+submissions to the AAAI-27 technical track (excluding AI Alignment and
+AI for Social Impact tracks) and authors may not be added to papers
+following submission (see below for policies about author changes).
+
+Guidelines for Changes to Titles/Authors after Submissions
+
+MODIFICATIONS TO SUBMISSIONS ARE ONLY ALLOWED UNTIL THE FULL PAPER
+DEADLINE (July 28 for Phase 1 submissions). No exceptions will be
+granted. Please see the full policy on Paper Modification Guidelines.
+
+Policy Concerning Multiple Submissions and Scientific Integrity
+
+AAAI-27 is committed to maintaining a fair review process and the
+highest standards of scientific integrity. Each submission should
+represent a distinct scientific contribution that stands on its own
+merits.
+
+Simultaneous Submission to Other Archival Venues
+
+AAAI-27 will not consider any paper that, by the paper submission
+deadline, is under review, accepted for publication, or previously
+published in another archival conference or journal. Preprint servers
+(such as arXiv) and non-archival workshops are permitted.
+
+Authors may withdraw a submission from another venue with a concurrent
+review process and submit that work to AAAI-27, provided the withdrawal
+is completed before the AAAI-27 submission. Authors must confirm upon
+submission that their paper is not under review at any other archival
+venue, including conferences with a post-review archival publication
+option.
+
+After submitting to AAAI-27, authors may not submit the same or
+substantially similar work to another archival conference or journal
+until they have received a decision from AAAI-27 or have withdrawn their
+AAAI-27 submission.
+
+Overlapping Submissions
+
+If concerns arise regarding overlapping submissions, papers involving an
+overlapping set of authors may be considered together in the assessment
+of novelty. If publishing one paper would render another paper (whether
+submitted to AAAI-27 or another archival conference or journal)
+insufficiently novel or incremental, the AAAI-27 submission may be
+summarily rejected as violating AAAI’s multiple-submission policy.
+
+Authors should not submit multiple papers that do not constitute
+distinct scientific contributions. This includes, but is not limited to:
+
+-   Submitting the same paper with cosmetic changes.
+-   “Thin slicing” a single contribution into multiple minimally
+    different papers.
+-   Submitting multiple papers that, taken together, would more
+    appropriately be presented as a single scientific contribution (for
+    example, by splitting results across different methods, datasets,
+    application domains, analyses, or presentations).
+-   Submitting obfuscated duplicates or “alternative universe” versions
+    of substantially the same work.
+
+Authors should combine closely related ideas into a single, stronger
+submission whenever appropriate.
+
+Assessment of Simultaneous or Overlapping Submissions
+
+If concerns are raised regarding overlap between submissions, the
+program committee will review the available information about the
+submissions. If they concludes that the submissions have excessive
+technical overlap or otherwise violate the multiple-submission policy,
+the AAAI-27 submission(s) may be summarily rejected. In cases involving
+another archival conference or journal, the organizers of that venue may
+also be informed. As with all summary rejection decisions, these
+determinations are final.
+
+Citation and Comparison
+
+Papers are expected to cite those refereed publications most relevant to
+their content, but authors are excused for not knowing about all
+non-refereed work (e.g, appearing on arXiv). Nevertheless, in cases
+where such prior work is widely known in the field, its existence may be
+considered by reviewers in assessing a submission’s novelty. Papers
+published less than two months before the regular paper submission
+deadline (July 28, 2026) are considered contemporaneous to all AAAI-27
+submissions (whether submitted as regular or fast track submissions);
+authors are not obliged to address such papers (though, especially for
+the camera ready versions of accepted papers, authors are encouraged to
+do so).
+
+Reproducibility Guidelines
+
+Authors must complete the reproducibility checklist provided in the
+AAAI-27 Author Kit and submit it at the time of paper submission. The
+checklist describes how the results in the submission can be reproduced
+and must be uploaded separately from the main paper in the designated
+field of the submission form. The completed checklist will be made
+available to reviewers.
+
+Information needed to reproduce experimental results may be included in
+the main paper or in a Code and Data Supplement, as appropriate.
+Additional technical material such as proofs, assumptions, and algorithm
+pseudocode, may be included in the Supplementary Document. When
+relevant, authors are encouraged to address each reproducibility
+criterion in detail within the Supplementary Document.
+
+Reviewers will evaluate the reproducibility of the reported results
+based on the materials included in the submission, and this evaluation
+will contribute to the final paper decision. All code, data, and other
+materials necessary for reproducibility should be provided at submission
+time (e.g., in the Code and Data Supplement or Supplementary Document).
+Claims that such materials “will be released after acceptance or
+publication” must not be treated as evidence of reproducibility; if they
+are not included in the submission, reviewers should assume they will
+not be made available.
+
+Ethics Policy
+
+All AAAI authors and reviewers are required to honor the AAAI
+Publications Ethics and Malpractice Statement, as well as the AAAI Code
+of Professional Conduct. A paper may be rejected if an author is found
+to violate the AAAI Publications Ethics and Malpractice Statement or the
+AAAI Code of Professional Conduct.
+
+Categories: AAAI Conference
+
+We use cookies on our website to give you the most relevant experience
+by remembering your preferences and repeat visits. By clicking “Accept
+All”, you consent to the use of ALL the cookies. However, you may visit
+"Cookie Settings" to provide a controlled consent.
+
+Cookie SettingsAccept All
+
+Manage consent
+
+[] Close
+
+Privacy Overview
+
+This website uses cookies to improve your experience while you navigate
+through the website. Out of these, the cookies that are categorized as
+necessary are stored on your browser as they are essential for the
+working of basic functionalities of the website. We also use third-party
+cookies that help us analyze and understand how you use this website.
+These cookies will be stored in your browser only with your consent. You
+also have the option to opt-out of these cookies. But opting out of some
+of these cookies may affect your browsing experience.
+
+Necessary
+
+Necessary
+
+Always Enabled
+
+Necessary cookies are absolutely essential for the website to function
+properly. These cookies ensure basic functionalities and security
+features of the website, anonymously.
+
+  Cookie                               Duration    Description
+  ------------------------------------ ----------- ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  cookielawinfo-checkbox-analytics     11 months   This cookie is set by GDPR Cookie Consent plugin. The cookie is used to store the user consent for the cookies in the category "Analytics".
+  cookielawinfo-checkbox-functional    11 months   The cookie is set by GDPR cookie consent to record the user consent for the cookies in the category "Functional".
+  cookielawinfo-checkbox-necessary     11 months   This cookie is set by GDPR Cookie Consent plugin. The cookies is used to store the user consent for the cookies in the category "Necessary".
+  cookielawinfo-checkbox-others        11 months   This cookie is set by GDPR Cookie Consent plugin. The cookie is used to store the user consent for the cookies in the category "Other.
+  cookielawinfo-checkbox-performance   11 months   This cookie is set by GDPR Cookie Consent plugin. The cookie is used to store the user consent for the cookies in the category "Performance".
+  viewed_cookie_policy                 11 months   The cookie is set by the GDPR Cookie Consent plugin and is used to store whether or not user has consented to the use of cookies. It does not store any personal data.
+
+Functional
+
+Functional
+
+Functional cookies help to perform certain functionalities like sharing
+the content of the website on social media platforms, collect feedbacks,
+and other third-party features.
+
+Performance
+
+Performance
+
+Performance cookies are used to understand and analyze the key
+performance indexes of the website which helps in delivering a better
+user experience for the visitors.
+
+Analytics
+
+Analytics
+
+Analytical cookies are used to understand how visitors interact with the
+website. These cookies help provide information on metrics the number of
+visitors, bounce rate, traffic source, etc.
+
+Advertisement
+
+Advertisement
+
+Advertisement cookies are used to provide visitors with relevant ads and
+marketing campaigns. These cookies track visitors across websites and
+collect information to provide customized ads.
+
+Others
+
+Others
+
+Other uncategorized cookies are those that are being analyzed and have
+not been classified into a category as yet.
+
+SAVE & ACCEPT
+
+We are using cookies to give you the best experience on our website.
+
+You can find out more about which cookies we are using or switch them
+off in settings.
+
+Accept
+
+Close GDPR Cookie Settings
+
+[AAAI]
+
+-   Privacy Overview
+-   Strictly Necessary Cookies
+
+Powered by  GDPR Cookie Compliance
+
+Privacy Overview
+
+This website uses cookies so that we can provide you with the best user
+experience possible. Cookie information is stored in your browser and
+performs functions such as recognising you when you return to our
+website and helping our team to understand which sections of the website
+you find most interesting and useful.
+
+Strictly Necessary Cookies
+
+Strictly Necessary Cookie should be enabled at all times so that we can
+save your preferences for cookie settings.
+
+Enable or Disable Cookies Enabled Disabled
+
+Enable All
+
+Save Settings

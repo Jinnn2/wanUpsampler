@@ -1,0 +1,335 @@
+[]
+
+-   Skip to main content
+
+[AAAI]
+
+AAAI
+
+Association for the Advancement of Artificial Intelligence
+
+Menu
+
+-   -   
+
+    -   [AAAI]
+        AAAI
+
+        Association for the Advancement of Artificial Intelligence
+
+Menu
+
+-   
+
+-   [About AAAI]About AAAI
+    -   News
+    -   Officers and Committees
+    -   Staff
+    -   Bylaws
+    -   Awards
+        -   Fellows Program
+        -   Classic Paper Award
+        -   Dissertation Award
+        -   Distinguished Service Award
+        -   Allen Newell Award
+        -   Outstanding Paper Award
+        -   AI for Humanity Award
+        -   Feigenbaum Prize
+        -   Patrick Henry Winston Outstanding Educator Award
+        -   Engelmore Award
+        -   AAAI ISEF Awards
+        -   Senior Member Status
+        -   Conference Awards
+    -   Partnerships
+    -   Resources
+    -   Mailing Lists
+    -   Past Presidential Addresses
+    -   AAAI 2025 Presidential Panel on the Future of AI Research
+    -   Presidential Panel on Long-Term AI Futures
+    -   Past Policy Reports
+        -   The Role of Intelligent Systems in the National Information
+            Infrastructure (1995)
+        -   A Report to ARPA on Twenty-First Century Intelligent
+            Systems (1994)
+    -   Logos
+
+-   [aaai-icon_ethics-diversity-line-yellow]Ethics & Plurality
+
+-   [Conference talk bubble]Conferences & Symposia
+    -   AAAI Conference
+    -   AIES AAAI/ACM
+    -   AIIDE
+    -   EAAI
+    -   HCOMP
+    -   IAAI
+    -   ICWSM
+    -   Spring Symposia
+    -   Summer Symposia
+    -   Fall Symposia
+    -   Code of Conduct for Conferences and Events
+
+-   [Publications]Publications
+    -   AI Magazine
+    -   Conference Proceedings
+    -   AAAI Publication Policies & Guidelines
+    -   Request to Reproduce Copyrighted Materials
+    -   Contribute
+    -   Order Proceedings
+
+-   [aaai-icon_ai-magazine-line-yellow]AI Magazine
+
+-   [Membership]Membership
+    -   Member Login
+    -   Chapters
+    -   Call for Proposals: AAAI-Sponsored “AIx” Pop-Up Events Worldwide
+
+-   
+
+    ------------------------------------------------------------------------
+
+-   [Career Center]AI Jobs
+
+-   [aaai-icon_ai-topics-line-yellow]AITopics
+
+-   [aaai-icon_contact-line-yellow]Contact
+
+-   
+
+    ------------------------------------------------------------------------
+
+-   Twitter
+
+-   Facebook
+
+-   LinkedIn
+
+Home / Conferences / AAAI Conference on Artificial Intelligence /
+AAAI-27 /
+
+June 30, 2026
+
+[]
+
+The 41st Annual AAAI Conference on Artificial Intelligence
+
+February 16 – February 23, 2027 | Montréal, Canada
+
+[]
+
+-   AAAI-27
+-   EAAI-27
+-   IAAI-27
+-   Attend
+    -   Student Scholar Volunteer Program
+-   Calls
+    -   Main Technical Track
+    -   Doctoral Consortium
+    -   EAAI-27
+    -   Journal Track
+    -   IAAI-27
+    -   New Faculty Highlights
+    -   Senior Member Presentation Track
+    -   Special Track on AI for Social Impact
+
+AAAI-27 Author Kit
+
+Main Conference Timetable for Authors
+
+Note: all deadlines are “anywhere on earth” (UTC-12)
+
+June 17, 2026
+OpenReview submission site opens for author registration
+
+June 30, 2026
+OpenReview submission site opens for paper submission
+
+July 21, 2026
+Abstracts due at 11:59 PM UTC-12
+
+July 28, 2026
+Full papers due at 11:59 PM UTC-12
+
+July 31, 2026
+Supplementary material and code due by 11:59 PM UTC-12
+
+September 24, 2026
+Notification of Phase 1 rejections
+
+October 19-25, 2026
+Author feedback window
+
+November 30, 2026
+Notification of final acceptance or rejection
+(Main Technical Track)
+
+December 14, 2026~~
+~~Submission of camera-ready files
+(Main Technical Track)
+
+February 16-23, 2027
+AAAI-27 Conference
+
+Note: Deadlines are track-specific and may differ from those
+listed above. Track-specific deadlines are listed on their respective
+CFP.
+
+Supplementary Material
+
+Submissions must not contain pointers to supplementary material on the
+web, as this may violate both blind review and the policy that
+submissions cannot be changed after they are made available to
+reviewers. However, authors have the option of submitting supplementary
+material in support of their submissions. Authors must be very careful
+not to violate the double blind review requirements in any supplementary
+material to prevent their paper from being summarily rejected. All such
+material is due no later than July 31.
+
+Authors can include one or more of the following:
+
+1.  A Supplementary Document (PDF) — Additional technical material
+    supporting the paper, such as proofs, derivations, experimental
+    details, dataset descriptions, or extended results.
+2.  A Supplementary Media Archive (ZIP) — Images, audio, video
+    demonstrations, animations, or other multimedia content supporting
+    the paper.
+3.  A Supplementary Code and Data Package (ZIP) — Source code, scripts,
+    data, and instructions intended to help reviewers assess the
+    reproducibility of the paper’s claims.
+
+During review, the purpose of supplementary material is to assist
+reviewers. Authors are encouraged to share the supplementary material
+upon paper acceptance.
+
+Supplementary Document
+
+The length of main submissions is strictly limited, as already
+described. Authors may optionally submit a supplementary document (PDF)
+containing additional supporting information such as proofs of theorems
+that are stated in the main paper; additional information needed to
+reproduce experiments; further experimental results; figures and
+examples to illustrate technical claims; etc. The main submission may
+reference the supplementary material, but should be self contained.
+Reviewers will be instructed to make their acceptance evaluations based
+on the main submission, and will not be obliged to consult the
+supplementary material. If proofs or other supplementary matter are an
+important part of the contribution, their essential elements should be
+included in the main paper.
+
+Categories: AAAI Conference
+
+We use cookies on our website to give you the most relevant experience
+by remembering your preferences and repeat visits. By clicking “Accept
+All”, you consent to the use of ALL the cookies. However, you may visit
+"Cookie Settings" to provide a controlled consent.
+
+Cookie SettingsAccept All
+
+Manage consent
+
+[] Close
+
+Privacy Overview
+
+This website uses cookies to improve your experience while you navigate
+through the website. Out of these, the cookies that are categorized as
+necessary are stored on your browser as they are essential for the
+working of basic functionalities of the website. We also use third-party
+cookies that help us analyze and understand how you use this website.
+These cookies will be stored in your browser only with your consent. You
+also have the option to opt-out of these cookies. But opting out of some
+of these cookies may affect your browsing experience.
+
+Necessary
+
+Necessary
+
+Always Enabled
+
+Necessary cookies are absolutely essential for the website to function
+properly. These cookies ensure basic functionalities and security
+features of the website, anonymously.
+
+  Cookie                               Duration    Description
+  ------------------------------------ ----------- ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  cookielawinfo-checkbox-analytics     11 months   This cookie is set by GDPR Cookie Consent plugin. The cookie is used to store the user consent for the cookies in the category "Analytics".
+  cookielawinfo-checkbox-functional    11 months   The cookie is set by GDPR cookie consent to record the user consent for the cookies in the category "Functional".
+  cookielawinfo-checkbox-necessary     11 months   This cookie is set by GDPR Cookie Consent plugin. The cookies is used to store the user consent for the cookies in the category "Necessary".
+  cookielawinfo-checkbox-others        11 months   This cookie is set by GDPR Cookie Consent plugin. The cookie is used to store the user consent for the cookies in the category "Other.
+  cookielawinfo-checkbox-performance   11 months   This cookie is set by GDPR Cookie Consent plugin. The cookie is used to store the user consent for the cookies in the category "Performance".
+  viewed_cookie_policy                 11 months   The cookie is set by the GDPR Cookie Consent plugin and is used to store whether or not user has consented to the use of cookies. It does not store any personal data.
+
+Functional
+
+Functional
+
+Functional cookies help to perform certain functionalities like sharing
+the content of the website on social media platforms, collect feedbacks,
+and other third-party features.
+
+Performance
+
+Performance
+
+Performance cookies are used to understand and analyze the key
+performance indexes of the website which helps in delivering a better
+user experience for the visitors.
+
+Analytics
+
+Analytics
+
+Analytical cookies are used to understand how visitors interact with the
+website. These cookies help provide information on metrics the number of
+visitors, bounce rate, traffic source, etc.
+
+Advertisement
+
+Advertisement
+
+Advertisement cookies are used to provide visitors with relevant ads and
+marketing campaigns. These cookies track visitors across websites and
+collect information to provide customized ads.
+
+Others
+
+Others
+
+Other uncategorized cookies are those that are being analyzed and have
+not been classified into a category as yet.
+
+SAVE & ACCEPT
+
+We are using cookies to give you the best experience on our website.
+
+You can find out more about which cookies we are using or switch them
+off in settings.
+
+Accept
+
+Close GDPR Cookie Settings
+
+[AAAI]
+
+-   Privacy Overview
+-   Strictly Necessary Cookies
+
+Powered by  GDPR Cookie Compliance
+
+Privacy Overview
+
+This website uses cookies so that we can provide you with the best user
+experience possible. Cookie information is stored in your browser and
+performs functions such as recognising you when you return to our
+website and helping our team to understand which sections of the website
+you find most interesting and useful.
+
+Strictly Necessary Cookies
+
+Strictly Necessary Cookie should be enabled at all times so that we can
+save your preferences for cookie settings.
+
+Enable or Disable Cookies Enabled Disabled
+
+Enable All
+
+Save Settings

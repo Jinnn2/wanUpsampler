@@ -2,8 +2,12 @@
 
 ## Current source of truth
 
-- `main_zh.md`: current Chinese manuscript. Edit this file first.
-- `main.tex`: English AAAI layout draft. Synchronize it after the Chinese argument and experiment tables stabilize.
+- `main_polished.md`: complete polished English manuscript and the sole textual source of truth for the current paper.
+- `main.tex` + `body_polished.tex`: full, unabridged AAAI-27 LaTeX rendering of `main_polished.md`. No substantive content is removed to meet a page budget at this stage.
+- `body_condensed_7page.tex`: archived seven-page condensation experiment. It is retained only for comparison and is not included by `main.tex`.
+- `supplementary.tex`: anonymous supplementary document containing the extended qualitative panel and detailed operator, alignment, and human-review tables.
+- `main_zh.md`: Chinese writing source retained for terminology and formula cross-checking.
+- `FORMULA_AUDIT_ZH.md`: Chinese record of the formula and notation audit.
 - `references.bib`: verified bibliography used by the LaTeX draft.
 - `reproducibility_checklist.tex`: unmodified official checklist; complete it when the final experimental evidence is available.
 - `aaai2027.sty`, `aaai2027.bst`: official files from the AAAI-27 Author Kit. Do not modify them.
@@ -39,7 +43,11 @@ Official sources:
 
 The primary contribution uses video-latent and resolution-specific structure, so the CV diffusion area is a better fit than a general machine-learning area.
 
-## Page budget
+## Page status
+
+The current main PDF deliberately restores the complete manuscript and does not enforce a submission-length target. In the present float layout, the document has 12 pages in total and the final full-width table and conclusion share page 11 with the beginning of the references. Any later compression should be performed explicitly against `main_polished.md`, with author approval of substantive cuts.
+
+## Page budget (future submission pass)
 
 | Part | Target body space |
 |---|---:|
@@ -54,7 +62,13 @@ The current Chinese draft deliberately keeps four result tables visible. Before 
 
 ## Build
 
-The required workflow is:
+The reproducible build is:
+
+```powershell
+.\build_paper.ps1
+```
+
+Its underlying PDFLaTeX workflow is:
 
 ```powershell
 pdflatex -output-directory=build main.tex
@@ -63,7 +77,7 @@ pdflatex -output-directory=build main.tex
 pdflatex -output-directory=build main.tex
 ```
 
-The current machine did not have PDFLaTeX installed at workspace setup time. Do not switch to XeLaTeX for the submission: the official author kit requires PDFLaTeX.
+The current machine now has a user-local TinyTeX/TeX Live 2026 installation. The exported files are `main.pdf` and `supplementary.pdf`; intermediate logs remain under `build/`. Do not switch to XeLaTeX for the submission: the official author kit requires PDFLaTeX.
 
 ## Result status (2026-07-18)
 

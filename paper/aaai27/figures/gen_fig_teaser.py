@@ -38,11 +38,12 @@ from gen_fig_qualitative import (
 
 OUTPUT_STEM = "fig_teaser"
 FIGURE_DIR = Path(__file__).resolve().parent
-OVERVIEW_PATH = FIGURE_DIR / "fig_talh_overview.png"
+OVERVIEW_PATH = FIGURE_DIR / "fig_talh_overview_imagegen.png"
 # Exact upper inference panel in the locked 1774 x 887 overview rendering.
 OVERVIEW_CROP_BOX = (0, 0, 1774, 409)
 SPATIAL_DIR = VIDEO_ROOT / "TALH-Q_spatial_detail" / "prompt_05_seed9705"
 CROP_NAME = "A"
+CROP_CONTENT_MAGNIFICATION = 1.5
 VIDEO_SPECS = (
     ("Native-HR (estimated)", "Native-HR", COLORS["native"], True),
     ("Trilinear @ 40", "Trilinear-at-40", COLORS["baseline"], False),
@@ -58,6 +59,26 @@ def frame_sha256(image: Image.Image) -> str:
     digest.update(f"{image.mode}:{image.width}x{image.height}".encode("ascii"))
     digest.update(image.tobytes())
     return digest.hexdigest()
+
+
+def magnified_box(
+    box: tuple[int, int, int, int], factor: float
+) -> tuple[int, int, int, int]:
+    """Tighten a crop about its center so its displayed content is magnified."""
+
+    if factor <= 0:
+        raise ValueError("Crop magnification must be positive.")
+    x0, y0, x1, y1 = box
+    center_x = (x0 + x1) / 2
+    center_y = (y0 + y1) / 2
+    half_width = (x1 - x0) / (2 * factor)
+    half_height = (y1 - y0) / (2 * factor)
+    return (
+        round(center_x - half_width),
+        round(center_y - half_height),
+        round(center_x + half_width),
+        round(center_y + half_height),
+    )
 
 
 def add_method_accent(ax: plt.Axes, color: str) -> None:
@@ -79,6 +100,9 @@ def add_method_accent(ax: plt.Axes, color: str) -> None:
 
 def main() -> None:
     apply_publication_style()
+    display_crop_box = magnified_box(
+        SPATIAL_CROPS[CROP_NAME], CROP_CONTENT_MAGNIFICATION
+    )
 
     visual_data: list[tuple[str, str, bool, Path, Image.Image]] = []
     manifest_videos: list[dict[str, object]] = []
@@ -86,7 +110,7 @@ def main() -> None:
         path = find_video(SPATIAL_DIR, token)
         image = decode_frames(path, {SPATIAL_FRAME})[SPATIAL_FRAME]
         visual_data.append((label, color, estimated, path, image))
-        crop_image = crop(image, SPATIAL_CROPS[CROP_NAME])
+        crop_image = crop(image, display_crop_box)
         manifest_videos.append(
             {
                 "method": label.replace("\n", " "),
@@ -123,14 +147,14 @@ def main() -> None:
         full_ax.set_anchor("N")
         full_ax.set_title(label, fontsize=7.0, fontweight="bold", color=color, pad=3.0, linespacing=0.90)
         add_method_accent(full_ax, color)
-        add_crop_box(full_ax, image, SPATIAL_CROPS[CROP_NAME], COLORS["cll"])
+        add_crop_box(full_ax, image, display_crop_box, COLORS["cll"])
         crop_ax = full_ax.inset_axes([0.535, 0.025, 0.440, 0.760])
-        show_image(crop_ax, crop(image, SPATIAL_CROPS[CROP_NAME]))
+        show_image(crop_ax, crop(image, display_crop_box))
         for spine in crop_ax.spines.values():
             spine.set_visible(True)
             spine.set_edgecolor(COLORS["cll"])
             spine.set_linewidth(0.9)
-        crop_ax.text(0.03, 0.96, "Crop A", transform=crop_ax.transAxes, ha="left", va="top", fontsize=7.0, fontweight="bold", color=COLORS["cll"], bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.82, "pad": 1.0})
+        crop_ax.text(0.03, 0.96, "Crop A (1.5x)", transform=crop_ax.transAxes, ha="left", va="top", fontsize=6.5, fontweight="bold", color=COLORS["cll"], bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.82, "pad": 1.0})
 
     mechanism_ax = fig.add_subplot(outer[1])
     show_image(mechanism_ax, overview_inference)
@@ -158,7 +182,9 @@ def main() -> None:
         "frame_zero_based": SPATIAL_FRAME,
         "frame_displayed_one_based": SPATIAL_FRAME + 1,
         "crop_name": CROP_NAME,
-        "crop_box_in_1248x720": SPATIAL_CROPS[CROP_NAME],
+        "source_crop_box_in_1248x720": SPATIAL_CROPS[CROP_NAME],
+        "displayed_crop_box_in_1248x720": display_crop_box,
+        "crop_content_magnification": CROP_CONTENT_MAGNIFICATION,
         "native_hr_estimated_note": (
             "Content-aligned 640x368 full LR trajectory used for context only; "
             "its actual frame and normalized Crop A are displayed; it is not used as a 720p sharpness baseline."

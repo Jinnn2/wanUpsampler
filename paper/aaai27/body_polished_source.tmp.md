@@ -1,10 +1,4 @@
-# Trajectory-Aligned Latent Handoff for Efficient High-Resolution Video Diffusion
-
-## Abstract
-
-Despite recent advances, high-resolution video diffusion models suffer from prohibitive inference latency due to their iterative denoising computations over long spatiotemporal latent sequences, severely hindering real-time content generation and interactive applications. While the early stages of diffusion sampling primarily establish global scene layout and macro-motion dynamics, the later stages progressively inject fine high-frequency details. This functional separation opens a valuable window for mixed-resolution inference. However, dynamic resolution handoff is far from a simple tensor resizing operation; it is inherently challenged by the compound effects of residual denoising gaps, cross-scale representation biases of video VAEs, and high-resolution trajectory mismatch. In this paper, we propose **Trajectory-Aligned Latent Handoff (TALH)**, a lightweight latent-space framework tailored for efficient high-resolution video generation. TALH strategically shifts the bulk of denoising computations to a low-resolution latent space and decouples the handoff process into three complementary components: a *Trajectory Alignment Adapter (TAA)* that leverages LoRA parameters to calibrate the residual trajectory gap at the switching step; a *Clean Latent Lifter (CLL)* that maps the cross-resolution clean latents; and a *High-Resolution Trajectory Re-entry (HTR)* protocol that seamlessly injects the lifted latents back into the high-resolution denoising trajectory of a frozen generator. Operating under a model-endogenous self-distillation paradigm, both TAA and CLL are supervised directly by the target generator, entirely eliminating the need for external paired videos, pre-trained upscalers, or heavy teacher models. Evaluated on a 50-step Wan2.1 model for $368\times640 \rightarrow 720\times1248$ resolution handoff, our quality-oriented variant (TALH-Q) and efficiency-oriented variant (TALH-E) achieve $1.83\times$ and $2.22\times$ end-to-end speedups, respectively, while preserving $97.76\%$ and $97.53\%$ of native high-resolution sampling performance on VBench-5. Component-wise analysis demonstrates that for $480\times832 \rightarrow 720\times1248$ upscaling, CLL reduces the latent $L_1$ error by $48.6\%$ and LPIPS by $73.3\%$ compared to trilinear interpolation. Furthermore, on the $368\times640$ low-resolution trajectory, TAA reduces the endpoint $L_1$ error at steps 40 and 45 by $25.8\%$ and $21.0\%$, respectively. TALH consistently exhibits a robust quality-efficiency Pareto frontier across both standard 50-step and advanced 4-step distilled models.
-
-## 1 Introduction
+## Introduction
 
 Latent video diffusion models, exemplified by recent architectures like Wan, have demonstrated remarkable capabilities in generating videos with strong semantic consistency, vivid motion, and intricate visual details [@wan2025]. However, their inference cost scales aggressively with spatial resolution, video length, and temporal sampling steps. For Diffusion Transformers (DiTs), each denoising iteration requires processing the full sequence of spatiotemporal tokens. When all sampling steps are executed at the target high resolution, the early stages—which only model coarse structures and macro-motions—are forced to bear the full burden of high-resolution computation. This property significantly exacerbates the response latency for online generation, severely hindering the deployment of high-resolution video models in interactive content creation and real-time services.
 
@@ -16,7 +10,6 @@ Directly mapping the low-resolution prediction at the handoff step to the high-r
 
 Driven by these insights, we present **TALH** (Trajectory-Aligned Latent Handoff), which decomposes dynamic resolution handoff into three modular components: TAA, CLL, and HTR. Activated exclusively at the designated handoff step, the **Trajectory Alignment Adapter (TAA)** uses LoRA to reduce the discrepancy between the current clean prediction and the complete low-resolution trajectory endpoint. The **Clean Latent Lifter (CLL)** then learns a cross-scale mapping between separately encoded low- and high-resolution clean latents. Finally, **High-Resolution Trajectory Re-entry (HTR)** re-noises the output according to the target-resolution schedule, allowing the frozen generator to complete the high-resolution suffix. Both TAA and CLL are supervised by the *same* frozen generative model: TAA uses the full low-resolution trajectory to construct trajectory alignment pairs, while CLL uses model-generated high-resolution videos and their downsampled counterparts to construct cross-resolution lifting pairs. This design yields a unified, model-endogenous self-distillation framework. Figure 1 summarizes the real-frame behavior and mixed-resolution inference path, while Figure 2 details the dual model-endogenous supervision.
 
-<a id="fig-teaser"></a>
 ![Real-frame comparison and hybrid-resolution inference path of TALH](figures/fig_teaser.png)
 
 **Figure 1: Real-frame comparison and acceleration mechanism of TALH.** (a) Full frames and identical 1.5$\times$-magnified Crop A regions compare the content-aligned `Native-HR (estimated)` trajectory with Trilinear, CLL-only, and TALH-Q outputs for prompt 05, seed 9705, frame 41. The estimated trajectory is a complete 368p sampling path; the handoff outputs are 720p. (b) Native-HR Sampling executes all 50 denoising evaluations at high resolution, whereas TALH-Q and TALH-E move the first 40 and 45 evaluations to the low-resolution latent space and retain 10 and 5 high-resolution suffix evaluations, respectively.
@@ -27,59 +20,58 @@ Our primary contributions are summarized as follows:
 * **We decouple dynamic resolution handoff** into three explicit phases—residual trajectory alignment, cross-resolution latent lifting, and generative high-resolution refinement—by designing TAA, CLL, and HTR. This mathematical decomposition significantly mitigates the epistemic uncertainty inherent in joint trajectory-scale mapping, enabling isolated diagnostics of each component.
 * **We construct a model-endogenous training paradigm** that requires no external paired videos, external upscaler weights, or additional teacher models, and establish the consistency condition for cached-prefix states. Experiments on standard 50-step Wan2.1 and 4-step distilled Wan validate TALH's system efficiency, module-level effects, and compatibility with different sampling schedules.
 
-## 2 Related Work
+## Related Work
 
-### 2.1 Latent Video Generation and Cascaded Upscaling
+### Latent Video Generation and Cascaded Upscaling
 
 Latent Diffusion Models transfer the generative process to a compressed latent space, providing a highly scalable foundation for high-resolution image and video synthesis [@rombach2022ldm]. Early frameworks like Video LDM, Imagen Video, and LaVie adopted spatial or temporal cascades to progressively generate high-resolution videos from low-resolution initial outputs [@blattmann2023videoldm; @ho2022imagenvideo; @wang2023lavie]. More recently, architectures such as LTX-Video and LTX-2 have co-designed video VAEs, latent representations, and generative Transformers, with LTX-2 introducing an independent spatial latent upsampler [@hacohen2024ltxvideo; @hacohen2026ltx2]. Other recent works like SimpleGVR and LUVE similarly explore cascaded pipelines consisting of a low-resolution generator followed by latent or video refinement modules [@xie2025simplegvr; @zhao2026luve].
 
 While these approaches typically treat the upscaler as an isolated post-processing stage after the core generation, TALH natively embeds the Clean Latent Lifter (CLL) into the original Wan sampling trajectory. By linking the lifted latents to subsequent scheduling steps via High-Resolution Trajectory Re-entry (HTR), cross-resolution scaling and high-resolution generative priors are unified within a single, continuous inference process.
 
-### 2.2 Video Super-Resolution and Temporal Consistency
+### Video Super-Resolution and Temporal Consistency
 
 Advanced methods such as Upscale-A-Video, SATeCo, MGLD, and VideoGigaGAN leverage diffusion priors, spatiotemporal adapters, motion guidance, and generative restoration to elevate video resolution while suppressing flickering artifacts [@zhou2024upscale; @chen2024sateco; @yang2024mgld; @xu2024videogigagan]. However, these approaches are primarily engineered for the restoration of already generated or real low-resolution RGB videos. In contrast, TALH operates directly within the generative latent space prior to VAE decoding. Because its upscaling outputs must participate in subsequent diffusion denoising steps, TALH targets resolution transitions inside the generation trajectory rather than independent RGB video post-processing.
 
-### 2.3 Mixed-Resolution Diffusion Inference
+### Mixed-Resolution Diffusion Inference
 
 The changing-resolution inference in LightX2V utilizes fixed interpolation to dynamically adjust latent sizes mid-sampling [@lightx2v2026]. Concurrently, RALU demonstrates that training-free latent upscaling is frequently plagued by high-frequency aliasing and a resolution-dependent mismatch between noise and time steps, and subsequently designs a mixed-resolution processing scheme tailored for Diffusion Transformers [@jeong2025ralu]. For image flow matching models, MrFlow introduces a staged sampling strategy that combines low-resolution structure generation, pixel-domain super-resolution, low-intensity re-noising, and high-resolution detail refinement, demonstrating significant end-to-end acceleration and compatibility with temporal step distillation [@zheng2026mrflow]. TALH extends this paradigm to video generation trajectories by learning cross-resolution lifting directly within the target model's latent space, while explicitly rectifying low-resolution tail-trajectory errors prior to the handoff.
 
-### 2.4 Few-Step Distillation and On-Policy Trajectory Learning
+### Few-Step Distillation and On-Policy Trajectory Learning
 
 To accelerate diffusion models, methods like Progressive Distillation, Consistency Models, LCM, and Distribution Matching Distillation minimize the required temporal sampling steps via trajectory regression, consistency mapping, or distribution matching [@salimans2022progressive; @song2023consistency; @luo2023lcm; @yin2024dmd; @yin2024dmd2]. Frameworks such as VideoLCM and the Motion Consistency Model successfully extend these formulations to the video domain [@wang2023videolcm; @zhai2024mcm]. Recent works like Self-Forcing, D-OPSD, and AnyFlow further emphasize enforcing strict consistency between the training states and the actual inference states of student models [@huang2025selfforcing; @jiang2026dopsd; @gu2026anyflow].
 
 TALH retains the original sampler and relies on TAA to calibrate a single resolution handoff step. Since TAA remains inactive prior to the handoff step, its parameter updates do not alter the low-resolution prefix trajectory. Leveraging this property, Section 3.5 establishes the consistency conditions that allow cached prefix states to be directly accessed during inference without training-inference distribution drift.
 
-## 3 Method
+## Method
 
-### 3.1 Problem Definition and Overall Framework
+### Problem Definition and Overall Framework
 
 Let $v_\phi(x_s, s, c)$ denote a frozen Wan flow predictor, where $x_s$ represents the intermediate latent before the $s$-th denoising calculation, $c$ is the text condition, and $T$ is the total number of denoising steps. We use the superscripts $L$ and $H$ to signify the low-resolution and high-resolution latent spaces, respectively. Let $z_T^L$ denote the endpoint of the complete low-resolution trajectory generated by the frozen model under a given text prompt, random seed, initial noise, and low-resolution scheduler. We define $(z_0^L, z_0^H)$ as the cross-resolution clean latent pair obtained by encoding the low- and high-resolution versions of the same video through the Wan VAE.
 
 TALH introduces two independently trained modules: the Trajectory Alignment Adapter (TAA) parameterized by LoRA weights $\Delta\theta_s$, and the Clean Latent Lifter (CLL) denoted as $U_\psi^{\mathrm{CLL}}$ with parameters $\psi$. High-Resolution Trajectory Re-entry (HTR) is a parameter-free re-routing operation. As illustrated in the upper panel of Figure 2, the complete data flow is formulated as:
 
-\[
+$$
 x_s^L \xrightarrow{\mathrm{TAA}:v_{\phi+\Delta\theta_s}}
 \widetilde z_s^L \xrightarrow{U_\psi^{\mathrm{CLL}}}
 \widehat z_s^H \xrightarrow{\mathrm{HTR}} x_{s+1}^H.
-\]
+$$
 
 Crucially, TAA is dedicated solely to aligning the current low-resolution clean prediction with the complete trajectory's low-resolution endpoint, while CLL focuses exclusively on the cross-resolution mapping of clean latents. These two modules are trained separately without joint backpropagation. This decoupled training strategy prevents the massive memory overhead of hosting both the 14B denoiser and the CLL module simultaneously in the compute graph, while enabling an isolated experimental analysis of trajectory and scale errors.
 
 The handoff step simultaneously governs three distinct types of errors. Let $E_{\mathrm{traj}}(s)$ denote the residual trajectory gap before the handoff, $E_{\mathrm{lift}}(s)$ be the cross-resolution lifting error, and $E_{\mathrm{refine}}(s)$ represent the remaining high-resolution error left uncorrected after HTR. The total handoff error can be conceptualized as:
 
-\[
+$$
 E_{\mathrm{handoff}}(s) \approx E_{\mathrm{traj}}(s)
 + E_{\mathrm{lift}}(s) + E_{\mathrm{refine}}(s).
-\]
+$$
 
 This conceptual decomposition reveals the central trade-off across choices of $s$. A later handoff reduces the residual trajectory gap $E_{\mathrm{traj}}(s)$ and moves the CLL input closer to its clean-latent training distribution, thereby reducing $E_{\mathrm{lift}}(s)$. However, a later handoff also leaves fewer high-resolution suffix evaluations and can therefore increase the uncorrected refinement error $E_{\mathrm{refine}}(s)$. TAA, CLL, and HTR are designed to address these three error sources separately.
 
-<a id="fig-talh-overview"></a>
 ![Model-endogenous supervision for TAA and CLL](figures/fig_talh_overview.png)
 
 **Figure 2: Model-endogenous supervision for TAA and CLL.** TAA pairs the cached handoff state with the complete low-resolution trajectory endpoint under identical prompt, seed, scheduler, and CFG settings. CLL pairs clean latents encoded from a frozen-Wan-generated high-resolution video and its RGB-downsampled counterpart. Both training-pair streams are generated by the same frozen Wan model.
 
-### 3.2 Model-Endogenous Dual-Supervision Data
+### Model-Endogenous Dual-Supervision Data
 
 TALH operates entirely without external paired videos, pre-trained super-resolution weights, or additional teacher models. The supervision for both CLL and TAA is generated natively by the frozen target generator, tracking two distinct conditional distributions as shown in the lower panel of Figure 2.
 
@@ -89,106 +81,106 @@ TALH operates entirely without external paired videos, pre-trained super-resolut
 
 Although both types of supervision share the same base generative model, they map to different conditional distributions: the low-resolution input for CLL is derived from downsampled high-resolution video encodings, whereas TAA directly targets the endpoints of native low-resolution trajectories. Section 4.3 evaluates their end-to-end synergy via a $2\times2$ factorial design crossing trajectory states and resolution operators.
 
-### 3.3 Cross-Resolution Clean Latent Lifting
+### Cross-Resolution Clean Latent Lifting
 
 The Clean Latent Lifter (CLL) takes a 16-channel Wan VAE latent as input and produces an upscaled 16-channel latent, preserving the temporal dimension:
 
-\[
+$$
 U_\psi^{\mathrm{CLL}}:\mathbb{R}^{B\times16\times F\times h\times w}
 \rightarrow \mathbb{R}^{B\times16\times F\times H\times W}.
-\]
+$$
 
 The architecture adopts an encoder-resampler-decoder structure inspired by LTX-2. A 3D convolutional input layer projects the latents into a 256-dimensional hidden space, followed by 4 spatiotemporal residual blocks to extract rich spatiotemporal features. A spatial resampler then scales the resolution, after which 4 additional 3D residual blocks and a final 3D convolutional layer reconstruct the 16-channel output. This spatiotemporal processing enables the model to exploit information from adjacent latent frames while keeping the total frame count invariant.
 
 We implement two distinct spatial resampling configurations. For the $480\times832 \rightarrow 720\times1248$ transition, the latent grid expands from $60\times104$ to $90\times156$. The network first inflates the channel dimension by a factor of 9, applies a $3\times$ spatial PixelShuffle, and finally performs a stride-2 downsampling using a fixed binomial blur kernel to achieve a rational $3/2\times$ upscaling:
 
-\[
+$$
 60\times104 \xrightarrow{\times3} 180\times312
 \xrightarrow{/2} 90\times156.
-\]
+$$
 
 For the $368\times640 \rightarrow 720\times1248$ transition, the latent grid expands from $46\times80$ to $90\times156$. Since the target size is not an exact integer multiple, the network executes a $2\times$ PixelShuffle to reach $92\times160$, followed by a center crop to isolate the exact $90\times156$ target grid.
 
 The training objective for CLL is defined as:
 
-\[
+$$
 \mathcal L_{\mathrm{CLL}}=\mathcal L_{\mathrm{rec}}
 +\lambda_{\mathrm{content}}\mathcal L_{\mathrm{content}}
 +\lambda_{\mathrm{temp}}\mathcal L_{\mathrm{temp}}.
-\]
+$$
 
 where
 
-\[
+$$
 \mathcal L_{\mathrm{rec}}
 =\mathbb E\left[\sqrt{(\widehat z_0^H-z_0^H)^2+\epsilon^2}\right].
-\]
+$$
 
-\[
+$$
 \mathcal L_{\mathrm{content}}
 =\lVert D(\widehat z_0^H)-z_0^L\rVert_1,
 \qquad
 \mathcal L_{\mathrm{temp}}
 =\lVert\Delta_F\widehat z_0^H-\Delta_Fz_0^H\rVert_1.
-\]
+$$
 
 Here, $D$ denotes a downscaling operator that maps the predicted high-resolution latent back to the low-resolution grid, and $\Delta_F$ represents the first-order temporal difference between adjacent latent frames. We set $\lambda_{\mathrm{content}}=0.2$, $\lambda_{\mathrm{temp}}=0.1$, and $\epsilon=10^{-3}$ in our experiments. These three loss terms jointly constrain point-wise reconstruction, low-frequency content preservation, and temporal consistency. Because a low-resolution latent cannot uniquely determine high-resolution details, CLL focuses on recovering a stable cross-scale representation, leaving the remaining high-frequency details to be synthesized and corrected by the subsequent HTR and high-resolution diffusion priors.
 
-### 3.4 Handoff-Local Trajectory Alignment
+### Handoff-Local Trajectory Alignment
 
 TAA is implemented via LoRA [@hu2022lora] and is activated exclusively at the designated handoff step. The base Wan model remains completely frozen; low-rank updates of rank $r$ are injected solely into the $q, k, v, o$ projections of the attention modules and the $ffn.0, ffn.2$ linear layers of the Feed-Forward Networks (FFNs):
 
-\[
+$$
 W'=W+\frac{\alpha}{r}BA.
-\]
+$$
 
 Under the flow matching parameterization, the TAA-aligned clean latent prediction at step $s$ is expressed as:
 
-\[
+$$
 \widetilde z_s^L
 =x_s^L-\sigma_s v_{\phi+\Delta\theta_s}(x_s^L,s,c).
-\]
+$$
 
 The alignment target is the low-resolution trajectory endpoint $z_T^L$ obtained by fully running the frozen model up to step $T$ under identical conditions (text prompt, random seed, initial noise, and scheduler). The trajectory alignment loss is formulated as:
 
-\[
+$$
 \mathcal L_{\mathrm{align}}
 =\lVert\widetilde z_s^L-z_T^L\rVert_1
 +0.1\lVert\widetilde z_s^L-z_T^L\rVert_2^2.
-\]
+$$
 
 For earlier handoffs (such as step 40), we introduce an additional temporal residual alignment loss with a weight of 0.05 to mitigate the propagation of frame-to-frame errors into the CLL module. While our framework also supports direct supervision via the velocity target $v^*=\frac{x_s^L-z_T^L}{\sigma_s}$, all experiments in this paper report results optimized using the clean latent alignment objective above.
 
 By compressing the residual error of the low-resolution tail trajectory at the handoff step, TAA effectively projects the input of CLL back onto the clean latent training domain. While the system-level acceleration of TALH stems from the low-resolution prefix computations, TAA ensures trajectory consistency at fixed handoff points. Earlier handoffs, which inherently suffer from larger residual trajectory gaps, consequently yield a broader optimization space for TAA calibration.
 
-### 3.5 Cached-Prefix State Consistency
+### Cached-Prefix State Consistency
 
 Assuming TAA is activated strictly at the handoff step $s$, its LoRA parameters satisfy $\Delta\theta_k=0$ for all steps $k < s$. Given a deterministic sampler alongside fixed text embeddings, random seeds, schedulers, and Classifier-Free Guidance (CFG) scales, the adapted generative process shares the identical transition functions as the base process prior to step $s$. Thus, by induction over the sampling steps, we establish:
 
-\[
+$$
 x_k^{\mathrm{adapted}}=x_k^{\mathrm{base}},
 \qquad \forall k\leq s.
-\]
+$$
 
 This property guarantees that the pre-cached base model prefix state $x_s^L$ is mathematically identical to the state actually accessed by TAA during inference. For localized adaptations restricted to a single handoff step, caching the prefix state allows us to bypass redundant prefix computations entirely during inference without introducing any training-inference distribution drift, maintaining an $O(1)$ state retrieval overhead.
 
 This consistency property relies on four strict conditions: TAA must be engaged exclusively at the handoff step; training and inference must share identical schedulers, CFG scales, and conditional inputs; the prefix sampling path must be entirely deterministic; and no unaligned stochastic operations can occur within the prefix trajectory. If TAA were extended across multiple steps, its parameters would alter subsequent states, requiring advanced training mechanisms such as student model rollouts, synchronized teacher predictions, or Exponential Moving Average (EMA) teacher models.
 
-### 3.6 High-Resolution Trajectory Re-entry and Two Instances
+### High-Resolution Trajectory Re-entry and Two Instances
 
 Once TAA produces the aligned low-resolution clean latent, CLL outputs the upscaled high-resolution clean latent:
 
-\[
+$$
 \widehat z_s^H=U_\psi^{\mathrm{CLL}}(\widetilde z_s^L).
-\]
+$$
 
 The High-Resolution Trajectory Re-entry (HTR) phase then introduces target-resolution noise according to the schedule coefficient $\sigma_{s+1}$ of the next timestep:
 
-\[
+$$
 x_{s+1}^H
 =(1-\sigma_{s+1})\widehat z_s^H
 +\sigma_{s+1}\epsilon^H.
-\]
+$$
 
 The remaining denoising calculations from step $s+1$ to $T$ are subsequently completed by the frozen Wan denoiser operating on the high-resolution latent space. Unlike an *Interpolated-Flow Re-entry* strategy that directly interpolates low-resolution velocity flows into the high-resolution space, TALH utilizes *Target-Resolution Noise Re-entry*. This design ensures that newly introduced spatial frequencies are synthesized natively by the high-resolution generative priors of the base model.
 
@@ -196,13 +188,13 @@ Our **50-step pipeline** uses Wan2.1 T2V-1.3B, configured with 50 inference step
 
 Our **4-step pipeline** leverages Wan2.1 T2V-14B StepDistill-CfgDistill, operating on four nominal timesteps $[1000, 750, 500, 250]$ with a sample shift of 5. The distilled instance **TALH-D4** (TALH@3-of-4) runs low-resolution sampling for the first two steps. At step 3, TAA predicts the aligned low-resolution clean latent, which is scaled by CLL and injected back into the high-resolution trajectory via HTR at step 4. A single final high-resolution denoising step completes the generation.
 
-## 4 Experiments
+## Experiments
 
-### 4.1 Experimental Objectives
+### Experimental Objectives
 
 Our evaluation verifies TALH across both system-level and module-level dimensions. System-level experiments benchmark the end-to-end latency and generative quality of TALH-Q and TALH-E against Native-HR Sampling, while validating compatibility with few-step samplers via the 4-step distilled model. Module-level experiments independently isolate the cross-resolution lifting performance of CLL against fixed trilinear interpolation, quantify TAA's calibration of the residual trajectory gap, and dissect their main effects and interactions through a factorial framework. Finally, handoff-step scanning illuminates the tight coupling between low-resolution trajectory errors, high-resolution refinement budgets, and overall inference speedups.
 
-### 4.2 Data and Training Setup
+### Data and Training Setup
 
 The 50-step pipeline utilizes approximately 1,000 high-resolution reference videos generated by Wan2.1 T2V-1.3B, each spanning 81 frames at $720\times1248$ resolution and a framerate of 16 fps. Bicubic interpolation produces the corresponding $480\times832$ and $368\times640$ downscaled counterparts, which are subsequently processed through the Wan VAE to yield aligned cross-resolution lifting pairs. Trajectory alignment pairs are constructed by extracting the low-resolution intermediate states immediately preceding the target handoff step alongside the full low-resolution trajectory endpoints of the same samples.
 
@@ -212,7 +204,7 @@ CLL is optimized using AdamW with a learning rate of $1\times10^{-4}$ for up to 
 
 Importantly, because all training videos are produced entirely by the frozen generator followed by spatial downscaling, this setup establishes a model-specific, generative latent upscaling task. TALH effectively distills Wan's intrinsic high-resolution generative capabilities into lightweight spatial and trajectory adapters without requiring any external paired datasets.
 
-### 4.3 Baselines and Factorial Experiments
+### Baselines and Factorial Experiments
 
 We evaluate TALH against the following baseline configurations, including JTSL for qualitative analysis of joint regression characteristics:
 
@@ -228,7 +220,7 @@ We evaluate TALH against the following baseline configurations, including JTSL f
 
 Our core evaluations adopt a $2\times2$ factorial design at steps 40 and 45, crossing the trajectory states $\small\{\text{Unaligned, TAA-aligned}\small\}$ with the resolution operators $\small\{\text{Trilinear, CLL}\small\}$. Fixing the resolution operator isolates the main effect of TAA, fixing the switching state isolates the main effect of CLL, and evaluating all four combinations maps their explicit interactions. Qualitative profiles of JTSL are leveraged to analyze high-frequency damping induced by joint trajectory-scale regression.
 
-### 4.4 Metrics and Fairness
+### Metrics and Fairness
 
 For trajectory alignment, we report latent $L_1$/MSE relative to the full low-resolution endpoint, temporal $L_1$ across adjacent frames, decoded LPIPS [@zhang2018lpips], PSNR/SSIM, and sample-wise win rates. For CLL, we report clean latent Charbonnier/$L_1$ errors, decoded PSNR/SSIM/LPIPS, temporal difference errors, and high-frequency energy discrepancies. End-to-end video generation quality is measured via VBench [@huang2024vbench] alongside human evaluation to assess subject consistency, temporal stability, and perceptual quality.
 
@@ -238,13 +230,12 @@ An anonymous human study evaluates fine details, artifacts, temporal stability, 
 
 Efficiency evaluations report end-to-end cold-start latency per video, peak GPU memory, the number of low- versus high-resolution denoising evaluations, and the speedup ratio relative to Native-HR Sampling. Timings include all processing overheads from TAA, CLL, HTR, VAE operations, and dynamic model swapping. Quality benchmarks are computed on the same 10 matched prompts.
 
-## 5 Results and Analysis
+## Results and Analysis
 
-### 5.1 Core Comparison: Quality-Efficiency Pareto Frontier Against Native-HR Sampling
+### Core Comparison: Quality-Efficiency Pareto Frontier Against Native-HR Sampling
 
 Table 1 evaluates the standard 50-step Native-HR Sampling against our two primary TALH operational points. Native-HR Sampling exhibits an average runtime of 253.10 seconds. In comparison, TALH-Q (handoff at step 40) and TALH-E (handoff at step 45) reduce this latency to 138.36 seconds and 114.26 seconds, yielding latency reductions of $45.33\%$ and $54.85\%$, respectively. They preserve $97.76\%$ and $97.53\%$ of Native-HR's generative quality on VBench-5. Because TALH leaves the total number of denoising iterations unchanged, its system acceleration is derived entirely from offloading 40 or 45 steps to the computationally efficient low-resolution latent grid. Figure 3(a) illustrates the quality-latency trade-offs of these configurations, and Figure 3(b) decomposes the dimension-wise VBench deviations relative to Native-HR Sampling.
 
-<a id="fig-quality-efficiency"></a>
 ![Quality-efficiency comparison with Native-HR Sampling](figures/fig_quality_efficiency.png)
 
 **Figure 3: Quality-efficiency trade-off relative to Native-HR Sampling.** (a) TALH-Q and TALH-E reduce end-to-end latency to 138.36 and 114.26 seconds, providing quality- and efficiency-oriented operating points; Endpoint Re-entry is faster but incurs a larger aggregate quality decrease. (b) Absolute per-dimension VBench changes of TALH-Q and TALH-E relative to Native-HR Sampling.
@@ -259,7 +250,7 @@ Table 1 evaluates the standard 50-step Native-HR Sampling against our two primar
 
 Compared to Native-HR Sampling, TALH-Q and TALH-E experience minor VBench-5 concessions of only $2.24\%$ and $2.47\%$ while unlocking substantial $1.83\times$ and $2.22\times$ speedups. TALH-Q leverages its extended high-resolution suffix to achieve higher overall generation fidelity, whereas TALH-E pushes online inference throughput to its practical limits, successfully mapping out a highly controllable quality-efficiency Pareto frontier.
 
-### 5.2 Clean Latent Lifting Outperforms Fixed Interpolation
+### Clean Latent Lifting Outperforms Fixed Interpolation
 
 Figure 4(a) and Table 2 evaluate our CLL operator against classical trilinear upscaling across 50 paired clean latent samples. For the $480\text{p} \rightarrow 720\text{p}$ transition, CLL dramatically compresses the latent $L_1$ error from 0.1929 to 0.0991 (a $48.6\%$ relative reduction). Simultaneously, decoded LPIPS drops from 0.2358 to 0.0629, PSNR improves by 5.71 dB, and temporal $L_1$ variation decreases by $30.8\%$. Except for a single sample on SSIM (49/50), CLL secures comprehensive wins across all 50 test samples for PSNR, LPIPS, and temporal $L_1$ consistency.
 
@@ -274,7 +265,7 @@ In the more aggressive $368\text{p} \rightarrow 720\text{p}$ setting, CLL reduce
 
 **Table 2: Operator-level comparison between CLL and trilinear upscaling ($n=50$).** Each row is benchmarked against the identical high-resolution VAE-encoded latent as ground truth.
 
-### 5.3 Trajectory Alignment Narrows Residual Endpoint Gaps
+### Trajectory Alignment Narrows Residual Endpoint Gaps
 
 Figure 4(b) and Table 3 detail the performance of TAA operating at an alignment intensity of 0.75. For the step 40 handoff, TAA drives the residual endpoint $L_1$ error down from 0.03215 to 0.02385 (a $25.82\%$ relative drop). For the step 45 handoff, it achieves a $21.03\%$ reduction from 0.02363 to 0.01866. Both configurations register lower errors across all 10 evaluation samples ($10/0$ win-loss ratio), with $95\%$ bootstrap confidence intervals strictly excluding zero, evaluated as statistically significant via a two-sided exact sign test ($p=0.00195$). This calibration translates to a 2.55 dB and 2.23 dB boost in decoded PSNR alongside a $23.44\%$ and $21.24\%$ reduction in latent temporal $L_1$ variations. Notably, the absolute $L_1$ error improvement at step 40 (0.00830) visibly exceeds that of step 45 (0.00497), verifying that earlier handoff points offer an expanded optimization window for trajectory alignment.
 
@@ -288,7 +279,7 @@ Figure 4(b) and Table 3 detail the performance of TAA operating at an alignment 
 
 Intensity scanning reveals a non-monotonic relationship between raw alignment magnitude and downstream generation quality. At step 40, alignment intensities of 0.5 and 1.0 reduce latent $L_1$ error by only 0.00012 and 0.00071, respectively. An intermediate intensity of 0.75 achieves the lowest $L_1$ error, a perfect $10/0$ sample-wise win rate, and the highest downstream VBench-5 score. Modulating the alignment strength in this manner ensures that the calibrated states remain well-conditioned for the CLL and HTR pipelines.
 
-### 5.4 Factorial Analysis: CLL Drives Primary Generation Gains
+### Factorial Analysis: CLL Drives Primary Generation Gains
 
 Figure 4(c) and Table 4 break down the complete $\small\{\text{Unaligned, TAA-aligned}\small\} \times \small\{\text{Trilinear, CLL}\small\}$ factorial experiment. Integrating CLL yields substantial VBench-5 improvements of +0.03085, +0.04066, and +0.03874 at step 40, step 45, and on the 4-step sampler, respectively. Relative to the baseline Trilinear Handoff, the full TALH framework secures total gains of +0.03171, +0.04016, and +0.03884. Prompt-level statistics demonstrate that CLL-driven improvements are concentrated in *motion smoothness*, *aesthetic quality*, and *imaging quality*, with TALH-Q logging win/loss tallies of $10/0$, $9/1$, and $9/1$, and TALH-E returning $10/0$, $9/1$, and $10/0$, respectively.
 
@@ -302,12 +293,11 @@ Figure 4(c) and Table 4 break down the complete $\small\{\text{Unaligned, TAA-al
 
 The downstream impact of TAA on the aggregated VBench-5 metric appears smaller than its isolated trajectory endpoint improvements: conditioned on CLL, TAA alters VBench-5 by +0.00087, -0.00050, and +0.00010 across the three settings. Synthesizing this with Table 3 indicates that TAA primarily acts to anchor handoff states and sharpen localized high-frequency details; its end-to-end downstream impact depends heavily on how effectively the subsequent CLL module and high-resolution suffix steps leverage this calibrated trajectory state.
 
-<a id="fig-component-evidence"></a>
 ![Module-level evidence for CLL, TAA, and their factorial interaction](figures/fig_component_evidence.png)
 
 **Figure 4: Module effects and interactions in TALH.** (a) CLL reduces latent, perceptual, and temporal errors relative to trilinear interpolation at both scaling ratios. (b) TAA reduces the low-resolution trajectory-endpoint gap at steps 40 and 45 and on the 4-step distilled model. (c) The $2\times2$ factorial results show that CLL provides the dominant end-to-end VBench-5 gain, while TAA primarily performs local trajectory correction.
 
-### 5.5 Human Evaluation Exposes Detail-Temporal Dynamics
+### Human Evaluation Exposes Detail-Temporal Dynamics
 
 Prompt-level majority votes illuminate a nuanced detail-temporal trade-off introduced by TAA. Conditioned on the same CLL module within TALH-E, enabling TAA yields clear win/loss/tie tallies of $9/0/1$ for fine details and $6/0/4$ for overall quality, but drops to $0/8/2$ on temporal stability. TALH-Q tracks this behavior closely, registering $8/2/0$ for fine details, $6/2/2$ for overall quality, and $1/9/0$ for temporal stability. This reveals that TAA shifts the generation toward sharper localized spatial structures. While these local high-frequency corrections can introduce minor frame-to-frame fluctuations, the resulting spatial clarity significantly outweighs the perceptual cost. Ultimately, the broader temporal constraints are maintained by the joint operation of CLL and HTR.
 
@@ -322,25 +312,25 @@ Prompt-level majority votes illuminate a nuanced detail-temporal trade-off intro
 
 Perceptual gains from CLL significantly surpass the marginal effects of TAA: for the step 45 handoff, both CLL-only Handoff and the full TALH-E framework secure perfect $10/10$ prompt-level win rates across artifacts, details, overall quality, and structural/identity preservation. This maps cleanly to our VBench-5 factorial findings. Inter-rater agreement statistics are provided in the Supplementary Material.
 
-### 5.6 Evaluation Against Strong Speed Baselines and Handoff Planning
+### Evaluation Against Strong Speed Baselines and Handoff Planning
 
 The Endpoint Re-entry Baseline—which runs the low-resolution trajectory to completion, applies CLL upscaling, and performs a single high-resolution refinement step—requires 86.45 $\pm$ 2.87 seconds, reaching a $2.93\times$ speedup. However, it suffers a substantial $3.31\%$ decline in VBench-5 (0.80093) relative to Native-HR Sampling. Paired bootstrap analysis yields a $95\%$ confidence interval of $[-0.05128, -0.00577]$ for the VBench-5 delta, with inferior scores across $9/10$ prompts ($p=0.02148$). While a single refinement step maximizes inference speed, its overall generative quality falls short of TALH-Q and TALH-E.
 
 TALH-Q adds 24.09 seconds of latency compared to TALH-E but recaptures a +0.00191 VBench-5 gain. Dimension-wise breakdowns show that TALH-Q improves subject consistency and aesthetic quality by 0.00354 and 0.01419, respectively, while TALH-E improves imaging quality by 0.00939. This directly aligns with our handoff-step scanning profiles: an extended high-resolution suffix excels at structural and texture synthesis, whereas delaying the handoff step directly minimizes runtime. Peak memory utilization remains stable at approximately 26 GiB across Native-HR, both TALH variants, and the Endpoint Re-entry Baseline, confirming that TALH's system advantages are concentrated entirely in inference speedups.
 
-### 5.7 Transferability to Distilled Samplers
+### Transferability to Distilled Samplers
 
 TALH is highly compatible with temporal step distillation frameworks. In transfer testing using the $368\text{p}$ trajectory on the 4-step distilled model, TAA reduces endpoint $L_1$ and LPIPS errors by $5.03\%$ and $5.65\%$, respectively, achieving consistent error reductions across all 10 test samples. In end-to-end evaluations, Trilinear Handoff registers a VBench-5 score of 0.81796, which TALH-D4 elevates to 0.85680. Crucially, introducing TAA and CLL only marginally shifts cold-start latency from 167.09 seconds to 170.29 seconds. These results demonstrate that TALH's cross-resolution lifting mechanism stacks cleanly with few-step samplers, where CLL delivers the primary quality improvements and TAA performs localized trajectory alignment.
 
 Furthermore, handoff-step scanning reveals that JTSL introduces severe high-frequency damping when forced to simultaneously model spatiotemporal trajectory restoration, cross-scale geometric mapping, and texture inference. By decoupling trajectory alignment from clean latent lifting, TALH mitigates this epistemic uncertainty, allowing CLL to preserve crisp, high-fidelity spatial details.
 
-### 5.8 Qualitative Comparison
+### Qualitative Comparison
 
 Figure 1(a) presents a spatial comparison of trilinear upscaling, CLL-only Handoff, and the complete TALH-Q framework on content-aligned video frames at step 40. The comparison highlights CLL's reconstruction of high-frequency textures and TAA's localized adjustments. Figure S1 in the Supplementary Material provides an extended dual-crop spatial panel and evaluates temporal sequences at step 45 to analyze structural fidelity and texture attachment for TALH-E.
 
 The `Native-HR (estimated)` baseline represents a full $368\text{p}$ sampling path sharing identical content and motion characteristics, upscaled purely for structural reference. Because native $720\text{p}$ inference can drift into divergent generative contents even under identical random seeds, true $720\text{p}$ Native-HR Sampling is reserved for the quantitative metrics in Table 1 rather than frame-by-frame visual pairings.
 
-## 6 Discussion and Limitations
+## Discussion and Limitations
 
 TALH introduces a clear division of labor: it offloads timestep- and scheduler-dependent trajectory errors to TAA, isolates CLL training within a stable clean latent domain, and utilizes HTR to leverage the base model's high-resolution diffusion priors for high-frequency detail generation. This structured decomposition creates an interpretable pipeline from modular objectives to end-to-end generation quality. However, our experiments also reveal that reducing local trajectory errors does not automatically yield a linear increase in aggregated VBench-5 metrics: while TAA successfully minimizes endpoint discrepancies, its final impact remains closely tied to the input distribution requirements of CLL and the length of the high-resolution suffix. Consequently, the $2\times2$ factorial design remains essential for analyzing these subtle module interactions.
 
@@ -350,12 +340,10 @@ Despite these advantages, TALH has several limitations. First, because CLL speci
 
 From an application perspective, mixed-resolution sampling significantly lowers the computational and energy barriers for high-resolution video generation, accelerating the scalability of synthetic media production. The downstream content risks of TALH are entirely inherited from the base video diffusion model. Deployments should strictly adhere to the base model's licensing agreements, apply explicit synthetic media watermarking, and maintain identical safety filtering protocols.
 
-## 7 Conclusion
+## Conclusion
 
 This paper presents TALH, a lightweight latent-space framework designed to accelerate high-resolution video generation by dynamically pairing a low-resolution prefix trajectory with a high-resolution sampling suffix. TALH resolves the resolution transition by decomposing it into three explicit phases: TAA for residual trajectory alignment, CLL for cross-resolution clean latent lifting, and HTR for high-resolution trajectory re-entry. These modules are trained via a self-distillation paradigm using data generated entirely by the frozen base model.
 
 Our experiments demonstrate that TALH-Q and TALH-E deliver substantial $1.83\times$ and $2.22\times$ speedups over Native-HR Sampling while preserving $97.76\%$ and $97.53\%$ of generative quality on VBench-5. CLL consistently outperforms standard trilinear interpolation across multiple scaling ratios, while TAA reliably narrows residual trajectory gaps in both standard 50-step and advanced 4-step distilled models. These results confirm the effectiveness of separating trajectory alignment from latent lifting, providing a highly controllable, lightweight, and scalable quality-efficiency trade-off for online high-resolution video generation.
 
-## References
 
-References are managed uniformly via `references.bib` and are rendered according to the AAAI style guide in the final LaTeX document.
