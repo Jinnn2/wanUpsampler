@@ -2,7 +2,8 @@
 
 ## Current source of truth
 
-- `main.tex` + `body_polished.tex`: current AAAI-27 submission source. `main.tex` directly inputs `body_polished.tex`; this is the source used for every current PDF export.
+- `main.tex` + `body_trajscale.tex`: current AAAI-27 submission source. `main.tex` directly inputs `body_trajscale.tex`; this is the source used for every current PDF export.
+- `body_polished.tex`: archived pre-TrajScale version retained for terminology and prose comparison; it is no longer included by `main.tex`.
 - `main_polished.md`: earlier full-length English writing source. It is retained for prose comparison but is no longer synchronized with the condensed LaTeX submission source.
 - `body_polished_restored.tex`: archived restored full-length LaTeX body. It is not included by `main.tex`.
 - `body_condensed_7page.tex`: archived seven-page condensation experiment. It is retained only for comparison and is not included by `main.tex`.
@@ -46,12 +47,9 @@ The primary contribution uses video-latent and resolution-specific structure, so
 
 ## Page status
 
-As of 2026-07-20, the submission PDF has 8 pages in total: the technical
-content ends on page 7 and page 8 contains references only. The former main-paper
-Table 3 is retained as the more complete Supplementary Table S2, Figure 4 has
-been removed, and the remaining result floats are distributed across pages 6--7.
-The verified export is `main_7page_latest.pdf`. Copy it to `main.pdf` after
-closing any PDF viewer that holds the latter file open.
+The TrajScale terminology merge preserves the full argumentation and does not
+enforce a page-length target. The latest successful compilation is written to
+`build/main.pdf`; `main.pdf` is refreshed when no PDF viewer is holding it open.
 
 ## Page budget (future submission pass)
 

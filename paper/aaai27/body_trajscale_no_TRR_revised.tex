@@ -1,0 +1,794 @@
+% Paper title: TrajScale: Decoupled Mixed-Resolution Sampling for Efficient High-Resolution Video Generation
+
+\section{Introduction}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.82\textwidth]{figures/fig_teaser.png}
+\caption{Real-frame comparison and TrajScale inference. (a) Content-aligned
+Native-HR (estimated), Trilinear, CRLU-only, and TrajScale-Q outputs for
+prompt 05, seed 9705, frame 41, with identical \(1.5\times\) crops. The
+reference follows a complete 368p trajectory; transition outputs are 720p.
+(b) Native-HR performs all 50 evaluations at high resolution, whereas
+TrajScale-Q and TrajScale-E execute the first 40 and 45 evaluations at low
+resolution and retain 10 and 5 high-resolution suffix evaluations.}
+\label{fig:teaser}
+\end{figure*}
+
+Recent latent video diffusion models such as Wan generate semantically
+coherent videos with realistic motion and fine spatial detail
+\citep{wan2025}, but their inference cost grows aggressively with spatial
+resolution, video length, and sampling steps. In DiT-based generators, every
+denoising evaluation processes the full spatiotemporal token sequence.
+Executing the entire trajectory at the target resolution therefore forces
+early evaluations---which primarily establish global structure and
+macro-motion---to incur the same high-resolution cost as later evaluations
+that increasingly refine local structure and texture. Mixed-resolution
+inference offers a complementary form of acceleration: a low-resolution
+prefix models global content economically, followed by a short
+high-resolution suffix that completes spatial refinement. This spatial
+strategy \citep{lightx2v2026,zheng2026mrflow} is orthogonal to temporal
+step distillation and can be combined with few-step samplers.
+
+Existing routes to higher-resolution video generation leave a gap between
+post-generation upscaling and in-trajectory acceleration. Conventional video
+super-resolution receives an already completed low-resolution RGB video and
+must independently recover underdetermined high-frequency content
+\citep{zhou2024upscale,xu2024videogigagan}. Cascaded RGB diffusion can
+reintroduce a generative prior, but decoding the low-resolution result and
+re-encoding it for a later stage adds codec overhead, while the completed RGB
+video has no intrinsic correspondence to a particular timestep or noise level
+of the high-resolution trajectory. Latent cascades avoid the RGB round trip,
+yet still require a manually chosen trajectory entry point and refinement
+strength after low-resolution generation has finished. In-trajectory methods
+avoid this late re-entry by resizing latents during sampling, but fixed
+interpolation does not learn the VAE-induced correspondence between two latent
+grids. As the transition is delayed for greater acceleration, fewer
+high-resolution evaluations remain to correct interpolation error. What is
+missing is a learned latent upsampler that can be inserted before
+low-resolution convergence without inheriting the transition-time residual of
+an unconverged trajectory state.
+
+We propose \textbf{TrajScale}, a decoupled mixed-resolution sampling
+framework organized around this requirement. TrajScale first learns a
+\textbf{Cross-Resolution Latent Upsampler (CRLU)} from model-generated paired
+clean latents, replacing geometry-only interpolation with a generator- and
+VAE-specific cross-resolution mapping. CRLU is designed to transfer structure
+and motion faithfully to the target latent grid rather than uniquely
+hallucinate every missing high-frequency detail; the frozen high-resolution
+suffix retains that generative responsibility. Deploying CRLU before the
+low-resolution trajectory has converged, however, presents it with a
+timestep-dependent input residual that is absent from its clean-latent
+training pairs. We therefore introduce a handoff-local
+\textbf{Endpoint Alignment Adapter (EAA)} that calibrates the transition-time
+clean prediction toward the endpoint of the corresponding native
+low-resolution trajectory. The aligned latent is then upsampled, reconstructed
+at the corresponding scheduler level, and refined by the frozen generator
+through the remaining high-resolution evaluations.
+
+Our primary contributions are summarized as follows:
+\begin{itemize}
+\item \textbf{We propose TrajScale}, a lightweight mixed-resolution video sampling framework that combines an inexpensive low-resolution prefix with a short high-resolution suffix, providing controllable quality--efficiency operating points and compatibility with temporally distilled samplers.
+\item \textbf{We develop CRLU}, a model-endogenous clean-latent upsampler that learns the target generator's cross-resolution VAE correspondence and consistently outperforms fixed latent interpolation, while delegating underdetermined high-frequency completion to the frozen high-resolution suffix.
+\item \textbf{We identify and correct the deployment mismatch of learned latent upsampling} through a transition-local EAA trained with endpoint supervision and cached-prefix consistency. Experiments on standard and 4-step Wan samplers show that CRLU supplies the principal cross-resolution gain and EAA provides targeted transition-time calibration.
+\end{itemize}
+
+\section{Related Work}
+
+\subsection{Video Super-Resolution and Cascaded Refinement}
+Latent Diffusion Models move generation into a compressed representation for
+scalable high-resolution synthesis \citep{rombach2022ldm}. Conventional video
+super-resolution instead treats a completed low-resolution RGB video as the
+input to a separate restoration system \citep{zhou2024upscale,xu2024videogigagan}.
+Such a model must preserve structure and temporal consistency while also
+recovering high-frequency content that is not uniquely determined by the
+input. TrajScale does not formulate high-resolution generation as an isolated
+restoration problem: its learned scale operator transfers a stable latent
+representation, and the original generator remains responsible for
+underdetermined detail synthesis.
+
+Cascaded generative systems, including latent-video pipelines and recent
+multi-stage systems such as LTX-2 and LUVE, improve resolution through a later
+upsampling or refinement stage
+\citep{blattmann2023videoldm,hacohen2026ltx2,zhao2026luve}. RGB cascades incur
+an additional decode--encode round trip between stages and require a chosen
+noise level for the subsequent diffusion process. Latent cascades avoid the
+RGB round trip but still perform scale conversion after low-resolution
+completion and must determine where the upsampled latent should enter the
+high-resolution schedule. TrajScale instead inserts learned clean-latent
+upsampling before low-resolution completion and continues refinement within
+the frozen generator's native high-resolution schedule.
+
+\subsection{In-Trajectory Mixed-Resolution Sampling}
+LightX2V changes latent resolution during sampling using fixed interpolation
+\citep{lightx2v2026}. RALU shows that training-free latent upscaling can suffer
+from high-frequency aliasing and resolution-dependent noise--timestep mismatch
+and develops mixed-resolution strategies for Diffusion Transformers
+\citep{jeong2025ralu}. For image flow matching, MrFlow combines
+low-resolution structure formation with low-noise high-resolution refinement
+\citep{zheng2026mrflow}. These methods establish the efficiency potential of
+in-trajectory resolution changes, but fixed resizing only changes geometry; it
+does not learn the cross-resolution correspondence induced by a specific video
+VAE. TrajScale replaces interpolation with CRLU. Because a learned clean-latent
+upsampler is trained on converged latent pairs, applying it to an unconverged
+trajectory prediction introduces a distinct training--inference input
+mismatch, which motivates EAA.
+
+\subsection{Trajectory Consistency and Few-Step Sampling}
+Temporal acceleration methods reduce the number of denoising evaluations via
+trajectory regression, consistency mapping, or distribution matching
+\citep{luo2023lcm,yin2024dmd2,zhai2024mcm}. Recent approaches such as
+Self-Forcing and AnyFlow further emphasize consistency between training states
+and actual student rollouts to reduce trajectory distribution shift
+\citep{huang2025selfforcing,gu2026anyflow}. TrajScale targets spatial rather
+than temporal computation. EAA is not a general low-resolution step-reduction
+model: it is activated only at the selected transition, while the preceding
+prefix is generated entirely by the frozen sampler. This locality yields the
+cached-prefix consistency property established in
+Section~\ref{sec:cached}, allowing transition states to be reused without a
+student-prefix rollout mismatch.
+
+\section{Method}
+\label{sec:method}
+
+\subsection{From Clean-Latent Upsampling to In-Trajectory Transition}
+\label{sec:transition_overview}
+
+Let \(v_\phi(x_k,k,c)\) denote a frozen Wan flow predictor, where \(x_k\)
+is the latent state before the \(k\)-th denoising evaluation, \(c\) is the
+text condition, and \(T\) is the total number of evaluations. Superscripts
+\(L\) and \(H\) denote the low- and target-resolution latent spaces. For a
+transition after evaluation \(s\), \(x_s^L\) is the low-resolution state
+presented to the transition procedure. The frozen predictor produces an
+unaligned clean estimate
+\[
+\widehat z_s^L
+=x_s^L-\sigma_s v_\phi(x_s^L,s,c),
+\]
+where \(\sigma_s\) is the scheduler coefficient at the transition. We use
+\(z_{\mathrm{end}}^L\) for the endpoint obtained by completing the same
+native low-resolution trajectory under matched prompt, seed, initial noise,
+scheduler, and guidance. Separately,
+\((z_{\mathrm{pair}}^L,z_{\mathrm{pair}}^H)\) denotes a pair of clean Wan-VAE
+latents encoded from low- and high-resolution versions of the same generated
+video. The distinct notation is important: the native trajectory endpoint and
+the paired-latent training input are both clean-like, but they arise from
+different conditional distributions.
+
+The central capability required by mixed-resolution sampling is an accurate
+cross-resolution mapping. Fixed interpolation changes the latent grid but does
+not model how the frozen VAE represents the same content at two resolutions.
+We therefore learn a clean-latent upsampler \(U_\psi\) from paired latent
+examples. If \(U_\psi\) were used only after low-resolution convergence, this
+would be a conventional latent cascade. Acceleration instead requires deploying
+it at an intermediate transition, where \(\widehat z_s^L\) still carries a
+step- and scheduler-dependent residual. EAA is introduced specifically to
+remove this transition-dependent component before CRLU is applied. Although
+EAA is executed before CRLU during inference, we present CRLU first because the
+need for endpoint alignment arises only from deploying the clean-latent
+upsampler before convergence.
+
+The resulting inference path is
+\[
+x_s^L
+\xrightarrow{\text{EAA}}
+\widetilde z_s^L
+\xrightarrow{U_\psi}
+\widehat z_s^H
+\xrightarrow{\text{schedule reconstruction}}
+x_{s+1}^H
+\xrightarrow{\text{frozen HR suffix}}
+z_{\mathrm{out}}^H.
+\]
+Here, \(\widetilde z_s^L\) is the endpoint-aligned clean estimate and
+\(\widehat z_s^H\) is the CRLU output on the target grid. The two learned
+problems are
+\[
+\mathcal E_{\mathrm{scale}}
+=d\!\left(U_\psi(z_{\mathrm{pair}}^L),z_{\mathrm{pair}}^H\right),
+\qquad
+\mathcal E_{\mathrm{align}}(s)
+=d\!\left(\widetilde z_s^L,z_{\mathrm{end}}^L\right).
+\]
+They are not treated as additive components of a single transition error. The
+remaining high-resolution budget \(R=T-s\) is instead an operating condition:
+a later transition reduces low-resolution cost but leaves fewer frozen
+high-resolution evaluations to synthesize details that the low-resolution
+input cannot uniquely determine.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.84\textwidth]{figures/fig_talh_overview.png}
+\caption{Overview of TrajScale. Design logic: CRLU learns a model-specific
+clean-latent mapping across resolutions; deploying it before low-resolution
+convergence creates a transition-time input residual, which EAA calibrates
+toward the corresponding native endpoint. Inference follows the execution
+order LR prefix \(\rightarrow\) EAA \(\rightarrow\) CRLU \(\rightarrow\)
+scheduler-consistent state reconstruction \(\rightarrow\) frozen HR suffix.
+Both trainable modules use supervision generated by the frozen target model.}
+\label{fig:overview}
+\end{figure*}
+
+\subsection{Model-Endogenous Cross-Resolution Latent Upsampling}
+\label{sec:crlu}
+
+\paragraph{Why learned latent upsampling.}
+A spatial interpolation rule can resize a tensor, but it cannot learn the
+VAE-induced correspondence between the source and target latent grids. CRLU is
+therefore trained to transfer the low-frequency structure, motion trajectory,
+and temporally coherent content of a clean latent into the target-resolution
+representation. Unlike conventional video super-resolution, its objective is
+not to uniquely reconstruct every missing high-frequency texture. Those
+degrees of freedom remain available to the frozen generator during the
+high-resolution suffix.
+
+\paragraph{Generator-endogenous scale supervision.}
+We use the frozen Wan model to generate high-resolution reference videos from
+predefined prompts and random seeds. Each video is spatially downsampled in RGB
+space, after which the high- and low-resolution versions are independently
+encoded by the same frozen Wan VAE. This produces aligned pairs
+\((z_{\mathrm{pair}}^L,z_{\mathrm{pair}}^H)\) with identical frame counts,
+semantics, and motion trajectories. Performing the resolution change before
+VAE encoding is essential: CRLU learns the actual correspondence induced by
+the target generator, RGB downsampling process, and VAE rather than imitating
+an arbitrary interpolation rule inside latent space.
+
+\paragraph{Spatiotemporal latent upsampling.}
+CRLU maps a 16-channel Wan latent to a target-resolution latent while
+preserving the temporal dimension:
+\[
+U_\psi:
+\mathbb R^{B\times16\times F\times h\times w}
+\rightarrow
+\mathbb R^{B\times16\times F\times H\times W}.
+\]
+Inspired by the latent upsampler in LTX-2
+\citep{hacohen2026ltx2}, the network follows an
+encoder--resampler--decoder design. A 3D convolution projects the input into a
+256-dimensional hidden representation, followed by four spatiotemporal
+residual blocks. A spatial resampler changes only height and width; four
+additional 3D residual blocks and a final 3D convolution reconstruct the
+16-channel output. The temporal dimension remains unchanged, while the 3D
+blocks allow adjacent latent frames to contribute to reconstruction.
+
+We instantiate the spatial resampler for each latent-grid ratio. For
+\(480\times832\rightarrow720\times1248\), the grid changes from
+\(60\times104\) to \(90\times156\). CRLU expands channels by a factor of
+nine, applies a \(3\times\) spatial PixelShuffle, and performs stride-2
+downsampling with a fixed binomial blur kernel:
+\[
+60\times104
+\xrightarrow{\times3}
+180\times312
+\xrightarrow{/2}
+90\times156.
+\]
+For \(368\times640\rightarrow720\times1248\), the grid changes from
+\(46\times80\) to \(90\times156\). A \(2\times\) PixelShuffle produces a
+\(92\times160\) grid, which is center-cropped to the target size. These
+resolution-specific operators implement the required rational scale changes,
+while the surrounding spatiotemporal network learns the latent correspondence.
+
+\paragraph{Cross-resolution objectives.}
+Given
+\(\widehat z_{\mathrm{pair}}^H=U_\psi(z_{\mathrm{pair}}^L)\), CRLU is trained
+with
+\[
+\mathcal L_{\mathrm{CRLU}}
+=
+\mathcal L_{\mathrm{rec}}
++\lambda_{\mathrm{content}}\mathcal L_{\mathrm{content}}
++\lambda_{\mathrm{temp}}\mathcal L_{\mathrm{temp}},
+\]
+where
+\[
+\mathcal L_{\mathrm{rec}}
+=
+\mathbb E\!\left[
+\sqrt{(\widehat z_{\mathrm{pair}}^H-z_{\mathrm{pair}}^H)^2+\epsilon^2}
+\right],
+\]
+and
+\begin{align}
+\mathcal L_{\mathrm{content}}
+&=\lVert D(\widehat z_{\mathrm{pair}}^H)-z_{\mathrm{pair}}^L\rVert_1,\\
+\mathcal L_{\mathrm{temp}}
+&=\lVert\Delta_F\widehat z_{\mathrm{pair}}^H-
+\Delta_Fz_{\mathrm{pair}}^H\rVert_1.
+\end{align}
+Here, \(D\) maps the prediction back to the low-resolution grid, and
+\(\Delta_F\) denotes first-order temporal differences between adjacent latent
+frames. We use \(\lambda_{\mathrm{content}}=0.2\),
+\(\lambda_{\mathrm{temp}}=0.1\), and \(\epsilon=10^{-3}\). The three terms
+constrain target-latent reconstruction, low-frequency content preservation,
+and temporal evolution, respectively.
+
+A low-resolution latent does not uniquely specify every texture in its
+high-resolution counterpart. CRLU therefore produces a structurally faithful
+and temporally stable clean latent on the target grid, while the frozen
+high-resolution suffix supplies the generative degrees of freedom absent from
+the input. This division distinguishes TrajScale from a standalone
+super-resolution model that must recover all missing detail by itself.
+
+\subsection{Transition-Time Endpoint Alignment}
+\label{sec:eaa}
+
+\paragraph{Deployment mismatch.}
+CRLU is trained on paired clean latents, but mixed-resolution acceleration
+presents it with the clean prediction of an unconverged trajectory state. In
+general,
+\[
+p_{\mathrm{handoff}}^{(s)}(\widehat z_s^L)
+\neq
+p_{\mathrm{pair}}(z_{\mathrm{pair}}^L).
+\]
+The discrepancy contains a transition-specific residual whose magnitude and
+structure depend on the handoff step, scheduler, and guidance configuration.
+Passing this residual directly through CRLU entangles scale conversion with
+unfinished low-resolution denoising. EAA is therefore trained for CRLU
+deployment rather than as a general-purpose low-resolution acceleration model:
+it moves the transition-time prediction toward an endpoint-like clean-latent
+domain before scale conversion. It reduces, but does not claim to eliminate,
+the remaining gap between native trajectory endpoints and CRLU's paired-latent
+training distribution.
+
+\paragraph{Handoff-local endpoint supervision.}
+For each training condition, we run the frozen model with a fixed text prompt,
+random seed, initial noise, scheduler, and Classifier-Free Guidance (CFG)
+configuration. We cache \(x_s^L\) immediately before the designated transition
+and continue the same native low-resolution trajectory to obtain
+\(z_{\mathrm{end}}^L\). The pair
+\((x_s^L,z_{\mathrm{end}}^L)\) preserves the exact semantic and stochastic
+conditions of the handoff while isolating the residual that would otherwise be
+passed to CRLU.
+
+\paragraph{Localized low-rank adaptation.}
+EAA is implemented with LoRA \citep{hu2022lora} and is activated only at the
+designated transition step. The base Wan parameters remain frozen. For a
+linear layer \(W\), the adapted weight is
+\[
+W'=W+\frac{\alpha}{r}BA,
+\]
+where \(r\) is the LoRA rank. Low-rank updates are injected into the
+\(q\), \(k\), \(v\), and \(o\) attention projections and the
+\(\mathrm{ffn}.0\) and \(\mathrm{ffn}.2\) linear layers. Under the
+flow-matching parameterization, EAA produces
+\[
+\widetilde z_s^L
+=x_s^L-\sigma_s
+v_{\phi+\Delta\theta_s}(x_s^L,s,c).
+\]
+We optimize
+\[
+\mathcal L_{\mathrm{EAA}}
+=
+\lVert\widetilde z_s^L-z_{\mathrm{end}}^L\rVert_1
++0.1\lVert\widetilde z_s^L-z_{\mathrm{end}}^L\rVert_2^2.
+\]
+For earlier transitions, where frame-wise residuals are more likely to
+propagate through scale conversion, we additionally apply a temporal residual
+alignment term with weight \(0.05\). Although the same target can be expressed
+as a velocity label
+\(v^*=(x_s^L-z_{\mathrm{end}}^L)/\sigma_s\), all reported models are optimized
+in the clean-latent domain. EAA performs no spatial upsampling; its sole role is
+to calibrate the input that CRLU receives at the selected transition.
+
+\paragraph{Cached-prefix consistency.}
+\label{sec:cached}
+Because EAA is inactive before step \(s\), its low-rank parameters satisfy
+\(\Delta\theta_k=0\) for all \(k<s\). Under deterministic sampling and
+matched text embeddings, initial noise, scheduler, CFG scale, and other
+conditioning inputs, the adapted and frozen processes therefore use identical
+transition functions throughout the prefix. By induction,
+\[
+x_k^{\mathrm{adapted}}=x_k^{\mathrm{base}},
+\qquad \forall k\leq s.
+\]
+Consequently, a prefix state cached from the frozen model is exactly the state
+consumed by EAA. This property supports offline pair construction and
+controlled comparisons among transition operators without introducing prefix
+rollout mismatch. The equality requires transition-local activation,
+deterministic prefix sampling, and matched schedulers, guidance, and
+conditioning. Extending adaptation to earlier or multiple evaluations would
+alter subsequent states and require on-policy student rollouts or synchronized
+teacher trajectories.
+
+\subsection{Scheduler-Consistent High-Resolution Continuation}
+\label{sec:hr_continuation}
+
+After endpoint alignment and CRLU, TrajScale has a target-grid clean latent
+\[
+\widehat z_s^H=U_\psi(\widetilde z_s^L),
+\]
+but the next denoising evaluation expects an intermediate state at the
+corresponding scheduler level. We therefore reconstruct
+\[
+x_{s+1}^H
+=(1-\sigma_{s+1})\widehat z_s^H
++\sigma_{s+1}\epsilon^H,
+\qquad
+\epsilon^H\sim\mathcal N(0,I).
+\]
+The noise is sampled directly on the target-resolution grid. This
+parameter-free operation completes the scale transition in the clean-latent
+domain and then initializes the target-grid state at the intended scheduler
+coefficient, rather than resizing a low-resolution noisy state or velocity
+field across grids.
+
+Starting from \(x_{s+1}^H\), the unmodified Wan denoiser performs the remaining
+evaluations in the high-resolution latent space. The suffix refines the
+transferred structure and uses the base model's native prior to synthesize fine
+textures and spatial frequencies that are not recoverable from the
+low-resolution latent alone. State reconstruction merely enables this native
+continuation; the frozen high-resolution suffix, not the reconstruction
+operation itself, performs generative refinement.
+
+The same procedure applies to conventional many-step and temporally distilled
+few-step samplers. For any valid transition index \(s\), the sampler executes
+its prefix at low resolution, invokes EAA and CRLU once, reconstructs the next
+scheduler state on the target grid, and completes the remaining evaluations at
+high resolution. TrajScale neither changes the base scheduler nor retrains the
+frozen denoiser. Concrete transition indices and quality- or
+efficiency-oriented operating points are specified in
+Section~\ref{sec:experiments}.
+
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Experimental Objectives and Setup}
+
+Our evaluation addresses four questions: (RQ1) whether TrajScale establishes a
+useful end-to-end quality--efficiency frontier; (RQ2) whether CRLU learns a more
+faithful cross-resolution operator than fixed interpolation; (RQ3) whether EAA
+makes CRLU more reliable when deployed on an unconverged low-resolution
+trajectory; and (RQ4) whether the same spatial transition remains compatible
+with a 4-step distilled sampler.
+
+For the 50-step pipeline, we generate approximately 1,000 reference videos
+using Wan2.1 T2V-1.3B. Each video contains 81 frames at
+\(720\times1248\) resolution and 16 fps. Bicubic RGB downsampling produces
+corresponding \(480\times832\) and \(368\times640\) videos, which are
+re-encoded by the frozen Wan VAE to construct aligned cross-resolution latent
+pairs. EAA training pairs consist of the low-resolution state immediately
+preceding a designated transition and the endpoint of the corresponding
+complete low-resolution trajectory.
+
+The 4-step experiments use approximately 5,000 videos generated by Wan2.1
+T2V-14B StepDistill-CfgDistill. CRLU is trained on
+\(368\times640\rightarrow720\times1248\) clean latent pairs, while EAA pairs
+the state preceding step 3 with the complete step-4 low-resolution endpoint.
+Training, validation, and test partitions are separated by both text prompts
+and random seeds.
+
+CRLU is optimized with AdamW for up to 50k steps using a learning rate of
+\(1\times10^{-4}\), \(bf16\) precision, and an EMA decay of 0.9999. EAA is
+trained for up to 10k steps with AdamW, a learning rate of
+\(5\times10^{-5}\), and LoRA rank/scale \(32/32\). Training uses four NVIDIA
+H100 GPUs and requires approximately 8 hours for CRLU and 33 hours for EAA. All
+efficiency measurements are averaged over five independent cold-start runs.
+Since all supervision is generated by the frozen target model, TrajScale
+requires neither external paired videos nor an additional upscaling teacher.
+
+\subsection{Baselines and Evaluation Protocol}
+\label{sec:factorialsetup}
+
+System-level comparisons include \textbf{Native-HR Sampling}, which executes
+all denoising evaluations at \(720\text{p}\); \textbf{Trilinear Handoff},
+which performs mixed-resolution inference using fixed trilinear latent
+interpolation; and \textbf{Post-Generation Latent Cascade}, which completes
+the low-resolution trajectory, applies CRLU, and performs one manually selected
+low-intensity high-resolution refinement evaluation. We additionally report
+\textbf{Native-LR Sampling} as a low-resolution reference. The cascade
+baseline tests the alternative of postponing scale conversion until generation
+has finished, when the high-resolution trajectory entry level must be chosen
+externally.
+
+Module interactions are evaluated through a \(2\times2\) diagnostic design
+that crosses CRLU input states
+\(\{\text{Unaligned},\text{EAA-aligned}\}\) with resolution operators
+\(\{\text{Trilinear},\text{CRLU}\}\). The four configurations are
+Trilinear Handoff, EAA+Trilinear, CRLU-only, and the complete TrajScale
+framework. The comparison from Trilinear to CRLU-only isolates the learned
+upsampling effect; the comparison from CRLU-only to TrajScale isolates
+transition-time input alignment. EAA+Trilinear is retained as a diagnostic to
+show that endpoint calibration cannot replace an accurate scale operator.
+Oracle input-domain variants and a joint transition mapper are reported only as
+diagnostic references in the Supplementary Material.
+
+For endpoint alignment, we report endpoint latent \(L_1\), decoded PSNR and
+LPIPS, temporal latent differences, and sample-wise win rates. CRLU is evaluated
+using latent \(L_1\), PSNR, SSIM, LPIPS, and temporal \(L_1\). End-to-end
+quality is measured with VBench \citep{huang2024vbench} and human evaluation.
+We define \textbf{VBench-5} as the unweighted mean of subject consistency,
+background consistency, motion smoothness, aesthetic quality, and imaging
+quality.
+
+All paired configurations share identical prompts, random seeds, initial noise,
+schedulers, and guidance parameters. Prompt-level score differences are
+analyzed using 10,000 paired bootstrap iterations for \(95\%\) confidence
+intervals and two-sided exact sign tests. Human evaluation uses randomized,
+double-blind comparisons over 10 matched prompts, with three independent judges
+per prompt and prompt-level majority voting. Inter-rater agreement is reported
+in the Supplementary Material.
+
+Efficiency measurements include end-to-end cold-start latency, peak GPU memory,
+low- and high-resolution denoising evaluations, and speedup over Native-HR
+Sampling. All EAA, CRLU, VAE, scheduler-state reconstruction, and dynamic
+model-loading overheads are included.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.76\textwidth]{figures/fig_quality_efficiency.png}
+\caption{Quality--efficiency trade-offs relative to Native-HR Sampling.
+(a) TrajScale-Q and TrajScale-E provide quality- and efficiency-oriented operating
+points, while Post-Generation Latent Cascade achieves higher speed at a larger
+quality cost. (b) Absolute per-dimension VBench changes relative to
+Native-HR.}
+\label{fig:quality}
+\end{figure*}
+
+\begin{table*}[!t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lrrrrrr}
+\toprule
+Method & LR/HR evals. & Time (s) $\downarrow$ & Latency red. &
+Speedup $\uparrow$ & VBench-5 $\uparrow$ & Retention $\uparrow$ \\
+\midrule
+Native-HR Sampling & 0/50 & $253.10\pm1.53$ & --- &
+$1.00\times$ & \textbf{0.82836} & 100.00\% \\
+TrajScale-Q (Step 40) & 40/10 & $138.36\pm0.50$ & 45.33\% &
+$1.83\times$ & 0.80983 & 97.76\% \\
+TrajScale-E (Step 45) & 45/5 & $\mathbf{114.26\pm1.52}$ &
+\textbf{54.85\%} & $\mathbf{2.22\times}$ & 0.80792 & 97.53\% \\
+\bottomrule
+\end{tabular}
+\caption{System-level comparison against Native-HR Sampling. Timings
+average five cold-start runs, and quality is evaluated on ten matched
+prompts with all processing overheads included.}
+\label{tab:system}
+\end{table*}
+
+\section{Results and Analysis}
+
+\subsection{System-Level Quality--Efficiency Trade-off}
+
+Table~\ref{tab:system} compares the standard 50-step Native-HR pipeline with
+the two principal TrajScale operating points. TrajScale-Q moves the first 40
+evaluations to the low-resolution grid and retains 10 high-resolution suffix
+evaluations, reducing latency from 253.10 to 138.36 seconds
+(\(1.83\times\)). TrajScale-E retains only five high-resolution evaluations and
+further reduces latency to 114.26 seconds (\(2.22\times\)). Their VBench-5
+scores are 0.80983 and 0.80792, compared with 0.82836 for Native-HR Sampling.
+These operating points show that later transitions increase acceleration while
+reducing the high-resolution budget available for native detail synthesis.
+
+The Post-Generation Latent Cascade reaches 86.45 seconds
+(\(2.93\times\)) but decreases VBench-5 to 0.80093, with inferior scores on
+\(9/10\) prompts relative to Native-HR (\(p=0.02148\)). Completing the
+low-resolution trajectory before scale conversion maximizes speed, but leaves
+only a manually selected low-noise refinement evaluation and therefore less
+capacity for structural and texture refinement. Peak memory remains
+approximately 26 GiB across Native-HR, TrajScale-Q, TrajScale-E, and the
+post-generation cascade, indicating that TrajScale primarily reduces runtime
+rather than peak memory.
+
+\subsection{Component Analysis}
+
+\paragraph{Cross-resolution latent upsampling.}
+Table~\ref{tab:operator} isolates the cross-resolution operator before
+considering transition-time mismatch. Over 50 paired clean latent samples,
+CRLU substantially outperforms trilinear interpolation. For
+\(480\text{p}\rightarrow720\text{p}\), it reduces latent \(L_1\) from
+0.1929 to 0.0991, a \(48.6\%\) reduction; improves decoded PSNR by 5.71 dB;
+reduces LPIPS from 0.2358 to 0.0629; and lowers temporal \(L_1\) by
+\(30.8\%\). CRLU wins on all 50 samples for PSNR, LPIPS, and temporal
+consistency, and on 49/50 samples for SSIM.
+
+The more aggressive \(368\text{p}\rightarrow720\text{p}\) transition
+shows the same trend: latent \(L_1\), LPIPS, and temporal \(L_1\) decrease by
+\(33.4\%\), \(51.1\%\), and \(15.5\%\), respectively. These improvements
+show that the primary cross-resolution capability comes from learning the
+VAE-specific latent correspondence rather than relying on a geometry-only
+resize rule.
+
+\begin{table*}[!t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{llrrrrr}
+\toprule
+Input $\rightarrow$ Output & Operator & Latent $L_1\downarrow$ &
+PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ &
+Temp. $L_1\downarrow$ \\
+\midrule
+480p $\rightarrow$ 720p & Trilinear & 0.1929 & 24.29 & 0.7159 &
+0.2358 & 0.02121 \\
+480p $\rightarrow$ 720p & CRLU & \textbf{0.0991} & \textbf{30.00} &
+\textbf{0.8696} & \textbf{0.0629} & \textbf{0.01468} \\
+368p $\rightarrow$ 720p & Trilinear & 0.2444 & 23.42 & 0.6740 &
+0.3352 & 0.02388 \\
+368p $\rightarrow$ 720p & CRLU & \textbf{0.1628} & \textbf{24.10} &
+\textbf{0.7592} & \textbf{0.1640} & \textbf{0.02017} \\
+\bottomrule
+\end{tabular}
+\caption{CRLU versus trilinear interpolation on paired clean latents
+(\(n=50\)).}
+\label{tab:operator}
+\end{table*}
+
+\paragraph{Transition-time endpoint alignment.}
+With the scale operator fixed, EAA tests whether CRLU can be deployed more
+reliably on an unconverged trajectory prediction. At an alignment intensity of
+0.75, EAA reduces residual low-resolution endpoint \(L_1\) by \(25.82\%\) at
+step 40 and \(21.03\%\) at step 45. Both settings improve all 10 evaluation
+samples, with paired confidence intervals excluding zero. EAA also increases
+decoded PSNR by 2.55 and 2.23 dB and reduces latent temporal-difference errors
+by \(23.44\%\) and \(21.24\%\), respectively. On the 4-step distilled model,
+it yields a smaller but consistent \(5.03\%\) endpoint-error reduction. All
+three comparisons have a 10/0 paired win rate and two-sided exact sign-test
+\(p=0.00195\); full confidence intervals are reported in Supplementary Table
+S2.
+
+Alignment-intensity validation is non-monotonic. An intermediate intensity of
+0.75 produces the lowest endpoint error and strongest downstream quality,
+whereas weaker or full-strength correction is less effective. EAA should
+therefore be interpreted as calibrated transition adaptation rather than an
+unconstrained replacement for the frozen predictor.
+
+\paragraph{Hierarchical module effects.}
+The \(2\times2\) diagnostic in Table~\ref{tab:factorial} confirms the
+hierarchical roles of the two learned modules. Replacing trilinear interpolation
+with CRLU provides the principal broad quality gain, increasing VBench-5 by
+approximately \(0.031\)--\(0.041\) across the three pipelines. With CRLU fixed,
+EAA has a narrower transition-specific effect: it improves the imaging-quality
+dimension by \(+0.00599\), \(+0.00254\), and \(+0.00479\) at step 40, step 45,
+and on the 4-step sampler, respectively. Because these detail-oriented gains
+primarily affect one component of the five-dimensional aggregate, they appear
+as smaller changes in averaged VBench-5.
+
+\begin{table*}[!t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{lrrrrrrr}
+\toprule
+Sampler / transition & Trilinear & EAA+Tri. & CRLU-only & TrajScale &
+Upsampling effect & Alignment effect & Full effect \\
+\midrule
+Wan50 / Step 40 (TrajScale-Q) & 0.77812 & 0.77901 & 0.80896 &
+\textbf{0.80983} & +0.03085 & +0.00087 & +0.03171 \\
+Wan50 / Step 45 (TrajScale-E) & 0.76776 & 0.76734 &
+\textbf{0.80842} & 0.80792 & +0.04066 & -0.00050 & +0.04016 \\
+Distill4 / Step 3-of-4 & 0.81796 & 0.81909 & 0.85670 &
+\textbf{0.85680} & +0.03874 & +0.00010 & +0.03884 \\
+\bottomrule
+\end{tabular}
+\caption{End-to-end factorial results on VBench-5 (\(n=10\)).
+``Alignment effect'' denotes the marginal effect of enabling EAA with CRLU fixed.}
+\label{tab:factorial}
+\end{table*}
+
+The comparison supports the proposed causal chain. CRLU establishes the
+cross-resolution representation and supplies the dominant improvements in
+motion smoothness, aesthetics, and overall imaging quality. EAA does not replace
+this capability; it calibrates the transition-time input that CRLU receives,
+enriching localized textures and fine structures that may be underrepresented
+by aggregate automatic metrics. The remaining frozen high-resolution suffix
+then performs native generative refinement.
+
+\subsection{Perceptual Effects and Distilled-Sampler Compatibility}
+
+Human evaluation confirms that EAA's transition-specific correction is
+perceptually visible on top of the same CRLU operator. EAA receives fine-detail
+win/loss/tie counts of \(8/2/0\) at step 40 and \(9/0/1\) at step 45.
+Overall-quality judgments are also positive, reaching \(6/2/2\) and
+\(6/0/4\), respectively. These preferences support the dimension-level VBench
+observation that endpoint alignment selectively improves imaging quality and
+localized structure.
+
+The additional fine-scale content introduces a spatial--temporal trade-off:
+temporal stability favors the unaligned CRLU state in both settings. This is
+consistent with EAA acting as a deployment adapter rather than a uniformly
+beneficial denoising module: it shifts the operating point toward sharper local
+rendering, while CRLU and the remaining high-resolution suffix provide the
+broader spatial and temporal reconstruction.
+
+\begin{table}[!t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{lrrr}
+\toprule
+Comparison & Details & Overall & Temporal \\
+\midrule
+EAA vs.\ Unaligned, CRLU (S40) & 8/2/0 & 6/2/2 & 1/9/0 \\
+EAA vs.\ Unaligned, CRLU (S45) &
+\textbf{9/0/1} & \textbf{6/0/4} & 0/8/2 \\
+CRLU-only vs.\ Trilinear (S45) &
+\textbf{10/0/0} & \textbf{10/0/0} & \textbf{8/0/2} \\
+TrajScale-E vs.\ Trilinear (S45) &
+\textbf{10/0/0} & \textbf{10/0/0} & \textbf{9/0/1} \\
+\bottomrule
+\end{tabular}
+\caption{Prompt-level majority votes (W/L/T) over ten prompts with three
+raters per prompt. Bold entries have exact sign-test \(p<0.05\).}
+\label{tab:human}
+\end{table}
+
+CRLU provides the broader perceptual improvement. At step 45, both CRLU-only
+and TrajScale-E obtain \(10/10\) prompt-level wins over trilinear handoff for
+fine details and overall quality, while also improving temporal stability. EAA
+adds a narrower local-detail refinement on top of this learned
+cross-resolution reconstruction.
+
+TrajScale is also compatible with the 4-step distilled Wan sampler. On the
+\(368\text{p}\) trajectory, Trilinear Handoff achieves a VBench-5 score of
+0.81796, whereas TrajScale-D4 reaches 0.85680. Cold-start latency increases only
+from 167.09 to 170.29 seconds. As in the 50-step setting, CRLU supplies the
+primary cross-resolution quality improvement, while EAA reduces the
+transition-time endpoint residual and improves the imaging-quality component.
+This result supports the orthogonality of spatial mixed-resolution sampling and
+temporal step distillation.
+
+Qualitative comparisons in Figure~\ref{fig:teaser}(a) further illustrate
+CRLU's recovery of high-frequency textures and EAA's localized adjustments.
+Extended spatial crops and temporal sequences are provided in Figure S1. The
+content-matched \texttt{Native-HR (estimated)} reference is produced from a
+complete \(368\text{p}\) trajectory and is used only for frame-level
+structural comparison; true \(720\text{p}\) Native-HR Sampling is used for
+the quantitative evaluation in Table~\ref{tab:system}.
+
+\section{Discussion and Limitations}
+
+TrajScale separates cross-resolution representation learning from
+transition-specific input calibration. CRLU transfers structure and motion to
+the target latent grid, EAA makes this learned mapping usable before
+low-resolution convergence, and the frozen high-resolution suffix completes
+underdetermined detail synthesis. Scheduler-consistent state reconstruction is
+a parameter-free bridge between the clean-latent mapping and the native suffix;
+it enables, rather than independently performs, high-resolution refinement.
+This hierarchy matches the empirical results: CRLU provides the broad quality
+gain, while endpoint metrics, imaging-quality changes, and human preferences
+show that EAA corrects a narrower transition-time failure mode.
+
+Both learned modules use model-endogenous supervision. The frozen Wan generator
+supplies high-resolution videos for paired CRLU latents and complete
+low-resolution trajectories for EAA, avoiding external paired datasets,
+standalone super-resolution teachers, or modification of the base denoiser.
+The two supervision streams are nevertheless not identical distributions. EAA
+reduces the residual between an intermediate prediction and its native
+low-resolution endpoint, but does not eliminate the remaining gap between
+native endpoints and the RGB-downsampled paired latents used to train CRLU.
+
+Several limitations remain. CRLU is tied to the target VAE, generator
+distribution, resolution ratio, and downsampling process, so cross-model and
+cross-degradation transfer remain unverified. Fixed handoff steps require
+step-specific EAA parameters; timestep-conditioned adapters would be needed for
+adaptive transitions. Quality also depends on the manually selected suffix
+length and on whether the scheduler-state reconstruction remains appropriate
+for other solver families. Finally, TrajScale addresses model-generated
+in-trajectory spatial scaling rather than real-world degradations such as
+compression, blur, or sensor noise, and inherits the base generator's content
+risks and safety requirements.
+
+\section{Conclusion}
+
+We presented TrajScale, a learned in-trajectory latent upsampling framework for
+efficient high-resolution video generation. CRLU establishes a model-specific
+cross-resolution clean-latent mapping, EAA corrects the input mismatch created
+when that mapping is deployed before low-resolution convergence, and the
+frozen high-resolution suffix synthesizes details that are underdetermined by
+the low-resolution input. Both learned modules are trained from supervision
+generated by the frozen target model, and the base denoiser and scheduler remain
+unchanged.
+
+TrajScale-Q and TrajScale-E achieve \(1.83\times\) and \(2.22\times\) speedups
+while retaining \(97.76\%\) and \(97.53\%\) of Native-HR VBench-5 performance.
+CRLU consistently outperforms trilinear interpolation and supplies the primary
+cross-resolution quality gain; EAA reduces endpoint residuals and improves
+localized visual detail across standard and distilled samplers. These results
+show that accurate learned scale transfer, transition-specific input
+calibration, and native suffix refinement provide a practical division of labor
+for mixed-resolution video diffusion.
