@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "family": "wan50_quality_efficiency",
+  "seed_base": 9700,
+  "prompt_offset": 0,
+  "prompts": [
+    "A cinematic night market street after rain, vendors cooking under warm lanterns, reflections on wet pavement, realistic crowd motion.",
+    "A close-up of a glass teapot pouring amber tea into a ceramic cup, steam curling upward, shallow depth of field.",
+    "A mountain biker riding along a narrow forest trail, dust and leaves flying behind the wheels, dynamic tracking shot.",
+    "A small fishing boat crossing a misty lake at sunrise, pine trees reflected in calm water, slow cinematic camera movement.",
+    "A white sports car driving on a coastal highway, blue ocean beside the road, smooth aerial tracking, realistic motion blur.",
+    "A robot arm assembling a circuit board in a clean laboratory, tiny components moving precisely, sharp industrial lighting.",
+    "A dancer performing under neon signs in a narrow alley, fast footwork, handheld cinematic framing, colorful reflections.",
+    "A golden retriever running through shallow ocean waves at sunset, splashing water, natural playful motion.",
+    "A glass greenhouse filled with tropical flowers, sunlight beams through mist, slow dolly movement, rich color detail.",
+    "A spacecraft landing on a dusty desert planet, sand blowing outward from the engines, cinematic science fiction realism."
+  ],
+  "cases": [
+    {
+      "name": "full_hr50",
+      "model_cls": "wan2.1",
+      "lr_evaluations": 0,
+      "hr_evaluations": 50,
+      "total_evaluations": 50,
+      "handoff_step": null,
+      "lora_strength": null
+    },
+    {
+      "name": "talh40",
+      "model_cls": "wan2.1_tail_skip_lora_clean_resizer_bridge",
+      "lr_evaluations": 40,
+      "hr_evaluations": 10,
+      "total_evaluations": 50,
+      "handoff_step": 40,
+      "lora_strength": 0.75
+    },
+    {
+      "name": "talh45",
+      "model_cls": "wan2.1_tail_skip_lora_clean_resizer_bridge",
+      "lr_evaluations": 45,
+      "hr_evaluations": 5,
+      "total_evaluations": 50,
+      "handoff_step": 45,
+      "lora_strength": 0.75
+    },
+    {
+      "name": "full_lr50_stage2_1hr",
+      "model_cls": "wan2.1_full_lr_stage2_one_hr",
+      "lr_evaluations": 50,
+      "hr_evaluations": 1,
+      "total_evaluations": 51,
+      "handoff_step": 50,
+      "lora_strength": null
+    }
+  ],
+  "analysis_pairs": [
+    {
+      "comparison": "full_hr50_vs_talh40",
+      "left_case": "full_hr50",
+      "right_case": "talh40"
+    },
+    {
+      "comparison": "full_hr50_vs_talh45",
+      "left_case": "full_hr50",
+      "right_case": "talh45"
+    },
+    {
+      "comparison": "full_hr50_vs_full_lr50_stage2_1hr",
+      "left_case": "full_hr50",
+      "right_case": "full_lr50_stage2_1hr"
+    },
+    {
+      "comparison": "talh45_vs_talh40",
+      "left_case": "talh45",
+      "right_case": "talh40"
+    }
+  ],
+  "artifacts": {
+    "stage2": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_clean_368x640_720x1248_stage2_lmdb/latest.pt",
+      "size_bytes": 570100161,
+      "mtime_ns": 1783961508224080701,
+      "sha256": "f6525b753931698015b3bd04a5dd314efaa1cb04858a71f9fa7bef0babaa7d54"
+    },
+    "lora40": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_tail_skip_lora_step40_to_step50_temporal/latest.safetensors",
+      "size_bytes": 87559648,
+      "mtime_ns": 1784228805318365449,
+      "sha256": "bfbcc4998be1fa166e3438b91d9b0bc40aced21a71ba2d15c15079cafd9358e8"
+    },
+    "lora45": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_tail_skip_lora_step45_to_step50/latest.safetensors",
+      "size_bytes": 87559616,
+      "mtime_ns": 1783685456504614023,
+      "sha256": "73f9d38287386dd547aff84ad7a1c7c74d9640033dfe82b94b706c4e7a9bb79f"
+    }
+  },
+  "settings": {
+    "model_root": "/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B",
+    "prompts_file": "/mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt",
+    "num_frames": 81,
+    "guide_scale": 6.0,
+    "step40_strength": 0.75,
+    "step45_strength": 0.75,
+    "final_refine_shift_increment": 1.0,
+    "stage2_use_ema": false
+  }
+}

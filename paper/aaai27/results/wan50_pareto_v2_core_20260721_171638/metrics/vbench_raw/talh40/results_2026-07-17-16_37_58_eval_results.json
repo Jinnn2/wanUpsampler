@@ -1,0 +1,292 @@
+{
+    "subject_consistency": [
+        0.9271303183212877,
+        [
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_00_seed9700.mp4",
+                "video_results": 0.9659124426543713
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_01_seed9701.mp4",
+                "video_results": 0.9370379574596882
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_02_seed9702.mp4",
+                "video_results": 0.8956615563482047
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_03_seed9703.mp4",
+                "video_results": 0.9889082368463278
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_04_seed9704.mp4",
+                "video_results": 0.979887168481946
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_05_seed9705.mp4",
+                "video_results": 0.9025366041809321
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_06_seed9706.mp4",
+                "video_results": 0.8141176547855139
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_07_seed9707.mp4",
+                "video_results": 0.9222843971103429
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_08_seed9708.mp4",
+                "video_results": 0.9871515974402427
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_09_seed9709.mp4",
+                "video_results": 0.8778055679053068
+            }
+        ]
+    ],
+    "background_consistency": [
+        0.9594680786132812,
+        [
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_00_seed9700.mp4",
+                "video_results": 0.97099609375,
+                "video_sim": 77.6796875,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_01_seed9701.mp4",
+                "video_results": 0.9814971923828125,
+                "video_sim": 78.519775390625,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_02_seed9702.mp4",
+                "video_results": 0.94342041015625,
+                "video_sim": 75.4736328125,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_03_seed9703.mp4",
+                "video_results": 0.991009521484375,
+                "video_sim": 79.28076171875,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_04_seed9704.mp4",
+                "video_results": 0.9655609130859375,
+                "video_sim": 77.244873046875,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_05_seed9705.mp4",
+                "video_results": 0.938629150390625,
+                "video_sim": 75.09033203125,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_06_seed9706.mp4",
+                "video_results": 0.9144439697265625,
+                "video_sim": 73.155517578125,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_07_seed9707.mp4",
+                "video_results": 0.9664642333984375,
+                "video_sim": 77.317138671875,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_08_seed9708.mp4",
+                "video_results": 0.9822418212890625,
+                "video_sim": 78.579345703125,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_09_seed9709.mp4",
+                "video_results": 0.94041748046875,
+                "video_sim": 75.2333984375,
+                "cnt_per_video": 80
+            }
+        ]
+    ],
+    "motion_smoothness": [
+        0.9797514622597318,
+        [
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_00_seed9700.mp4",
+                "video_results": 0.9743716119356693
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_01_seed9701.mp4",
+                "video_results": 0.9839053021872032
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_02_seed9702.mp4",
+                "video_results": 0.948063290989621
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_03_seed9703.mp4",
+                "video_results": 0.9951621044288145
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_04_seed9704.mp4",
+                "video_results": 0.9886142679049006
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_05_seed9705.mp4",
+                "video_results": 0.9879558016137366
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_06_seed9706.mp4",
+                "video_results": 0.9509087013077133
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_07_seed9707.mp4",
+                "video_results": 0.9794027012937475
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_08_seed9708.mp4",
+                "video_results": 0.995094409188325
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_09_seed9709.mp4",
+                "video_results": 0.9940364317475863
+            }
+        ]
+    ],
+    "dynamic_degree": [
+        0.7,
+        [
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_00_seed9700.mp4",
+                "video_results": true
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_01_seed9701.mp4",
+                "video_results": false
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_02_seed9702.mp4",
+                "video_results": true
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_03_seed9703.mp4",
+                "video_results": false
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_04_seed9704.mp4",
+                "video_results": true
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_05_seed9705.mp4",
+                "video_results": true
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_06_seed9706.mp4",
+                "video_results": true
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_07_seed9707.mp4",
+                "video_results": true
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_08_seed9708.mp4",
+                "video_results": false
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_09_seed9709.mp4",
+                "video_results": true
+            }
+        ]
+    ],
+    "aesthetic_quality": [
+        0.5945104956626892,
+        [
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_00_seed9700.mp4",
+                "video_results": 0.6296727657318115
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_01_seed9701.mp4",
+                "video_results": 0.5792401432991028
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_02_seed9702.mp4",
+                "video_results": 0.5306953191757202
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_03_seed9703.mp4",
+                "video_results": 0.6724129319190979
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_04_seed9704.mp4",
+                "video_results": 0.7060851454734802
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_05_seed9705.mp4",
+                "video_results": 0.4356754422187805
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_06_seed9706.mp4",
+                "video_results": 0.5362480282783508
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_07_seed9707.mp4",
+                "video_results": 0.6851334571838379
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_08_seed9708.mp4",
+                "video_results": 0.6617640852928162
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_09_seed9709.mp4",
+                "video_results": 0.508177638053894
+            }
+        ]
+    ],
+    "imaging_quality": [
+        0.5882910485091033,
+        [
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_00_seed9700.mp4",
+                "video_results": 56.31447116239571
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_01_seed9701.mp4",
+                "video_results": 68.09799345040027
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_02_seed9702.mp4",
+                "video_results": 61.81085751380449
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_03_seed9703.mp4",
+                "video_results": 59.729705198311514
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_04_seed9704.mp4",
+                "video_results": 59.60211972837095
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_05_seed9705.mp4",
+                "video_results": 43.63009730680489
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_06_seed9706.mp4",
+                "video_results": 42.64538525946347
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_07_seed9707.mp4",
+                "video_results": 62.36314877168632
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_08_seed9708.mp4",
+                "video_results": 74.5290320125627
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final/videos/talh40/talh40_09_seed9709.mp4",
+                "video_results": 59.568238105302974
+            }
+        ]
+    ]
+}

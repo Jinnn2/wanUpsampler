@@ -1,0 +1,4 @@
+checkpoint,metric,better,lora_mean,original_mean,delta_lora_minus_original_mean,lora_win_rate,summary_csv
+step_0006000,l1,lower,0.028485006652772427,0.03206538129597902,-0.0035803746432065964,1.0,/mnt/afs_2/houze/wanUpsampler/outputs/eval_lora_ckpt_sweep_480p/step_0006000/metrics/original_lora_teacher_summary.csv
+step_0003000,l1,lower,0.028621240891516207,0.03206538129597902,-0.0034441404044628144,1.0,/mnt/afs_2/houze/wanUpsampler/outputs/eval_lora_ckpt_sweep_480p/step_0003000/metrics/original_lora_teacher_summary.csv
+latest,l1,lower,0.028624231368303298,0.03206538129597902,-0.003441149927675724,1.0,/mnt/afs_2/houze/wanUpsampler/outputs/eval_lora_ckpt_sweep_480p/latest/metrics/original_lora_teacher_summary.csv

@@ -1,0 +1,33 @@
+{
+  "infer_steps": 50,
+  "target_video_length": 81,
+  "text_len": 512,
+  "target_height": 720,
+  "target_width": 1248,
+  "self_attn_1_type": "flash_attn3",
+  "cross_attn_1_type": "flash_attn3",
+  "cross_attn_2_type": "flash_attn3",
+  "sample_guide_scale": 6.0,
+  "sample_shift": 8,
+  "enable_cfg": true,
+  "cpu_offload": false,
+  "feature_caching": "NoCaching",
+  "compare_name": "full_lr50_stage2_1hr",
+  "changing_resolution": true,
+  "resolution_rate": [
+    0.5111111111111111
+  ],
+  "wan_lowres_latent_size": [
+    46,
+    80
+  ],
+  "changing_resolution_steps": [
+    50
+  ],
+  "wan_clean_resizer_repo": "/mnt/afs_2/houze/wanUpsampler",
+  "wan_clean_resizer_ckpt": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_clean_368x640_720x1248_stage2_lmdb/latest.pt",
+  "wan_clean_resizer_train_config": "/mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/train_clean_368x640_to_720x1248_lmdb_stage2.yaml",
+  "wan_clean_resizer_model_class": "stage2",
+  "wan_clean_resizer_use_ema": false,
+  "wan_final_refine_shift_increment": 1.0
+}
