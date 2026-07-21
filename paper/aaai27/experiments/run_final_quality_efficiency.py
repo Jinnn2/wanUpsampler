@@ -496,7 +496,7 @@ def parse_args() -> argparse.Namespace:
         "--lora45-checkpoint",
         default=str(REPO_ROOT / "outputs/changing_resolution_tail_skip_lora_step45_to_step50/latest.safetensors"),
     )
-    parser.add_argument("--step40-strength", type=float, default=1.0)
+    parser.add_argument("--step40-strength", type=float, default=0.75)
     parser.add_argument("--step45-strength", type=float, default=0.75)
     parser.add_argument(
         "--methods",

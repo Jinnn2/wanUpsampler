@@ -27,7 +27,7 @@
     "WAN50_STEP40_ENDPOINT_STRENGTH": "${AAAI_RESULTS}/wan50_step40_endpoint_strength",
     "WAN50_STEP40_STRENGTH": "${AAAI_RESULTS}/wan50_step40_strength",
     "WAN50_FINAL_QUALITY_EFFICIENCY": "${AAAI_RESULTS}/quality_efficiency_final",
-    "WAN50_LORA40_STRENGTH_FINAL": "1.0",
+    "WAN50_LORA40_STRENGTH_FINAL": "0.75",
     "WAN50_LORA45_STRENGTH_FINAL": "0.75"
   },
   "tasks": [
@@ -189,7 +189,7 @@
       "group": "factorial",
       "depends_on": ["wan50_stage2_checkpoint", "wan50_lora40_checkpoint", "wan50_lora45_checkpoint"],
       "commands": [
-        "python paper/aaai27/experiments/run_factorial.py run --family wan50 --steps 40 45 --prompts ${AAAI_PROMPTS} --out-root ${WAN50_FACTORIAL} --stage2-checkpoint ${WAN50_STAGE2_CKPT} --stage2-train-config ${WAN50_STAGE2_CONFIG} --lora-checkpoint 40=${WAN50_LORA40_CKPT} --lora-checkpoint 45=${WAN50_LORA45_CKPT} --lora-strength 0.75 --lora-strength-step 40=1.0 --reuse-root outputs/changing_resolution_clean_360p_stage2_three_way_step_sweep --reuse-root outputs/changing_resolution_tail_skip_lora_stage2_four_way_360p --limit 10 --seed 9700"
+        "python paper/aaai27/experiments/run_factorial.py run --family wan50 --steps 40 45 --prompts ${AAAI_PROMPTS} --out-root ${WAN50_FACTORIAL} --stage2-checkpoint ${WAN50_STAGE2_CKPT} --stage2-train-config ${WAN50_STAGE2_CONFIG} --lora-checkpoint 40=${WAN50_LORA40_CKPT} --lora-checkpoint 45=${WAN50_LORA45_CKPT} --lora-strength ${WAN50_LORA45_STRENGTH_FINAL} --lora-strength-step 40=${WAN50_LORA40_STRENGTH_FINAL} --reuse-root outputs/changing_resolution_clean_360p_stage2_three_way_step_sweep --reuse-root outputs/changing_resolution_tail_skip_lora_stage2_four_way_360p --limit 10 --seed 9700"
       ],
       "evidence": [{"glob": "${WAN50_FACTORIAL}/videos/*/*.mp4", "min_count": 80, "min_bytes": 1024}]
     },

@@ -13,6 +13,8 @@ STAGE2_CKPT="${WAN50_STAGE2_CKPT:-${PROJECT_ROOT}/outputs/changing_resolution_cl
 STAGE2_CONFIG="${WAN50_STAGE2_CONFIG:-${PROJECT_ROOT}/changing_resolution/configs/train_clean_368x640_to_720x1248_lmdb_stage2.yaml}"
 LORA40_CKPT="${WAN50_LORA40_CKPT:-${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_step40_to_step50_temporal/latest.safetensors}"
 LORA45_CKPT="${WAN50_LORA45_CKPT:-${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_step45_to_step50/latest.safetensors}"
+LORA40_STRENGTH="${WAN50_LORA40_STRENGTH_FINAL:-0.75}"
+LORA45_STRENGTH="${WAN50_LORA45_STRENGTH_FINAL:-0.75}"
 LIMIT="${LIMIT:-10}"
 PROMPT_OFFSET="${PROMPT_OFFSET:-0}"
 SEED="${SEED:-9700}"
@@ -21,8 +23,8 @@ read -r -a STEP_ARGS <<< "${STEPS}"
 LORA_ARGS=()
 for step in "${STEP_ARGS[@]}"; do
   case "${step}" in
-    40) LORA_ARGS+=(--lora-checkpoint "40=${LORA40_CKPT}" --lora-strength-step "40=1.0") ;;
-    45) LORA_ARGS+=(--lora-checkpoint "45=${LORA45_CKPT}") ;;
+    40) LORA_ARGS+=(--lora-checkpoint "40=${LORA40_CKPT}" --lora-strength-step "40=${LORA40_STRENGTH}") ;;
+    45) LORA_ARGS+=(--lora-checkpoint "45=${LORA45_CKPT}" --lora-strength-step "45=${LORA45_STRENGTH}") ;;
     *) echo "Unsupported Wan50 LoRA handoff step: ${step}" >&2; exit 2 ;;
   esac
 done
@@ -33,6 +35,8 @@ echo "  steps     : ${STEPS}"
 echo "  out_root  : ${OUT_ROOT}"
 echo "  lora40    : ${LORA40_CKPT}"
 echo "  lora45    : ${LORA45_CKPT}"
+echo "  strength40: ${LORA40_STRENGTH}"
+echo "  strength45: ${LORA45_STRENGTH}"
 echo "  overwrite : LoRA branches only; Base videos are untouched"
 
 python paper/aaai27/experiments/run_factorial.py "${MODE}" \
@@ -45,7 +49,7 @@ python paper/aaai27/experiments/run_factorial.py "${MODE}" \
   --stage2-checkpoint "${STAGE2_CKPT}" \
   --stage2-train-config "${STAGE2_CONFIG}" \
   "${LORA_ARGS[@]}" \
-  --lora-strength 0.75 \
+  --lora-strength "${LORA45_STRENGTH}" \
   --limit "${LIMIT}" \
   --prompt-offset "${PROMPT_OFFSET}" \
   --seed "${SEED}" \

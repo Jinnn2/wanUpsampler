@@ -273,8 +273,10 @@ The summary includes raw vote counts, prompt-level majority preferences with
 bootstrap confidence intervals and exact sign tests, and Fleiss' kappa for
 each comparison/dimension. Select the final step40 strength from the complete
 endpoint/VBench/human evidence, then pass it to the unified Pareto benchmark
-through the environment. The default 13 cases share model, prompts, seeds,
-frame count, and output resolution:
+through the environment. Both final Wan50 strengths default to 0.75; keep the
+explicit environment overrides below when freezing a reproducible run. The
+default 13 cases share model, prompts, seeds, frame count, and output
+resolution:
 
 - Native-HR50;
 - LightX2V changing-resolution handoffs at steps 40, 45, and 48;

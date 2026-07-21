@@ -65,6 +65,20 @@ class HumanPromptStatisticsTest(unittest.TestCase):
 
 
 class FinalQualityEfficiencySuiteTest(unittest.TestCase):
+    def test_final_wan50_strength_defaults_are_aligned(self) -> None:
+        experiments = Path(__file__).resolve().parents[1]
+        manifest = json.loads(
+            (experiments / "experiment_manifest.json").read_text(encoding="utf-8")
+        )
+        defaults = manifest["defaults"]
+        self.assertEqual(defaults["WAN50_LORA40_STRENGTH_FINAL"], "0.75")
+        self.assertEqual(defaults["WAN50_LORA45_STRENGTH_FINAL"], "0.75")
+
+        wan50 = next(task for task in manifest["tasks"] if task["id"] == "wan50_factorial")
+        command = wan50["commands"][0]
+        self.assertIn("40=${WAN50_LORA40_STRENGTH_FINAL}", command)
+        self.assertNotIn("40=1.0", command)
+
     def test_protocol_contains_unified_pareto_sweeps(self) -> None:
         args = SimpleNamespace(step40_strength=0.75, step45_strength=0.75)
         cases = {case.name: case for case in build_efficiency_cases(args)}
@@ -88,7 +102,7 @@ class FinalQualityEfficiencySuiteTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             args = SimpleNamespace(
-                step40_strength=1.0,
+                step40_strength=0.75,
                 step45_strength=0.75,
                 num_frames=81,
                 guide_scale=6.0,
