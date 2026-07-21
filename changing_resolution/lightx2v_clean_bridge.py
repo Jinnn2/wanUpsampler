@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 import torch
@@ -25,18 +26,22 @@ from changing_resolution.ralu_nt_math import (
     ralu_transition_coefficients,
     shifted_sigma_suffix,
 )
+from changing_resolution.dynamic_lora import (
+    collect_registered_lora_branches,
+    set_registered_lora_strength,
+)
 from wan_sr.schedulers.ralu_nt import correlated_projection_noise
 
 
 class WanTailSkipLoRAModel(WanModel):
-    """Wan LoRA update compatible with LightX2V models that have no post_weight.
+    """Step-local Wan LoRA with resident tensors and zero-strength bypass.
 
     LightX2V's generic ``BaseTransformerModel._update_lora`` currently updates
     ``pre_weight``, ``transformer_weights``, and ``post_weight`` unconditionally.
-    WanModel has no post-weight container, so a dynamic strength change fails at
-    the handoff step.  The initial dynamic LoRA registration already handles the
-    first two containers correctly; this override mirrors that behavior when
-    toggling strength during sampling.
+    WanModel has no post-weight container.  More importantly, LightX2V dispatches
+    LoRA matmuls from ``has_lora_branch`` even when the numeric strength is zero.
+    We therefore register tensors once, retain them on-device, and toggle both
+    the branch flag and strength without file I/O or tensor copies.
     """
 
     def _load_lora_file(self, file_path):
@@ -66,12 +71,40 @@ class WanTailSkipLoRAModel(WanModel):
         return tensor_dict
 
     def _update_lora(self, lora_path, strength):
+        if hasattr(self, "_tail_skip_lora_branches") and not isinstance(lora_path, dict):
+            configured = str(Path(self.lora_path).resolve())
+            requested = str(Path(lora_path).resolve())
+            if requested == configured:
+                self.set_tail_skip_lora_strength(strength)
+                return
         lora_weight = lora_path if isinstance(lora_path, dict) else self._load_lora_file(lora_path)
         self.pre_weight.update_lora(lora_weight, strength)
         self.transformer_weights.update_lora(lora_weight, strength)
         post_weight = getattr(self, "post_weight", None)
         if post_weight is not None:
             post_weight.update_lora(lora_weight, strength)
+
+    def prepare_tail_skip_lora(self) -> int:
+        branches = collect_registered_lora_branches(
+            self.pre_weight,
+            self.transformer_weights,
+            getattr(self, "post_weight", None),
+        )
+        if not branches:
+            raise RuntimeError("Tail-skip LoRA registration produced no resident LoRA branches")
+        self._tail_skip_lora_branches = branches
+        set_registered_lora_strength(branches, 0.0)
+        logger.info(
+            f"Prepared {len(branches)} resident tail-skip LoRA branches; "
+            "inactive steps now bypass LoRA matmuls"
+        )
+        return len(branches)
+
+    def set_tail_skip_lora_strength(self, strength: float) -> int:
+        branches = getattr(self, "_tail_skip_lora_branches", None)
+        if branches is None:
+            raise RuntimeError("Call prepare_tail_skip_lora() after model initialization")
+        return set_registered_lora_strength(branches, strength)
 
 
 def count_lora_branches(obj, seen=None) -> int:
@@ -416,7 +449,6 @@ class WanCleanResizerBridgeRunner(WanRunner):
             sys.path.insert(0, str(repo_path))
 
         from wan_sr.models import build_clean_latent_resizer, infer_clean_resizer_model_type
-        from wan_sr.training.checkpoint import load_checkpoint
         from wan_sr.training.config import load_yaml
 
         ckpt_path = self.config["wan_clean_resizer_ckpt"]
@@ -431,7 +463,7 @@ class WanCleanResizerBridgeRunner(WanRunner):
         model_config = self._apply_clean_resizer_overrides(model_config)
         model_type = infer_clean_resizer_model_type(model_config)
         model = build_clean_latent_resizer(model_config)
-        load_checkpoint(ckpt_path, model, map_location="cpu")
+        model.load_state_dict(checkpoint.get("model", checkpoint))
         if self.config.get("wan_clean_resizer_use_ema", True) and "ema" in checkpoint:
             from wan_sr.training.ema import EMA
 
@@ -439,6 +471,7 @@ class WanCleanResizerBridgeRunner(WanRunner):
             ema.load_state_dict(checkpoint["ema"])
             ema.copy_to(model)
 
+        del checkpoint
         model = model.to(device=torch.device(AI_DEVICE), dtype=GET_DTYPE())
         model.eval()
         logger.info(f"Initialized Wan V2 clean resizer model_type={model_type} from {ckpt_path}")
@@ -606,6 +639,12 @@ class WanTailSkipLoRARunner(WanRunner):
                 "LoRA checkpoint loaded but matched zero LightX2V LoRA branches. "
                 f"Check key format in: {self.lora_path}"
             )
+        prepared_count = model.prepare_tail_skip_lora()
+        if prepared_count != branch_count:
+            logger.warning(
+                f"LoRA branch count changed during preparation: counted={branch_count}, "
+                f"prepared={prepared_count}"
+            )
         self._current_lora_strength = 0.0
         logger.info(f"Registered {branch_count} WAN tail-skip LoRA branches from {self.lora_path}")
         return model
@@ -622,7 +661,13 @@ class WanTailSkipLoRARunner(WanRunner):
             strength = self.lora_strength if step_number in self.lora_active_steps else 0.0
             logger.info(f"==> step_index: {step_number} / {infer_steps}, lora_strength={strength}")
             if strength != current_lora_strength:
-                self.model._update_lora(self.lora_path, strength)
+                toggle_started = time.perf_counter()
+                branch_count = self.model.set_tail_skip_lora_strength(strength)
+                toggle_ms = (time.perf_counter() - toggle_started) * 1000.0
+                logger.info(
+                    f"Toggled {branch_count} resident LoRA branches to strength={strength} "
+                    f"in {toggle_ms:.3f} ms"
+                )
                 current_lora_strength = strength
                 self._current_lora_strength = strength
             self.model.scheduler.step_pre(step_index=step_index)
@@ -683,6 +728,12 @@ class WanTailSkipLoRACleanResizerBridgeRunner(WanCleanResizerBridgeRunner):
                 "LoRA checkpoint loaded but matched zero LightX2V LoRA branches. "
                 f"Check key format in: {self.lora_path}"
             )
+        prepared_count = model.prepare_tail_skip_lora()
+        if prepared_count != branch_count:
+            logger.warning(
+                f"LoRA branch count changed during preparation: counted={branch_count}, "
+                f"prepared={prepared_count}"
+            )
         self._current_lora_strength = 0.0
         logger.info(f"Registered {branch_count} WAN tail-skip LoRA branches from {self.lora_path}")
         return model
@@ -699,7 +750,13 @@ class WanTailSkipLoRACleanResizerBridgeRunner(WanCleanResizerBridgeRunner):
             strength = self.lora_strength if step_number in self.lora_active_steps else 0.0
             logger.info(f"==> step_index: {step_number} / {infer_steps}, lora_strength={strength}")
             if strength != current_lora_strength:
-                self.model._update_lora(self.lora_path, strength)
+                toggle_started = time.perf_counter()
+                branch_count = self.model.set_tail_skip_lora_strength(strength)
+                toggle_ms = (time.perf_counter() - toggle_started) * 1000.0
+                logger.info(
+                    f"Toggled {branch_count} resident LoRA branches to strength={strength} "
+                    f"in {toggle_ms:.3f} ms"
+                )
                 current_lora_strength = strength
                 self._current_lora_strength = strength
             self.model.scheduler.step_pre(step_index=step_index)
@@ -794,6 +851,12 @@ class WanTailSkipLoRACleanInterpBridgeRunner(WanCleanInterpBridgeRunner):
                 "LoRA checkpoint loaded but matched zero LightX2V LoRA branches. "
                 f"Check key format in: {self.lora_path}"
             )
+        prepared_count = model.prepare_tail_skip_lora()
+        if prepared_count != branch_count:
+            logger.warning(
+                f"LoRA branch count changed during preparation: counted={branch_count}, "
+                f"prepared={prepared_count}"
+            )
         self._current_lora_strength = 0.0
         logger.info(f"Registered {branch_count} WAN tail-skip LoRA branches from {self.lora_path}")
         return model
@@ -810,7 +873,13 @@ class WanTailSkipLoRACleanInterpBridgeRunner(WanCleanInterpBridgeRunner):
             strength = self.lora_strength if step_number in self.lora_active_steps else 0.0
             logger.info(f"==> step_index: {step_number} / {infer_steps}, lora_strength={strength}")
             if strength != current_lora_strength:
-                self.model._update_lora(self.lora_path, strength)
+                toggle_started = time.perf_counter()
+                branch_count = self.model.set_tail_skip_lora_strength(strength)
+                toggle_ms = (time.perf_counter() - toggle_started) * 1000.0
+                logger.info(
+                    f"Toggled {branch_count} resident LoRA branches to strength={strength} "
+                    f"in {toggle_ms:.3f} ms"
+                )
                 current_lora_strength = strength
                 self._current_lora_strength = strength
             self.model.scheduler.step_pre(step_index=step_index)
