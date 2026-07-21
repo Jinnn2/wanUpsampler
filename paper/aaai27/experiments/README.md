@@ -306,6 +306,23 @@ It records LR/HR/total denoiser evaluations, cold-start latency, raw repeats,
 whole-process peak GPU memory, individual VBench components, and the explicitly
 labeled five-dimension convenience mean.
 
+After the zero-strength dynamic-LoRA bypass optimization, rerun only the two
+affected TALH timing cases and merge them into the existing 13-case table with:
+
+```bash
+python paper/aaai27/experiments/rerun_optimized_taa_timing.py \
+  --suite-root outputs/aaai27_experiments/quality_efficiency_final_v2 \
+  --python /path/to/wan/python \
+  --warmup 1 \
+  --repeats 5
+```
+
+The script inherits the physical GPU identifier from the existing summary, so
+the replacement rows remain comparable with the other eleven cases. Raw timing
+rows are checkpointed after every fresh process; rerunning the same command
+resumes missing warm-up or measured repeats. Outputs are written under
+`optimized_taa_timing/` and the original CSVs are never overwritten.
+
 For a smoke test or a partial rerun, select method families explicitly:
 
 ```bash
