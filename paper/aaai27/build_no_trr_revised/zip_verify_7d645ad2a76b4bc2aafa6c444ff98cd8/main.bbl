@@ -1,0 +1,90 @@
+\begin{thebibliography}{17}
+\providecommand{\natexlab}[1]{#1}
+
+\bibitem[{Blattmann et~al.(2023)Blattmann, Rombach, Ling, Dockhorn, Kim, Fidler, and Kreis}]{blattmann2023videoldm}
+Blattmann, A.; Rombach, R.; Ling, H.; Dockhorn, T.; Kim, S.~W.; Fidler, S.; and Kreis, K. 2023.
+\newblock Align Your Latents: High-Resolution Video Synthesis with Latent Diffusion Models.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}.
+
+\bibitem[{Gu et~al.(2026)Gu, Fang, Jiang, Mao, Han, Cai, and Shou}]{gu2026anyflow}
+Gu, Y.; Fang, G.; Jiang, Y.; Mao, W.; Han, S.; Cai, H.; and Shou, M.~Z. 2026.
+\newblock {AnyFlow}: Any-Step Video Diffusion Model with On-Policy Flow Map Distillation.
+\newblock arXiv:2605.13724.
+
+\bibitem[{HaCohen et~al.(2026)HaCohen, Brazowski, Chiprut, Bitterman, Kvochko, Berkowitz, Shalem, Lifschitz, Moshe, Porat, Richardson, Shiran, Chachy, Chetboun, Finkelson, Kupchick, Zabari, Guetta, Kotler, Bibi, Gordon, Panet, Benita, Armon, Kulikov, Inger, Shiftan, Melumian, and Farbman}]{hacohen2026ltx2}
+HaCohen, Y.; Brazowski, B.; Chiprut, N.; Bitterman, Y.; Kvochko, A.; Berkowitz, A.; Shalem, D.; Lifschitz, D.; Moshe, D.; Porat, E.; Richardson, E.; Shiran, G.; Chachy, I.; Chetboun, J.; Finkelson, M.; Kupchick, M.; Zabari, N.; Guetta, N.; Kotler, N.; Bibi, O.; Gordon, O.; Panet, P.; Benita, R.; Armon, S.; Kulikov, V.; Inger, Y.; Shiftan, Y.; Melumian, Z.; and Farbman, Z. 2026.
+\newblock {LTX-2}: Efficient Joint Audio-Visual Foundation Model.
+\newblock arXiv:2601.03233.
+
+\bibitem[{Hu et~al.(2022)Hu, Shen, Wallis, Allen-Zhu, Li, Wang, Wang, and Chen}]{hu2022lora}
+Hu, E.~J.; Shen, Y.; Wallis, P.; Allen-Zhu, Z.; Li, Y.; Wang, S.; Wang, L.; and Chen, W. 2022.
+\newblock {LoRA}: Low-Rank Adaptation of Large Language Models.
+\newblock In \emph{International Conference on Learning Representations}.
+
+\bibitem[{Huang et~al.(2025)Huang, Li, He, Zhou, and Shechtman}]{huang2025selfforcing}
+Huang, X.; Li, Z.; He, G.; Zhou, M.; and Shechtman, E. 2025.
+\newblock Self Forcing: Bridging the Train-Test Gap in Autoregressive Video Diffusion.
+\newblock arXiv:2506.08009.
+
+\bibitem[{Huang et~al.(2024)Huang, He, Yu, Zhang, Si, Jiang, Zhang, Wu, Jin, Chanpaisit, Wang, Chen, Wang, Lin, Qiao, and Liu}]{huang2024vbench}
+Huang, Z.; He, Y.; Yu, J.; Zhang, F.; Si, C.; Jiang, Y.; Zhang, Y.; Wu, T.; Jin, Q.; Chanpaisit, N.; Wang, Y.; Chen, X.; Wang, L.; Lin, D.; Qiao, Y.; and Liu, Z. 2024.
+\newblock {VBench}: Comprehensive Benchmark Suite for Video Generative Models.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}.
+
+\bibitem[{Jeong et~al.(2025)Jeong, Lee, Seo, and Chun}]{jeong2025ralu}
+Jeong, W.; Lee, K.; Seo, H.; and Chun, S.~Y. 2025.
+\newblock Training-Free Mixed-Resolution Latent Upsampling for Spatially Accelerated Diffusion Transformers.
+\newblock arXiv:2507.08422.
+
+\bibitem[{Luo et~al.(2023)Luo, Tan, Huang, Li, and Zhao}]{luo2023lcm}
+Luo, S.; Tan, Y.; Huang, L.; Li, J.; and Zhao, H. 2023.
+\newblock Latent Consistency Models: Synthesizing High-Resolution Images with Few-Step Inference.
+\newblock arXiv:2310.04378.
+
+\bibitem[{{ModelTC}(2026)}]{lightx2v2026}
+{ModelTC}. 2026.
+\newblock {LightX2V}: Variable Resolution Inference and Step Distillation Documentation.
+\newblock \url{https://github.com/ModelTC/LightX2V}.
+\newblock Accessed: 2026-07-15.
+
+\bibitem[{Rombach et~al.(2022)Rombach, Blattmann, Lorenz, Esser, and Ommer}]{rombach2022ldm}
+Rombach, R.; Blattmann, A.; Lorenz, D.; Esser, P.; and Ommer, B. 2022.
+\newblock High-Resolution Image Synthesis with Latent Diffusion Models.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}.
+
+\bibitem[{Wan et~al.(2025)Wan, Wang, Ai, Wen, Mao, Xie, Chen, Yu, Zhao, Yang, Zeng, Wang, Zhang, Zhou, Wang, Chen, Zhu, Zhao, Yan, Huang, Feng, Zhang, Li, Wu, Chu, Feng, Zhang, Sun, Fang, Wang, Gui, Weng, Shen, Lin, Wang, Wang, Zhou, Wang, Shen, Yu, Shi, Huang, Xu, Kou, Lv, Li, Liu, Wang, Zhang, Huang, Li, Wu, Liu, Pan, Zheng, Hong, Shi, Feng, Jiang, Han, Wu, and Liu}]{wan2025}
+Wan, T.; Wang, A.; Ai, B.; Wen, B.; Mao, C.; Xie, C.-W.; Chen, D.; Yu, F.; Zhao, H.; Yang, J.; Zeng, J.; Wang, J.; Zhang, J.; Zhou, J.; Wang, J.; Chen, J.; Zhu, K.; Zhao, K.; Yan, K.; Huang, L.; Feng, M.; Zhang, N.; Li, P.; Wu, P.; Chu, R.; Feng, R.; Zhang, S.; Sun, S.; Fang, T.; Wang, T.; Gui, T.; Weng, T.; Shen, T.; Lin, W.; Wang, W.; Wang, W.; Zhou, W.; Wang, W.; Shen, W.; Yu, W.; Shi, X.; Huang, X.; Xu, X.; Kou, Y.; Lv, Y.; Li, Y.; Liu, Y.; Wang, Y.; Zhang, Y.; Huang, Y.; Li, Y.; Wu, Y.; Liu, Y.; Pan, Y.; Zheng, Y.; Hong, Y.; Shi, Y.; Feng, Y.; Jiang, Z.; Han, Z.; Wu, Z.-F.; and Liu, Z. 2025.
+\newblock Wan: Open and Advanced Large-Scale Video Generative Models.
+\newblock arXiv:2503.20314.
+
+\bibitem[{Xu et~al.(2024)Xu, Park, Zhang, Zhou, Shechtman, Liu, Huang, and Liu}]{xu2024videogigagan}
+Xu, Y.; Park, T.; Zhang, R.; Zhou, Y.; Shechtman, E.; Liu, F.; Huang, J.-B.; and Liu, D. 2024.
+\newblock {VideoGigaGAN}: Towards Detail-Rich Video Super-Resolution.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}.
+
+\bibitem[{Yin et~al.(2024)Yin, Gharbi, Park, Zhang, Shechtman, Durand, and Freeman}]{yin2024dmd2}
+Yin, T.; Gharbi, M.; Park, T.; Zhang, R.; Shechtman, E.; Durand, F.; and Freeman, W.~T. 2024.
+\newblock Improved Distribution Matching Distillation for Fast Image Synthesis.
+\newblock arXiv:2405.14867.
+
+\bibitem[{Zhai et~al.(2024)Zhai, Lin, Yang, Li, Wang, Lin, Doermann, Yuan, and Wang}]{zhai2024mcm}
+Zhai, Y.; Lin, K.; Yang, Z.; Li, L.; Wang, J.; Lin, C.-C.; Doermann, D.; Yuan, J.; and Wang, L. 2024.
+\newblock Motion Consistency Model: Accelerating Video Diffusion with Disentangled Motion-Appearance Distillation.
+\newblock arXiv:2406.06890.
+
+\bibitem[{Zhao et~al.(2026)Zhao, Chen, Li, Kang, Lu, Wei, Zhang, Yang, and Tai}]{zhao2026luve}
+Zhao, C.; Chen, J.; Li, H.; Kang, Z.; Lu, S.; Wei, X.; Zhang, K.; Yang, J.; and Tai, Y. 2026.
+\newblock {LUVE}: Latent-Cascaded Ultra-High-Resolution Video Generation with Dual Frequency Experts.
+\newblock arXiv:2602.11564.
+
+\bibitem[{Zheng et~al.(2026)Zheng, Liu, Ding, Feng, Lin, Guo, and Qin}]{zheng2026mrflow}
+Zheng, X.; Liu, X.; Ding, Y.; Feng, W.; Lin, J.; Guo, J.; and Qin, H. 2026.
+\newblock Multi-Resolution Flow Matching: Training-Free Diffusion Acceleration via Staged Sampling.
+\newblock arXiv:2607.01642.
+
+\bibitem[{Zhou et~al.(2024)Zhou, Yang, Wang, Luo, and Loy}]{zhou2024upscale}
+Zhou, S.; Yang, P.; Wang, J.; Luo, Y.; and Loy, C.~C. 2024.
+\newblock Upscale-A-Video: Temporal-Consistent Diffusion Model for Real-World Video Super-Resolution.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}.
+
+\end{thebibliography}
