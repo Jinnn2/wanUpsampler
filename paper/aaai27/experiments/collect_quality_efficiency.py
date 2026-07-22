@@ -23,7 +23,7 @@ from paper.aaai27.experiments.collect_results import (  # noqa: E402
 )
 
 
-EXPECTED_CASES = (
+WAN50_EXPECTED_CASES = (
     "full_hr50",
     "lightx2v_cr40",
     "lightx2v_cr45",
@@ -36,8 +36,35 @@ EXPECTED_CASES = (
     "full_lr50_stage2_5hr",
     "ralu_quality",
 )
+DISTILL4_EXPECTED_CASES = (
+    "native_hr4",
+    "interp2",
+    "interp3",
+    "taa_interp3",
+    "cll3",
+    "talh3",
+    "endpoint_stage2_0hr",
+    "endpoint_stage2_1hr",
+    "endpoint_stage2_2hr",
+    "endpoint_stage2_4hr",
+    "endpoint_interp_0hr",
+    "endpoint_interp_1hr",
+    "endpoint_interp_2hr",
+    "endpoint_interp_4hr",
+    "endpoint_rgb_0hr",
+    "endpoint_rgb_1hr",
+    "endpoint_rgb_2hr",
+    "endpoint_rgb_4hr",
+)
+# Backward-compatible public name used by existing tests and callers.
+EXPECTED_CASES = WAN50_EXPECTED_CASES
 OBSOLETE_RALU_CASES = ("ralu_nt40", "ralu_nt45", "ralu_nt48")
-IMPLEMENTATION_FILES = (
+COMMON_IMPLEMENTATION_FILES = (
+    "paper/aaai27/experiments/benchmark_warm_quality_efficiency.py",
+    "paper/aaai27/experiments/collect_results.py",
+    "paper/aaai27/experiments/collect_quality_efficiency.py",
+)
+WAN50_IMPLEMENTATION_FILES = (
     "changing_resolution/ralu_nt_math.py",
     "changing_resolution/ralu_wan_quality.py",
     "changing_resolution/ralu_wan_state.py",
@@ -45,10 +72,34 @@ IMPLEMENTATION_FILES = (
     "changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py",
     "paper/aaai27/experiments/run_final_quality_efficiency.py",
     "paper/aaai27/experiments/benchmark_quality_efficiency.py",
-    "paper/aaai27/experiments/benchmark_warm_quality_efficiency.py",
-    "paper/aaai27/experiments/collect_results.py",
-    "paper/aaai27/experiments/collect_quality_efficiency.py",
 )
+DISTILL4_IMPLEMENTATION_FILES = (
+    "changing_resolution_distill/lightx2v_distill_bridge.py",
+    "changing_resolution_distill/rgb_super_resolution.py",
+    "changing_resolution_distill/realesrgan_compat.py",
+    "changing_resolution_distill/runtime_weights.py",
+    "changing_resolution_distill/scripts/bridge/run_lightx2v_distill_bridge_batch_infer.py",
+    "changing_resolution_distill/scripts/eval/run_distill4_final_18case_4gpu.sh",
+    "paper/aaai27/experiments/run_distill4_quality_efficiency.py",
+    "paper/aaai27/experiments/run_vbench_factorials.py",
+    "paper/aaai27/experiments/compile_vbench_paired_statistics.py",
+)
+SUITE_SPECS = {
+    "wan50_quality_efficiency": {
+        "expected_cases": WAN50_EXPECTED_CASES,
+        "seed_base": 9700,
+        "implementation_files": WAN50_IMPLEMENTATION_FILES,
+        "obsolete_cases": OBSOLETE_RALU_CASES,
+        "collection_prefix": "wan50_quality_efficiency_collection",
+    },
+    "distill4_quality_efficiency": {
+        "expected_cases": DISTILL4_EXPECTED_CASES,
+        "seed_base": 9800,
+        "implementation_files": DISTILL4_IMPLEMENTATION_FILES,
+        "obsolete_cases": (),
+        "collection_prefix": "distill4_quality_efficiency_collection",
+    },
+}
 SUMMARY_FILES = (
     "quality_efficiency.csv",
     "quality_efficiency_raw.csv",
@@ -69,10 +120,13 @@ def main() -> None:
     args = parse_args()
     suite_root = Path(args.suite_root).resolve()
     timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d_%H%M%S")
+    manifest = load_json(suite_root / "run_manifest.json")
+    family = str(manifest.get("family", ""))
+    spec = suite_spec(family)
     output_root = (
         Path(args.output_root).resolve()
         if args.output_root
-        else suite_root.parent / f"wan50_quality_efficiency_collection_{timestamp}"
+        else suite_root.parent / f"{spec['collection_prefix']}_{timestamp}"
     )
     output = collect_quality_efficiency(
         suite_root=suite_root,
@@ -110,16 +164,21 @@ def collect_quality_efficiency(
 
     manifest_path = suite_root / "run_manifest.json"
     manifest = load_json(manifest_path)
-    manifest_issues = validate_manifest(manifest)
-    factorial = inspect_factorial(suite_root, expected_family="wan50_quality_efficiency")
+    family = str(manifest.get("family", ""))
+    spec = suite_spec(family)
+    expected_cases = tuple(spec["expected_cases"])
+    manifest_issues = validate_manifest(manifest, family=family, spec=spec)
+    factorial = inspect_factorial(suite_root, expected_family=family)
     video_rows, video_issues, obsolete_dirs = inventory_videos(
         suite_root,
         manifest,
         probe_videos=probe_videos,
+        expected_cases=expected_cases,
+        obsolete_cases=tuple(spec["obsolete_cases"]),
     )
     summary_inventory, summary_issues = inspect_summaries(
         suite_root,
-        expected_cases=set(EXPECTED_CASES),
+        expected_cases=set(expected_cases),
         require_metrics=require_metrics,
         require_timing=require_timing,
     )
@@ -136,12 +195,18 @@ def collect_quality_efficiency(
         copied: list[dict[str, Any]] = []
 
         copy_file(manifest_path, staging / "suite/run_manifest.json", staging, copied)
-        for case in EXPECTED_CASES:
+        for case in expected_cases:
             source = suite_root / "configs" / f"{case}.json"
             if source.is_file():
                 copy_file(source, staging / "suite/configs" / source.name, staging, copied)
 
-        for name in ("benchmark_spec.json", "protocol.json", "warm_timing_manifest.json"):
+        for name in (
+            "benchmark_spec.json",
+            "generation_schedule.json",
+            "artifact_fingerprints.json",
+            "protocol.json",
+            "warm_timing_manifest.json",
+        ):
             source = resolve_suite_artifact(suite_root, name)
             if source.is_file():
                 copy_file(source, staging / "suite" / name, staging, copied)
@@ -153,7 +218,10 @@ def collect_quality_efficiency(
         for log_path in sorted(suite_root.glob("*.log")):
             copy_file(log_path, staging / "suite/logs" / log_path.name, staging, copied)
 
-        for relative in IMPLEMENTATION_FILES:
+        implementation_files = tuple(
+            dict.fromkeys((*COMMON_IMPLEMENTATION_FILES, *spec["implementation_files"]))
+        )
+        for relative in implementation_files:
             source = project_root / relative
             if source.is_file():
                 copy_file(source, staging / "implementation" / relative, staging, copied)
@@ -173,8 +241,9 @@ def collect_quality_efficiency(
             "suite_root": str(suite_root),
             "status": "complete" if not issues else "incomplete",
             "issues": issues,
-            "expected_cases": list(EXPECTED_CASES),
-            "expected_videos": len(EXPECTED_CASES) * len(manifest.get("prompts", [])),
+            "family": family,
+            "expected_cases": list(expected_cases),
+            "expected_videos": len(expected_cases) * len(manifest.get("prompts", [])),
             "valid_videos": sum(row["status"] == "valid" for row in video_rows),
             "minimum_valid_video_bytes_exclusive": MIN_VALID_VIDEO_BYTES,
             "probe_videos": probe_videos,
@@ -202,31 +271,49 @@ def collect_quality_efficiency(
     return output_root
 
 
-def validate_manifest(manifest: dict[str, Any]) -> list[str]:
+def suite_spec(family: str) -> dict[str, Any]:
+    try:
+        return SUITE_SPECS[family]
+    except KeyError as exc:
+        supported = ", ".join(sorted(SUITE_SPECS))
+        raise SystemExit(
+            f"Unsupported quality-efficiency family {family!r}; expected one of: {supported}"
+        ) from exc
+
+
+def validate_manifest(
+    manifest: dict[str, Any],
+    *,
+    family: str = "wan50_quality_efficiency",
+    spec: dict[str, Any] | None = None,
+) -> list[str]:
+    spec = spec or suite_spec(family)
+    expected_cases = tuple(spec["expected_cases"])
     issues: list[str] = []
-    if manifest.get("family") != "wan50_quality_efficiency":
+    if manifest.get("family") != family:
         issues.append(f"manifest family mismatch: {manifest.get('family')!r}")
     cases = manifest.get("cases")
     if not isinstance(cases, list):
         return [*issues, "manifest cases must be a list"]
     names = [str(case.get("name", "")) for case in cases]
-    if names != list(EXPECTED_CASES):
+    if names != list(expected_cases):
         issues.append(f"manifest case order/content mismatch: {names!r}")
     prompts = manifest.get("prompts")
     if not isinstance(prompts, list) or len(prompts) != 10:
         issues.append(f"manifest must contain exactly 10 prompts, found {len(prompts or [])}")
-    if int(manifest.get("seed_base", -1)) != 9700:
+    if int(manifest.get("seed_base", -1)) != int(spec["seed_base"]):
         issues.append(f"manifest seed_base mismatch: {manifest.get('seed_base')!r}")
-    ralu = next((case for case in cases if case.get("name") == "ralu_quality"), None)
-    if not ralu:
-        issues.append("ralu_quality case is missing")
-    elif (
-        int(ralu.get("lr_evaluations", -1)),
-        int(ralu.get("mixed_evaluations", -1)),
-        int(ralu.get("hr_evaluations", -1)),
-        int(ralu.get("total_evaluations", -1)),
-    ) != (5, 6, 7, 18):
-        issues.append("ralu_quality budget must be LR/mixed/HR/total=(5,6,7,18)")
+    if family == "wan50_quality_efficiency":
+        ralu = next((case for case in cases if case.get("name") == "ralu_quality"), None)
+        if not ralu:
+            issues.append("ralu_quality case is missing")
+        elif (
+            int(ralu.get("lr_evaluations", -1)),
+            int(ralu.get("mixed_evaluations", -1)),
+            int(ralu.get("hr_evaluations", -1)),
+            int(ralu.get("total_evaluations", -1)),
+        ) != (5, 6, 7, 18):
+            issues.append("ralu_quality budget must be LR/mixed/HR/total=(5,6,7,18)")
     return issues
 
 
@@ -235,6 +322,8 @@ def inventory_videos(
     manifest: dict[str, Any],
     *,
     probe_videos: bool,
+    expected_cases: tuple[str, ...] | None = None,
+    obsolete_cases: tuple[str, ...] = OBSOLETE_RALU_CASES,
 ) -> tuple[list[dict[str, Any]], list[str], list[str]]:
     rows: list[dict[str, Any]] = []
     issues: list[str] = []
@@ -242,6 +331,7 @@ def inventory_videos(
     seed_base = int(manifest.get("seed_base", 0))
     prompt_offset = int(manifest.get("prompt_offset", 0))
     manifest_cases = [str(case["name"]) for case in manifest.get("cases", [])]
+    declared_cases = tuple(expected_cases or manifest_cases)
     videos_root = suite_root / "videos"
 
     for case in manifest_cases:
@@ -286,8 +376,8 @@ def inventory_videos(
                 issues.append(f"video {case}/{name}: {status}")
 
     directory_names = {path.name for path in videos_root.iterdir() if path.is_dir()} if videos_root.is_dir() else set()
-    obsolete = sorted(directory_names & set(OBSOLETE_RALU_CASES))
-    unexpected_dirs = sorted(directory_names - set(manifest_cases) - set(OBSOLETE_RALU_CASES))
+    obsolete = sorted(directory_names & set(obsolete_cases))
+    unexpected_dirs = sorted(directory_names - set(declared_cases) - set(obsolete_cases))
     if unexpected_dirs:
         issues.append(f"unexpected video case directories: {unexpected_dirs!r}")
     return rows, issues, [str(videos_root / name) for name in obsolete]
@@ -331,6 +421,7 @@ def inspect_summaries(
         # historical cold-start table if present, but do not require it.
         "quality_efficiency.csv": False,
         "quality_efficiency_warm.csv": require_timing,
+        "quality_efficiency_warm_raw.csv": require_timing,
         "metrics/vbench_v1_custom.json": require_metrics,
     }
     for relative, required in requirements.items():
@@ -358,6 +449,33 @@ def inspect_summaries(
                     entry["status"] = "case_mismatch"
                     if required:
                         issues.append(f"{relative} case coverage mismatch: {sorted(cases)!r}")
+        elif required:
+            issues.append(f"required result is missing: {relative}")
+        inventory[relative] = entry
+    supporting_requirements = {
+        "benchmark_spec.json": require_timing,
+        "quality_efficiency_warm_pairs.csv": require_timing,
+        "warm_timing_manifest.json": require_timing,
+        "metrics/vbench_paired_statistics.csv": require_metrics,
+    }
+    for relative, required in supporting_requirements.items():
+        path = resolve_suite_artifact(suite_root, relative)
+        entry = {
+            "path": str(path),
+            "canonical_relative_path": relative,
+            "required": required,
+            "status": "missing",
+        }
+        if path.is_file() and path.stat().st_size > 0:
+            entry.update(
+                {
+                    "status": "present",
+                    "size_bytes": path.stat().st_size,
+                    "sha256": sha256(path),
+                }
+            )
+            if path.suffix.lower() == ".json":
+                load_json(path)
         elif required:
             issues.append(f"required result is missing: {relative}")
         inventory[relative] = entry
@@ -472,7 +590,7 @@ def is_relative_to(path: Path, root: Path) -> bool:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Validate and collect the final 11-case Wan quality-efficiency suite."
+        description="Validate and collect a final Wan50 or Distill4 quality-efficiency suite."
     )
     parser.add_argument("--suite-root", required=True)
     parser.add_argument("--output-root")

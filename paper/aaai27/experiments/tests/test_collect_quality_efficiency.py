@@ -8,14 +8,71 @@ from pathlib import Path
 from unittest.mock import patch
 
 from paper.aaai27.experiments.collect_quality_efficiency import (
+    DISTILL4_EXPECTED_CASES,
     EXPECTED_CASES,
     collect_quality_efficiency,
     inventory_videos,
     inspect_summaries,
+    validate_manifest,
 )
 
 
 class QualityEfficiencyCollectionTest(unittest.TestCase):
+    def test_distill4_manifest_and_collection_are_supported(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            suite = root / "quality_efficiency_distill4"
+            output = root / "distill4_collection"
+            prompts = [f"prompt {index}" for index in range(10)]
+            cases = [{"name": name} for name in DISTILL4_EXPECTED_CASES]
+            manifest = {
+                "family": "distill4_quality_efficiency",
+                "seed_base": 9800,
+                "prompt_offset": 0,
+                "prompts": prompts,
+                "cases": cases,
+            }
+            suite.mkdir()
+            (suite / "run_manifest.json").write_text(
+                json.dumps(manifest), encoding="utf-8"
+            )
+            for case in DISTILL4_EXPECTED_CASES:
+                case_root = suite / "videos" / case
+                case_root.mkdir(parents=True)
+                for index in range(10):
+                    (case_root / f"{case}_{index:02d}_seed{9800 + index}.mp4").write_bytes(
+                        b"v" * 2048
+                    )
+
+            self.assertEqual(
+                validate_manifest(
+                    manifest,
+                    family="distill4_quality_efficiency",
+                ),
+                [],
+            )
+            with patch(
+                "paper.aaai27.experiments.collect_quality_efficiency.inspect_factorial",
+                return_value={"status": "complete", "issues": []},
+            ):
+                result = collect_quality_efficiency(
+                    suite_root=suite,
+                    output_root=output,
+                    project_root=root,
+                    include_videos=False,
+                    probe_videos=False,
+                    require_metrics=False,
+                    require_timing=False,
+                    allow_incomplete=False,
+                )
+
+            validation = json.loads(
+                (result / "validation.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(validation["family"], "distill4_quality_efficiency")
+            self.assertEqual(validation["valid_videos"], 180)
+            self.assertEqual(validation["expected_cases"], list(DISTILL4_EXPECTED_CASES))
+
     def test_complete_suite_is_collected_end_to_end(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

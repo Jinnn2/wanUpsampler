@@ -266,10 +266,17 @@ def copy_checkpoints(inventory: dict[str, Any], staging: Path, path_map: list[di
         if not manifest_path.is_file():
             continue
         manifest = load_json(manifest_path)
-        artifacts = list(manifest.get("lora_artifacts", {}).values()) + [manifest.get("stage2_artifact", {})]
+        artifacts = (
+            list(manifest.get("lora_artifacts", {}).values())
+            + list(manifest.get("artifacts", {}).values())
+            + [manifest.get("stage2_artifact", {}), manifest.get("lora_artifact", {})]
+        )
         for artifact in artifacts:
-            if isinstance(artifact, dict) and artifact.get("resolved_path"):
-                candidates.add(str(artifact["resolved_path"]))
+            if not isinstance(artifact, dict):
+                continue
+            artifact_path = artifact.get("resolved_path") or artifact.get("path")
+            if artifact_path:
+                candidates.add(str(artifact_path))
     for raw_path in sorted(candidates):
         source = Path(raw_path).resolve()
         if not source.is_file():

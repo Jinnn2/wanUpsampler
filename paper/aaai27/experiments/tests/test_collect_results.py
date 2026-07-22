@@ -8,6 +8,7 @@ from pathlib import Path
 
 from paper.aaai27.experiments.collect_results import (
     inspect_factorial,
+    inspect_factorial_config,
     load_csv_source,
     summarize_paired_metrics,
     summarize_timing,
@@ -15,6 +16,43 @@ from paper.aaai27.experiments.collect_results import (
 
 
 class FactorialInspectionTest(unittest.TestCase):
+    def test_distill4_rgb_endpoint_config_is_validated(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            checkpoint = root / "RealESRGAN_x2plus.pth"
+            checkpoint.write_bytes(b"weights")
+            config = root / "endpoint_rgb_1hr.json"
+            config.write_text(
+                json.dumps(
+                    {
+                        "compare_name": "endpoint_rgb_1hr",
+                        "infer_steps": 4,
+                        "changing_resolution": True,
+                        "changing_resolution_steps": [4],
+                        "wan_final_refine_steps": 1,
+                        "wan_rgb_sr_backend": "realesrgan",
+                        "wan_rgb_sr_checkpoint": str(checkpoint),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            case = {
+                "name": "endpoint_rgb_1hr",
+                "method": "endpoint_rgb",
+                "alignment": "base",
+                "resizer": "rgb",
+                "lr_evaluations": 4,
+                "hr_evaluations": 1,
+                "total_evaluations": 5,
+                "handoff_step": 4,
+                "refinement_steps": 1,
+            }
+
+            issues, provenance = inspect_factorial_config(config, case)
+
+            self.assertEqual(issues, [])
+            self.assertEqual(provenance["final_refine_steps"], 1)
+
     def test_exact_manifest_videos_and_config_are_complete(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

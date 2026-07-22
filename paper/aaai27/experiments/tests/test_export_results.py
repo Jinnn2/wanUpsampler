@@ -29,11 +29,22 @@ class ResultExportTest(unittest.TestCase):
             (factorial / "videos/case").mkdir(parents=True)
             (factorial / "_private").mkdir()
             (results / "_state").mkdir()
+            distill_checkpoint = root / "distill_model.pt"
+            distill_checkpoint.write_bytes(b"distill weights")
 
             summary = legacy / "summary.csv"
             summary.write_text("metric,value\nl1,0.1\n", encoding="utf-8")
             (legacy / "raw.jsonl").write_text('{"l1": 0.1}\n', encoding="utf-8")
-            (factorial / "run_manifest.json").write_text('{"family": "wan50"}\n', encoding="utf-8")
+            (factorial / "run_manifest.json").write_text(
+                json.dumps(
+                    {
+                        "family": "distill4_quality_efficiency",
+                        "artifacts": {"distill_dit": {"path": str(distill_checkpoint)}},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
             (factorial / "videos/case/example.mp4").write_bytes(b"video")
             (factorial / "_private/key.csv").write_text("key\nsecret\n", encoding="utf-8")
             (results / "_state/audit.json").write_text("{}\n", encoding="utf-8")
@@ -91,11 +102,15 @@ class ResultExportTest(unittest.TestCase):
                 include_videos=True,
                 include_private=True,
                 include_logs=True,
+                include_checkpoints=True,
                 include_code=False,
             )
             self.assertTrue((full_output / "evidence/factorials/wan50/videos/case/example.mp4").is_file())
             self.assertTrue((full_output / "evidence/factorials/wan50/_private/key.csv").is_file())
             self.assertTrue((full_output / "provenance/task_state/task.log").is_file())
+            exported_models = list((full_output / "models").iterdir())
+            self.assertEqual(len(exported_models), 1)
+            self.assertTrue(exported_models[0].name.endswith("_distill_model.pt"))
 
     def test_rejects_any_issue_outside_allowlist(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

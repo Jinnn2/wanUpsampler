@@ -585,18 +585,78 @@ def inspect_factorial_config(path: Path, case: dict[str, Any]) -> tuple[list[str
         )
         expected_step = case.get("handoff_step")
         expected_step = int(expected_step) if expected_step is not None else None
-        expected_lora = method == "talh"
-        expected_stage2 = method in {"talh", "endpoint"}
-
         lr_evals, hr_evals, total_evals = expected_counts
-        if method == "native":
+        is_distill4 = int(config.get("infer_steps", -1)) == 4
+        if is_distill4:
+            expected_lora = str(case.get("alignment", "base")) == "taa"
+            expected_stage2 = str(case.get("resizer", "")) == "stage2"
+            if method == "native":
+                if expected_counts != (0, 4, 4):
+                    issues.append(
+                        f"Distill4 Native-HR evaluation budget mismatch: {expected_counts!r}"
+                    )
+            elif method in {"interp", "taa_interp", "cll", "talh"}:
+                expected_budget = (
+                    int(expected_step or 0),
+                    4 - int(expected_step or 0),
+                    4,
+                )
+                if expected_counts != expected_budget:
+                    issues.append(
+                        "Distill4 handoff evaluation budget mismatch: "
+                        f"{expected_counts!r}, expected {expected_budget!r}"
+                    )
+            elif method in {
+                "endpoint_stage2",
+                "endpoint_interp",
+                "endpoint_rgb",
+            }:
+                refinement_steps = int(case.get("refinement_steps", hr_evals))
+                expected_budget = (4, refinement_steps, 4 + refinement_steps)
+                if expected_counts != expected_budget:
+                    issues.append(
+                        "Distill4 endpoint evaluation budget mismatch: "
+                        f"{expected_counts!r}, expected {expected_budget!r}"
+                    )
+                if int(config.get("wan_final_refine_steps", -1)) != refinement_steps:
+                    issues.append(
+                        "Endpoint refinement config mismatch: "
+                        f"{config.get('wan_final_refine_steps')!r}, expected {refinement_steps}"
+                    )
+                if method == "endpoint_rgb":
+                    if config.get("wan_rgb_sr_backend") != "realesrgan":
+                        issues.append("Distill4 RGB endpoint must use Real-ESRGAN")
+                    rgb_checkpoint = config.get("wan_rgb_sr_checkpoint")
+                    if not rgb_checkpoint or not Path(str(rgb_checkpoint)).is_file():
+                        issues.append(
+                            f"configured RGB SR checkpoint does not exist: {rgb_checkpoint}"
+                        )
+            else:
+                return [*issues, f"unknown Distill4 quality-efficiency method: {method!r}"], {
+                    "path": str(path)
+                }
+            if expected_step is None:
+                if config.get("changing_resolution") or config.get(
+                    "changing_resolution_steps"
+                ):
+                    issues.append(
+                        f"{method} must not enable the changing-resolution scheduler"
+                    )
+            elif list(config.get("changing_resolution_steps", [])) != [expected_step]:
+                issues.append(
+                    f"handoff step mismatch: {config.get('changing_resolution_steps')!r}"
+                )
+        else:
+            expected_lora = method == "talh"
+            expected_stage2 = method in {"talh", "endpoint"}
+        if not is_distill4 and method == "native":
             if expected_counts != (0, 50, 50):
                 issues.append(f"Native-HR evaluation budget mismatch: {expected_counts!r}")
-        elif method in {"lightx2v", "talh"}:
+        elif not is_distill4 and method in {"lightx2v", "talh"}:
             expected_budget = (expected_step, 50 - int(expected_step or 0), 50)
             if expected_counts != expected_budget:
                 issues.append(f"mixed-resolution evaluation budget mismatch: {expected_counts!r}, expected {expected_budget!r}")
-        elif method == "ralu":
+        elif not is_distill4 and method == "ralu":
             mixed_evals = int(case.get("mixed_evaluations", 0))
             expected_budget = (5, 7, 18)
             if expected_counts != expected_budget or mixed_evals != 6:
@@ -605,7 +665,7 @@ def inspect_factorial_config(path: Path, case: dict[str, Any]) -> tuple[list[str
                     f"LR/mixed/HR/total={(lr_evals, mixed_evals, hr_evals, total_evals)!r}, "
                     "expected (5, 6, 7, 18)"
                 )
-        elif method == "endpoint":
+        elif not is_distill4 and method == "endpoint":
             refinement_steps = int(case.get("refinement_steps", hr_evals))
             expected_budget = (50, refinement_steps, 50 + refinement_steps)
             if expected_counts != expected_budget:
@@ -615,14 +675,14 @@ def inspect_factorial_config(path: Path, case: dict[str, Any]) -> tuple[list[str
                     "Endpoint refinement config mismatch: "
                     f"{config.get('wan_final_refine_steps')!r}, expected {refinement_steps}"
                 )
-        else:
+        elif not is_distill4:
             return [*issues, f"unknown quality-efficiency method: {method!r}"], {"path": str(path)}
-        if expected_step is None:
+        if not is_distill4 and expected_step is None:
             if config.get("changing_resolution") or config.get("changing_resolution_steps"):
                 issues.append(f"{method} must not enable the legacy changing-resolution scheduler")
-        elif list(config.get("changing_resolution_steps", [])) != [expected_step]:
+        elif not is_distill4 and list(config.get("changing_resolution_steps", [])) != [expected_step]:
             issues.append(f"handoff step mismatch: {config.get('changing_resolution_steps')!r}")
-        expected_infer_steps = 18 if method == "ralu" else 50
+        expected_infer_steps = 4 if is_distill4 else (18 if method == "ralu" else 50)
         if int(config.get("infer_steps", -1)) != expected_infer_steps:
             issues.append(
                 f"infer_steps mismatch: {config.get('infer_steps')!r}, expected {expected_infer_steps}"

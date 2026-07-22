@@ -444,6 +444,25 @@ the reported time differences; the four-GPU path is for video generation.
 The same pipeline is registered as the `distill4_final_efficiency` group in
 `experiment_manifest.json`.
 
+Freeze the completed Distill4 suite into a standalone, checksummed result
+archive after both VBench and the warm benchmark finish:
+
+```bash
+python paper/aaai27/experiments/collect_quality_efficiency.py \
+  --suite-root outputs/aaai27_experiments/quality_efficiency_distill4 \
+  --output-root exports/distill4_quality_efficiency_final_YYYYMMDD \
+  --probe-videos \
+  --require-metrics \
+  --require-timing \
+  --archive
+```
+
+This compact archive contains the 18-case manifest and configs, VBench and
+paired statistics, warm timing tables and audit manifests, checkpoint
+fingerprints, generation schedule, video checksum inventory, and the relevant
+implementation files. Add `--include-videos` for the internal master archive
+containing all 180 MP4s; omit it for a lightweight paper-results bundle.
+
 ## 4. Export a frozen result bundle
 
 Run collection immediately before export. The exporter requires an exact
