@@ -25,18 +25,15 @@ class TimingCase:
 
 CASES = (
     TimingCase("interp45", "wan2.1_clean_interp_bridge", "interp"),
-    TimingCase("ralu45", "wan2.1_ralu_nt_interp_bridge", "ralu"),
     TimingCase("cll_only45", "wan2.1_clean_resizer_bridge", "cll"),
     TimingCase("taa_interp45", "wan2.1_tail_skip_lora_clean_interp_bridge", "taa"),
     TimingCase("trajscale45", "wan2.1_tail_skip_lora_clean_resizer_bridge", "full"),
 )
 
 PAIRS = (
-    ("interp45", "ralu45", "RALU overhead over interpolation"),
     ("interp45", "cll_only45", "CLL overhead over interpolation"),
     ("interp45", "taa_interp45", "TAA overhead over interpolation"),
     ("interp45", "trajscale45", "full TrajScale overhead over interpolation"),
-    ("ralu45", "trajscale45", "TrajScale overhead over RALU"),
     ("cll_only45", "trajscale45", "conditional TAA overhead with CLL"),
     ("taa_interp45", "trajscale45", "conditional CLL overhead with TAA"),
 )
@@ -191,23 +188,14 @@ def derive_config(source: dict[str, Any], case: TimingCase) -> dict[str, Any]:
         "wan_clean_resizer_use_ema",
         "wan_clean_resizer_residual_skip",
     }
-    if case.config_kind in {"interp", "ralu", "cll"}:
+    if case.config_kind in {"interp", "cll"}:
         for key in lora_keys:
             config.pop(key, None)
-    if case.config_kind in {"interp", "ralu", "taa"}:
+    if case.config_kind in {"interp", "taa"}:
         for key in cll_keys:
             config.pop(key, None)
-    if case.config_kind == "ralu":
-        config.update(
-            {
-                "wan_ralu_noise_c": 0.25,
-                "wan_ralu_suffix_shift": 8.0,
-                "wan_ralu_adaptation": "uniform_nt_matching_without_region_adaptive_stage",
-            }
-        )
-    else:
-        for key in ("wan_ralu_noise_c", "wan_ralu_suffix_shift", "wan_ralu_adaptation"):
-            config.pop(key, None)
+    for key in ("wan_ralu_noise_c", "wan_ralu_suffix_shift", "wan_ralu_adaptation"):
+        config.pop(key, None)
     return config
 
 
@@ -420,7 +408,7 @@ def print_command(command: list[str]) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Warm-process factorial timing for step-45 interpolation, RALU, TAA, CLL, and TrajScale."
+        description="Warm-process factorial timing for step-45 interpolation, TAA, CLL, and TrajScale."
     )
     parser.add_argument("--suite-root", required=True, help="Final-v2 root containing run_manifest.json and configs/talh45.json")
     parser.add_argument("--output-root", default="")

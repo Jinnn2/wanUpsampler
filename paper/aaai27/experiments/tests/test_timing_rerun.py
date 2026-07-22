@@ -60,7 +60,7 @@ class OptimizedTAARerunTest(unittest.TestCase):
             {"case": "full_hr50", "value": "old-native"},
             {"case": "talh40", "value": "old-40"},
             {"case": "talh45", "value": "old-45"},
-            {"case": "ralu_nt45", "value": "old-ralu"},
+            {"case": "ralu_quality", "value": "old-ralu"},
         ]
         new = [
             {"case": "talh40", "value": "new-40"},
@@ -73,7 +73,7 @@ class OptimizedTAARerunTest(unittest.TestCase):
                 ("full_hr50", "old-native"),
                 ("talh40", "new-40"),
                 ("talh45", "new-45"),
-                ("ralu_nt45", "old-ralu"),
+                ("ralu_quality", "old-ralu"),
             ],
         )
 

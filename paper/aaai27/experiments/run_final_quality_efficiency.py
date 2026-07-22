@@ -33,6 +33,7 @@ class Case:
     lora_strength: float | None = None
     refinement_steps: int | None = None
     reschedule_mode: str = "canonical"
+    mixed_evaluations: int = 0
 
 
 def main() -> None:
@@ -59,9 +60,8 @@ def main() -> None:
 def build_cases(args: argparse.Namespace) -> list[Case]:
     methods = set(getattr(args, "methods", ["native", "lightx2v", "talh", "endpoint", "ralu"]))
     lightx2v_steps = tuple(getattr(args, "lightx2v_handoff_steps", [40, 45, 48]))
-    ralu_steps = tuple(getattr(args, "ralu_handoff_steps", [40, 45, 48]))
     endpoint_steps = tuple(getattr(args, "endpoint_refinement_steps", [0, 1, 2, 5]))
-    for label, values in (("LightX2V", lightx2v_steps), ("RALU-style", ralu_steps)):
+    for label, values in (("LightX2V", lightx2v_steps),):
         invalid = [step for step in values if step < 1 or step >= 50]
         if invalid:
             raise SystemExit(f"Invalid {label} handoff step(s) {invalid}; expected [1, 49]")
@@ -126,18 +126,18 @@ def build_cases(args: argparse.Namespace) -> list[Case]:
             for steps in endpoint_steps
         )
     if "ralu" in methods:
-        cases.extend(
+        stage_steps = tuple(int(v) for v in getattr(args, "ralu_stage_steps", [5, 6, 7]))
+        cases.append(
             Case(
-                f"ralu_nt{step}",
+                "ralu_quality",
                 "ralu",
-                "wan2.1_ralu_nt_interp_bridge",
-                step,
-                50 - step,
-                50,
-                handoff_step=step,
-                reschedule_mode="ralu_eq7_truncated_shifted_suffix",
+                "wan2.1_ralu_quality",
+                stage_steps[0],
+                stage_steps[2],
+                sum(stage_steps),
+                reschedule_mode="ralu_three_stage_ntdm_region_adaptive",
+                mixed_evaluations=stage_steps[1],
             )
-            for step in ralu_steps
         )
     if not cases:
         raise SystemExit("No quality-efficiency cases selected")
@@ -149,7 +149,7 @@ def build_cases(args: argparse.Namespace) -> list[Case]:
 
 def base_config(args: argparse.Namespace, case: Case) -> dict[str, Any]:
     return {
-        "infer_steps": 50,
+        "infer_steps": case.total_evaluations if case.method == "ralu" else 50,
         "target_video_length": args.num_frames,
         "text_len": 512,
         "target_height": 720,
@@ -168,7 +168,7 @@ def base_config(args: argparse.Namespace, case: Case) -> dict[str, Any]:
 
 def write_config(path: Path, args: argparse.Namespace, case: Case) -> None:
     config = base_config(args, case)
-    if case.method != "native":
+    if case.method not in {"native", "ralu"}:
         config.update(
             {
                 "changing_resolution": True,
@@ -191,9 +191,37 @@ def write_config(path: Path, args: argparse.Namespace, case: Case) -> None:
         config["wan_final_refine_steps"] = case.refinement_steps
         config["wan_final_refine_shift_increment"] = args.final_refine_shift_increment
     if case.method == "ralu":
-        config["wan_ralu_noise_c"] = getattr(args, "ralu_noise_c", 0.25)
-        config["wan_ralu_suffix_shift"] = getattr(args, "ralu_suffix_shift", 8.0)
-        config["wan_ralu_adaptation"] = "uniform_nt_matching_without_region_adaptive_stage"
+        config.update(
+            {
+                "wan_ralu_stage_steps": list(getattr(args, "ralu_stage_steps", [5, 6, 7])),
+                "wan_ralu_end_times": list(getattr(args, "ralu_end_times", [0.30, 0.45, 1.0])),
+                "wan_ralu_stage_shifts": list(
+                    getattr(args, "ralu_stage_shifts", [10.0, 8.8787, 5.3374])
+                ),
+                "wan_ralu_z": float(getattr(args, "ralu_z", 100.0)),
+                "wan_ralu_covariance_c": 1.0 / float(getattr(args, "ralu_z", 100.0)) ** 2,
+                "wan_ralu_up_ratio": float(getattr(args, "ralu_up_ratio", 0.30)),
+                "wan_ralu_low_latent_size": [46, 80],
+                "wan_ralu_coarse_token_grid": [23, 40],
+                "wan_ralu_aligned_latent_size": [92, 160],
+                "wan_ralu_output_latent_size": [90, 156],
+                "wan_ralu_canny_low": int(getattr(args, "ralu_canny_low", 100)),
+                "wan_ralu_canny_high": int(getattr(args, "ralu_canny_high", 200)),
+                "wan_ralu_edge_temporal_quantile": float(
+                    getattr(args, "ralu_edge_temporal_quantile", 0.75)
+                ),
+                "wan_ralu_adaptation": "full_three_stage_region_adaptive_ntdm",
+                "wan_ralu_geometry": (
+                    "aligned_368x640_to_736x1280_then_patch_crop_720x1248_at_handoff2"
+                ),
+                "wan_ralu_ntdm_source": "official_objective_hori8_bounded_quality_5_6_7",
+                "wan_ralu_patch_domain": "wan_packed_1x2x2_raw_latent_tokens",
+                "wan_ralu_mixed_position_ids": "official_coarse_integer_children_half_offset",
+                "wan_ralu_transition_noise": (
+                    "official_unit_for_unchanged_and_I_minus_c11T_for_expanded"
+                ),
+            }
+        )
     if case.method == "talh":
         checkpoint = args.lora40_checkpoint if case.handoff_step == 40 else args.lora45_checkpoint
         config.update(
@@ -291,10 +319,13 @@ def write_manifest(root: Path, args: argparse.Namespace, prompts: list[str], cas
             "stage2_use_ema": args.stage2_use_ema,
             "lightx2v_handoff_steps": list(getattr(args, "lightx2v_handoff_steps", [40, 45, 48])),
             "endpoint_refinement_steps": list(getattr(args, "endpoint_refinement_steps", [0, 1, 2, 5])),
-            "ralu_handoff_steps": list(getattr(args, "ralu_handoff_steps", [40, 45, 48])),
-            "ralu_noise_c": getattr(args, "ralu_noise_c", 0.25),
-            "ralu_suffix_shift": getattr(args, "ralu_suffix_shift", 8.0),
-            "ralu_scope": "uniform NT-matching Wan adaptation; no region-adaptive middle stage",
+            "ralu_stage_steps": list(getattr(args, "ralu_stage_steps", [5, 6, 7])),
+            "ralu_end_times": list(getattr(args, "ralu_end_times", [0.30, 0.45, 1.0])),
+            "ralu_stage_shifts": list(getattr(args, "ralu_stage_shifts", [10.0, 8.8787, 5.3374])),
+            "ralu_z": getattr(args, "ralu_z", 100.0),
+            "ralu_covariance_c": 1.0 / float(getattr(args, "ralu_z", 100.0)) ** 2,
+            "ralu_up_ratio": getattr(args, "ralu_up_ratio", 0.30),
+            "ralu_scope": "full three-stage region-adaptive RALU Quality adaptation",
         },
     }
     (root / "run_manifest.json").write_text(
@@ -322,7 +353,7 @@ def build_analysis_pairs(cases: list[Case]) -> list[dict[str, str]]:
             if case.handoff_step is not None and case.handoff_step < 50
         }
     ):
-        candidates = [f"lightx2v_cr{step}", f"ralu_nt{step}", f"talh{step}"]
+        candidates = [f"lightx2v_cr{step}", f"talh{step}"]
         available = [name for name in candidates if name in by_name]
         for left, right in zip(available, available[1:]):
             pairs.append(
@@ -332,6 +363,16 @@ def build_analysis_pairs(cases: list[Case]) -> list[dict[str, str]]:
                     "right_case": right,
                 }
             )
+    if "ralu_quality" in by_name:
+        for peer in ("lightx2v_cr45", "talh45"):
+            if peer in by_name:
+                pairs.append(
+                    {
+                        "comparison": f"ralu_quality_vs_{peer}",
+                        "left_case": "ralu_quality",
+                        "right_case": peer,
+                    }
+                )
     endpoint_cases = sorted(
         (case for case in cases if case.method == "endpoint"),
         key=lambda case: int(case.refinement_steps or 0),
@@ -377,6 +418,7 @@ def write_benchmark_spec(root: Path, args: argparse.Namespace, cases: list[Case]
                 "protocol": {
                     "method": case.method,
                     "lr_evaluations": case.lr_evaluations,
+                    "mixed_evaluations": case.mixed_evaluations,
                     "hr_evaluations": case.hr_evaluations,
                     "total_evaluations": case.total_evaluations,
                     "handoff_step": case.handoff_step,
@@ -467,7 +509,7 @@ def artifact_fingerprint(path: Path) -> dict[str, Any]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run the unified Wan50 Pareto suite with LightX2V, Endpoint, TALH, and RALU-style cases."
+        description="Run the unified Wan Pareto suite with LightX2V, Endpoint, TrajScale, and full RALU Quality."
     )
     parser.add_argument("mode", choices=["check", "run", "benchmark-spec"])
     parser.add_argument(
@@ -507,19 +549,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--lightx2v-handoff-steps", nargs="+", type=int, default=[40, 45, 48])
     parser.add_argument("--endpoint-refinement-steps", nargs="+", type=int, default=[0, 1, 2, 5])
-    parser.add_argument("--ralu-handoff-steps", nargs="+", type=int, default=[40, 45, 48])
-    parser.add_argument(
-        "--ralu-noise-c",
-        type=float,
-        default=0.25,
-        help="RALU covariance scale c; 0.25 is the exact 2x nearest-neighbor projection value.",
-    )
-    parser.add_argument(
-        "--ralu-suffix-shift",
-        type=float,
-        default=8.0,
-        help="Flow shift used to sample the truncated post-transition HR suffix.",
-    )
+    parser.add_argument("--ralu-stage-steps", nargs=3, type=int, default=[5, 6, 7])
+    parser.add_argument("--ralu-end-times", nargs=3, type=float, default=[0.30, 0.45, 1.0])
+    parser.add_argument("--ralu-stage-shifts", nargs=3, type=float, default=[10.0, 8.8787, 5.3374])
+    parser.add_argument("--ralu-z", type=float, default=100.0)
+    parser.add_argument("--ralu-up-ratio", type=float, default=0.30)
+    parser.add_argument("--ralu-canny-low", type=int, default=100)
+    parser.add_argument("--ralu-canny-high", type=int, default=200)
+    parser.add_argument("--ralu-edge-temporal-quantile", type=float, default=0.75)
     parser.add_argument("--final-refine-shift-increment", type=float, default=1.0)
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--prompt-offset", type=int, default=0)
@@ -533,10 +570,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--negative-prompt", default="")
     parser.add_argument("--python", default=sys.executable)
     args = parser.parse_args()
-    if args.ralu_noise_c <= 0.0 or args.ralu_noise_c > 0.25:
-        parser.error("--ralu-noise-c must be in (0, 0.25] for the 2x nearest projection")
-    if args.ralu_suffix_shift <= 0.0:
-        parser.error("--ralu-suffix-shift must be positive")
+    if args.ralu_stage_steps != [5, 6, 7]:
+        parser.error("this entrypoint is fixed to the RALU Quality stage steps 5 6 7")
+    if not (0.0 < args.ralu_end_times[0] < args.ralu_end_times[1] < args.ralu_end_times[2] == 1.0):
+        parser.error("--ralu-end-times must satisfy 0 < e1 < e2 < e3=1")
+    if any(value <= 0.0 for value in args.ralu_stage_shifts):
+        parser.error("--ralu-stage-shifts must be positive")
+    if args.ralu_z < 2.0:
+        parser.error("--ralu-z must be at least 2")
+    if not 0.0 < args.ralu_up_ratio < 1.0:
+        parser.error("--ralu-up-ratio must be in (0,1)")
+    if not 0.0 <= args.ralu_edge_temporal_quantile <= 1.0:
+        parser.error("--ralu-edge-temporal-quantile must be in [0,1]")
     return args
 
 

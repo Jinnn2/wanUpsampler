@@ -1,0 +1,30 @@
+{
+  "infer_steps": 50,
+  "target_video_length": 81,
+  "text_len": 512,
+  "target_height": 720,
+  "target_width": 1248,
+  "self_attn_1_type": "flash_attn3",
+  "cross_attn_1_type": "flash_attn3",
+  "cross_attn_2_type": "flash_attn3",
+  "sample_guide_scale": 6.0,
+  "sample_shift": 8,
+  "enable_cfg": true,
+  "cpu_offload": false,
+  "feature_caching": "NoCaching",
+  "compare_name": "ralu_nt45",
+  "changing_resolution": true,
+  "resolution_rate": [
+    0.5111111111111111
+  ],
+  "wan_lowres_latent_size": [
+    46,
+    80
+  ],
+  "changing_resolution_steps": [
+    45
+  ],
+  "wan_ralu_noise_c": 0.25,
+  "wan_ralu_suffix_shift": 8.0,
+  "wan_ralu_adaptation": "uniform_nt_matching_without_region_adaptive_stage"
+}

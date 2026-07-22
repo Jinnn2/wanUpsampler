@@ -1,0 +1,7 @@
+{
+  "physical_gpu": 0,
+  "process_wall_s": 321.892274832353,
+  "baseline_memory_mib": 1.0,
+  "peak_memory_mib": 28166.0,
+  "peak_memory_delta_gib": 27.5048828125
+}

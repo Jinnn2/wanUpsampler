@@ -23,6 +23,7 @@ from loguru import logger
 from lightx2v.common.ops import *  # noqa: F403
 from lightx2v.models.runners.wan.wan_runner import WanRunner  # noqa: F401
 import changing_resolution.lightx2v_clean_bridge  # noqa: F401
+import changing_resolution.ralu_wan_quality  # noqa: F401
 from lightx2v.utils.input_info import init_empty_input_info, update_input_info_from_dict
 from lightx2v.utils.profiler import ProfilingContext4DebugL1
 from lightx2v.utils.registry_factory import RUNNER_REGISTER

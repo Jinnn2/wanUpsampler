@@ -169,7 +169,7 @@ def main() -> None:
     print_summary(new_summary_rows)
     print(f"Partial timing : {partial_summary}")
     print(f"Partial raw    : {partial_raw}")
-    print(f"Merged 13-case: {merged_summary}")
+    print(f"Merged 11-case: {merged_summary}")
     print(f"Merged raw     : {merged_raw}")
     print(f"Before/after   : {comparison}")
     print(f"Audit manifest : {manifest_path}")
@@ -392,7 +392,7 @@ def shell_join(command: list[str]) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Rerun optimized TALH-40/45 timings and merge them into the matching-GPU 13-case table."
+        description="Rerun optimized TALH-40/45 timings and merge them into the matching-GPU 11-case table."
     )
     parser.add_argument("--suite-root", required=True)
     parser.add_argument("--output-root", default="")
@@ -401,7 +401,7 @@ def parse_args() -> argparse.Namespace:
         "--gpu",
         type=int,
         default=None,
-        help="Physical GPU. Defaults to the GPU recorded in the existing 13-case summary.",
+        help="Physical GPU. Defaults to the GPU recorded in the existing 11-case summary.",
     )
     parser.add_argument("--warmup", type=int, default=1)
     parser.add_argument("--repeats", type=int, default=5)

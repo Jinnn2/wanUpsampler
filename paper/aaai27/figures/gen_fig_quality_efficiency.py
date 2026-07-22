@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the system-efficiency and per-dimension VBench figure.
+"""Generate the quality--latency Pareto and per-dimension VBench figure.
 
 Outputs:
     fig_quality_efficiency.pdf
@@ -12,57 +12,191 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from _figure_style import COLORS, TABLE_DIR, apply_publication_style, panel_title, save_figure
+from _figure_style import (
+    COLORS,
+    REPO_ROOT,
+    TABLE_DIR,
+    apply_publication_style,
+    panel_title,
+    save_figure,
+)
 
 
-DISPLAY = {
-    "full_hr50": "Native-HR",
-    "talh40": "TrajScale-Q",
-    "talh45": "TrajScale-E",
-    "full_lr50_stage2_1hr": "Post-Gen. Cascade",
-}
+WARM_TABLE = (
+    REPO_ROOT
+    / "paper"
+    / "aaai27"
+    / "results"
+    / "warm_quality_efficiency_20260722.csv"
+)
 
 POINT_STYLE = {
     "full_hr50": (COLORS["native"], "s"),
+    "lightx2v_cr40": ("#56B4E9", "o"),
+    "lightx2v_cr45": ("#56B4E9", "o"),
+    "lightx2v_cr48": ("#56B4E9", "o"),
+    "ralu_quality": ("#CC79A7", "X"),
     "talh40": (COLORS["talh_q"], "o"),
     "talh45": (COLORS["talh_e"], "^"),
-    "full_lr50_stage2_1hr": (COLORS["endpoint"], "D"),
+    "full_lr50_stage2_0hr": ("#009E73", "D"),
+    "full_lr50_stage2_1hr": ("#009E73", "D"),
+    "full_lr50_stage2_2hr": ("#009E73", "D"),
+    "full_lr50_stage2_5hr": ("#009E73", "D"),
 }
+
+
+def pareto_frontier(rows: pd.DataFrame) -> pd.DataFrame:
+    """Return points that are non-dominated for lower latency/higher quality."""
+    ordered = rows.sort_values("pipeline_mean_s")
+    keep: list[str] = []
+    best_quality = -np.inf
+    for case, row in ordered.iterrows():
+        quality = float(row["quality_value"])
+        if quality > best_quality:
+            keep.append(case)
+            best_quality = quality
+    return ordered.loc[keep]
 
 
 def main() -> None:
     apply_publication_style()
-    summary = pd.read_csv(TABLE_DIR / "quality_efficiency_summary.csv").set_index("case")
+    summary = pd.read_csv(WARM_TABLE).set_index("case")
     dimensions = pd.read_csv(TABLE_DIR / "vbench_case_summary.csv")
     dimensions = dimensions.loc[
         dimensions["family"].eq("wan50_quality_efficiency")
     ].set_index("case")
 
-    order = ["full_lr50_stage2_1hr", "talh45", "talh40", "full_hr50"]
     fig, axes = plt.subplots(
         1,
         2,
-        figsize=(7.0, 2.52),
-        gridspec_kw={"width_ratios": [0.90, 1.35], "wspace": 0.30},
+        figsize=(7.0, 2.62),
+        gridspec_kw={"width_ratios": [1.23, 1.0], "wspace": 0.29},
     )
 
-    # (a) Latency and speedup without a custom quality aggregate.
+    # (a) Unified quality--latency comparison and empirical Pareto frontier.
     ax = axes[0]
-    y = np.arange(len(order))
-    latency = summary.loc[order, "elapsed_mean_s"].to_numpy()
-    latency_std = summary.loc[order, "elapsed_std_s"].to_numpy()
-    colors = [POINT_STYLE[case][0] for case in order]
-    ax.barh(y, latency, xerr=latency_std, color=colors, height=0.58, capsize=2)
-    for pos, case, value in zip(y, order, latency):
-        speedup = summary.loc[case, "speedup_vs_full_hr"]
-        ax.text(value + 5, pos, f"{speedup:.2f}x", va="center", fontsize=7.3)
-    panel_title(ax, "a", "End-to-end efficiency")
-    ax.set_xlabel(r"Cold-start latency per video (s)  $\leftarrow$ faster")
-    ax.set_yticks(y)
-    ax.set_yticklabels([DISPLAY[case] for case in order])
-    ax.set_xlim(0, 285)
-    ax.grid(axis="x")
-    ax.grid(axis="y", visible=False)
+    family_paths = {
+        "lightx2v": ["lightx2v_cr48", "lightx2v_cr45", "lightx2v_cr40"],
+        "endpoint": [
+            "full_lr50_stage2_0hr",
+            "full_lr50_stage2_1hr",
+            "full_lr50_stage2_2hr",
+            "full_lr50_stage2_5hr",
+        ],
+        "talh": ["talh45", "talh40"],
+    }
+    for cases in family_paths.values():
+        ax.plot(
+            summary.loc[cases, "pipeline_mean_s"],
+            summary.loc[cases, "quality_value"],
+            color=POINT_STYLE[cases[0]][0],
+            linewidth=0.8,
+            alpha=0.55,
+            zorder=1,
+        )
+
+    frontier = pareto_frontier(summary)
+    ax.plot(
+        frontier["pipeline_mean_s"],
+        frontier["quality_value"],
+        color="#333333",
+        linestyle=(0, (3, 2)),
+        linewidth=1.25,
+        label="Empirical Pareto frontier",
+        zorder=2,
+    )
+
+    for case, row in summary.iterrows():
+        color, marker = POINT_STYLE[case]
+        is_trajscale = case.startswith("talh")
+        ax.errorbar(
+            row["pipeline_mean_s"],
+            row["quality_value"],
+            xerr=row["pipeline_std_s"],
+            fmt=marker,
+            color=color,
+            markerfacecolor=color,
+            markeredgecolor="white",
+            markeredgewidth=0.65,
+            markersize=7.3 if is_trajscale else (6.7 if case == "ralu_quality" else 6.0),
+            ecolor=color,
+            elinewidth=0.7,
+            capsize=1.7,
+            zorder=4 if is_trajscale else 3,
+        )
+
+    annotations = {
+        "full_hr50": ("Native-HR", (-5, -13), "right"),
+        "lightx2v_cr40": ("L40", (-4, 7), "right"),
+        "lightx2v_cr45": ("L45", (5, -1), "left"),
+        "lightx2v_cr48": ("L48", (4, -8), "left"),
+        "ralu_quality": ("RALU-Q", (8, -12), "left"),
+        "full_lr50_stage2_0hr": ("0 HR", (4, -10), "left"),
+        "full_lr50_stage2_1hr": ("1 HR", (4, -10), "left"),
+        "full_lr50_stage2_2hr": ("2 HR", (-3, 10), "right"),
+        "full_lr50_stage2_5hr": ("5 HR", (7, -20), "left"),
+    }
+    for case, (label, offset, alignment) in annotations.items():
+        row = summary.loc[case]
+        ax.annotate(
+            label,
+            (row["pipeline_mean_s"], row["quality_value"]),
+            xytext=offset,
+            textcoords="offset points",
+            ha=alignment,
+            va="baseline",
+            fontsize=6.5,
+            fontweight="normal",
+            color=COLORS["text"],
+            zorder=5,
+        )
+
+    for case, label, label_xy in [
+        ("talh45", "TrajScale-45", (49.0, 0.8170)),
+        ("talh40", "TrajScale-40", (76.0, 0.8130)),
+    ]:
+        row = summary.loc[case]
+        ax.annotate(
+            label,
+            (row["pipeline_mean_s"], row["quality_value"]),
+            xytext=label_xy,
+            textcoords="data",
+            ha="center",
+            va="center",
+            fontsize=6.5,
+            fontweight="bold",
+            color=POINT_STYLE[case][0],
+            arrowprops={
+                "arrowstyle": "-",
+                "color": POINT_STYLE[case][0],
+                "linewidth": 0.65,
+                "shrinkA": 2,
+                "shrinkB": 4,
+            },
+            zorder=5,
+        )
+
+    handles = [
+        plt.Line2D([], [], color="#333333", linestyle=(0, (3, 2)), label="Pareto"),
+        plt.Line2D([], [], color="#56B4E9", marker="o", linestyle="", label="LightX2V"),
+        plt.Line2D([], [], color="#CC79A7", marker="X", linestyle="", label="RALU"),
+        plt.Line2D([], [], color="#009E73", marker="D", linestyle="", label="Post-Gen."),
+    ]
+    ax.legend(
+        handles=handles,
+        loc="lower right",
+        ncol=2,
+        columnspacing=0.8,
+        handletextpad=0.4,
+        borderaxespad=0.2,
+    )
+    panel_title(ax, "a", "Quality--latency Pareto frontier")
+    ax.set_xlabel(r"Warm-model latency per video (s)  $\leftarrow$ faster")
+    ax.set_ylabel(r"VBench-5  $\uparrow$")
+    ax.set_xlim(20, 196)
+    ax.set_ylim(0.758, 0.835)
+    ax.set_xticks([25, 50, 100, 150, 190])
+    ax.grid(axis="both")
 
     # (b) All six original VBench dimensions relative to Native-HR.
     ax = axes[1]
@@ -87,7 +221,7 @@ def main() -> None:
         positions - width / 2,
         delta_q,
         width,
-        label="TrajScale-Q",
+        label="TrajScale-40",
         color=COLORS["talh_q"],
         hatch="///",
         edgecolor="white",
@@ -97,7 +231,7 @@ def main() -> None:
         positions + width / 2,
         delta_e,
         width,
-        label="TrajScale-E",
+        label="TrajScale-45",
         color=COLORS["talh_e"],
         hatch="\\\\",
         edgecolor="white",
@@ -113,7 +247,7 @@ def main() -> None:
     ax.grid(axis="y")
     ax.grid(axis="x", visible=False)
 
-    fig.subplots_adjust(left=0.105, right=0.995, bottom=0.23, top=0.86)
+    fig.subplots_adjust(left=0.075, right=0.995, bottom=0.23, top=0.86)
     pdf_path, png_path = save_figure(fig, "fig_quality_efficiency")
     plt.close(fig)
     print(f"Saved: {pdf_path}")

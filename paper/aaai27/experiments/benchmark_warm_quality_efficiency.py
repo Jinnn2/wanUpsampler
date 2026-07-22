@@ -20,13 +20,11 @@ MEASUREMENT = "warm_model_single_video_end_to_end"
 DEFAULT_CASE_ORDER = (
     "full_hr50",
     "lightx2v_cr40",
-    "ralu_nt40",
     "talh40",
     "lightx2v_cr45",
-    "ralu_nt45",
+    "ralu_quality",
     "talh45",
     "lightx2v_cr48",
-    "ralu_nt48",
     "full_lr50_stage2_0hr",
     "full_lr50_stage2_1hr",
     "full_lr50_stage2_2hr",
@@ -35,6 +33,9 @@ DEFAULT_CASE_ORDER = (
 IMPLEMENTATION_FILES = (
     BATCH_RUNNER,
     REPO_ROOT / "changing_resolution/lightx2v_clean_bridge.py",
+    REPO_ROOT / "changing_resolution/ralu_nt_math.py",
+    REPO_ROOT / "changing_resolution/ralu_wan_state.py",
+    REPO_ROOT / "changing_resolution/ralu_wan_quality.py",
     REPO_ROOT / "changing_resolution/dynamic_lora.py",
 )
 
@@ -514,6 +515,7 @@ def summarize_all(
                 "method": case.get("method", protocol.get("method", "NA")),
                 "measurement": MEASUREMENT,
                 "lr_evaluations": case.get("lr_evaluations", "NA"),
+                "mixed_evaluations": case.get("mixed_evaluations", 0),
                 "hr_evaluations": case.get("hr_evaluations", "NA"),
                 "total_evaluations": case.get("total_evaluations", "NA"),
                 "handoff_step": none_as_empty(case.get("handoff_step")),
@@ -649,8 +651,8 @@ def display_name(case: dict[str, Any]) -> str:
         return f"TrajScale-{name.removeprefix('talh')}"
     if name.startswith("lightx2v_cr"):
         return f"LightX2V-{name.removeprefix('lightx2v_cr')}"
-    if name.startswith("ralu_nt"):
-        return f"RALU-{name.removeprefix('ralu_nt')}"
+    if name == "ralu_quality":
+        return "RALU-Quality"
     if name.startswith("full_lr50_stage2_") and name.endswith("hr"):
         steps = name.removeprefix("full_lr50_stage2_").removesuffix("hr")
         return f"Endpoint-{steps}HR"

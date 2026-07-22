@@ -43,7 +43,7 @@ class WarmQualityEfficiencyTest(unittest.TestCase):
         manifest = {
             "cases": [
                 {"name": "talh45"},
-                {"name": "ralu_nt45"},
+                {"name": "ralu_quality"},
                 {"name": "full_hr50"},
                 {"name": "lightx2v_cr45"},
             ]
@@ -51,14 +51,14 @@ class WarmQualityEfficiencyTest(unittest.TestCase):
         selected = select_cases(manifest, None)
         self.assertEqual(
             [case["name"] for case in selected],
-            ["full_hr50", "lightx2v_cr45", "ralu_nt45", "talh45"],
+            ["full_hr50", "lightx2v_cr45", "ralu_quality", "talh45"],
         )
 
     def test_paper_display_names_hide_internal_talh_ids(self) -> None:
         self.assertEqual(display_name({"name": "talh40"}), "TrajScale-40")
         self.assertEqual(display_name({"name": "talh45"}), "TrajScale-45")
         self.assertEqual(display_name({"name": "lightx2v_cr45"}), "LightX2V-45")
-        self.assertEqual(display_name({"name": "ralu_nt45"}), "RALU-45")
+        self.assertEqual(display_name({"name": "ralu_quality"}), "RALU-Quality")
         self.assertEqual(
             display_name({"name": "full_lr50_stage2_5hr"}), "Endpoint-5HR"
         )

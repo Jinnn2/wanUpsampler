@@ -1,0 +1,104 @@
+{
+  "schema_version": 2,
+  "protocol": {
+    "measurement": "cold_start_single_video_end_to_end",
+    "prompt_count_per_process": 1,
+    "fixed_seed": 15000,
+    "quality_dimensions": [
+      "subject_consistency",
+      "background_consistency",
+      "motion_smoothness",
+      "aesthetic_quality",
+      "imaging_quality"
+    ],
+    "dynamic_degree_reported_separately": true,
+    "same_model_prompt_seed_frames_resolution": true
+  },
+  "cases": [
+    {
+      "family": "wan50",
+      "name": "talh40",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_tail_skip_lora_clean_resizer_bridge --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/talh40.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/talh40 --name_prefix talh40 --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.809830280689221,
+      "quality_components": {
+        "subject_consistency": 0.9271303183212877,
+        "background_consistency": 0.9594680786132812,
+        "motion_smoothness": 0.9797514623397436,
+        "aesthetic_quality": 0.5945104956626892,
+        "imaging_quality": 0.5882910485091033
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "talh",
+        "lr_evaluations": 40,
+        "hr_evaluations": 10,
+        "total_evaluations": 50,
+        "handoff_step": 40,
+        "refinement_steps": null,
+        "reschedule_mode": "canonical"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "talh45",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_tail_skip_lora_clean_resizer_bridge --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/talh45.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/talh45 --name_prefix talh45 --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8079196316471121,
+      "quality_components": {
+        "subject_consistency": 0.9235872932523489,
+        "background_consistency": 0.9584420776367187,
+        "motion_smoothness": 0.9795687867254272,
+        "aesthetic_quality": 0.5803168714046478,
+        "imaging_quality": 0.5976831292164178
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "talh",
+        "lr_evaluations": 45,
+        "hr_evaluations": 5,
+        "total_evaluations": 50,
+        "handoff_step": 45,
+        "refinement_steps": null,
+        "reschedule_mode": "canonical"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    }
+  ],
+  "rerun": {
+    "reason": "resident step-local LoRA with zero-strength compute bypass",
+    "source_spec": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_spec.json",
+    "source_spec_sha256": "1d032d1f9c02c62f5f6546e81b28021c53319aa3055e332f33af9b3b4372abf1",
+    "optimization_files": [
+      {
+        "path": "/mnt/afs_2/houze/wanUpsampler/changing_resolution/dynamic_lora.py",
+        "size_bytes": 1938,
+        "sha256": "7b8bd7b8a79004a6dfa4fb52364b471ee92729271423d8cce090b057718cd814"
+      },
+      {
+        "path": "/mnt/afs_2/houze/wanUpsampler/changing_resolution/lightx2v_clean_bridge.py",
+        "size_bytes": 42838,
+        "sha256": "e0e9d04867be2176d9ab6e210f29983e4377c0139d83f90bfbacbf9eaca2512d"
+      }
+    ],
+    "cases": [
+      "talh40",
+      "talh45"
+    ],
+    "physical_gpu": 0,
+    "source_physical_gpu": 0,
+    "warmup": 1,
+    "repeats": 5
+  }
+}

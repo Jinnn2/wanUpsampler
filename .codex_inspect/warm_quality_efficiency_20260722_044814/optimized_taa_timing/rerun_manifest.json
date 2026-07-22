@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-07-21T19:02:33.482514+00:00",
+  "reason": "optimized zero-strength LoRA bypass timing rerun",
+  "quality_outputs_reused": true,
+  "vbench_reused": true,
+  "settings": {
+    "physical_gpu": 0,
+    "source_physical_gpu": 0,
+    "warmup": 1,
+    "repeats": 5,
+    "cases": [
+      "talh40",
+      "talh45"
+    ],
+    "resume": true,
+    "cross_gpu_merge": false
+  },
+  "inputs": {
+    "source_spec": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_spec.json",
+      "size_bytes": 26605,
+      "sha256": "1d032d1f9c02c62f5f6546e81b28021c53319aa3055e332f33af9b3b4372abf1"
+    },
+    "source_summary": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/quality_efficiency.csv",
+      "size_bytes": 17595,
+      "sha256": "901b126a1ff9613f688bc803ed60219415b6c1d0e088b6361b21d1258c832439"
+    },
+    "source_raw": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/quality_efficiency_raw.csv",
+      "size_bytes": 5599,
+      "sha256": "0b9c8684a4b37ae3260a325dd791ae02bf4cb07c867962c47c74dc51835893ff"
+    },
+    "optimization_files": [
+      {
+        "path": "/mnt/afs_2/houze/wanUpsampler/changing_resolution/dynamic_lora.py",
+        "size_bytes": 1938,
+        "sha256": "7b8bd7b8a79004a6dfa4fb52364b471ee92729271423d8cce090b057718cd814"
+      },
+      {
+        "path": "/mnt/afs_2/houze/wanUpsampler/changing_resolution/lightx2v_clean_bridge.py",
+        "size_bytes": 42838,
+        "sha256": "e0e9d04867be2176d9ab6e210f29983e4377c0139d83f90bfbacbf9eaca2512d"
+      }
+    ]
+  },
+  "outputs": {
+    "filtered_spec": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/optimized_taa_timing/benchmark_spec_talh_optimized.json",
+      "size_bytes": 5361,
+      "sha256": "000093f3af8caa73c0335043892936db7612d9634481db8137f8ead6010acb40"
+    },
+    "partial_summary": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/optimized_taa_timing/quality_efficiency_talh_optimized.csv",
+      "size_bytes": 2935,
+      "sha256": "eaa0b4e353bda4f858e20b665fa33171924a17e863d7a0cbd0e1123d272e509f"
+    },
+    "partial_raw": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/optimized_taa_timing/quality_efficiency_talh_optimized_raw.csv",
+      "size_bytes": 1629,
+      "sha256": "53256931c2f83e3cc679cdbdfe52cfd9ac5b978d1cccc34e2dc298294564d3a9"
+    },
+    "merged_summary": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/optimized_taa_timing/quality_efficiency_optimized_merged.csv",
+      "size_bytes": 17594,
+      "sha256": "ef333b839fea5937eddcb1cf12520ca7413926ae40664fd84e5aa48433cb8e83"
+    },
+    "merged_raw": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/optimized_taa_timing/quality_efficiency_optimized_merged_raw.csv",
+      "size_bytes": 6618,
+      "sha256": "604a7f6df3a288852ecfe548b4bbdff3ea855170c010a977b7dcc9ce6d9b817b"
+    },
+    "comparison": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/optimized_taa_timing/talh_timing_before_after.csv",
+      "size_bytes": 287,
+      "sha256": "e2de19769153d578d28d30caef1752e3d9ac33be56ab2deb0157b706ad9b25df"
+    }
+  }
+}

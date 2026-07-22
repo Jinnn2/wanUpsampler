@@ -578,10 +578,19 @@ def inspect_factorial_config(path: Path, case: dict[str, Any]) -> tuple[list[str
         if method == "native":
             if expected_counts != (0, 50, 50):
                 issues.append(f"Native-HR evaluation budget mismatch: {expected_counts!r}")
-        elif method in {"lightx2v", "talh", "ralu"}:
+        elif method in {"lightx2v", "talh"}:
             expected_budget = (expected_step, 50 - int(expected_step or 0), 50)
             if expected_counts != expected_budget:
                 issues.append(f"mixed-resolution evaluation budget mismatch: {expected_counts!r}, expected {expected_budget!r}")
+        elif method == "ralu":
+            mixed_evals = int(case.get("mixed_evaluations", 0))
+            expected_budget = (5, 7, 18)
+            if expected_counts != expected_budget or mixed_evals != 6:
+                issues.append(
+                    "RALU Quality evaluation budget mismatch: "
+                    f"LR/mixed/HR/total={(lr_evals, mixed_evals, hr_evals, total_evals)!r}, "
+                    "expected (5, 6, 7, 18)"
+                )
         elif method == "endpoint":
             refinement_steps = int(case.get("refinement_steps", hr_evals))
             expected_budget = (50, refinement_steps, 50 + refinement_steps)
@@ -596,16 +605,49 @@ def inspect_factorial_config(path: Path, case: dict[str, Any]) -> tuple[list[str
             return [*issues, f"unknown quality-efficiency method: {method!r}"], {"path": str(path)}
         if expected_step is None:
             if config.get("changing_resolution") or config.get("changing_resolution_steps"):
-                issues.append("Native-HR must not enable changing resolution")
+                issues.append(f"{method} must not enable the legacy changing-resolution scheduler")
         elif list(config.get("changing_resolution_steps", [])) != [expected_step]:
             issues.append(f"handoff step mismatch: {config.get('changing_resolution_steps')!r}")
-        if int(config.get("infer_steps", -1)) != 50:
-            issues.append(f"infer_steps mismatch: {config.get('infer_steps')!r}")
+        expected_infer_steps = 18 if method == "ralu" else 50
+        if int(config.get("infer_steps", -1)) != expected_infer_steps:
+            issues.append(
+                f"infer_steps mismatch: {config.get('infer_steps')!r}, expected {expected_infer_steps}"
+            )
         if method == "ralu":
-            if config.get("wan_ralu_adaptation") != "uniform_nt_matching_without_region_adaptive_stage":
+            if config.get("wan_ralu_adaptation") != "full_three_stage_region_adaptive_ntdm":
                 issues.append("RALU adaptation scope is missing or mislabeled")
-            if not 0.0 < float(config.get("wan_ralu_noise_c", 0.0)) <= 0.25:
-                issues.append(f"invalid RALU covariance scale: {config.get('wan_ralu_noise_c')!r}")
+            if list(config.get("wan_ralu_stage_steps", [])) != [5, 6, 7]:
+                issues.append(f"RALU stage steps mismatch: {config.get('wan_ralu_stage_steps')!r}")
+            if list(config.get("wan_ralu_end_times", [])) != [0.3, 0.45, 1.0]:
+                issues.append(f"RALU end times mismatch: {config.get('wan_ralu_end_times')!r}")
+            shifts = list(config.get("wan_ralu_stage_shifts", []))
+            if len(shifts) != 3 or any(float(value) <= 0.0 for value in shifts):
+                issues.append(f"invalid RALU stage shifts: {shifts!r}")
+            if float(config.get("wan_ralu_z", 0.0)) < 2.0:
+                issues.append(f"invalid RALU Z: {config.get('wan_ralu_z')!r}")
+            z_value = float(config.get("wan_ralu_z", 0.0))
+            covariance_c = float(config.get("wan_ralu_covariance_c", -1.0))
+            if z_value >= 2.0 and abs(covariance_c - 1.0 / z_value**2) > 1e-12:
+                issues.append(f"RALU covariance mismatch: c={covariance_c!r}, Z={z_value!r}")
+            if not 0.0 < float(config.get("wan_ralu_up_ratio", 0.0)) < 1.0:
+                issues.append(f"invalid RALU early-upsample ratio: {config.get('wan_ralu_up_ratio')!r}")
+            geometry = (
+                config.get("wan_ralu_low_latent_size"),
+                config.get("wan_ralu_aligned_latent_size"),
+                config.get("wan_ralu_output_latent_size"),
+            )
+            if geometry != ([46, 80], [92, 160], [90, 156]):
+                issues.append(f"RALU geometry-A mismatch: {geometry!r}")
+            expected_ralu_metadata = {
+                "wan_ralu_patch_domain": "wan_packed_1x2x2_raw_latent_tokens",
+                "wan_ralu_mixed_position_ids": "official_coarse_integer_children_half_offset",
+                "wan_ralu_transition_noise": (
+                    "official_unit_for_unchanged_and_I_minus_c11T_for_expanded"
+                ),
+            }
+            for key, expected_value in expected_ralu_metadata.items():
+                if config.get(key) != expected_value:
+                    issues.append(f"RALU {key} mismatch: {config.get(key)!r}")
     else:
         return [*issues, "unsupported case schema in run manifest"], {"path": str(path)}
 
@@ -627,9 +669,17 @@ def inspect_factorial_config(path: Path, case: dict[str, Any]) -> tuple[list[str
         "stage2_use_ema": config.get("wan_clean_resizer_use_ema"),
         "renoise_mode": config.get("wan_distill_bridge_renoise_mode"),
         "final_refine_steps": config.get("wan_final_refine_steps"),
-        "ralu_noise_c": config.get("wan_ralu_noise_c"),
-        "ralu_suffix_shift": config.get("wan_ralu_suffix_shift"),
+        "ralu_stage_steps": config.get("wan_ralu_stage_steps"),
+        "ralu_end_times": config.get("wan_ralu_end_times"),
+        "ralu_stage_shifts": config.get("wan_ralu_stage_shifts"),
+        "ralu_z": config.get("wan_ralu_z"),
+        "ralu_covariance_c": config.get("wan_ralu_covariance_c"),
+        "ralu_up_ratio": config.get("wan_ralu_up_ratio"),
+        "ralu_geometry": config.get("wan_ralu_geometry"),
         "ralu_adaptation": config.get("wan_ralu_adaptation"),
+        "ralu_patch_domain": config.get("wan_ralu_patch_domain"),
+        "ralu_mixed_position_ids": config.get("wan_ralu_mixed_position_ids"),
+        "ralu_transition_noise": config.get("wan_ralu_transition_noise"),
     }
     for key in ("lora_checkpoint", "stage2_checkpoint", "stage2_train_config"):
         value = provenance[key]
@@ -647,7 +697,7 @@ def quality_efficiency_method_from_name(name: str) -> str:
         return "talh"
     if name.startswith("full_lr50_stage2_"):
         return "endpoint"
-    if name.startswith("ralu_nt"):
+    if name == "ralu_quality":
         return "ralu"
     return "unknown"
 

@@ -8,6 +8,8 @@ from dataclasses import asdict
 from pathlib import Path
 from types import SimpleNamespace
 
+import torch
+
 from paper.aaai27.experiments.aggregate_human_review import summarize_prompt_majorities
 from paper.aaai27.experiments.compile_vbench_paired_statistics import per_video_values
 from paper.aaai27.experiments.collect_results import inspect_factorial_config
@@ -16,7 +18,9 @@ from paper.aaai27.experiments.run_final_quality_efficiency import build_cases as
 from paper.aaai27.experiments.run_final_quality_efficiency import build_analysis_pairs
 from paper.aaai27.experiments.run_final_quality_efficiency import write_config as write_efficiency_config
 from paper.aaai27.experiments.run_step40_strength_factorial import build_cases as build_strength_cases
-from changing_resolution.ralu_nt_math import ralu_transition_coefficients, shifted_sigma_suffix
+from changing_resolution.ralu_nt_math import ralu_resume_parameters, ralu_stage_sigmas
+from changing_resolution.ralu_wan_state import first_ralu_handoff, second_ralu_handoff
+from wan_sr.schedulers.ralu_nt import exact_grouped_projection_noise
 
 
 class Step40StrengthSuiteTest(unittest.TestCase):
@@ -82,7 +86,7 @@ class FinalQualityEfficiencySuiteTest(unittest.TestCase):
     def test_protocol_contains_unified_pareto_sweeps(self) -> None:
         args = SimpleNamespace(step40_strength=0.75, step45_strength=0.75)
         cases = {case.name: case for case in build_efficiency_cases(args)}
-        self.assertEqual(len(cases), 13)
+        self.assertEqual(len(cases), 11)
         self.assertEqual(cases["full_hr50"].total_evaluations, 50)
         self.assertEqual(cases["lightx2v_cr48"].hr_evaluations, 2)
         self.assertEqual(cases["talh40"].hr_evaluations, 10)
@@ -90,12 +94,20 @@ class FinalQualityEfficiencySuiteTest(unittest.TestCase):
         self.assertEqual(cases["full_lr50_stage2_1hr"].lr_evaluations, 50)
         self.assertEqual(cases["full_lr50_stage2_1hr"].total_evaluations, 51)
         self.assertEqual(cases["full_lr50_stage2_5hr"].total_evaluations, 55)
-        self.assertEqual(cases["ralu_nt40"].reschedule_mode, "ralu_eq7_truncated_shifted_suffix")
+        self.assertEqual(cases["ralu_quality"].lr_evaluations, 5)
+        self.assertEqual(cases["ralu_quality"].mixed_evaluations, 6)
+        self.assertEqual(cases["ralu_quality"].hr_evaluations, 7)
+        self.assertEqual(cases["ralu_quality"].total_evaluations, 18)
+        self.assertEqual(
+            cases["ralu_quality"].reschedule_mode,
+            "ralu_three_stage_ntdm_region_adaptive",
+        )
 
         pairs = build_analysis_pairs(list(cases.values()))
         pair_names = {pair["comparison"] for pair in pairs}
-        self.assertIn("lightx2v_cr40_vs_ralu_nt40", pair_names)
-        self.assertIn("ralu_nt40_vs_talh40", pair_names)
+        self.assertIn("lightx2v_cr40_vs_talh40", pair_names)
+        self.assertIn("ralu_quality_vs_lightx2v_cr45", pair_names)
+        self.assertIn("ralu_quality_vs_talh45", pair_names)
         self.assertIn("full_lr50_stage2_2hr_vs_full_lr50_stage2_5hr", pair_names)
 
     def test_writes_full_lr_refinement_and_full_hr_configs(self) -> None:
@@ -128,7 +140,7 @@ class FinalQualityEfficiencySuiteTest(unittest.TestCase):
             write_efficiency_config(full_hr_path, args, cases["full_hr50"])
             write_efficiency_config(full_lr_path, args, cases["full_lr50_stage2_1hr"])
             write_efficiency_config(lightx2v_path, args, cases["lightx2v_cr40"])
-            write_efficiency_config(ralu_path, args, cases["ralu_nt40"])
+            write_efficiency_config(ralu_path, args, cases["ralu_quality"])
             full_hr = json.loads(full_hr_path.read_text(encoding="utf-8"))
             full_lr = json.loads(full_lr_path.read_text(encoding="utf-8"))
             lightx2v = json.loads(lightx2v_path.read_text(encoding="utf-8"))
@@ -138,10 +150,25 @@ class FinalQualityEfficiencySuiteTest(unittest.TestCase):
             self.assertEqual(full_lr["wan_final_refine_steps"], 1)
             self.assertEqual(full_lr["wan_final_refine_shift_increment"], 1.0)
             self.assertNotIn("wan_clean_resizer_ckpt", lightx2v)
-            self.assertEqual(ralu["wan_ralu_noise_c"], 0.25)
+            self.assertNotIn("changing_resolution", ralu)
+            self.assertEqual(ralu["infer_steps"], 18)
+            self.assertEqual(ralu["wan_ralu_stage_steps"], [5, 6, 7])
+            self.assertEqual(ralu["wan_ralu_end_times"], [0.3, 0.45, 1.0])
+            self.assertEqual(ralu["wan_ralu_z"], 100.0)
+            self.assertEqual(ralu["wan_ralu_low_latent_size"], [46, 80])
+            self.assertEqual(ralu["wan_ralu_aligned_latent_size"], [92, 160])
+            self.assertEqual(ralu["wan_ralu_output_latent_size"], [90, 156])
+            self.assertEqual(
+                ralu["wan_ralu_mixed_position_ids"],
+                "official_coarse_integer_children_half_offset",
+            )
+            self.assertEqual(
+                ralu["wan_ralu_transition_noise"],
+                "official_unit_for_unchanged_and_I_minus_c11T_for_expanded",
+            )
             self.assertEqual(
                 ralu["wan_ralu_adaptation"],
-                "uniform_nt_matching_without_region_adaptive_stage",
+                "full_three_stage_region_adaptive_ntdm",
             )
             full_hr_issues, _ = inspect_factorial_config(full_hr_path, asdict(cases["full_hr50"]))
             full_lr_issues, _ = inspect_factorial_config(
@@ -150,7 +177,7 @@ class FinalQualityEfficiencySuiteTest(unittest.TestCase):
             lightx2v_issues, _ = inspect_factorial_config(
                 lightx2v_path, asdict(cases["lightx2v_cr40"])
             )
-            ralu_issues, _ = inspect_factorial_config(ralu_path, asdict(cases["ralu_nt40"]))
+            ralu_issues, _ = inspect_factorial_config(ralu_path, asdict(cases["ralu_quality"]))
             self.assertEqual(full_hr_issues, [])
             self.assertEqual(full_lr_issues, [])
             self.assertEqual(lightx2v_issues, [])
@@ -163,17 +190,72 @@ class FinalQualityEfficiencySuiteTest(unittest.TestCase):
 
 
 class RALUNTMatchingTest(unittest.TestCase):
-    def test_eq7_coefficients_and_shifted_suffix(self) -> None:
-        resume, upsample_weight, noise_weight = ralu_transition_coefficients(0.4, 0.25)
-        self.assertAlmostEqual(resume, 0.25)
-        self.assertAlmostEqual(upsample_weight, 0.625)
-        self.assertAlmostEqual(noise_weight, 0.75)
+    def test_quality_resume_coefficients_and_stage_schedule(self) -> None:
+        resume, upsample_weight, noise_weight = ralu_resume_parameters(0.3, 100.0)
+        self.assertAlmostEqual(resume, 0.3 / 70.3)
+        self.assertAlmostEqual(noise_weight, 1.0 - resume)
+        self.assertAlmostEqual(upsample_weight, 1.0 / 70.3)
 
-        suffix = shifted_sigma_suffix(1.0 - resume, num_steps=5, shift=8.0)
-        self.assertEqual(len(suffix), 6)
-        self.assertAlmostEqual(suffix[0], 0.75)
-        self.assertEqual(suffix[-1], 0.0)
-        self.assertTrue(all(left > right for left, right in zip(suffix, suffix[1:])))
+        stage = ralu_stage_sigmas(
+            start_data_time=resume,
+            end_data_time=0.45,
+            num_steps=6,
+            shift=8.8787,
+        )
+        self.assertEqual(len(stage), 7)
+        self.assertAlmostEqual(stage[0], 1.0 - resume)
+        self.assertAlmostEqual(stage[-1], 0.55)
+        self.assertTrue(all(left > right for left, right in zip(stage, stage[1:])))
+
+    def test_exact_projection_noise_matches_block_covariance(self) -> None:
+        generator = torch.Generator().manual_seed(123)
+        reference = torch.empty(100_000, 4, 1)
+        noise = exact_grouped_projection_noise(
+            reference,
+            covariance_scale=0.025,
+            generator=generator,
+        ).squeeze(-1)
+        covariance = torch.cov(noise.T)
+        self.assertTrue(torch.allclose(covariance.diag(), torch.full((4,), 0.975), atol=0.012))
+        off_diagonal = covariance[~torch.eye(4, dtype=torch.bool)]
+        self.assertAlmostEqual(float(off_diagonal.mean()), -0.025, delta=0.006)
+        identity_noise = exact_grouped_projection_noise(
+            torch.empty(100_000, 1, 1),
+            group_size=1,
+            covariance_scale=0.025,
+            generator=generator,
+        )
+        self.assertAlmostEqual(float(identity_noise.var()), 0.975, delta=0.012)
+
+    def test_geometry_a_mixed_tokens_cover_aligned_grid_before_crop(self) -> None:
+        latent = torch.arange(16, dtype=torch.float32).reshape(1, 1, 4, 4)
+        mask = torch.tensor([[True, False], [False, False]])
+        generator = torch.Generator().manual_seed(7)
+        state = first_ralu_handoff(
+            latent,
+            mask,
+            end_data_time=0.3,
+            z_value=100.0,
+            generator=generator,
+        )
+        self.assertEqual(state.coarse_count, 3)
+        self.assertEqual(state.values.shape, (7, 4))
+        self.assertEqual(state.fine_indices.unique().numel(), 4)
+        self.assertTrue(torch.all(state.coords[:, 1:] >= 0))
+        self.assertTrue(torch.all(state.coords[:, 1:] <= 1.5))
+        self.assertTrue(torch.all(state.coords[: state.coarse_count, 1:].remainder(1) == 0.0))
+        fine_coords = state.coords[state.coarse_count :, 1:]
+        self.assertTrue(torch.all((fine_coords * 2).remainder(1) == 0.0))
+        self.assertTrue(torch.any(fine_coords.remainder(1) == 0.5))
+
+        output = second_ralu_handoff(
+            state,
+            end_data_time=0.45,
+            z_value=100.0,
+            generator=generator,
+            output_latent_size=(6, 6),
+        )
+        self.assertEqual(output.shape, (1, 1, 6, 6))
 
 
 class VBenchPairedStatisticsTest(unittest.TestCase):

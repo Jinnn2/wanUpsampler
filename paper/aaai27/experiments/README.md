@@ -275,21 +275,25 @@ each comparison/dimension. Select the final step40 strength from the complete
 endpoint/VBench/human evidence, then pass it to the unified Pareto benchmark
 through the environment. Both final Wan50 strengths default to 0.75; keep the
 explicit environment overrides below when freezing a reproducible run. The
-default 13 cases share model, prompts, seeds, frame count, and output
+default 11 cases share model, prompts, seeds, frame count, and output
 resolution:
 
 - Native-HR50;
 - LightX2V changing-resolution handoffs at steps 40, 45, and 48;
 - TALH handoffs at steps 40 and 45;
 - Full-LR50 + CLL with 0, 1, 2, and 5 additional HR refinements;
-- uniform RALU-style NT-matching adaptations at steps 40, 45, and 48.
+- one full RALU Quality adaptation with 5 LR, 6 mixed-resolution, and 7 HR
+  evaluations.
 
 Every Endpoint case retains the canonical 50-step LR schedule, lifts the clean
 endpoint once, and then performs exactly K extra evaluations on the final K
-timesteps of the HR-shifted schedule. The RALU-style cases implement the
-single-transition analytical noise/timestep re-entry and a truncated shifted
-HR suffix; they are explicitly not labeled as the full region-adaptive RALU
-pipeline.
+timesteps of the HR-shifted schedule. The RALU case implements the complete
+three-stage region-adaptive pipeline: VAE/Canny top-r edge selection, packed
+mixed-resolution Wan `1x2x2` latent tokens, official integer/half-offset
+position IDs, unit noise on unchanged tokens, correlated `I-c11^T` noise on
+expanded four-token groups, both analytical noise/timestep transitions, and
+geometry A (368x640 to aligned 736x1280, followed by a patch-aligned crop to
+720x1248 at the second handoff).
 
 ```bash
 WAN50_LORA40_STRENGTH_FINAL=0.75 WAN50_LORA45_STRENGTH_FINAL=0.75 \
@@ -302,12 +306,12 @@ python paper/aaai27/experiments/run_experiments.py run \
 ```
 
 The benchmark uses one warm-up and five measured fresh processes per case.
-It records LR/HR/total denoiser evaluations, cold-start latency, raw repeats,
+It records LR/mixed/HR/total denoiser evaluations, cold-start latency, raw repeats,
 whole-process peak GPU memory, individual VBench components, and the explicitly
 labeled five-dimension convenience mean.
 
 After the zero-strength dynamic-LoRA bypass optimization, rerun only the two
-affected TALH timing cases and merge them into the existing 13-case table with:
+affected TALH timing cases and merge them into the existing 11-case table with:
 
 ```bash
 python paper/aaai27/experiments/rerun_optimized_taa_timing.py \
@@ -318,7 +322,7 @@ python paper/aaai27/experiments/rerun_optimized_taa_timing.py \
 ```
 
 The script inherits the physical GPU identifier from the existing summary, so
-the replacement rows remain comparable with the other eleven cases. Raw timing
+the replacement rows remain comparable with the other nine cases. Raw timing
 rows are checkpointed after every fresh process; rerunning the same command
 resumes missing warm-up or measured repeats. Outputs are written under
 `optimized_taa_timing/` and the original CSVs are never overwritten.
@@ -330,7 +334,8 @@ python paper/aaai27/experiments/run_final_quality_efficiency.py check \
   --methods lightx2v endpoint ralu \
   --lightx2v-handoff-steps 40 45 48 \
   --endpoint-refinement-steps 0 1 2 5 \
-  --ralu-handoff-steps 40 45 48
+  --ralu-stage-steps 5 6 7 \
+  --ralu-end-times 0.30 0.45 1.0
 ```
 
 Step45 ratings are isolated from the existing step40 package, so preparing

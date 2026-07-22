@@ -2,7 +2,8 @@
 
 ## Current source of truth
 
-- `main.tex` + `body_trajscale.tex`: current AAAI-27 submission source. `main.tex` directly inputs `body_trajscale.tex`; this is the source used for every current PDF export.
+- `main.tex` + `body_trajscale_no_TRR_revised.tex`: current AAAI-27 submission source. `main.tex` directly inputs `body_trajscale_no_TRR_revised.tex`; these files are used for every current PDF export.
+- `body_trajscale.tex`: archived pre-revision TrajScale body retained for comparison; it is not included by `main.tex`.
 - `body_polished.tex`: archived pre-TrajScale version retained for terminology and prose comparison; it is no longer included by `main.tex`.
 - `main_polished.md`: earlier full-length English writing source. It is retained for prose comparison but is no longer synchronized with the condensed LaTeX submission source.
 - `body_polished_restored.tex`: archived restored full-length LaTeX body. It is not included by `main.tex`.
@@ -135,14 +136,14 @@ export GPU_ID=0
   --resume
 ```
 
-The complete 13-case run creates 78 timing videos: 13 cases times one warm-up
+The complete 11-case run creates 66 timing videos: 11 cases times one warm-up
 plus five measured videos. `--resume` retains every complete case and reruns
 only an incomplete case from its beginning. It never merges warm latency into
 the cold-start CSVs.
 
 The paper-facing outputs are:
 
-- `quality_efficiency_warm.csv`: 13-case summary with initialization, pipeline,
+- `quality_efficiency_warm.csv`: 11-case summary with initialization, pipeline,
   denoise, memory, speedup, and the reused VBench quality values.
 - `quality_efficiency_warm_raw.csv`: prompt/seed-level warm-up and measured
   timing rows.

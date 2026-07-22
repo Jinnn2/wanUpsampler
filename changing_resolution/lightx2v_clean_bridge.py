@@ -22,15 +22,10 @@ from lightx2v.utils.envs import GET_DTYPE
 from lightx2v.utils.registry_factory import RUNNER_REGISTER
 from lightx2v_platform.base.global_var import AI_DEVICE
 
-from changing_resolution.ralu_nt_math import (
-    ralu_transition_coefficients,
-    shifted_sigma_suffix,
-)
 from changing_resolution.dynamic_lora import (
     collect_registered_lora_branches,
     set_registered_lora_strength,
 )
-from wan_sr.schedulers.ralu_nt import correlated_projection_noise
 
 
 class WanTailSkipLoRAModel(WanModel):
@@ -251,90 +246,6 @@ class WanScheduler4CleanResizerBridge(WanScheduler4ChangingResolution):
             self.infer_steps,
             device=AI_DEVICE,
             shift=self.sample_shift + self.changing_resolution_index + 1,
-        )
-
-
-class WanScheduler4RALUNTBridgeInterface:
-    """Mix a single uniform RALU-style NT transition into a Wan scheduler."""
-
-    def __new__(cls, father_scheduler, config):
-        class NewClass(WanScheduler4RALUNTBridge, father_scheduler):
-            def __init__(self, config):
-                father_scheduler.__init__(self, config)
-                WanScheduler4RALUNTBridge.__init__(self, config)
-
-        return NewClass(config)
-
-
-class WanScheduler4RALUNTBridge(WanScheduler4CleanResizerBridge):
-    """Uniform Wan adaptation of RALU noise--timestep matching.
-
-    This implements the analytical single-transition re-entry in RALU Eq. (7),
-    nearest-neighbor latent upsampling, projected correlated noise, and a
-    truncated shifted-flow HR suffix. It intentionally does not claim or
-    implement RALU's region-adaptive middle stage.
-    """
-
-    def __init__(self, config):
-        super().__init__(config)
-        self.ralu_covariance_scale = float(config.get("wan_ralu_noise_c", 0.25))
-        self.ralu_suffix_shift = float(config.get("wan_ralu_suffix_shift", self.sample_shift))
-        handoff_step = int(config.get("changing_resolution_steps", [self.infer_steps])[0])
-        if handoff_step >= int(self.infer_steps):
-            raise ValueError("RALU-style NT matching requires at least one HR suffix evaluation")
-
-    def step_post_upsample(self):
-        sample = self.latents
-        next_index = self.step_index + 1
-        remaining_steps = self.infer_steps - next_index
-        if remaining_steps < 1:
-            raise RuntimeError("RALU-style handoff has no remaining HR denoising step")
-
-        sigma_end = float(self.sigmas[self.step_index])
-        end_data_time = 1.0 - sigma_end
-        resume_data_time, upsample_weight, noise_weight = ralu_transition_coefficients(
-            end_data_time,
-            self.ralu_covariance_scale,
-        )
-        resume_sigma = 1.0 - resume_data_time
-
-        target_noise = self.latents_list[self.changing_resolution_index + 1]
-        upsampled_state = torch.nn.functional.interpolate(
-            sample.unsqueeze(0),
-            size=target_noise.shape[1:],
-            mode="nearest",
-        ).squeeze(0)
-        projected_noise = correlated_projection_noise(
-            target_noise.to(torch.float32),
-            low_spatial_size=tuple(sample.shape[-2:]),
-            covariance_scale=self.ralu_covariance_scale,
-        )
-        self.latents = (
-            upsample_weight * upsampled_state.to(torch.float32)
-            + noise_weight * projected_noise
-        ).to(dtype=sample.dtype, device=sample.device)
-
-        suffix = shifted_sigma_suffix(
-            resume_sigma,
-            num_steps=remaining_steps,
-            shift=self.ralu_suffix_shift,
-        )
-        suffix_tensor = torch.tensor(suffix, dtype=self.sigmas.dtype, device=self.sigmas.device)
-        self.sigmas[next_index:] = suffix_tensor
-        self.timesteps[next_index:] = (
-            suffix_tensor[:-1].to(device=self.timesteps.device) * self.num_train_timesteps
-        ).to(dtype=self.timesteps.dtype)
-        self.model_outputs = [None] * self.solver_order
-        self.timestep_list = [None] * self.solver_order
-        self.last_sample = None
-        self.lower_order_nums = 0
-        self._begin_index = None
-
-        logger.info(
-            "RALU-style NT handoff: "
-            f"end_data_time={end_data_time:.6f}, resume_data_time={resume_data_time:.6f}, "
-            f"a={upsample_weight:.6f}, b={noise_weight:.6f}, c={self.ralu_covariance_scale:.6f}, "
-            f"remaining_hr_steps={remaining_steps}, suffix_shift={self.ralu_suffix_shift:.6f}"
         )
 
 
@@ -802,23 +713,6 @@ class WanCleanInterpBridgeRunner(WanRunner):
             raise NotImplementedError(f"Unsupported feature_caching type: {self.config.feature_caching}")
 
         self.scheduler = WanScheduler4CleanResizerBridgeInterface(scheduler_class, self.config)
-
-
-@RUNNER_REGISTER("wan2.1_ralu_nt_interp_bridge")
-class WanRALUNTInterpBridgeRunner(WanCleanInterpBridgeRunner):
-    """Training-free uniform RALU NT-matching adaptation for Wan video."""
-
-    def init_scheduler(self):
-        if self.config["feature_caching"] == "NoCaching":
-            scheduler_class = WanScheduler
-        elif self.config["feature_caching"] == "TaylorSeer":
-            scheduler_class = WanSchedulerTaylorCaching
-        elif self.config.feature_caching in ["Tea", "Ada", "Custom", "FirstBlock", "DualBlock", "DynamicBlock", "Mag"]:
-            scheduler_class = WanSchedulerCaching
-        else:
-            raise NotImplementedError(f"Unsupported feature_caching type: {self.config.feature_caching}")
-
-        self.scheduler = WanScheduler4RALUNTBridgeInterface(scheduler_class, self.config)
 
 
 @RUNNER_REGISTER("wan2.1_tail_skip_lora_clean_interp_bridge")
