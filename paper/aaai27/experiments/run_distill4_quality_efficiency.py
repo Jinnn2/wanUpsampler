@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -322,26 +323,36 @@ def write_manifest(
             "generation_gpus": args.gpus,
             "generation_parallelism": "one independent case process per physical GPU",
         },
-        "artifacts": artifact_manifest(args, cases),
+        "artifacts": artifact_manifest(
+            args, cases, root / "artifact_fingerprints.json"
+        ),
     }
     (root / "run_manifest.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
 
 
-def artifact_manifest(args: argparse.Namespace, cases: list[Case]) -> dict[str, Any]:
-    artifacts = {"distill_dit": artifact_fingerprint(Path(args.dit_ckpt))}
+def artifact_manifest(
+    args: argparse.Namespace,
+    cases: list[Case],
+    cache_path: Path | None = None,
+) -> dict[str, Any]:
+    cache = load_artifact_cache(cache_path)
+    artifact_paths = {"distill_dit": Path(args.dit_ckpt)}
     if any(case.resizer == "stage2" for case in cases):
-        artifacts["stage2"] = artifact_fingerprint(Path(args.stage2_checkpoint))
+        artifact_paths["stage2"] = Path(args.stage2_checkpoint)
     if any(case.alignment == "taa" for case in cases):
-        artifacts["lora3"] = artifact_fingerprint(Path(args.lora_checkpoint))
+        artifact_paths["lora3"] = Path(args.lora_checkpoint)
     if (
         any(case.resizer == "rgb" for case in cases)
         and args.rgb_sr_backend == "realesrgan"
     ):
-        artifacts["realesrgan_x2"] = artifact_fingerprint(
-            Path(args.realesrgan_x2_checkpoint)
-        )
+        artifact_paths["realesrgan_x2"] = Path(args.realesrgan_x2_checkpoint)
+    artifacts = {}
+    for name, path in artifact_paths.items():
+        artifacts[name] = artifact_fingerprint(path, cache=cache)
+        if cache_path is not None:
+            write_artifact_cache(cache_path, cache)
     return artifacts
 
 
@@ -549,19 +560,86 @@ def load_prompts(path: Path, offset: int, limit: int) -> list[str]:
     return selected
 
 
-def artifact_fingerprint(path: Path) -> dict[str, Any]:
+def artifact_fingerprint(
+    path: Path, *, cache: dict[str, dict[str, Any]] | None = None
+) -> dict[str, Any]:
     resolved = path.resolve()
     stat = resolved.stat()
+    cache_key = str(resolved)
+    cached = (cache or {}).get(cache_key)
+    if (
+        cached
+        and int(cached.get("size_bytes", -1)) == stat.st_size
+        and int(cached.get("mtime_ns", -1)) == stat.st_mtime_ns
+        and len(str(cached.get("sha256", ""))) == 64
+    ):
+        print(
+            f"[fingerprint:cached] {resolved} ({stat.st_size / (1024**3):.2f} GiB)",
+            flush=True,
+        )
+        return dict(cached)
+
+    print(
+        f"[fingerprint:start] {resolved} ({stat.st_size / (1024**3):.2f} GiB)",
+        flush=True,
+    )
     digest = hashlib.sha256()
+    processed = 0
+    report_interval = max(1024**3, stat.st_size // 20)
+    next_report = report_interval
+    started = time.perf_counter()
     with resolved.open("rb") as handle:
         for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
             digest.update(chunk)
-    return {
+            processed += len(chunk)
+            if processed >= next_report and processed < stat.st_size:
+                elapsed = max(time.perf_counter() - started, 1e-6)
+                print(
+                    f"[fingerprint:progress] {resolved.name}: "
+                    f"{100.0 * processed / stat.st_size:.1f}% "
+                    f"({processed / (1024**3):.1f} GiB, "
+                    f"{processed / (1024**2) / elapsed:.0f} MiB/s)",
+                    flush=True,
+                )
+                next_report += report_interval
+    fingerprint = {
         "path": str(resolved),
         "size_bytes": stat.st_size,
         "mtime_ns": stat.st_mtime_ns,
         "sha256": digest.hexdigest(),
     }
+    if cache is not None:
+        cache[cache_key] = dict(fingerprint)
+    print(
+        f"[fingerprint:done] {resolved.name}: {fingerprint['sha256'][:12]}... "
+        f"in {time.perf_counter() - started:.1f}s",
+        flush=True,
+    )
+    return fingerprint
+
+
+def load_artifact_cache(path: Path | None) -> dict[str, dict[str, Any]]:
+    if path is None or not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        entries = payload.get("entries", {})
+        if not isinstance(entries, dict):
+            raise ValueError("entries must be an object")
+        return entries
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"[fingerprint:cache-warning] Ignore invalid {path}: {exc}", flush=True)
+        return {}
+
+
+def write_artifact_cache(path: Path, entries: dict[str, dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_text(
+        json.dumps({"schema_version": 1, "entries": entries}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(path)
 
 
 def inference_environment(gpu: int) -> dict[str, str]:

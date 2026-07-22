@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 import torch
 
@@ -17,8 +18,11 @@ from paper.aaai27.experiments.benchmark_warm_quality_efficiency import (
 from paper.aaai27.experiments.run_distill4_quality_efficiency import (
     analysis_pairs,
     assign_cases_to_gpus,
+    artifact_fingerprint,
     build_cases,
     inference_environment,
+    load_artifact_cache,
+    write_artifact_cache,
     write_config,
 )
 
@@ -134,6 +138,22 @@ class Distill4SuiteTest(unittest.TestCase):
         self.assertIn("releases/download/v0.2.1/RealESRGAN_x2plus.pth", launcher)
         self.assertIn("AUTO_DOWNLOAD_REALESRGAN", launcher)
         self.assertIn("67061725", launcher)
+
+    def test_artifact_fingerprint_cache_avoids_second_file_read(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifact = root / "weights.bin"
+            artifact.write_bytes(b"distill-checkpoint")
+            cache: dict = {}
+            first = artifact_fingerprint(artifact, cache=cache)
+            cache_path = root / "artifact_fingerprints.json"
+            write_artifact_cache(cache_path, cache)
+            restored = load_artifact_cache(cache_path)
+            with mock.patch.object(
+                Path, "open", side_effect=AssertionError("unexpected checkpoint read")
+            ):
+                second = artifact_fingerprint(artifact, cache=restored)
+            self.assertEqual(first, second)
 
 
 class RGBSuperResolutionTest(unittest.TestCase):
