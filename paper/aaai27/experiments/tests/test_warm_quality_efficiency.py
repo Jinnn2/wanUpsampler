@@ -6,11 +6,14 @@ import unittest
 from pathlib import Path
 
 from paper.aaai27.experiments.benchmark_warm_quality_efficiency import (
+    PAIR_FIELDS,
     display_name,
     protocol_signature,
     select_cases,
     summarize_all,
+    summarize_pairs,
     validate_raw_rows,
+    write_csv_atomic,
 )
 
 
@@ -39,6 +42,34 @@ def video_row(
 
 
 class WarmQualityEfficiencyTest(unittest.TestCase):
+    def test_single_case_rerun_writes_schema_only_pair_table(self) -> None:
+        summary = [{"case": "ralu_quality", "display_name": "RALU-Quality"}]
+        raw = [
+            {
+                "case": "ralu_quality",
+                "phase": "measured",
+                "repeat": 0,
+                "prompt_index": 1,
+                "seed": 101,
+            }
+        ]
+        pairs = summarize_pairs(
+            [
+                {
+                    "comparison": "ralu_quality_vs_talh45",
+                    "left_case": "ralu_quality",
+                    "right_case": "talh45",
+                }
+            ],
+            raw,
+            summary,
+        )
+        self.assertEqual(pairs, [])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "pairs.csv"
+            write_csv_atomic(path, pairs, fieldnames=PAIR_FIELDS)
+            self.assertEqual(path.read_text(encoding="utf-8").splitlines()[0], ",".join(PAIR_FIELDS))
+
     def test_default_order_keeps_direct_competitors_adjacent(self) -> None:
         manifest = {
             "cases": [

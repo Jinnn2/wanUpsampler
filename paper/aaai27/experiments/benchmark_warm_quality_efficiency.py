@@ -38,6 +38,22 @@ IMPLEMENTATION_FILES = (
     REPO_ROOT / "changing_resolution/ralu_wan_quality.py",
     REPO_ROOT / "changing_resolution/dynamic_lora.py",
 )
+PAIR_FIELDS = (
+    "comparison",
+    "left_case",
+    "right_case",
+    "left_display_name",
+    "right_display_name",
+    "paired_repeats",
+    "pipeline_delta_mean_s",
+    "pipeline_delta_ci95_low_s",
+    "pipeline_delta_ci95_high_s",
+    "pipeline_delta_pct_of_left",
+    "denoise_delta_mean_s",
+    "denoise_delta_ci95_low_s",
+    "denoise_delta_ci95_high_s",
+    "denoise_delta_pct_of_left",
+)
 
 
 def main() -> None:
@@ -149,7 +165,10 @@ def main() -> None:
     pair_rows = summarize_pairs(
         source_manifest.get("analysis_pairs", []), raw_rows, summary_rows
     )
-    write_csv_atomic(pairs_path, pair_rows)
+    # A selected single-case rerun has no complete registered comparison.
+    # Keep a schema-only pair table so the timing artifact can still be
+    # validated, resumed, and merged into the full-suite results later.
+    write_csv_atomic(pairs_path, pair_rows, fieldnames=PAIR_FIELDS)
 
     manifest = {
         "schema_version": 1,
@@ -638,8 +657,6 @@ def summarize_pairs(
                 "denoise_delta_pct_of_left": 100.0 * denoise_mean / left_denoise,
             }
         )
-    if not results:
-        raise RuntimeError("No registered analysis pair is complete")
     return results
 
 
@@ -738,17 +755,22 @@ def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
-def write_csv_atomic(path: Path, rows: list[dict[str, Any]]) -> None:
-    if not rows:
+def write_csv_atomic(
+    path: Path,
+    rows: list[dict[str, Any]],
+    *,
+    fieldnames: tuple[str, ...] | list[str] | None = None,
+) -> None:
+    if not rows and not fieldnames:
         raise RuntimeError(f"Refusing to write empty CSV: {path}")
-    fieldnames: list[str] = []
+    resolved_fields = list(fieldnames or [])
     for row in rows:
         for key in row:
-            if key not in fieldnames:
-                fieldnames.append(key)
+            if key not in resolved_fields:
+                resolved_fields.append(key)
     temporary = path.with_name(f".{path.name}.tmp")
     with temporary.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=resolved_fields)
         writer.writeheader()
         writer.writerows(rows)
     temporary.replace(path)
