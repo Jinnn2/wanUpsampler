@@ -56,6 +56,13 @@ SUMMARY_FILES = (
     "quality_efficiency_warm_raw.csv",
     "quality_efficiency_warm_pairs.csv",
 )
+WARM_ARTIFACTS = {
+    "quality_efficiency_warm.csv",
+    "quality_efficiency_warm_raw.csv",
+    "quality_efficiency_warm_pairs.csv",
+    "warm_timing_manifest.json",
+    "protocol.json",
+}
 
 
 def main() -> None:
@@ -135,11 +142,11 @@ def collect_quality_efficiency(
                 copy_file(source, staging / "suite/configs" / source.name, staging, copied)
 
         for name in ("benchmark_spec.json", "protocol.json", "warm_timing_manifest.json"):
-            source = suite_root / name
+            source = resolve_suite_artifact(suite_root, name)
             if source.is_file():
                 copy_file(source, staging / "suite" / name, staging, copied)
         for name in SUMMARY_FILES:
-            source = suite_root / name
+            source = resolve_suite_artifact(suite_root, name)
             if source.is_file():
                 copy_file(source, staging / "suite" / name, staging, copied)
         copy_tree_if_present(suite_root / "metrics", staging / "suite/metrics", staging, copied)
@@ -327,8 +334,13 @@ def inspect_summaries(
         "metrics/vbench_v1_custom.json": require_metrics,
     }
     for relative, required in requirements.items():
-        path = suite_root / relative
-        entry: dict[str, Any] = {"path": str(path), "required": required, "status": "missing"}
+        path = resolve_suite_artifact(suite_root, relative)
+        entry: dict[str, Any] = {
+            "path": str(path),
+            "canonical_relative_path": relative,
+            "required": required,
+            "status": "missing",
+        }
         if path.is_file():
             entry.update({"status": "present", "size_bytes": path.stat().st_size, "sha256": sha256(path)})
             if path.suffix.lower() == ".csv":
@@ -350,6 +362,16 @@ def inspect_summaries(
             issues.append(f"required result is missing: {relative}")
         inventory[relative] = entry
     return inventory, issues
+
+
+def resolve_suite_artifact(suite_root: Path, relative: str) -> Path:
+    """Resolve canonical outputs, including the warm benchmark's default subdirectory."""
+
+    direct = suite_root / relative
+    if direct.is_file() or relative not in WARM_ARTIFACTS:
+        return direct
+    nested = suite_root / "warm_quality_efficiency" / relative
+    return nested if nested.is_file() else direct
 
 
 def csv_cases(path: Path) -> set[str]:

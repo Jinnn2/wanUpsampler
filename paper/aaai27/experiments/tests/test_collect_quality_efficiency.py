@@ -119,6 +119,28 @@ class QualityEfficiencyCollectionTest(unittest.TestCase):
             self.assertFalse(any("quality_efficiency.csv case coverage mismatch" in issue for issue in issues))
             self.assertTrue(any("quality_efficiency_warm.csv" in issue for issue in issues))
 
+    def test_standard_nested_warm_output_is_recognized(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "warm_quality_efficiency/quality_efficiency_warm.csv"
+            path.parent.mkdir(parents=True)
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=["case", "elapsed_mean_s"])
+                writer.writeheader()
+                writer.writerow({"case": "a", "elapsed_mean_s": "1"})
+
+            inventory, issues = inspect_summaries(
+                root,
+                expected_cases={"a"},
+                require_metrics=False,
+                require_timing=True,
+            )
+
+            warm = inventory["quality_efficiency_warm.csv"]
+            self.assertEqual(warm["status"], "present")
+            self.assertEqual(Path(warm["path"]), path)
+            self.assertFalse(any("quality_efficiency_warm.csv" in issue for issue in issues))
+
 
 if __name__ == "__main__":
     unittest.main()
