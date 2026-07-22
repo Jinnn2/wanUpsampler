@@ -572,16 +572,19 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.ralu_stage_steps != [5, 6, 7]:
         parser.error("this entrypoint is fixed to the RALU Quality stage steps 5 6 7")
-    if not (0.0 < args.ralu_end_times[0] < args.ralu_end_times[1] < args.ralu_end_times[2] == 1.0):
-        parser.error("--ralu-end-times must satisfy 0 < e1 < e2 < e3=1")
-    if any(value <= 0.0 for value in args.ralu_stage_shifts):
-        parser.error("--ralu-stage-shifts must be positive")
-    if args.ralu_z < 2.0:
-        parser.error("--ralu-z must be at least 2")
-    if not 0.0 < args.ralu_up_ratio < 1.0:
-        parser.error("--ralu-up-ratio must be in (0,1)")
-    if not 0.0 <= args.ralu_edge_temporal_quantile <= 1.0:
-        parser.error("--ralu-edge-temporal-quantile must be in [0,1]")
+    if args.ralu_end_times != [0.3, 0.45, 1.0]:
+        parser.error("RALU Quality is fixed to --ralu-end-times 0.3 0.45 1.0")
+    expected_shifts = [10.0, 8.8787, 5.3374]
+    if any(abs(value - expected) > 1e-6 for value, expected in zip(args.ralu_stage_shifts, expected_shifts)):
+        parser.error("RALU Quality is fixed to --ralu-stage-shifts 10.0 8.8787 5.3374")
+    if abs(args.ralu_z - 100.0) > 1e-12:
+        parser.error("RALU Quality is fixed to --ralu-z 100")
+    if abs(args.ralu_up_ratio - 0.3) > 1e-12:
+        parser.error("RALU Quality is fixed to --ralu-up-ratio 0.3")
+    if abs(args.ralu_edge_temporal_quantile - 0.75) > 1e-12:
+        parser.error("RALU Quality is fixed to --ralu-edge-temporal-quantile 0.75")
+    if (args.ralu_canny_low, args.ralu_canny_high) != (100, 200):
+        parser.error("RALU Quality is fixed to Canny thresholds 100 200")
     return args
 
 

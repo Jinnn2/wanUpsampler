@@ -45,7 +45,9 @@ class FactorialInspectionTest(unittest.TestCase):
             video_dir = root / "videos/step3_lora_stage2"
             video_dir.mkdir(parents=True)
             for index in range(2):
-                (video_dir / f"step3_lora_stage2_{index:02d}_seed{9800 + index}.mp4").write_bytes(b"video")
+                (video_dir / f"step3_lora_stage2_{index:02d}_seed{9800 + index}.mp4").write_bytes(
+                    b"v" * 2048
+                )
 
             result = inspect_factorial(root, expected_family="distill4")
 
@@ -76,13 +78,56 @@ class FactorialInspectionTest(unittest.TestCase):
             )
             video_dir = root / "videos/step40_base_interp"
             video_dir.mkdir(parents=True)
-            (video_dir / "step40_base_interp_00_seed10.mp4").write_bytes(b"valid")
-            (video_dir / "old_seed_video.mp4").write_bytes(b"stale")
+            (video_dir / "step40_base_interp_00_seed10.mp4").write_bytes(b"v" * 2048)
+            (video_dir / "old_seed_video.mp4").write_bytes(b"s" * 2048)
 
             result = inspect_factorial(root, expected_family="wan50")
 
             self.assertEqual(result["status"], "invalid")
             self.assertEqual(result["cases"]["step40_base_interp"]["extra"], ["old_seed_video.mp4"])
+
+    def test_undersized_video_never_counts_as_valid(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "run_manifest.json").write_text(
+                json.dumps(
+                    {
+                        "family": "wan50",
+                        "seed_base": 10,
+                        "prompt_offset": 0,
+                        "prompts": ["one"],
+                        "cases": [
+                            {
+                                "name": "step40_base_interp",
+                                "step": 40,
+                                "handoff": "base",
+                                "resizer": "interp",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (root / "configs").mkdir()
+            (root / "configs/step40_base_interp.json").write_text(
+                json.dumps(
+                    {
+                        "compare_name": "step40_base_interp",
+                        "changing_resolution_steps": [40],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            video = root / "videos/step40_base_interp/step40_base_interp_00_seed10.mp4"
+            video.parent.mkdir(parents=True)
+            video.write_bytes(b"partial")
+
+            result = inspect_factorial(root, expected_family="wan50")
+
+            case = result["cases"]["step40_base_interp"]
+            self.assertEqual(result["status"], "invalid")
+            self.assertEqual(case["valid"], 0)
+            self.assertEqual(case["invalid_expected"], [video.name])
 
 
 class TimingSummaryTest(unittest.TestCase):

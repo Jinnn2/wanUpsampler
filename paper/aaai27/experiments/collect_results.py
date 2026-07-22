@@ -16,6 +16,7 @@ from typing import Any, Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_MANIFEST = Path(__file__).with_name("experiment_manifest.json")
+MIN_VALID_VIDEO_BYTES = 1024
 
 
 def main() -> None:
@@ -503,30 +504,43 @@ def inspect_factorial(root: Path, expected_family: str) -> dict[str, Any]:
         }
         case_dir = root / "videos" / case_name
         actual_paths = {path.name: path for path in case_dir.glob("*.mp4")} if case_dir.is_dir() else {}
-        nonempty_names = {name for name, path in actual_paths.items() if path.stat().st_size > 0}
-        zero_byte = sorted(set(actual_paths) - nonempty_names)
-        missing = sorted(expected_names - nonempty_names)
-        extra = sorted(nonempty_names - expected_names)
+        actual_names = set(actual_paths)
+        valid_names = {
+            name
+            for name, path in actual_paths.items()
+            if path.stat().st_size > MIN_VALID_VIDEO_BYTES
+        }
+        undersized = sorted(actual_names - valid_names)
+        zero_byte = sorted(name for name in undersized if actual_paths[name].stat().st_size == 0)
+        missing = sorted(expected_names - actual_names)
+        extra = sorted(actual_names - expected_names)
+        invalid_expected = sorted((expected_names & actual_names) - valid_names)
         config_issues, config_provenance = inspect_factorial_config(root / "configs" / f"{case_name}.json", case)
-        complete = not missing and not zero_byte and not extra and not config_issues
+        complete = not missing and not undersized and not extra and not config_issues
         result["cases"][case_name] = {
             "status": "complete" if complete else "invalid",
             "expected": len(expected_names),
-            "valid": len(expected_names & nonempty_names),
+            "valid": len(expected_names & valid_names),
             "missing": missing,
             "extra": extra,
             "zero_byte": zero_byte,
+            "undersized": undersized,
+            "invalid_expected": invalid_expected,
+            "minimum_valid_bytes_exclusive": MIN_VALID_VIDEO_BYTES,
             "config_issues": config_issues,
             "config_provenance": config_provenance,
         }
         expected_total += len(expected_names)
-        valid_total += len(expected_names & nonempty_names)
+        valid_total += len(expected_names & valid_names)
         if missing:
             result["issues"].append(f"{case_name}: {len(missing)} expected video(s) missing")
         if extra:
             result["issues"].append(f"{case_name}: {len(extra)} unexpected video(s)")
-        if zero_byte:
-            result["issues"].append(f"{case_name}: {len(zero_byte)} zero-byte video(s)")
+        if undersized:
+            result["issues"].append(
+                f"{case_name}: {len(undersized)} video(s) are not larger than "
+                f"{MIN_VALID_VIDEO_BYTES} bytes"
+            )
         result["issues"].extend(f"{case_name}: {message}" for message in config_issues)
     result["expected_total"] = expected_total
     result["valid_total"] = valid_total
@@ -621,16 +635,35 @@ def inspect_factorial_config(path: Path, case: dict[str, Any]) -> tuple[list[str
             if list(config.get("wan_ralu_end_times", [])) != [0.3, 0.45, 1.0]:
                 issues.append(f"RALU end times mismatch: {config.get('wan_ralu_end_times')!r}")
             shifts = list(config.get("wan_ralu_stage_shifts", []))
-            if len(shifts) != 3 or any(float(value) <= 0.0 for value in shifts):
-                issues.append(f"invalid RALU stage shifts: {shifts!r}")
-            if float(config.get("wan_ralu_z", 0.0)) < 2.0:
-                issues.append(f"invalid RALU Z: {config.get('wan_ralu_z')!r}")
+            expected_shifts = [10.0, 8.8787, 5.3374]
+            if len(shifts) != 3 or any(
+                abs(float(value) - expected) > 1e-6
+                for value, expected in zip(shifts, expected_shifts)
+            ):
+                issues.append(f"RALU Quality stage shifts mismatch: {shifts!r}")
+            if abs(float(config.get("sample_shift", 0.0)) - 8.0) > 1e-12:
+                issues.append(f"RALU Quality base sample_shift mismatch: {config.get('sample_shift')!r}")
+            if abs(float(config.get("wan_ralu_z", 0.0)) - 100.0) > 1e-12:
+                issues.append(f"RALU Quality Z mismatch: {config.get('wan_ralu_z')!r}")
             z_value = float(config.get("wan_ralu_z", 0.0))
             covariance_c = float(config.get("wan_ralu_covariance_c", -1.0))
             if z_value >= 2.0 and abs(covariance_c - 1.0 / z_value**2) > 1e-12:
                 issues.append(f"RALU covariance mismatch: c={covariance_c!r}, Z={z_value!r}")
-            if not 0.0 < float(config.get("wan_ralu_up_ratio", 0.0)) < 1.0:
-                issues.append(f"invalid RALU early-upsample ratio: {config.get('wan_ralu_up_ratio')!r}")
+            if abs(float(config.get("wan_ralu_up_ratio", 0.0)) - 0.3) > 1e-12:
+                issues.append(
+                    f"RALU Quality early-upsample ratio mismatch: {config.get('wan_ralu_up_ratio')!r}"
+                )
+            if abs(float(config.get("wan_ralu_edge_temporal_quantile", -1.0)) - 0.75) > 1e-12:
+                issues.append(
+                    "RALU Quality temporal edge quantile mismatch: "
+                    f"{config.get('wan_ralu_edge_temporal_quantile')!r}"
+                )
+            canny = (
+                int(config.get("wan_ralu_canny_low", -1)),
+                int(config.get("wan_ralu_canny_high", -1)),
+            )
+            if canny != (100, 200):
+                issues.append(f"RALU Quality Canny threshold mismatch: {canny!r}")
             geometry = (
                 config.get("wan_ralu_low_latent_size"),
                 config.get("wan_ralu_aligned_latent_size"),

@@ -19,7 +19,14 @@ from paper.aaai27.experiments.run_final_quality_efficiency import build_analysis
 from paper.aaai27.experiments.run_final_quality_efficiency import write_config as write_efficiency_config
 from paper.aaai27.experiments.run_step40_strength_factorial import build_cases as build_strength_cases
 from changing_resolution.ralu_nt_math import ralu_resume_parameters, ralu_stage_sigmas
-from changing_resolution.ralu_wan_state import first_ralu_handoff, second_ralu_handoff
+from changing_resolution.ralu_wan_state import (
+    _expand_parent_patches,
+    _independent_transition_noise,
+    first_ralu_handoff,
+    patchify_wan_latent,
+    scatter_wan_patches,
+    second_ralu_handoff,
+)
 from wan_sr.schedulers.ralu_nt import exact_grouped_projection_noise
 
 
@@ -226,6 +233,46 @@ class RALUNTMatchingTest(unittest.TestCase):
             generator=generator,
         )
         self.assertAlmostEqual(float(identity_noise.var()), 0.975, delta=0.012)
+
+    def test_official_unchanged_token_noise_is_unit_gaussian(self) -> None:
+        noise = _independent_transition_noise(
+            torch.empty(100_000, 1),
+            generator=torch.Generator().manual_seed(321),
+        )
+        self.assertAlmostEqual(float(noise.mean()), 0.0, delta=0.012)
+        self.assertAlmostEqual(float(noise.var()), 1.0, delta=0.012)
+
+    def test_wan_raw_patch_roundtrip_and_official_token_replication(self) -> None:
+        latent = torch.arange(2 * 3 * 4 * 6, dtype=torch.float32).reshape(2, 3, 4, 6)
+        patches = patchify_wan_latent(latent)
+        indices = torch.arange(patches.shape[0])
+        restored = scatter_wan_patches(
+            patches,
+            indices,
+            channels=2,
+            frames=3,
+            grid=(2, 3),
+        )
+        self.assertTrue(torch.equal(restored, latent))
+
+        parent = patches[[0]]
+        children, child_indices, child_coords = _expand_parent_patches(
+            parent,
+            torch.tensor([0]),
+            coarse_grid=(2, 3),
+            fine_grid=(4, 6),
+        )
+        self.assertTrue(torch.equal(children, parent.expand(4, -1)))
+        self.assertEqual(child_indices.tolist(), [0, 1, 6, 7])
+        self.assertEqual(child_coords.tolist(), [[0.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [0.0, 1.0, 1.0]])
+
+    def test_custom_runner_preserves_lightx2v_inference_dtype_contract(self) -> None:
+        source = (
+            Path(__file__).resolve().parents[4]
+            / "changing_resolution/ralu_wan_quality.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("latents = latents.to(GET_DTYPE())", source)
+        self.assertIn("state.values = state.values.to(GET_DTYPE())", source)
 
     def test_geometry_a_mixed_tokens_cover_aligned_grid_before_crop(self) -> None:
         latent = torch.arange(16, dtype=torch.float32).reshape(1, 1, 4, 4)

@@ -72,6 +72,13 @@ class WanRALUQualityPreInfer(WanPreInfer):
             return super().infer(weights, inputs, kv_start=kv_start, kv_end=kv_end)
 
         state: RALUPackedState = scheduler.ralu_packed_state
+        if state is None:
+            raise RuntimeError("RALU Stage 2 requires a packed mixed-resolution state")
+        if state.values.shape[0] != state.coords.shape[0]:
+            raise RuntimeError(
+                "RALU packed values/position IDs disagree: "
+                f"{state.values.shape[0]} vs {state.coords.shape[0]}"
+            )
         coarse_dense = scatter_wan_patches(
             state.coarse_values,
             state.coarse_parent_indices,
@@ -113,6 +120,13 @@ class WanRALUQualityPostInfer(WanPostInfer):
     @torch.no_grad()
     def infer(self, x, pre_infer_out):
         if int(getattr(self.scheduler, "ralu_stage", 1)) == 2:
+            state: RALUPackedState = self.scheduler.ralu_packed_state
+            if state is None or x.ndim != 2 or x.shape != state.values.shape:
+                raise RuntimeError(
+                    "Wan head output does not match the RALU packed state: "
+                    f"output={tuple(x.shape)}, "
+                    f"state={None if state is None else tuple(state.values.shape)}"
+                )
             return [x.float()]
         return super().infer(x, pre_infer_out)
 
@@ -139,6 +153,8 @@ class WanRALUQualityRunner(WanRunner):
             raise ValueError("RALU packed mixed tokens require feature_caching=NoCaching")
         if self.config.get("seq_parallel", False):
             raise ValueError("RALU packed mixed tokens currently require seq_parallel=false")
+        if self.config.get("compile", False):
+            raise ValueError("RALU changes token geometry between stages and currently requires compile=false")
         if (
             self.config.get("cpu_offload", False)
             or self.config.get("lazy_load", False)
@@ -152,19 +168,30 @@ class WanRALUQualityRunner(WanRunner):
             raise ValueError("RALU requires exactly three stage steps/end-times/shifts")
         if steps != [5, 6, 7]:
             raise ValueError(f"this runner is the fixed Quality operating point [5,6,7], got {steps}")
-        if not (0.0 < ends[0] < ends[1] < ends[2] == 1.0):
-            raise ValueError(f"invalid RALU end times: {ends}")
-        if any(value <= 0.0 for value in shifts):
-            raise ValueError(f"invalid RALU stage shifts: {shifts}")
+        if ends != [0.3, 0.45, 1.0]:
+            raise ValueError(f"RALU Quality requires end times [0.3,0.45,1.0], got {ends}")
+        quality_shifts = [10.0, 8.8787, 5.3374]
+        if any(abs(value - expected) > 1e-6 for value, expected in zip(shifts, quality_shifts)):
+            raise ValueError(f"RALU Quality requires stage shifts {quality_shifts}, got {shifts}")
+        if abs(float(self.config.get("sample_shift", 0.0)) - 8.0) > 1e-12:
+            raise ValueError("RALU Quality stage shifts were optimized for Wan sample_shift=8")
         z_value = float(self.config.get("wan_ralu_z", 100.0))
-        if z_value < 2.0:
-            raise ValueError(f"wan_ralu_z must be at least 2, got {z_value}")
+        if abs(z_value - 100.0) > 1e-12:
+            raise ValueError(f"RALU Quality requires Z=100, got {z_value}")
         configured_c = float(self.config.get("wan_ralu_covariance_c", 1.0 / z_value**2))
         if abs(configured_c - 1.0 / z_value**2) > 1e-12:
             raise ValueError("wan_ralu_covariance_c must equal 1 / wan_ralu_z^2")
         ratio = float(self.config.get("wan_ralu_up_ratio", 0.3))
-        if not 0.0 < ratio < 1.0:
-            raise ValueError(f"wan_ralu_up_ratio must be in (0,1), got {ratio}")
+        if abs(ratio - 0.3) > 1e-12:
+            raise ValueError(f"RALU Quality requires early-upsample ratio 0.3, got {ratio}")
+        if abs(float(self.config.get("wan_ralu_edge_temporal_quantile", 0.75)) - 0.75) > 1e-12:
+            raise ValueError("RALU Quality video adaptation requires temporal edge quantile 0.75")
+        canny = (
+            int(self.config.get("wan_ralu_canny_low", 100)),
+            int(self.config.get("wan_ralu_canny_high", 200)),
+        )
+        if canny != (100, 200):
+            raise ValueError(f"RALU Quality requires Canny thresholds (100,200), got {canny}")
         if int(self.config.get("infer_steps", sum(steps))) != sum(steps):
             raise ValueError(f"infer_steps must equal total RALU NFE {sum(steps)}")
         geometry = {
@@ -267,6 +294,11 @@ class WanRALUQualityRunner(WanRunner):
         stage: int,
         global_step: int,
     ) -> tuple[torch.Tensor, torch.Tensor, int]:
+        # The stock LightX2V loop performs this conversion in
+        # BaseScheduler.step_pre().  RALU owns its stage-wise schedule and
+        # therefore bypasses step_pre(), so it must preserve the same dtype
+        # contract explicitly before Wan's BF16/FP16 patch embedding.
+        latents = latents.to(GET_DTYPE())
         last_velocity = None
         for local_step, (sigma, sigma_next) in enumerate(zip(sigmas, sigmas[1:]), start=1):
             if self.video_segment_num == 1:
@@ -279,6 +311,11 @@ class WanRALUQualityRunner(WanRunner):
             self._set_model_time(sigma, global_step, stage)
             self.model.infer(self.inputs)
             last_velocity = self.model.scheduler.noise_pred.to(torch.float32)
+            if last_velocity.shape != latents.shape:
+                raise RuntimeError(
+                    f"RALU dense velocity shape {tuple(last_velocity.shape)} "
+                    f"!= latent shape {tuple(latents.shape)}"
+                )
             latents = (
                 latents.to(torch.float32) + last_velocity * float(sigma_next - sigma)
             ).to(latents.dtype)
@@ -295,6 +332,9 @@ class WanRALUQualityRunner(WanRunner):
         *,
         global_step: int,
     ) -> tuple[RALUPackedState, torch.Tensor, int]:
+        # Mixed packed tokens do not live in scheduler.latents, hence the
+        # stock step_pre() conversion cannot reach them either.
+        state.values = state.values.to(GET_DTYPE())
         last_velocity = None
         self.model.scheduler.ralu_packed_state = state
         for local_step, (sigma, sigma_next) in enumerate(zip(sigmas, sigmas[1:]), start=1):
@@ -309,6 +349,11 @@ class WanRALUQualityRunner(WanRunner):
             self._set_model_time(sigma, global_step, 2)
             self.model.infer(self.inputs)
             last_velocity = self.model.scheduler.noise_pred.to(torch.float32)
+            if last_velocity.shape != state.values.shape:
+                raise RuntimeError(
+                    f"RALU mixed velocity shape {tuple(last_velocity.shape)} "
+                    f"!= packed state {tuple(state.values.shape)}"
+                )
             state.values = (
                 state.values.to(torch.float32) + last_velocity * float(sigma_next - sigma)
             ).to(state.values.dtype)

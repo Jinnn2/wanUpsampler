@@ -310,6 +310,24 @@ It records LR/mixed/HR/total denoiser evaluations, cold-start latency, raw repea
 whole-process peak GPU memory, individual VBench components, and the explicitly
 labeled five-dimension convenience mean.
 
+Collect the manifest-driven 11-case suite independently of the larger AAAI
+inventory with:
+
+```bash
+python paper/aaai27/experiments/collect_quality_efficiency.py \
+  --suite-root outputs/aaai27_experiments/quality_efficiency_final_v2 \
+  --probe-videos \
+  --require-metrics \
+  --require-timing \
+  --archive
+```
+
+Add `--include-videos` for a transferable archive containing all 110 MP4s.
+The collector requires each expected MP4 to be larger than 1 KiB, optionally
+validates its video stream with `ffprobe`, enforces exact case coverage in the
+paper-facing warm timing and VBench summaries, snapshots the RALU
+implementation, and records but excludes legacy `ralu_nt40/45/48` directories.
+
 After the zero-strength dynamic-LoRA bypass optimization, rerun only the two
 affected TALH timing cases and merge them into the existing 11-case table with:
 
