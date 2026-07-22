@@ -242,14 +242,14 @@ U_\psi:
 \rightarrow
 \mathbb R^{B\times16\times F\times H\times W}.
 \]
-Inspired by the latent upsampler in LTX-2
-\citep{hacohen2026ltx2}, the network follows an
+The network follows an
 encoder--resampler--decoder design. A 3D convolution projects the input into a
 256-dimensional hidden representation, followed by four spatiotemporal
 residual blocks. A spatial resampler changes only height and width; four
 additional 3D residual blocks and a final 3D convolution reconstruct the
 16-channel output. The temporal dimension remains unchanged, while the 3D
-blocks allow adjacent latent frames to contribute to reconstruction.
+blocks allow adjacent latent frames to contribute to reconstruction. The stucture is inspired by the latent upsampler in LTX-2
+\citep{hacohen2026ltx2}.
 
 We instantiate the spatial resampler for each latent-grid ratio. For
 \(480\times832\rightarrow720\times1248\), the grid changes from

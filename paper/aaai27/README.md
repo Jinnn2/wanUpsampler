@@ -104,3 +104,51 @@ Reported training resources are 4×NVIDIA H100, approximately 33 wall-clock
 hours for TAA (implemented with LoRA) and 8 wall-clock hours for CLL. Non-experimental paper work
 still includes the final failure-case figure and LTX-2 attribution/license
 review.
+
+## Warm-model quality-efficiency timing
+
+The paper-facing latency protocol loads each case once, generates one warm-up
+video, and then measures five videos in the same process. One-time
+initialization is reported separately. The primary `pipeline_mean_s` includes
+all per-video denoising, TrajScale handoff, VAE, and output work; it excludes
+runner construction and checkpoint loading. Internal case IDs `talh40` and
+`talh45` are exported as `TrajScale-40` and `TrajScale-45`.
+
+On the inference server, choose any idle physical GPU explicitly and run:
+
+```bash
+cd /mnt/afs_2/houze/wanUpsampler
+
+export WAN_PYTHON=/path/to/wan/python
+export FINAL_OUT=/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2
+export WARM_OUT="${FINAL_OUT}/warm_quality_efficiency"
+export GPU_ID=0
+
+"${WAN_PYTHON}" \
+  paper/aaai27/experiments/benchmark_warm_quality_efficiency.py \
+  --suite-root "${FINAL_OUT}" \
+  --output-root "${WARM_OUT}" \
+  --python "${WAN_PYTHON}" \
+  --gpu "${GPU_ID}" \
+  --warmup 1 \
+  --repeats 5 \
+  --resume
+```
+
+The complete 13-case run creates 78 timing videos: 13 cases times one warm-up
+plus five measured videos. `--resume` retains every complete case and reruns
+only an incomplete case from its beginning. It never merges warm latency into
+the cold-start CSVs.
+
+The paper-facing outputs are:
+
+- `quality_efficiency_warm.csv`: 13-case summary with initialization, pipeline,
+  denoise, memory, speedup, and the reused VBench quality values.
+- `quality_efficiency_warm_raw.csv`: prompt/seed-level warm-up and measured
+  timing rows.
+- `quality_efficiency_warm_pairs.csv`: paired deltas and 95% confidence
+  intervals for the registered Native-HR, LightX2V, RALU, Endpoint, and
+  TrajScale comparisons.
+- `warm_timing_manifest.json`: protocol and output fingerprints.
+- `protocol.json`: pre-run timing boundary, case order, GPU, config hashes, and
+  implementation hashes used to validate resume compatibility.

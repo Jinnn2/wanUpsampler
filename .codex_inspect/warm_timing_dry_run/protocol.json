@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "measurement": "warm_model_single_video_end_to_end",
+  "timing_boundary": {
+    "excluded": "one-time runner construction, model/checkpoint loading, and init_modules",
+    "pipeline": "CUDA-synchronized runner.run_pipeline, including all per-video handoff, VAE, and output work",
+    "denoise": "CUDA-synchronized sum of runner.run_segment calls",
+    "initialization_reported_separately": true
+  },
+  "gpu_physical": 0,
+  "warmup_videos": 1,
+  "measured_videos": 5,
+  "seed_base": 15000,
+  "prompt_offset": 0,
+  "num_frames": 81,
+  "model_root": "C:\\Codes\\wanUpsampler",
+  "prompts_file": "C:\\Codes\\wanUpsampler\\changing_resolution\\configs\\wan_t2v_stage3_compare_10_prompts.txt",
+  "negative_prompt": "",
+  "cases": [
+    "full_hr50",
+    "lightx2v_cr40",
+    "ralu_nt40",
+    "talh40",
+    "lightx2v_cr45",
+    "ralu_nt45",
+    "talh45",
+    "lightx2v_cr48",
+    "ralu_nt48",
+    "full_lr50_stage2_0hr",
+    "full_lr50_stage2_1hr",
+    "full_lr50_stage2_2hr",
+    "full_lr50_stage2_5hr"
+  ],
+  "source_suite": "C:\\Codes\\wanUpsampler\\.codex_inspect\\optimized_taa_timing_20260722_024837",
+  "source_manifest_sha256": "dd80059e626046dc0c5ad45b9b93303a525cbd6c1f6c2c30ead057d965b1ff95",
+  "source_spec_sha256": "1d032d1f9c02c62f5f6546e81b28021c53319aa3055e332f33af9b3b4372abf1",
+  "config_sha256": {
+    "full_hr50": "0340d52c688dea7ea92cf1a148a261d142016f4995475ae7c037cbdffd7e6999",
+    "lightx2v_cr40": "501af674aa25e0b0f76f6766cec0002ae6d43162e9d1f406aeac3502b7651318",
+    "ralu_nt40": "07ec8d949c4d396d6eeafd85f398aa0e63e541e17876defc10f072840982bb75",
+    "talh40": "dec05fbfeb036f92c795bac54b189bcbd45922e014df8400298efa7b9484c4cd",
+    "lightx2v_cr45": "6fbacb584458181e2fe657d186c29eb4fffd40226575e93d8644d84e9182701e",
+    "ralu_nt45": "c9af24cd21b9828aa1503c77f80e653599cdcbe33a54c2a460f3b04eb7e9affc",
+    "talh45": "3d3a51c5630c633bf94f9ef3097c0d6c40ee7cacbce4281d9cea502b9b9b1649",
+    "lightx2v_cr48": "3d3c34970f10f016e39cc53f624e472ae58076947fd84fc5e646f13893fbbaf5",
+    "ralu_nt48": "c5032a510fc50cd306dc87787c0e4232a6be33fe36bbc601221bd97113e522b6",
+    "full_lr50_stage2_0hr": "aa52d775af79534bb71176b2d369624cfdcdd421c1680cebe52e580372c4f260",
+    "full_lr50_stage2_1hr": "49f3939b05638ef87e958070edba3b97101a2638d1bc23b0e45f928b596d7e5d",
+    "full_lr50_stage2_2hr": "73ec70d8ba79bff92cf94edc284ceed239ca09d8c4a4d105c79be8674e4d879a",
+    "full_lr50_stage2_5hr": "ae3992c3cc67bf12d70ad446a687c3414e77c277d97877d52729a030402dbb2e"
+  },
+  "implementation_sha256": {
+    "changing_resolution\\scripts\\bridge\\run_lightx2v_clean_bridge_batch_infer.py": "e09d20d3ee2da3a7539dc157feaec8c181456d4e2b93c694ad32a544eb93b277",
+    "changing_resolution\\lightx2v_clean_bridge.py": "e0e9d04867be2176d9ab6e210f29983e4377c0139d83f90bfbacbf9eaca2512d",
+    "changing_resolution\\dynamic_lora.py": "7b8bd7b8a79004a6dfa4fb52364b471ee92729271423d8cce090b057718cd814"
+  },
+  "run_signature": "da240db9a5477e2a3eae04bc278b3847f867e420c676d4b1b6056df002c90c37"
+}

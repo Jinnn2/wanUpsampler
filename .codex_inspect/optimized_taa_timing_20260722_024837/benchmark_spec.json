@@ -1,0 +1,409 @@
+{
+  "schema_version": 2,
+  "protocol": {
+    "measurement": "cold_start_single_video_end_to_end",
+    "prompt_count_per_process": 1,
+    "fixed_seed": 15000,
+    "quality_dimensions": [
+      "subject_consistency",
+      "background_consistency",
+      "motion_smoothness",
+      "aesthetic_quality",
+      "imaging_quality"
+    ],
+    "dynamic_degree_reported_separately": true,
+    "same_model_prompt_seed_frames_resolution": true
+  },
+  "cases": [
+    {
+      "family": "wan50",
+      "name": "full_hr50",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1 --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/full_hr50.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/full_hr50 --name_prefix full_hr50 --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8283636464517838,
+      "quality_components": {
+        "subject_consistency": 0.9613974107801915,
+        "background_consistency": 0.9696078491210938,
+        "motion_smoothness": 0.9847721118386369,
+        "aesthetic_quality": 0.5949257165193558,
+        "imaging_quality": 0.6311151439996414
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "native",
+        "lr_evaluations": 0,
+        "hr_evaluations": 50,
+        "total_evaluations": 50,
+        "handoff_step": null,
+        "refinement_steps": null,
+        "reschedule_mode": "canonical"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "lightx2v_cr40",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_clean_interp_bridge --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/lightx2v_cr40.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/lightx2v_cr40 --name_prefix lightx2v_cr40 --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.7781163055468754,
+      "quality_components": {
+        "subject_consistency": 0.9217906981147825,
+        "background_consistency": 0.9591583251953125,
+        "motion_smoothness": 0.9754207557109531,
+        "aesthetic_quality": 0.5531150609254837,
+        "imaging_quality": 0.4810966877878448
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "lightx2v",
+        "lr_evaluations": 40,
+        "hr_evaluations": 10,
+        "total_evaluations": 50,
+        "handoff_step": 40,
+        "refinement_steps": null,
+        "reschedule_mode": "canonical"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "lightx2v_cr45",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_clean_interp_bridge --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/lightx2v_cr45.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/lightx2v_cr45 --name_prefix lightx2v_cr45 --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.7677612322724384,
+      "quality_components": {
+        "subject_consistency": 0.9226254373230041,
+        "background_consistency": 0.95986083984375,
+        "motion_smoothness": 0.9753204800520339,
+        "aesthetic_quality": 0.5267514735460281,
+        "imaging_quality": 0.4542479305973759
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "lightx2v",
+        "lr_evaluations": 45,
+        "hr_evaluations": 5,
+        "total_evaluations": 50,
+        "handoff_step": 45,
+        "refinement_steps": null,
+        "reschedule_mode": "canonical"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "lightx2v_cr48",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_clean_interp_bridge --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/lightx2v_cr48.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/lightx2v_cr48 --name_prefix lightx2v_cr48 --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.7640876847329612,
+      "quality_components": {
+        "subject_consistency": 0.9199544483423233,
+        "background_consistency": 0.9619265747070312,
+        "motion_smoothness": 0.9755165606946423,
+        "aesthetic_quality": 0.49471441805362704,
+        "imaging_quality": 0.46832642186718226
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "lightx2v",
+        "lr_evaluations": 48,
+        "hr_evaluations": 2,
+        "total_evaluations": 50,
+        "handoff_step": 48,
+        "refinement_steps": null,
+        "reschedule_mode": "canonical"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "talh40",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_tail_skip_lora_clean_resizer_bridge --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/talh40.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/talh40 --name_prefix talh40 --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.809830280689221,
+      "quality_components": {
+        "subject_consistency": 0.9271303183212877,
+        "background_consistency": 0.9594680786132812,
+        "motion_smoothness": 0.9797514623397436,
+        "aesthetic_quality": 0.5945104956626892,
+        "imaging_quality": 0.5882910485091033
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "talh",
+        "lr_evaluations": 40,
+        "hr_evaluations": 10,
+        "total_evaluations": 50,
+        "handoff_step": 40,
+        "refinement_steps": null,
+        "reschedule_mode": "canonical"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "talh45",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_tail_skip_lora_clean_resizer_bridge --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/talh45.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/talh45 --name_prefix talh45 --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8079196316471121,
+      "quality_components": {
+        "subject_consistency": 0.9235872932523489,
+        "background_consistency": 0.9584420776367187,
+        "motion_smoothness": 0.9795687867254272,
+        "aesthetic_quality": 0.5803168714046478,
+        "imaging_quality": 0.5976831292164178
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "talh",
+        "lr_evaluations": 45,
+        "hr_evaluations": 5,
+        "total_evaluations": 50,
+        "handoff_step": 45,
+        "refinement_steps": null,
+        "reschedule_mode": "canonical"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "full_lr50_stage2_0hr",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_full_lr_stage2_k_hr --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/full_lr50_stage2_0hr.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/full_lr50_stage2_0hr --name_prefix full_lr50_stage2_0hr --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.796468739535193,
+      "quality_components": {
+        "subject_consistency": 0.9215703097172081,
+        "background_consistency": 0.9506265258789063,
+        "motion_smoothness": 0.9791095907700686,
+        "aesthetic_quality": 0.5599341124296189,
+        "imaging_quality": 0.5711031588801632
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "endpoint",
+        "lr_evaluations": 50,
+        "hr_evaluations": 0,
+        "total_evaluations": 50,
+        "handoff_step": 50,
+        "refinement_steps": 0,
+        "reschedule_mode": "lowest_noise_hr_suffix"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "full_lr50_stage2_1hr",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_full_lr_stage2_k_hr --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/full_lr50_stage2_1hr.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/full_lr50_stage2_1hr --name_prefix full_lr50_stage2_1hr --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8009272949279873,
+      "quality_components": {
+        "subject_consistency": 0.9259450001269579,
+        "background_consistency": 0.9545425415039063,
+        "motion_smoothness": 0.9799784494552212,
+        "aesthetic_quality": 0.5710126638412476,
+        "imaging_quality": 0.5731578197126036
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "endpoint",
+        "lr_evaluations": 50,
+        "hr_evaluations": 1,
+        "total_evaluations": 51,
+        "handoff_step": 50,
+        "refinement_steps": 1,
+        "reschedule_mode": "lowest_noise_hr_suffix"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "full_lr50_stage2_2hr",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_full_lr_stage2_k_hr --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/full_lr50_stage2_2hr.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/full_lr50_stage2_2hr --name_prefix full_lr50_stage2_2hr --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8035533137269656,
+      "quality_components": {
+        "subject_consistency": 0.9271946800686419,
+        "background_consistency": 0.95734130859375,
+        "motion_smoothness": 0.9790279752724185,
+        "aesthetic_quality": 0.5795637726783752,
+        "imaging_quality": 0.5746388320216427
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "endpoint",
+        "lr_evaluations": 50,
+        "hr_evaluations": 2,
+        "total_evaluations": 52,
+        "handoff_step": 50,
+        "refinement_steps": 2,
+        "reschedule_mode": "lowest_noise_hr_suffix"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "full_lr50_stage2_5hr",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_full_lr_stage2_k_hr --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/full_lr50_stage2_5hr.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/full_lr50_stage2_5hr --name_prefix full_lr50_stage2_5hr --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8007262330349283,
+      "quality_components": {
+        "subject_consistency": 0.925425030272454,
+        "background_consistency": 0.9504556274414062,
+        "motion_smoothness": 0.9754161173709452,
+        "aesthetic_quality": 0.578385454416275,
+        "imaging_quality": 0.5739489356735606
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "endpoint",
+        "lr_evaluations": 50,
+        "hr_evaluations": 5,
+        "total_evaluations": 55,
+        "handoff_step": 50,
+        "refinement_steps": 5,
+        "reschedule_mode": "lowest_noise_hr_suffix"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "ralu_nt40",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_ralu_nt_interp_bridge --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/ralu_nt40.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/ralu_nt40 --name_prefix ralu_nt40 --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8169005664476412,
+      "quality_components": {
+        "subject_consistency": 0.9204005317576229,
+        "background_consistency": 0.9565631103515625,
+        "motion_smoothness": 0.9712813554119416,
+        "aesthetic_quality": 0.6028420448303222,
+        "imaging_quality": 0.6334157898867572
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "ralu",
+        "lr_evaluations": 40,
+        "hr_evaluations": 10,
+        "total_evaluations": 50,
+        "handoff_step": 40,
+        "refinement_steps": null,
+        "reschedule_mode": "ralu_eq7_truncated_shifted_suffix"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "ralu_nt45",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_ralu_nt_interp_bridge --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/ralu_nt45.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/ralu_nt45 --name_prefix ralu_nt45 --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8044016363824034,
+      "quality_components": {
+        "subject_consistency": 0.9194013768341393,
+        "background_consistency": 0.9587338256835938,
+        "motion_smoothness": 0.9722214036685276,
+        "aesthetic_quality": 0.569489935040474,
+        "imaging_quality": 0.6021616406852817
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "ralu",
+        "lr_evaluations": 45,
+        "hr_evaluations": 5,
+        "total_evaluations": 50,
+        "handoff_step": 45,
+        "refinement_steps": null,
+        "reschedule_mode": "ralu_eq7_truncated_shifted_suffix"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    },
+    {
+      "family": "wan50",
+      "name": "ralu_nt48",
+      "measurement": "cold_start_single_video_end_to_end",
+      "command": "/opt/conda/bin/python /mnt/afs_2/houze/wanUpsampler/changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py --seed 15000 --increment_seed --model_cls wan2.1_ralu_nt_interp_bridge --task t2v --model_path /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B --config_json /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/configs/ralu_nt48.json --prompts_file /mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt --out_dir /mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/benchmark_runs/ralu_nt48 --name_prefix ralu_nt48 --prompt-offset 0 --limit 1 --target_video_length 81 --negative_prompt ''",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.7968636498464511,
+      "quality_components": {
+        "subject_consistency": 0.9240773084014654,
+        "background_consistency": 0.9585971069335938,
+        "motion_smoothness": 0.9744757223903925,
+        "aesthetic_quality": 0.536292552947998,
+        "imaging_quality": 0.5908755585588055
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_final_v2/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "method": "ralu",
+        "lr_evaluations": 48,
+        "hr_evaluations": 2,
+        "total_evaluations": 50,
+        "handoff_step": 48,
+        "refinement_steps": null,
+        "reschedule_mode": "ralu_eq7_truncated_shifted_suffix"
+      },
+      "environment": {
+        "LIGHTX2V_REPO": "/mnt/afs_2/houze/LightX2V",
+        "DIFFSYNTH_REPO": "/mnt/afs_2/houze/DiffSynth-Studio",
+        "PYTHONPATH": "/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:/mnt/afs_2/houze/LightX2V:/mnt/afs_2/houze/DiffSynth-Studio:/mnt/afs_2/houze/wanUpsampler:"
+      }
+    }
+  ]
+}
