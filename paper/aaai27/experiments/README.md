@@ -409,8 +409,11 @@ It uses longest-estimated-cost-first packing, writes the exact assignment to
 each case remains ordinary single-GPU inference and produces the same
 prompt/seed outputs as a serial launch. It validates all model paths and the
 Real-ESRGAN Python imports, records resolved settings under `logs/`, and resumes
-existing videos by default. Override its environment variables for non-default
-paths; set `SKIP_EXISTING=0` to force regeneration.
+existing videos by default. If `RealESRGAN_x2plus.pth` is absent, it atomically
+downloads the official v0.2.1 release asset and verifies its expected byte
+size. Set `AUTO_DOWNLOAD_REALESRGAN=0` for strict offline mode. Override the
+other environment variables for non-default paths; set `SKIP_EXISTING=0` to
+force regeneration.
 
 Prepare/run VBench and then create the quality-linked benchmark spec:
 

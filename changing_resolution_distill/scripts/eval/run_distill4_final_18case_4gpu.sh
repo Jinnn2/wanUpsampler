@@ -31,6 +31,9 @@ STAGE2_CHECKPOINT="${DISTILL_STAGE2_CKPT:-${PROJECT_ROOT}/outputs/changing_resol
 STAGE2_TRAIN_CONFIG="${DISTILL_STAGE2_CONFIG:-${PROJECT_ROOT}/changing_resolution_distill/configs/train_clean_368x640_to_720x1248_lmdb_stage2_distill.yaml}"
 LORA_CHECKPOINT="${DISTILL_LORA_480_CKPT:-${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/step_0010000.safetensors}"
 REALESRGAN_X2_CHECKPOINT="${REALESRGAN_X2_CKPT:-/mnt/afs_2/houze/Real-ESRGAN/weights/RealESRGAN_x2plus.pth}"
+REALESRGAN_X2_URL="${REALESRGAN_X2_URL:-https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth}"
+REALESRGAN_X2_BYTES="${REALESRGAN_X2_BYTES:-67061725}"
+AUTO_DOWNLOAD_REALESRGAN="${AUTO_DOWNLOAD_REALESRGAN:-1}"
 PROMPTS_FILE="${AAAI_PROMPTS:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt}"
 OUT_ROOT="${DISTILL4_FINAL_QUALITY_EFFICIENCY:-${PROJECT_ROOT}/outputs/aaai27_experiments/quality_efficiency_distill4}"
 
@@ -69,6 +72,49 @@ RGB_SR_FP32="${RGB_SR_FP32:-0}"
 NEGATIVE_PROMPT="${NEGATIVE_PROMPT:-}"
 
 [[ -x "${WAN_PYTHON}" ]] || { echo "Python is not executable: ${WAN_PYTHON}" >&2; exit 1; }
+if [[ ! -f "${REALESRGAN_X2_CHECKPOINT}" ]]; then
+  if [[ "${AUTO_DOWNLOAD_REALESRGAN}" != "1" ]]; then
+    echo "Real-ESRGAN checkpoint is missing and AUTO_DOWNLOAD_REALESRGAN=0: ${REALESRGAN_X2_CHECKPOINT}" >&2
+    exit 1
+  fi
+  echo "Downloading official RealESRGAN_x2plus.pth to ${REALESRGAN_X2_CHECKPOINT}"
+  "${WAN_PYTHON}" - "${REALESRGAN_X2_URL}" "${REALESRGAN_X2_CHECKPOINT}" "${REALESRGAN_X2_BYTES}" <<'PY'
+import os
+import shutil
+import sys
+import urllib.request
+from pathlib import Path
+
+url, raw_target, raw_expected = sys.argv[1:]
+target = Path(raw_target)
+expected = int(raw_expected)
+target.parent.mkdir(parents=True, exist_ok=True)
+temporary = target.with_name(f".{target.name}.{os.getpid()}.part")
+try:
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "wanUpsampler-distill4-launcher"}
+    )
+    with urllib.request.urlopen(request, timeout=60) as response, temporary.open(
+        "wb"
+    ) as output:
+        shutil.copyfileobj(response, output, length=8 * 1024 * 1024)
+        output.flush()
+        os.fsync(output.fileno())
+    actual = temporary.stat().st_size
+    if actual != expected:
+        raise RuntimeError(f"downloaded {actual} bytes, expected {expected}")
+    temporary.replace(target)
+except BaseException:
+    temporary.unlink(missing_ok=True)
+    raise
+print(f"Downloaded {target} ({expected} bytes)")
+PY
+fi
+actual_realesrgan_bytes="$(wc -c < "${REALESRGAN_X2_CHECKPOINT}" | tr -d ' ')"
+if [[ "${actual_realesrgan_bytes}" != "${REALESRGAN_X2_BYTES}" ]]; then
+  echo "Unexpected RealESRGAN_x2plus.pth size: ${actual_realesrgan_bytes}; expected ${REALESRGAN_X2_BYTES}" >&2
+  exit 1
+fi
 for directory in "${LIGHTX2V_REPO}" "${MODEL_ROOT}"; do
   [[ -d "${directory}" ]] || { echo "Directory not found: ${directory}" >&2; exit 1; }
 done
@@ -121,6 +167,7 @@ launch_path="${OUT_ROOT}/logs/${MODE}_${timestamp}_resolved.env"
   printf 'STAGE2_TRAIN_CONFIG=%q\n' "${STAGE2_TRAIN_CONFIG}"
   printf 'LORA_CHECKPOINT=%q\n' "${LORA_CHECKPOINT}"
   printf 'REALESRGAN_X2_CHECKPOINT=%q\n' "${REALESRGAN_X2_CHECKPOINT}"
+  printf 'REALESRGAN_X2_URL=%q\n' "${REALESRGAN_X2_URL}"
   printf 'PROMPTS_FILE=%q\n' "${PROMPTS_FILE}"
   printf 'OUT_ROOT=%q\n' "${OUT_ROOT}"
   printf 'GPU_IDS=%q\n' "${GPU_IDS}"

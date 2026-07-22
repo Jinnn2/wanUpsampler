@@ -131,6 +131,9 @@ class Distill4SuiteTest(unittest.TestCase):
         self.assertIn("--endpoint-resizers stage2 interp rgb", launcher)
         self.assertIn('--gpus "${GPUS[@]}"', launcher)
         self.assertIn("expected=$((18 * LIMIT))", launcher)
+        self.assertIn("releases/download/v0.2.1/RealESRGAN_x2plus.pth", launcher)
+        self.assertIn("AUTO_DOWNLOAD_REALESRGAN", launcher)
+        self.assertIn("67061725", launcher)
 
 
 class RGBSuperResolutionTest(unittest.TestCase):
