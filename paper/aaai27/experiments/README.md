@@ -376,6 +376,71 @@ The step45 ballot is under `review/step45/`, with its hidden key under
 `--group final_step45`, and `--group final_efficiency`; manual human tasks are
 complete only after their three ballots have been merged.
 
+### Distill4 endpoint-domain quality--efficiency suite
+
+The Distill4 main suite deliberately excludes interpolation handoff step 1.
+It contains 18 configurations: Native-HR4, interpolation handoffs at steps 2
+and 3, the complete step-3 TAA/CLL factorial, and the Cartesian product of
+endpoint refinement budgets `0/1/2/4` with three lifting domains:
+
+- `stage2`: the trained clean-latent lifter;
+- `interp`: trilinear latent interpolation;
+- `rgb`: Wan VAE decode, Real-ESRGAN x2, center crop from 736x1280 to
+  720x1248, and encoding with the same Wan VAE.
+
+The RGB path follows MrFlow's released x2 Real-ESRGAN protocol. Install the
+official Real-ESRGAN/BasicSR package in the Wan environment and download
+`RealESRGAN_x2plus.pth`. The `bicubic` RGB backend is only for integration
+smoke tests and must not be reported as the MrFlow-style result.
+
+Validate paths and materialize all configs before launching the GPU run:
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3 \
+  bash changing_resolution_distill/scripts/eval/run_distill4_final_18case_4gpu.sh check
+
+CUDA_VISIBLE_DEVICES=0,1,2,3 \
+  bash changing_resolution_distill/scripts/eval/run_distill4_final_18case_4gpu.sh run
+```
+
+The generation launcher runs cases in parallel across the four physical GPUs.
+It uses longest-estimated-cost-first packing, writes the exact assignment to
+`generation_schedule.json`, and exposes only one GPU to each subprocess. Thus
+each case remains ordinary single-GPU inference and produces the same
+prompt/seed outputs as a serial launch. It validates all model paths and the
+Real-ESRGAN Python imports, records resolved settings under `logs/`, and resumes
+existing videos by default. Override its environment variables for non-default
+paths; set `SKIP_EXISTING=0` to force regeneration.
+
+Prepare/run VBench and then create the quality-linked benchmark spec:
+
+```bash
+python paper/aaai27/experiments/run_vbench_factorials.py prepare \
+  --factorial-root outputs/aaai27_experiments/quality_efficiency_distill4
+python paper/aaai27/experiments/run_vbench_factorials.py run \
+  --factorial-root outputs/aaai27_experiments/quality_efficiency_distill4 \
+  --vbench-root /path/to/VBench --python /path/to/vbench/python
+python paper/aaai27/experiments/run_distill4_quality_efficiency.py benchmark-spec \
+  --realesrgan-x2-checkpoint /path/to/RealESRGAN_x2plus.pth
+```
+
+Finally run resident-model timing. Each case uses one initialization, one
+warm-up video, and five measured videos. The endpoint `1hr` pairs are the main
+test of early `3 LR + 1 HR` handoff against endpoint-first `4 LR + 1 HR`:
+
+```bash
+python paper/aaai27/experiments/benchmark_warm_quality_efficiency.py \
+  --suite-root outputs/aaai27_experiments/quality_efficiency_distill4 \
+  --gpu 0 --warmup 1 --repeats 5
+```
+
+Keep the latency benchmark on one otherwise-idle GPU. Running the timing cases
+concurrently would introduce shared CPU, storage, and VAE/SR contention into
+the reported time differences; the four-GPU path is for video generation.
+
+The same pipeline is registered as the `distill4_final_efficiency` group in
+`experiment_manifest.json`.
+
 ## 4. Export a frozen result bundle
 
 Run collection immediately before export. The exporter requires an exact

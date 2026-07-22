@@ -15,6 +15,11 @@
     "DISTILL_LORA3_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3/latest.safetensors",
     "DISTILL_LORA_480_CKPT": "${PROJECT_ROOT}/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/step_0010000.safetensors",
     "DISTILL_LORA_STRENGTH": "0.75",
+    "DISTILL_MODEL_ROOT": "/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill",
+    "DISTILL_DIT_CKPT": "${DISTILL_MODEL_ROOT}/distill_model.pt",
+    "REALESRGAN_X2_CKPT": "/mnt/afs_2/houze/Real-ESRGAN/weights/RealESRGAN_x2plus.pth",
+    "DISTILL4_FINAL_QUALITY_EFFICIENCY": "${AAAI_RESULTS}/quality_efficiency_distill4",
+    "DISTILL4_GPU": "0",
     "VBENCH_ROOT": "/mnt/afs_2/houze/VBench",
     "VBENCH_PYTHON": "/opt/conda/envs/vbench/bin/python",
     "LORA_ABLATION_REGISTRY": "${AAAI_RESULTS}/ablations/lora_registry.json",
@@ -580,6 +585,81 @@
       "evidence": [
         {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/quality_efficiency.csv", "min_bytes": 64},
         {"glob": "${WAN50_FINAL_QUALITY_EFFICIENCY}/quality_efficiency_raw.csv", "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "distill4_final_quality_efficiency_inputs",
+      "group": "distill4_final_efficiency",
+      "kind": "artifact",
+      "note": "Distill4 model, transferred step-3 TAA, CLL, and official Real-ESRGAN x2 weights.",
+      "depends_on": ["distill_stage2_checkpoint"],
+      "evidence": [
+        {"glob": "${DISTILL_DIT_CKPT}"},
+        {"glob": "${DISTILL_LORA_480_CKPT}"},
+        {"glob": "${DISTILL_STAGE2_CKPT}"},
+        {"glob": "${REALESRGAN_X2_CKPT}"}
+      ]
+    },
+    {
+      "id": "distill4_final_quality_efficiency_videos",
+      "group": "distill4_final_efficiency",
+      "depends_on": ["distill4_final_quality_efficiency_inputs"],
+      "commands": [
+        "CUDA_VISIBLE_DEVICES=0,1,2,3 WAN_PYTHON=${WAN_PYTHON} DISTILL4_FINAL_QUALITY_EFFICIENCY=${DISTILL4_FINAL_QUALITY_EFFICIENCY} DISTILL_MODEL_ROOT=${DISTILL_MODEL_ROOT} DISTILL_DIT_CKPT=${DISTILL_DIT_CKPT} DISTILL_STAGE2_CKPT=${DISTILL_STAGE2_CKPT} DISTILL_STAGE2_CONFIG=${DISTILL_STAGE2_CONFIG} DISTILL_LORA_480_CKPT=${DISTILL_LORA_480_CKPT} DISTILL_LORA_STRENGTH=${DISTILL_LORA_STRENGTH} REALESRGAN_X2_CKPT=${REALESRGAN_X2_CKPT} bash changing_resolution_distill/scripts/eval/run_distill4_final_18case_4gpu.sh run"
+      ],
+      "evidence": [
+        {"glob": "${DISTILL4_FINAL_QUALITY_EFFICIENCY}/run_manifest.json", "min_bytes": 256},
+        {"glob": "${DISTILL4_FINAL_QUALITY_EFFICIENCY}/generation_schedule.json", "min_bytes": 128},
+        {"glob": "${DISTILL4_FINAL_QUALITY_EFFICIENCY}/videos/*/*.mp4", "min_count": 180, "min_bytes": 1024}
+      ]
+    },
+    {
+      "id": "distill4_final_quality_efficiency_vbench_inputs",
+      "group": "distill4_final_efficiency",
+      "depends_on": ["distill4_final_quality_efficiency_videos"],
+      "commands": [
+        "python paper/aaai27/experiments/run_vbench_factorials.py prepare --factorial-root ${DISTILL4_FINAL_QUALITY_EFFICIENCY}"
+      ],
+      "evidence": [
+        {"glob": "${DISTILL4_FINAL_QUALITY_EFFICIENCY}/metrics/vbench_inputs/*/prompt_map.json", "min_count": 18, "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "distill4_final_quality_efficiency_vbench",
+      "group": "distill4_final_efficiency",
+      "kind": "external",
+      "depends_on": ["distill4_final_quality_efficiency_vbench_inputs"],
+      "commands": [
+        "python paper/aaai27/experiments/run_vbench_factorials.py run --factorial-root ${DISTILL4_FINAL_QUALITY_EFFICIENCY} --vbench-root ${VBENCH_ROOT} --python ${VBENCH_PYTHON}",
+        "python paper/aaai27/experiments/compile_vbench_paired_statistics.py --factorial-root ${DISTILL4_FINAL_QUALITY_EFFICIENCY}"
+      ],
+      "evidence": [
+        {"glob": "${DISTILL4_FINAL_QUALITY_EFFICIENCY}/metrics/vbench_v1_custom.json", "min_bytes": 64},
+        {"glob": "${DISTILL4_FINAL_QUALITY_EFFICIENCY}/metrics/vbench_paired_statistics.csv", "min_bytes": 64}
+      ]
+    },
+    {
+      "id": "distill4_final_quality_efficiency_spec",
+      "group": "distill4_final_efficiency",
+      "depends_on": ["distill4_final_quality_efficiency_vbench"],
+      "commands": [
+        "${WAN_PYTHON} paper/aaai27/experiments/run_distill4_quality_efficiency.py benchmark-spec --out-root ${DISTILL4_FINAL_QUALITY_EFFICIENCY} --model-root ${DISTILL_MODEL_ROOT} --dit-ckpt ${DISTILL_DIT_CKPT} --stage2-checkpoint ${DISTILL_STAGE2_CKPT} --stage2-train-config ${DISTILL_STAGE2_CONFIG} --lora-checkpoint ${DISTILL_LORA_480_CKPT} --lora-strength ${DISTILL_LORA_STRENGTH} --realesrgan-x2-checkpoint ${REALESRGAN_X2_CKPT} --python ${WAN_PYTHON}"
+      ],
+      "evidence": [
+        {"glob": "${DISTILL4_FINAL_QUALITY_EFFICIENCY}/benchmark_spec.json", "min_bytes": 256}
+      ]
+    },
+    {
+      "id": "distill4_final_quality_efficiency_warm_benchmark",
+      "group": "distill4_final_efficiency",
+      "depends_on": ["distill4_final_quality_efficiency_spec"],
+      "commands": [
+        "${WAN_PYTHON} paper/aaai27/experiments/benchmark_warm_quality_efficiency.py --suite-root ${DISTILL4_FINAL_QUALITY_EFFICIENCY} --python ${WAN_PYTHON} --gpu ${DISTILL4_GPU} --warmup 1 --repeats 5"
+      ],
+      "evidence": [
+        {"glob": "${DISTILL4_FINAL_QUALITY_EFFICIENCY}/warm_quality_efficiency/quality_efficiency_warm.csv", "min_bytes": 64},
+        {"glob": "${DISTILL4_FINAL_QUALITY_EFFICIENCY}/warm_quality_efficiency/quality_efficiency_warm_pairs.csv", "min_bytes": 64},
+        {"glob": "${DISTILL4_FINAL_QUALITY_EFFICIENCY}/warm_quality_efficiency/warm_timing_manifest.json", "min_bytes": 256}
       ]
     }
   ]

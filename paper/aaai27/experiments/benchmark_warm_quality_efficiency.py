@@ -15,7 +15,14 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-BATCH_RUNNER = REPO_ROOT / "changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py"
+WAN50_BATCH_RUNNER = (
+    REPO_ROOT
+    / "changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py"
+)
+DISTILL4_BATCH_RUNNER = (
+    REPO_ROOT
+    / "changing_resolution_distill/scripts/bridge/run_lightx2v_distill_bridge_batch_infer.py"
+)
 MEASUREMENT = "warm_model_single_video_end_to_end"
 DEFAULT_CASE_ORDER = (
     "full_hr50",
@@ -31,8 +38,12 @@ DEFAULT_CASE_ORDER = (
     "full_lr50_stage2_5hr",
 )
 IMPLEMENTATION_FILES = (
-    BATCH_RUNNER,
+    WAN50_BATCH_RUNNER,
+    DISTILL4_BATCH_RUNNER,
     REPO_ROOT / "changing_resolution/lightx2v_clean_bridge.py",
+    REPO_ROOT / "changing_resolution_distill/lightx2v_distill_bridge.py",
+    REPO_ROOT / "changing_resolution_distill/rgb_super_resolution.py",
+    REPO_ROOT / "changing_resolution_distill/runtime_weights.py",
     REPO_ROOT / "changing_resolution/ralu_nt_math.py",
     REPO_ROOT / "changing_resolution/ralu_wan_state.py",
     REPO_ROOT / "changing_resolution/ralu_wan_quality.py",
@@ -66,6 +77,7 @@ def main() -> None:
     )
     source_manifest = load_json(suite_root / "run_manifest.json")
     source_spec = load_json(suite_root / "benchmark_spec.json")
+    batch_runner = batch_runner_for_manifest(source_manifest)
     cases = select_cases(source_manifest, args.cases)
     spec_by_case = index_cases(source_spec.get("cases", []), "benchmark spec")
     validate_cases(suite_root, cases, spec_by_case)
@@ -85,6 +97,7 @@ def main() -> None:
         model_root=model_root,
         prompts=prompts,
         num_frames=num_frames,
+        batch_runner=batch_runner,
     )
     signature = protocol_signature(protocol)
     protocol["run_signature"] = signature
@@ -104,6 +117,7 @@ def main() -> None:
             prompts,
             num_frames,
             args,
+            batch_runner,
         )
         return
 
@@ -128,6 +142,7 @@ def main() -> None:
             prompts,
             num_frames,
             args,
+            batch_runner,
         )
         print(
             f"[run] {case['name']}: one initialization + "
@@ -148,7 +163,9 @@ def main() -> None:
             args.seed,
             args.prompt_offset,
         ):
-            raise RuntimeError(f"{case['name']}: completed process produced invalid timing rows")
+            raise RuntimeError(
+                f"{case['name']}: completed process produced invalid timing rows"
+            )
 
     summary_rows, raw_rows = summarize_all(
         cases,
@@ -199,6 +216,7 @@ def build_protocol(
     model_root: Path,
     prompts: Path,
     num_frames: int,
+    batch_runner: Path,
 ) -> dict[str, Any]:
     return {
         "schema_version": 1,
@@ -218,6 +236,7 @@ def build_protocol(
         "model_root": str(model_root),
         "prompts_file": str(prompts),
         "negative_prompt": args.negative_prompt,
+        "batch_runner": str(batch_runner),
         "cases": [case["name"] for case in cases],
         "source_suite": str(suite_root),
         "source_manifest_sha256": sha256_file(suite_root / "run_manifest.json"),
@@ -321,8 +340,10 @@ def validate_cases(
         config_path = suite_root / "configs" / f"{name}.json"
         require_path(config_path, f"config for {name}")
         config = load_json(config_path)
-        if name in {"talh40", "talh45"}:
-            expected_step = int(name.removeprefix("talh"))
+        if name in {"talh40", "talh45", "talh3", "taa_interp3"}:
+            expected_step = (
+                3 if name == "taa_interp3" else int(name.removeprefix("talh"))
+            )
             active_steps = [int(value) for value in config.get("lora_active_steps", [])]
             lora = config.get("lora_configs") or []
             if active_steps != [expected_step]:
@@ -330,7 +351,30 @@ def validate_cases(
                     f"{name}: expected lora_active_steps=[{expected_step}], got {active_steps}"
                 )
             if len(lora) != 1 or float(lora[0].get("strength", -1)) != 0.75:
-                raise SystemExit(f"{name}: expected exactly one LoRA with strength=0.75")
+                raise SystemExit(
+                    f"{name}: expected exactly one LoRA with strength=0.75"
+                )
+        if name.startswith("endpoint_") and name.endswith("hr"):
+            resizer, refinement_token = name.removeprefix("endpoint_").rsplit("_", 1)
+            expected_refinements = int(refinement_token.removesuffix("hr"))
+            changing_steps = [
+                int(value) for value in config.get("changing_resolution_steps", [])
+            ]
+            if changing_steps != [4]:
+                raise SystemExit(
+                    f"{name}: expected changing_resolution_steps=[4], got {changing_steps}"
+                )
+            if int(config.get("wan_final_refine_steps", -1)) != expected_refinements:
+                raise SystemExit(
+                    f"{name}: expected wan_final_refine_steps={expected_refinements}"
+                )
+            if resizer == "stage2" and not config.get("wan_clean_resizer_ckpt"):
+                raise SystemExit(f"{name}: missing wan_clean_resizer_ckpt")
+            if resizer == "rgb" and config.get("wan_rgb_sr_backend") not in {
+                "realesrgan",
+                "bicubic",
+            }:
+                raise SystemExit(f"{name}: unsupported wan_rgb_sr_backend")
 
 
 def validate_prompt_count(path: Path, offset: int, count: int) -> None:
@@ -353,11 +397,12 @@ def build_command(
     prompts: Path,
     num_frames: int,
     args: argparse.Namespace,
+    batch_runner: Path,
 ) -> list[str]:
     name = case["name"]
     return [
         args.python,
-        str(BATCH_RUNNER),
+        str(batch_runner),
         "--seed",
         str(args.seed),
         "--increment_seed",
@@ -397,6 +442,7 @@ def print_commands(
     prompts: Path,
     num_frames: int,
     args: argparse.Namespace,
+    batch_runner: Path,
 ) -> None:
     for case in cases:
         print_command(
@@ -407,6 +453,7 @@ def print_commands(
                 prompts,
                 num_frames,
                 args,
+                batch_runner,
             )
         )
 
@@ -522,7 +569,9 @@ def summarize_all(
         denoise = [float(row["denoise_elapsed_s"]) for row in measured]
         non_denoise = [total - core for total, core in zip(pipeline, denoise)]
         initialization = next(
-            float(row["elapsed_s"]) for row in rows if row.get("kind") == "initialization"
+            float(row["elapsed_s"])
+            for row in rows
+            if row.get("kind") == "initialization"
         )
         spec = spec_by_case[name]
         protocol = spec.get("protocol", {})
@@ -582,13 +631,18 @@ def summarize_all(
                     "output": row["output"],
                 }
             )
-    native = next((row for row in summaries if row["case"] == "full_hr50"), None)
+    native = next(
+        (row for row in summaries if row["case"] in {"full_hr50", "native_hr4"}),
+        None,
+    )
     if native is not None:
         native_time = float(native["pipeline_mean_s"])
         for row in summaries:
             elapsed = float(row["pipeline_mean_s"])
             row["speedup_vs_native"] = native_time / elapsed
-            row["latency_reduction_vs_native_pct"] = 100.0 * (1.0 - elapsed / native_time)
+            row["latency_reduction_vs_native_pct"] = 100.0 * (
+                1.0 - elapsed / native_time
+            )
     return summaries, all_raw
 
 
@@ -626,12 +680,13 @@ def summarize_pairs(
             if key_left != key_right:
                 raise RuntimeError(f"Pairing mismatch: {left_name} vs {right_name}")
         pipeline_delta = [
-            float(r["pipeline_elapsed_s"]) - float(l["pipeline_elapsed_s"])
-            for l, r in zip(left, right)
+            float(right_row["pipeline_elapsed_s"])
+            - float(left_row["pipeline_elapsed_s"])
+            for left_row, right_row in zip(left, right)
         ]
         denoise_delta = [
-            float(r["denoise_elapsed_s"]) - float(l["denoise_elapsed_s"])
-            for l, r in zip(left, right)
+            float(right_row["denoise_elapsed_s"]) - float(left_row["denoise_elapsed_s"])
+            for left_row, right_row in zip(left, right)
         ]
         pipeline_mean, pipeline_low, pipeline_high = mean_ci95(pipeline_delta)
         denoise_mean, denoise_low, denoise_high = mean_ci95(denoise_delta)
@@ -639,9 +694,7 @@ def summarize_pairs(
         left_denoise = float(summary_by_case[left_name]["denoise_mean_s"])
         results.append(
             {
-                "comparison": pair.get(
-                    "comparison", f"{left_name}_vs_{right_name}"
-                ),
+                "comparison": pair.get("comparison", f"{left_name}_vs_{right_name}"),
                 "left_case": left_name,
                 "right_case": right_name,
                 "left_display_name": summary_by_case[left_name]["display_name"],
@@ -664,6 +717,19 @@ def display_name(case: dict[str, Any]) -> str:
     name = str(case["name"])
     if name == "full_hr50":
         return "Native-HR"
+    if name == "native_hr4":
+        return "Native-HR4"
+    if name == "talh3":
+        return "TrajScale-D4@3"
+    if name == "cll3":
+        return "CLL-D4@3"
+    if name == "taa_interp3":
+        return "TAA+Interp-D4@3"
+    if name in {"interp2", "interp3"}:
+        return f"Interp-D4@{name.removeprefix('interp')}"
+    if name.startswith("endpoint_") and name.endswith("hr"):
+        _, resizer, steps = name.split("_", 2)
+        return f"Endpoint-{resizer.upper()}-{steps.removesuffix('hr')}HR"
     if name.startswith("talh"):
         return f"TrajScale-{name.removeprefix('talh')}"
     if name.startswith("lightx2v_cr"):
@@ -674,6 +740,15 @@ def display_name(case: dict[str, Any]) -> str:
         steps = name.removeprefix("full_lr50_stage2_").removesuffix("hr")
         return f"Endpoint-{steps}HR"
     return name
+
+
+def batch_runner_for_manifest(manifest: dict[str, Any]) -> Path:
+    family = str(manifest.get("family", ""))
+    if family == "distill4_quality_efficiency":
+        return DISTILL4_BATCH_RUNNER
+    if family in {"wan50_quality_efficiency", "wan50"}:
+        return WAN50_BATCH_RUNNER
+    raise SystemExit(f"Unsupported warm-benchmark suite family: {family!r}")
 
 
 def mean_ci95(values: list[float]) -> tuple[float, float, float]:
@@ -850,7 +925,11 @@ def inference_environment(gpu: int) -> dict[str, str]:
     environment["CUDA_VISIBLE_DEVICES"] = str(gpu)
     environment.setdefault("LIGHTX2V_REPO", "/mnt/afs_2/houze/LightX2V")
     environment.setdefault("DIFFSYNTH_REPO", "/mnt/afs_2/houze/DiffSynth-Studio")
-    roots = [environment["LIGHTX2V_REPO"], environment["DIFFSYNTH_REPO"], str(REPO_ROOT)]
+    roots = [
+        environment["LIGHTX2V_REPO"],
+        environment["DIFFSYNTH_REPO"],
+        str(REPO_ROOT),
+    ]
     if environment.get("PYTHONPATH"):
         roots.append(environment["PYTHONPATH"])
     environment["PYTHONPATH"] = os.pathsep.join(roots)
@@ -880,14 +959,16 @@ def print_summary(rows: list[dict[str, Any]]) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Benchmark the unified Wan50 Pareto suite with one persistent model "
+            "Benchmark a Wan50 or Distill4 Pareto suite with one persistent model "
             "initialization per case and per-video warm timing."
         )
     )
     parser.add_argument("--suite-root", required=True)
     parser.add_argument("--output-root", default="")
     parser.add_argument("--python", default=sys.executable)
-    parser.add_argument("--gpu", type=int, required=True, help="Physical GPU exposed to each case")
+    parser.add_argument(
+        "--gpu", type=int, required=True, help="Physical GPU exposed to each case"
+    )
     parser.add_argument("--warmup", type=int, default=1)
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--seed", type=int, default=15000)
