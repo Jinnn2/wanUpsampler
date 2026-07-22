@@ -43,6 +43,7 @@ IMPLEMENTATION_FILES = (
     REPO_ROOT / "changing_resolution/lightx2v_clean_bridge.py",
     REPO_ROOT / "changing_resolution_distill/lightx2v_distill_bridge.py",
     REPO_ROOT / "changing_resolution_distill/rgb_super_resolution.py",
+    REPO_ROOT / "changing_resolution_distill/realesrgan_compat.py",
     REPO_ROOT / "changing_resolution_distill/runtime_weights.py",
     REPO_ROOT / "changing_resolution/ralu_nt_math.py",
     REPO_ROOT / "changing_resolution/ralu_wan_state.py",

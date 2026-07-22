@@ -144,6 +144,9 @@ export DTYPE="${DTYPE:-BF16}"
 
 CUDA_VISIBLE_DEVICES="${GPU_IDS}" "${WAN_PYTHON}" - <<'PY'
 import torch
+from changing_resolution_distill.realesrgan_compat import install_functional_tensor_shim
+
+install_functional_tensor_shim()
 import basicsr  # noqa: F401
 import realesrgan  # noqa: F401
 

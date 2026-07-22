@@ -8,6 +8,10 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from changing_resolution_distill.realesrgan_compat import (
+    install_functional_tensor_shim,
+)
+
 
 class RGBSuperResolver(Protocol):
     def resize(
@@ -81,6 +85,7 @@ class RealESRGANX2SuperResolver:
                 f"Real-ESRGAN x2 checkpoint not found: {checkpoint_path}"
             )
         try:
+            install_functional_tensor_shim()
             from basicsr.archs.rrdbnet_arch import RRDBNet
             from realesrgan import RealESRGANer
         except ImportError as exc:
