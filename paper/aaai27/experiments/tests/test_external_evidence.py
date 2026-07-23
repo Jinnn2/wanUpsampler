@@ -41,6 +41,38 @@ class VBenchFactorialTest(unittest.TestCase):
             payload = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(set(payload["cases"]), {"step3_base_interp", "step3_lora_stage2"})
 
+    def test_collects_supplementary_dimension_without_overwriting_canonical_json(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = {
+                "family": "distill4",
+                "prompts": ["prompt"],
+                "cases": [{"name": "talh3"}],
+            }
+            raw = root / "metrics/vbench_raw_temporal_flickering/talh3"
+            raw.mkdir(parents=True)
+            (raw / "result.json").write_text(
+                json.dumps({"temporal_flickering": [0.91, []]}),
+                encoding="utf-8",
+            )
+            canonical = root / "metrics/vbench_v1_custom.json"
+            canonical.write_text('{"sentinel": true}', encoding="utf-8")
+            output = collect_results(
+                root,
+                manifest,
+                ["temporal_flickering"],
+                None,
+                raw_subdir="vbench_raw_temporal_flickering",
+                output_name="vbench_temporal_flickering.json",
+            )
+            self.assertEqual(output.name, "vbench_temporal_flickering.json")
+            self.assertEqual(
+                json.loads(canonical.read_text(encoding="utf-8")),
+                {"sentinel": True},
+            )
+
 
 class HumanReviewTest(unittest.TestCase):
     def test_multistep_blind_ids_do_not_collide_and_single_step_ids_stay_stable(self) -> None:

@@ -32,8 +32,23 @@ def main() -> None:
     if args.action == "run":
         if not args.vbench_root:
             raise SystemExit("--vbench-root (or VBENCH_ROOT) is required for action=run")
-        run_all(root, inputs, Path(args.vbench_root).resolve(), args.dimensions, args.ngpus, args.python)
-    output = collect_results(root, manifest, args.dimensions, Path(args.vbench_root).resolve() if args.vbench_root else None)
+        run_all(
+            root,
+            inputs,
+            Path(args.vbench_root).resolve(),
+            args.dimensions,
+            args.ngpus,
+            args.python,
+            raw_subdir=args.raw_subdir,
+        )
+    output = collect_results(
+        root,
+        manifest,
+        args.dimensions,
+        Path(args.vbench_root).resolve() if args.vbench_root else None,
+        raw_subdir=args.raw_subdir,
+        output_name=args.output_name,
+    )
     print(f"Canonical VBench JSON: {output}")
 
 
@@ -71,11 +86,13 @@ def run_all(
     dimensions: list[str],
     ngpus: int,
     python: str,
+    *,
+    raw_subdir: str = "vbench_raw",
 ) -> None:
     evaluate = vbench_root / "evaluate.py"
     if not evaluate.is_file():
         raise SystemExit(f"Official VBench evaluate.py not found: {evaluate}")
-    raw_root = root / "metrics/vbench_raw"
+    raw_root = root / "metrics" / raw_subdir
     for case, prompt_map in inputs.items():
         output = raw_root / case
         output.mkdir(parents=True, exist_ok=True)
@@ -103,9 +120,15 @@ def run_all(
 
 
 def collect_results(
-    root: Path, manifest: dict[str, Any], dimensions: list[str], vbench_root: Path | None
+    root: Path,
+    manifest: dict[str, Any],
+    dimensions: list[str],
+    vbench_root: Path | None,
+    *,
+    raw_subdir: str = "vbench_raw",
+    output_name: str = "vbench_v1_custom.json",
 ) -> Path:
-    raw_root = root / "metrics/vbench_raw"
+    raw_root = root / "metrics" / raw_subdir
     cases: dict[str, Any] = {}
     missing: list[str] = []
     for case in manifest["cases"]:
@@ -143,7 +166,7 @@ def collect_results(
     }
     metrics = root / "metrics"
     metrics.mkdir(parents=True, exist_ok=True)
-    output = metrics / "vbench_v1_custom.json"
+    output = metrics / output_name
     output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return output
 
@@ -182,11 +205,33 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--dimension", dest="dimensions", action="append", default=[])
     parser.add_argument("--ngpus", type=int, default=1)
+    parser.add_argument(
+        "--raw-subdir",
+        default="vbench_raw",
+        help="Directory below metrics/ used for raw VBench output.",
+    )
+    parser.add_argument(
+        "--output-name",
+        default="vbench_v1_custom.json",
+        help="Canonical JSON filename below metrics/.",
+    )
     args = parser.parse_args()
     if not args.dimensions:
         args.dimensions = list(DEFAULT_DIMENSIONS)
     if args.ngpus < 1:
         parser.error("--ngpus must be >= 1")
+    for option, value in (
+        ("--raw-subdir", args.raw_subdir),
+        ("--output-name", args.output_name),
+    ):
+        candidate = Path(value)
+        if (
+            not value
+            or candidate.is_absolute()
+            or len(candidate.parts) != 1
+            or value in {".", ".."}
+        ):
+            parser.error(f"{option} must be one safe filename component")
     return args
 
 

@@ -626,6 +626,14 @@ def inspect_factorial_config(path: Path, case: dict[str, Any]) -> tuple[list[str
                 if method == "endpoint_rgb":
                     if config.get("wan_rgb_sr_backend") != "realesrgan":
                         issues.append("Distill4 RGB endpoint must use Real-ESRGAN")
+                    if (
+                        refinement_steps == 1
+                        and float(config.get("wan_final_refine_sigma", -1.0))
+                        != 0.12
+                    ):
+                        issues.append(
+                            "Distill4 Endpoint-RGB-1HR must use direct sigma=0.12"
+                        )
                     rgb_checkpoint = config.get("wan_rgb_sr_checkpoint")
                     if not rgb_checkpoint or not Path(str(rgb_checkpoint)).is_file():
                         issues.append(
@@ -762,6 +770,7 @@ def inspect_factorial_config(path: Path, case: dict[str, Any]) -> tuple[list[str
         "stage2_use_ema": config.get("wan_clean_resizer_use_ema"),
         "renoise_mode": config.get("wan_distill_bridge_renoise_mode"),
         "final_refine_steps": config.get("wan_final_refine_steps"),
+        "final_refine_sigma": config.get("wan_final_refine_sigma"),
         "ralu_stage_steps": config.get("wan_ralu_stage_steps"),
         "ralu_end_times": config.get("wan_ralu_end_times"),
         "ralu_stage_shifts": config.get("wan_ralu_stage_shifts"),

@@ -51,10 +51,12 @@ def suite_args(**overrides):
         "rgb_sr_tile_pad": 10,
         "rgb_sr_pre_pad": 0,
         "rgb_sr_fp32": False,
+        "mrflow_direct_sigma": 0.12,
         "realesrgan_x2_checkpoint": "RealESRGAN_x2plus.pth",
         "lora_checkpoint": "lora3.safetensors",
         "lora_strength": 0.75,
         "gpus": [0, 1, 2, 3],
+        "force_cases": [],
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -97,9 +99,11 @@ class Distill4SuiteTest(unittest.TestCase):
         self.assertEqual(rgb["denoising_step_list"], [1000, 750, 500, 250])
         self.assertEqual(rgb["changing_resolution_steps"], [4])
         self.assertEqual(rgb["wan_final_refine_steps"], 1)
+        self.assertEqual(rgb["wan_final_refine_sigma"], 0.12)
         self.assertEqual(rgb["wan_rgb_sr_backend"], "realesrgan")
         self.assertNotIn("wan_clean_resizer_ckpt", rgb)
         self.assertEqual(stage2["wan_final_refine_steps"], 4)
+        self.assertNotIn("wan_final_refine_sigma", stage2)
         self.assertIn("wan_clean_resizer_ckpt", stage2)
         self.assertEqual(talh["changing_resolution_steps"], [3])
         self.assertEqual(talh["lora_active_steps"], [3])
@@ -138,6 +142,8 @@ class Distill4SuiteTest(unittest.TestCase):
         self.assertIn("releases/download/v0.2.1/RealESRGAN_x2plus.pth", launcher)
         self.assertIn("AUTO_DOWNLOAD_REALESRGAN", launcher)
         self.assertIn("67061725", launcher)
+        self.assertIn('--mrflow-direct-sigma "${MRFLOW_DIRECT_SIGMA}"', launcher)
+        self.assertIn("FORCE_CASES=(endpoint_rgb_1hr)", launcher)
 
     def test_artifact_fingerprint_cache_avoids_second_file_read(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

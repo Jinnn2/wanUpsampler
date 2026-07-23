@@ -226,6 +226,8 @@ def write_config(path: Path, args: argparse.Namespace, case: Case) -> None:
         )
     if case.refinement_steps is not None:
         config["wan_final_refine_steps"] = case.refinement_steps
+    if case.resizer == "rgb" and case.refinement_steps == 1:
+        config["wan_final_refine_sigma"] = args.mrflow_direct_sigma
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -320,8 +322,10 @@ def write_manifest(
             "endpoint_resizers": args.endpoint_resizers,
             "rgb_sr_backend": args.rgb_sr_backend,
             "rgb_sr_protocol": "Wan VAE decode -> Real-ESRGAN x2 -> center crop -> same Wan VAE encode",
+            "mrflow_direct_sigma": args.mrflow_direct_sigma,
             "generation_gpus": args.gpus,
             "generation_parallelism": "one independent case process per physical GPU",
+            "force_cases": args.force_cases,
         },
         "artifacts": artifact_manifest(
             args, cases, root / "artifact_fingerprints.json"
@@ -392,7 +396,9 @@ def run_case(
         "--negative_prompt",
         args.negative_prompt,
     ]
-    if args.skip_existing:
+    if args.skip_existing and case.name not in set(
+        getattr(args, "force_cases", [])
+    ):
         command.append("--skip-existing")
     print(
         f"[gpu:{gpu}] {case.name}: {args.limit} prompt(s), one model load",
@@ -714,6 +720,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rgb-sr-pre-pad", type=int, default=0)
     parser.add_argument("--rgb-sr-fp32", action="store_true")
     parser.add_argument(
+        "--mrflow-direct-sigma",
+        type=float,
+        default=0.12,
+        help="Direct sigma for the MRFlow-style Endpoint-RGB-1HR correction.",
+    )
+    parser.add_argument(
         "--case-groups",
         nargs="+",
         choices=["native", "handoff", "endpoint"],
@@ -744,6 +756,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-existing", action=argparse.BooleanOptionalAction, default=True
     )
+    parser.add_argument(
+        "--force-cases",
+        nargs="*",
+        default=[],
+        help="Cases that must be regenerated even when --skip-existing is active.",
+    )
     parser.add_argument("--benchmark-output", default="")
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument(
@@ -762,6 +780,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--lora-strength must be non-negative")
     if args.rgb_sr_tile < 0 or args.rgb_sr_tile_pad < 0 or args.rgb_sr_pre_pad < 0:
         parser.error("RGB SR tile settings must be non-negative")
+    if not 0.0 < args.mrflow_direct_sigma < 1.0:
+        parser.error("--mrflow-direct-sigma must be in (0, 1)")
     if len(args.gpus) != len(set(args.gpus)) or any(gpu < 0 for gpu in args.gpus):
         parser.error("--gpus must contain unique non-negative GPU ids")
     return args
@@ -771,6 +791,13 @@ def main() -> None:
     args = parse_args()
     root = Path(args.out_root).resolve()
     cases = build_cases(args)
+    unknown_force_cases = sorted(
+        set(args.force_cases) - {case.name for case in cases}
+    )
+    if unknown_force_cases:
+        raise SystemExit(
+            "Unknown --force-cases: " + ", ".join(unknown_force_cases)
+        )
     validate_inputs(args, cases)
     prompts = load_prompts(Path(args.prompts), args.prompt_offset, args.limit)
     (root / "configs").mkdir(parents=True, exist_ok=True)

@@ -69,7 +69,35 @@ RGB_SR_TILE="${RGB_SR_TILE:-0}"
 RGB_SR_TILE_PAD="${RGB_SR_TILE_PAD:-10}"
 RGB_SR_PRE_PAD="${RGB_SR_PRE_PAD:-0}"
 RGB_SR_FP32="${RGB_SR_FP32:-0}"
+MRFLOW_DIRECT_SIGMA="${MRFLOW_DIRECT_SIGMA:-0.12}"
 NEGATIVE_PROMPT="${NEGATIVE_PROMPT:-}"
+FORCE_CASES=()
+
+# The P0 protocol changed Endpoint-RGB-1HR from the distilled t=250 suffix
+# to MrFlow's direct sigma=0.12 correction. Do not let --skip-existing mix
+# legacy videos with a newly written config: regenerate only this one case.
+rgb1_config="${OUT_ROOT}/configs/endpoint_rgb_1hr.json"
+rgb1_videos="${OUT_ROOT}/videos/endpoint_rgb_1hr"
+if [[ "${MODE}" == "run" && -d "${rgb1_videos}" ]] && \
+   find "${rgb1_videos}" -maxdepth 1 -type f -name '*.mp4' -size +1023c -print -quit | grep -q .; then
+  if ! "${WAN_PYTHON}" - "${rgb1_config}" "${MRFLOW_DIRECT_SIGMA}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+expected = float(sys.argv[2])
+try:
+    actual = float(json.loads(path.read_text(encoding="utf-8"))["wan_final_refine_sigma"])
+except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+    raise SystemExit(1)
+raise SystemExit(0 if abs(actual - expected) < 1e-12 else 1)
+PY
+  then
+    FORCE_CASES=(endpoint_rgb_1hr)
+    echo "P0 migration: legacy Endpoint-RGB-1HR detected; only this case will be regenerated."
+  fi
+fi
 
 [[ -x "${WAN_PYTHON}" ]] || { echo "Python is not executable: ${WAN_PYTHON}" >&2; exit 1; }
 if [[ ! -f "${REALESRGAN_X2_CHECKPOINT}" ]]; then
@@ -177,6 +205,7 @@ launch_path="${OUT_ROOT}/logs/${MODE}_${timestamp}_resolved.env"
   printf 'SEED=%q\n' "${SEED}"
   printf 'LIMIT=%q\n' "${LIMIT}"
   printf 'LORA_STRENGTH=%q\n' "${LORA_STRENGTH}"
+  printf 'MRFLOW_DIRECT_SIGMA=%q\n' "${MRFLOW_DIRECT_SIGMA}"
 } > "${launch_path}"
 
 command=(
@@ -196,6 +225,7 @@ command=(
   --rgb-sr-tile "${RGB_SR_TILE}"
   --rgb-sr-tile-pad "${RGB_SR_TILE_PAD}"
   --rgb-sr-pre-pad "${RGB_SR_PRE_PAD}"
+  --mrflow-direct-sigma "${MRFLOW_DIRECT_SIGMA}"
   --case-groups native handoff endpoint
   --endpoint-refinement-steps 0 1 2 4
   --endpoint-resizers stage2 interp rgb
@@ -221,6 +251,9 @@ else
 fi
 if [[ "${RGB_SR_FP32}" == "1" ]]; then
   command+=(--rgb-sr-fp32)
+fi
+if (( ${#FORCE_CASES[@]} > 0 )); then
+  command+=(--force-cases "${FORCE_CASES[@]}")
 fi
 
 echo "Distill4 final suite: 18 cases x ${LIMIT} prompts; GPUs=${GPU_IDS}"

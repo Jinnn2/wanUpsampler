@@ -681,9 +681,32 @@ class WanDistillFullLREndpointMixin:
                 f"wan_final_refine_steps must be in [0, {infer_steps}], got {refinement_steps}"
             )
         self.final_refine_steps = refinement_steps
+        direct_sigma = config.get("wan_final_refine_sigma")
+        if direct_sigma is not None:
+            direct_sigma = float(direct_sigma)
+            if refinement_steps != 1:
+                raise ValueError(
+                    "wan_final_refine_sigma is only defined for exactly one HR refinement step"
+                )
+            if not 0.0 < direct_sigma < 1.0:
+                raise ValueError(
+                    f"wan_final_refine_sigma must be in (0, 1), got {direct_sigma}"
+                )
+        self.final_refine_sigma = direct_sigma
 
     def _lift_endpoint(self, clean_lr, target_latent_shape):
         raise NotImplementedError
+
+    @staticmethod
+    def _set_schedule_scalar(sequence, index, value):
+        current = sequence[index]
+        if torch.is_tensor(current):
+            replacement = current.new_tensor(value)
+        elif torch.is_tensor(sequence):
+            replacement = sequence.new_tensor(value)
+        else:
+            replacement = value
+        sequence[index] = replacement
 
     def run_segment(self, segment_idx=0):
         infer_steps = self.model.scheduler.infer_steps
@@ -730,6 +753,18 @@ class WanDistillFullLREndpointMixin:
             return scheduler.latents
 
         first_refine_index = infer_steps - self.final_refine_steps
+        if self.final_refine_sigma is not None:
+            # MrFlow's 12+1 protocol performs the single HR correction directly
+            # at sigma=0.12. Keep the injected noise and the DiT conditioning
+            # timestep consistent instead of replaying the distilled t=250 step.
+            self._set_schedule_scalar(
+                scheduler.sigmas, first_refine_index, self.final_refine_sigma
+            )
+            self._set_schedule_scalar(
+                scheduler.timesteps,
+                first_refine_index,
+                self.final_refine_sigma * 1000.0,
+            )
         refine_sigma = scheduler.sigmas[first_refine_index].to(
             device=clean_hr.device, dtype=torch.float32
         )
@@ -742,7 +777,8 @@ class WanDistillFullLREndpointMixin:
         logger.info(
             f"==> Distill endpoint {self.endpoint_resizer}: "
             f"{self.final_refine_steps} HR suffix step(s), "
-            f"start_step={first_refine_index + 1}, sigma={float(refine_sigma)}"
+            f"start_step={first_refine_index + 1}, sigma={float(refine_sigma)}, "
+            f"protocol={'direct_sigma' if self.final_refine_sigma is not None else 'distilled_suffix'}"
         )
         for refinement_index, step_index in enumerate(
             range(first_refine_index, infer_steps), start=1

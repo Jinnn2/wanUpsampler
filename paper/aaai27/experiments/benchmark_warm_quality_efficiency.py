@@ -376,6 +376,14 @@ def validate_cases(
                 "bicubic",
             }:
                 raise SystemExit(f"{name}: unsupported wan_rgb_sr_backend")
+            if (
+                resizer == "rgb"
+                and expected_refinements == 1
+                and float(config.get("wan_final_refine_sigma", -1.0)) != 0.12
+            ):
+                raise SystemExit(
+                    f"{name}: expected MRFlow-style wan_final_refine_sigma=0.12"
+                )
 
 
 def validate_prompt_count(path: Path, offset: int, count: int) -> None:

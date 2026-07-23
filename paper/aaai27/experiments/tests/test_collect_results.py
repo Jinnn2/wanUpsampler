@@ -30,6 +30,7 @@ class FactorialInspectionTest(unittest.TestCase):
                         "changing_resolution": True,
                         "changing_resolution_steps": [4],
                         "wan_final_refine_steps": 1,
+                        "wan_final_refine_sigma": 0.12,
                         "wan_rgb_sr_backend": "realesrgan",
                         "wan_rgb_sr_checkpoint": str(checkpoint),
                     }
@@ -52,6 +53,7 @@ class FactorialInspectionTest(unittest.TestCase):
 
             self.assertEqual(issues, [])
             self.assertEqual(provenance["final_refine_steps"], 1)
+            self.assertEqual(provenance["final_refine_sigma"], 0.12)
 
     def test_exact_manifest_videos_and_config_are_complete(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

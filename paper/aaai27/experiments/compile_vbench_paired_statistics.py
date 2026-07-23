@@ -30,7 +30,12 @@ def main() -> None:
     args = parse_args()
     root = Path(args.factorial_root)
     manifest = load_json(root / "run_manifest.json")
-    vbench = load_json(root / "metrics/vbench_v1_custom.json")
+    vbench_path = (
+        Path(args.vbench_json)
+        if args.vbench_json
+        else root / "metrics/vbench_v1_custom.json"
+    )
+    vbench = load_json(vbench_path)
     contrasts = manifest.get("analysis_pairs") or manifest.get("review_pairs")
     if not contrasts:
         raise SystemExit("run_manifest.json must define analysis_pairs or review_pairs")
@@ -111,6 +116,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Paired bootstrap and sign statistics for VBench per-video outputs.")
     parser.add_argument("--factorial-root", required=True)
+    parser.add_argument("--vbench-json")
     parser.add_argument("--output")
     parser.add_argument("--dimension", dest="dimensions", action="append", default=[])
     parser.add_argument("--bootstrap-samples", type=int, default=10000)
