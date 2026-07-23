@@ -33,6 +33,121 @@
 
 \section{Introduction}
 
+Recent video diffusion models generate increasingly coherent motion and
+fine-grained visual content, but their computational cost remains a major
+obstacle to practical deployment~\citep{wan2025}. In diffusion-transformer
+generators, every denoising evaluation applies a large model to the complete
+spatiotemporal latent sequence. Increasing the spatial resolution or video
+length therefore enlarges the latent sequence processed repeatedly throughout
+the trajectory. Timestep distillation reduces the number of denoising
+evaluations, but each retained evaluation still incurs the full
+target-resolution cost. Spatial acceleration is thus complementary to
+temporal acceleration: instead of executing the entire trajectory at the
+target resolution, part of the generative computation can be performed on a
+smaller spatial grid.
+
+This observation motivates low-to-high-resolution generation. Global layout,
+semantic structure, and motion can be established economically at low
+resolution, while local structure and high-frequency details are recovered
+later at the target resolution. A common realization is post-generation
+enhancement, in which a low-resolution generator first completes its output
+and a subsequent upsampling or super-resolution stage increases its spatial
+resolution. Existing high-resolution video systems frequently adopt such
+cascaded designs, combining a base video generator with spatial or temporal
+super-resolution models~\citep{ho2022imagenvideo,blattmann2023videoldm,
+wang2023lavie}.
+
+Post-generation enhancement can operate in either RGB or latent space.
+RGB-space methods apply video super-resolution to an already decoded
+low-resolution video~\citep{zhou2024upscale,xu2024videogigagan}. When the
+enhanced result is used as the final output, this forms a standalone
+restoration stage. When it is returned to a generative model for further
+high-resolution refinement, however, the pipeline additionally requires a
+decode--upsample--re-encode path and must reconstruct a noisy
+target-resolution state. MrFlow demonstrates this staged strategy for image
+flow-matching models by combining low-resolution structure generation,
+pixel-space super-resolution, noise injection, and high-resolution
+refinement~\citep{zheng2026mrflow}. The codec round trip and subsequent
+refinement reduce the acceleration obtained from low-resolution generation.
+
+Latent post-generation cascades avoid this codec overhead by converting the
+completed low-resolution representation directly in latent space.
+SimpleGVR and LUVE, for example, place learned latent upsampling between a
+low-resolution video generator and a subsequent high-resolution refinement
+stage~\citep{xie2025simplegvr,zhao2026luve}. Nevertheless, changing the
+representation space does not change the execution schedule: the complete
+low-resolution trajectory is evaluated before resolution conversion, and
+high-resolution refinement is then appended as a separate stage. When the
+refiner is diffusion-based, its evaluations are added to those already spent
+on low-resolution generation. The two stages therefore remain computationally
+additive.
+
+In-trajectory resolution scaling changes when the resolution transition is
+performed. Given a trajectory of \(T\) denoising evaluations, it executes the
+first \(s\) evaluations at low resolution and reserves the remaining
+\(T-s\) evaluations for target-resolution refinement. The total number of
+denoising evaluations remains \(T\), because the high-resolution continuation
+replaces the omitted low-resolution trajectory tail rather than following a
+completed low-resolution trajectory. Changing-resolution inference in
+LightX2V and mixed-resolution sampling in RALU provide initial evidence for
+this form of spatial acceleration~\citep{lightx2v2026,jeong2025ralu}.
+However, these approaches rely primarily on fixed latent interpolation and
+scheduler adjustment. Fixed interpolation resamples the grid without
+recovering the cross-resolution correspondence induced by the pretrained VAE,
+and the resulting distortion becomes increasingly difficult to correct as the
+transition is delayed and the high-resolution continuation becomes shorter.
+
+Replacing interpolation with a learned latent upsampler introduces a second
+difficulty. Such an upsampler is naturally trained on completed,
+content-aligned clean latents. During an in-trajectory resolution transition,
+its input instead comes from an unfinished low-resolution trajectory and
+retains a timestep-dependent residual that would otherwise be removed by the
+remaining low-resolution evaluations. A single upsampler would therefore be
+responsible for both cross-resolution reconstruction and unfinished
+trajectory correction. This coupling creates a training--inference mismatch
+and limits the benefit of learned latent upsampling under late, aggressively
+accelerated transitions.
+
+We introduce \textbf{InTraScale}, a decoupled framework for learned
+in-trajectory resolution scaling. The \textbf{In-Trajectory Upsampler (ITU)}
+learns the cross-resolution correspondence between completed clean latent
+pairs, replacing geometry-only interpolation with a mapping adapted to the
+target model and its VAE. The \textbf{Trajectory-Tail Distillation Adapter
+(TTDA)} separately distills the omitted low-resolution trajectory tail into
+the final low-resolution evaluation, producing a more endpoint-like clean
+prediction for ITU. InTraScale then reconstructs the next
+target-resolution scheduler state and uses the frozen flow predictor to
+execute the remaining high-resolution evaluations. This division of labor
+allows ITU to specialize in cross-resolution reconstruction while TTDA
+corrects the unfinished trajectory residual, without launching a separate
+super-resolution diffusion process.
+
+Experiments on Wan2.1 demonstrate a controllable quality--efficiency trade-off.
+For conventional 50-evaluation sampling, InTraScale achieves
+\(3.21\times\) and \(4.44\times\) warm-model speedups while retaining 97.76\%
+and 97.53\% of the Native-HR VBench-5 score, respectively. On a distilled
+four-evaluation model, InTraScale provides an additional \(2.13\times\)
+acceleration while retaining 99.58\% of the native distilled-model score.
+These results show that in-trajectory resolution scaling remains effective
+after temporal computation has already been compressed.
+
+Our contributions are summarized as follows:
+\begin{itemize}
+  \item We introduce InTraScale, a learned in-trajectory resolution-scaling
+  framework that distributes a fixed denoising-evaluation budget between an
+  inexpensive low-resolution prefix and a short high-resolution continuation.
+
+  \item We decouple resolution conversion from unfinished trajectory
+  correction through ITU and TTDA. ITU learns the VAE-specific
+  cross-resolution clean-latent correspondence, while TTDA distills the
+  omitted low-resolution trajectory tail into the transition evaluation.
+
+  \item We evaluate InTraScale on both conventional 50-evaluation and
+  distilled four-evaluation Wan2.1 samplers, demonstrating up to
+  \(4.44\times\) acceleration and substantial additional speedup after
+  timestep distillation.
+\end{itemize}
+
 \section{Related Work}
 
 \section{Method}
@@ -592,7 +707,7 @@ reductions are 33.4\%, 51.1\%, and 15.5\%. These results confirm that ITU
 learns the VAE-specific cross-resolution correspondence rather than merely
 approximating geometric interpolation.
 
-TTDA consistently brings the handoff prediction closer to the endpoint of the
+TTDA consistently brings the transition-point prediction closer to the endpoint of the
 complete low-resolution trajectory. It reduces endpoint latent \(L_1\) by
 25.82\%, 21.03\%, and 5.03\% at Wan50@40, Wan50@45, and Distill4@3,
 respectively, with improvements on all ten samples in each setting. The
@@ -614,6 +729,6 @@ supplementary material.
 
 \section{Conclusion}
 
-% \bibliography{references}
+\bibliography{references}
 
 \end{document}

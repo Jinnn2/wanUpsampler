@@ -1,13 +1,14 @@
 # AAAI 2027 rewrite workspace
 
-This directory is a clean anonymous-submission template for rewriting the
-paper from scratch. It intentionally contains no prose, figures, tables, or
-bibliography entries from the current manuscript.
+This directory is the self-contained AAAI 2027 anonymous-submission workspace
+for the rewritten paper.
 
-- `main.tex`: minimal AAAI 2027.1 anonymous-submission document.
+- `main.tex`: AAAI 2027.1 anonymous-submission manuscript.
 - `aaai2027.sty`: unchanged style file from the repository's official AAAI
   2027 Author Kit.
-- `references.bib`: empty bibliography database.
+- `aaai2027.bst`: unchanged bibliography style from the same official kit.
+- `references.bib`: bibliography database used by the manuscript.
+- `figures/`: figure assets referenced by `main.tex`.
 - `ReproducibilityChecklist.tex`: unchanged checklist from the official kit.
 
 Build from this directory with:
