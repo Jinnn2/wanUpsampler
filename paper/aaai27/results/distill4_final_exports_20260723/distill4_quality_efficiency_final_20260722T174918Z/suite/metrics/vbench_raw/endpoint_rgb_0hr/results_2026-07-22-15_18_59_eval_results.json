@@ -1,0 +1,292 @@
+{
+    "subject_consistency": [
+        0.9631102170795203,
+        [
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_00_seed9800.mp4",
+                "video_results": 0.9783620953559875
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_04_seed9804.mp4",
+                "video_results": 0.9775616627186536
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_08_seed9808.mp4",
+                "video_results": 0.9994481153786182
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_01_seed9801.mp4",
+                "video_results": 0.9679795201867819
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_05_seed9805.mp4",
+                "video_results": 0.9743564955890178
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_09_seed9809.mp4",
+                "video_results": 0.8959606140851974
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_02_seed9802.mp4",
+                "video_results": 0.9586016330868006
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_06_seed9806.mp4",
+                "video_results": 0.9841043498367071
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_03_seed9803.mp4",
+                "video_results": 0.9615242823958396
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_07_seed9807.mp4",
+                "video_results": 0.9332034021615982
+            }
+        ]
+    ],
+    "background_consistency": [
+        0.9728060913085937,
+        [
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_00_seed9800.mp4",
+                "video_results": 0.976953125,
+                "video_sim": 78.15625,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_04_seed9804.mp4",
+                "video_results": 0.9480224609375,
+                "video_sim": 75.841796875,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_08_seed9808.mp4",
+                "video_results": 0.99154052734375,
+                "video_sim": 79.3232421875,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_01_seed9801.mp4",
+                "video_results": 0.9897918701171875,
+                "video_sim": 79.183349609375,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_05_seed9805.mp4",
+                "video_results": 0.9790802001953125,
+                "video_sim": 78.326416015625,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_09_seed9809.mp4",
+                "video_results": 0.950750732421875,
+                "video_sim": 76.06005859375,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_02_seed9802.mp4",
+                "video_results": 0.9698760986328125,
+                "video_sim": 77.590087890625,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_06_seed9806.mp4",
+                "video_results": 0.963336181640625,
+                "video_sim": 77.06689453125,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_03_seed9803.mp4",
+                "video_results": 0.979083251953125,
+                "video_sim": 78.32666015625,
+                "cnt_per_video": 80
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_07_seed9807.mp4",
+                "video_results": 0.97962646484375,
+                "video_sim": 78.3701171875,
+                "cnt_per_video": 80
+            }
+        ]
+    ],
+    "motion_smoothness": [
+        0.9877083878141117,
+        [
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_00_seed9800.mp4",
+                "video_results": 0.9946850762236281
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_04_seed9804.mp4",
+                "video_results": 0.9799353583016778
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_08_seed9808.mp4",
+                "video_results": 0.9971306698197144
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_01_seed9801.mp4",
+                "video_results": 0.9930891945995219
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_05_seed9805.mp4",
+                "video_results": 0.9908418238971752
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_09_seed9809.mp4",
+                "video_results": 0.9878078932464783
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_02_seed9802.mp4",
+                "video_results": 0.9690161546419078
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_06_seed9806.mp4",
+                "video_results": 0.9940533160245937
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_03_seed9803.mp4",
+                "video_results": 0.9887550377990406
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_07_seed9807.mp4",
+                "video_results": 0.981769353587381
+            }
+        ]
+    ],
+    "dynamic_degree": [
+        0.5,
+        [
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_00_seed9800.mp4",
+                "video_results": false
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_04_seed9804.mp4",
+                "video_results": true
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_08_seed9808.mp4",
+                "video_results": false
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_01_seed9801.mp4",
+                "video_results": false
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_05_seed9805.mp4",
+                "video_results": true
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_09_seed9809.mp4",
+                "video_results": true
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_02_seed9802.mp4",
+                "video_results": true
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_06_seed9806.mp4",
+                "video_results": false
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_03_seed9803.mp4",
+                "video_results": false
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_07_seed9807.mp4",
+                "video_results": true
+            }
+        ]
+    ],
+    "aesthetic_quality": [
+        0.6545274734497071,
+        [
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_00_seed9800.mp4",
+                "video_results": 0.7293519377708435
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_04_seed9804.mp4",
+                "video_results": 0.6811307072639465
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_08_seed9808.mp4",
+                "video_results": 0.785444974899292
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_01_seed9801.mp4",
+                "video_results": 0.5912511348724365
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_05_seed9805.mp4",
+                "video_results": 0.5253062844276428
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_09_seed9809.mp4",
+                "video_results": 0.653412938117981
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_02_seed9802.mp4",
+                "video_results": 0.5817879438400269
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_06_seed9806.mp4",
+                "video_results": 0.6320542693138123
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_03_seed9803.mp4",
+                "video_results": 0.6874459385871887
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_07_seed9807.mp4",
+                "video_results": 0.6780886054039001
+            }
+        ]
+    ],
+    "imaging_quality": [
+        0.7160442689024373,
+        [
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_00_seed9800.mp4",
+                "video_results": 63.53025252730758
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_04_seed9804.mp4",
+                "video_results": 72.33922454457225
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_08_seed9808.mp4",
+                "video_results": 78.47720308657046
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_01_seed9801.mp4",
+                "video_results": 73.18878607102383
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_05_seed9805.mp4",
+                "video_results": 71.96309595932195
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_09_seed9809.mp4",
+                "video_results": 73.9403843820831
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_02_seed9802.mp4",
+                "video_results": 75.09494819170163
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_06_seed9806.mp4",
+                "video_results": 72.72152804150994
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_03_seed9803.mp4",
+                "video_results": 72.03867716848114
+            },
+            {
+                "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/endpoint_rgb_0hr/endpoint_rgb_0hr_07_seed9807.mp4",
+                "video_results": 62.75016892986533
+            }
+        ]
+    ]
+}

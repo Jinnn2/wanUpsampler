@@ -1,0 +1,499 @@
+{
+  "schema_version": 1,
+  "family": "distill4_quality_efficiency",
+  "seed_base": 9800,
+  "prompt_offset": 0,
+  "prompts": [
+    "A cinematic night market street after rain, vendors cooking under warm lanterns, reflections on wet pavement, realistic crowd motion.",
+    "A close-up of a glass teapot pouring amber tea into a ceramic cup, steam curling upward, shallow depth of field.",
+    "A mountain biker riding along a narrow forest trail, dust and leaves flying behind the wheels, dynamic tracking shot.",
+    "A small fishing boat crossing a misty lake at sunrise, pine trees reflected in calm water, slow cinematic camera movement.",
+    "A white sports car driving on a coastal highway, blue ocean beside the road, smooth aerial tracking, realistic motion blur.",
+    "A robot arm assembling a circuit board in a clean laboratory, tiny components moving precisely, sharp industrial lighting.",
+    "A dancer performing under neon signs in a narrow alley, fast footwork, handheld cinematic framing, colorful reflections.",
+    "A golden retriever running through shallow ocean waves at sunset, splashing water, natural playful motion.",
+    "A glass greenhouse filled with tropical flowers, sunlight beams through mist, slow dolly movement, rich color detail.",
+    "A spacecraft landing on a dusty desert planet, sand blowing outward from the engines, cinematic science fiction realism."
+  ],
+  "cases": [
+    {
+      "name": "native_hr4",
+      "method": "native",
+      "model_cls": "wan2.1_distill",
+      "lr_evaluations": 0,
+      "hr_evaluations": 4,
+      "total_evaluations": 4,
+      "handoff_step": null,
+      "refinement_steps": null,
+      "resizer": null,
+      "alignment": "base"
+    },
+    {
+      "name": "interp2",
+      "method": "interp",
+      "model_cls": "wan2.1_distill_interp_bridge",
+      "lr_evaluations": 2,
+      "hr_evaluations": 2,
+      "total_evaluations": 4,
+      "handoff_step": 2,
+      "refinement_steps": null,
+      "resizer": "interp",
+      "alignment": "base"
+    },
+    {
+      "name": "interp3",
+      "method": "interp",
+      "model_cls": "wan2.1_distill_interp_bridge",
+      "lr_evaluations": 3,
+      "hr_evaluations": 1,
+      "total_evaluations": 4,
+      "handoff_step": 3,
+      "refinement_steps": null,
+      "resizer": "interp",
+      "alignment": "base"
+    },
+    {
+      "name": "taa_interp3",
+      "method": "taa_interp",
+      "model_cls": "wan2.1_distill_last_step_lora_interp_bridge",
+      "lr_evaluations": 3,
+      "hr_evaluations": 1,
+      "total_evaluations": 4,
+      "handoff_step": 3,
+      "refinement_steps": null,
+      "resizer": "interp",
+      "alignment": "taa"
+    },
+    {
+      "name": "cll3",
+      "method": "cll",
+      "model_cls": "wan2.1_distill_clean_resizer_bridge",
+      "lr_evaluations": 3,
+      "hr_evaluations": 1,
+      "total_evaluations": 4,
+      "handoff_step": 3,
+      "refinement_steps": null,
+      "resizer": "stage2",
+      "alignment": "base"
+    },
+    {
+      "name": "talh3",
+      "method": "talh",
+      "model_cls": "wan2.1_distill_last_step_lora_clean_resizer_bridge",
+      "lr_evaluations": 3,
+      "hr_evaluations": 1,
+      "total_evaluations": 4,
+      "handoff_step": 3,
+      "refinement_steps": null,
+      "resizer": "stage2",
+      "alignment": "taa"
+    },
+    {
+      "name": "endpoint_stage2_0hr",
+      "method": "endpoint_stage2",
+      "model_cls": "wan2.1_distill_full_lr_stage2_k_hr",
+      "lr_evaluations": 4,
+      "hr_evaluations": 0,
+      "total_evaluations": 4,
+      "handoff_step": 4,
+      "refinement_steps": 0,
+      "resizer": "stage2",
+      "alignment": "base"
+    },
+    {
+      "name": "endpoint_stage2_1hr",
+      "method": "endpoint_stage2",
+      "model_cls": "wan2.1_distill_full_lr_stage2_k_hr",
+      "lr_evaluations": 4,
+      "hr_evaluations": 1,
+      "total_evaluations": 5,
+      "handoff_step": 4,
+      "refinement_steps": 1,
+      "resizer": "stage2",
+      "alignment": "base"
+    },
+    {
+      "name": "endpoint_stage2_2hr",
+      "method": "endpoint_stage2",
+      "model_cls": "wan2.1_distill_full_lr_stage2_k_hr",
+      "lr_evaluations": 4,
+      "hr_evaluations": 2,
+      "total_evaluations": 6,
+      "handoff_step": 4,
+      "refinement_steps": 2,
+      "resizer": "stage2",
+      "alignment": "base"
+    },
+    {
+      "name": "endpoint_stage2_4hr",
+      "method": "endpoint_stage2",
+      "model_cls": "wan2.1_distill_full_lr_stage2_k_hr",
+      "lr_evaluations": 4,
+      "hr_evaluations": 4,
+      "total_evaluations": 8,
+      "handoff_step": 4,
+      "refinement_steps": 4,
+      "resizer": "stage2",
+      "alignment": "base"
+    },
+    {
+      "name": "endpoint_interp_0hr",
+      "method": "endpoint_interp",
+      "model_cls": "wan2.1_distill_full_lr_interp_k_hr",
+      "lr_evaluations": 4,
+      "hr_evaluations": 0,
+      "total_evaluations": 4,
+      "handoff_step": 4,
+      "refinement_steps": 0,
+      "resizer": "interp",
+      "alignment": "base"
+    },
+    {
+      "name": "endpoint_interp_1hr",
+      "method": "endpoint_interp",
+      "model_cls": "wan2.1_distill_full_lr_interp_k_hr",
+      "lr_evaluations": 4,
+      "hr_evaluations": 1,
+      "total_evaluations": 5,
+      "handoff_step": 4,
+      "refinement_steps": 1,
+      "resizer": "interp",
+      "alignment": "base"
+    },
+    {
+      "name": "endpoint_interp_2hr",
+      "method": "endpoint_interp",
+      "model_cls": "wan2.1_distill_full_lr_interp_k_hr",
+      "lr_evaluations": 4,
+      "hr_evaluations": 2,
+      "total_evaluations": 6,
+      "handoff_step": 4,
+      "refinement_steps": 2,
+      "resizer": "interp",
+      "alignment": "base"
+    },
+    {
+      "name": "endpoint_interp_4hr",
+      "method": "endpoint_interp",
+      "model_cls": "wan2.1_distill_full_lr_interp_k_hr",
+      "lr_evaluations": 4,
+      "hr_evaluations": 4,
+      "total_evaluations": 8,
+      "handoff_step": 4,
+      "refinement_steps": 4,
+      "resizer": "interp",
+      "alignment": "base"
+    },
+    {
+      "name": "endpoint_rgb_0hr",
+      "method": "endpoint_rgb",
+      "model_cls": "wan2.1_distill_full_lr_rgb_k_hr",
+      "lr_evaluations": 4,
+      "hr_evaluations": 0,
+      "total_evaluations": 4,
+      "handoff_step": 4,
+      "refinement_steps": 0,
+      "resizer": "rgb",
+      "alignment": "base"
+    },
+    {
+      "name": "endpoint_rgb_1hr",
+      "method": "endpoint_rgb",
+      "model_cls": "wan2.1_distill_full_lr_rgb_k_hr",
+      "lr_evaluations": 4,
+      "hr_evaluations": 1,
+      "total_evaluations": 5,
+      "handoff_step": 4,
+      "refinement_steps": 1,
+      "resizer": "rgb",
+      "alignment": "base"
+    },
+    {
+      "name": "endpoint_rgb_2hr",
+      "method": "endpoint_rgb",
+      "model_cls": "wan2.1_distill_full_lr_rgb_k_hr",
+      "lr_evaluations": 4,
+      "hr_evaluations": 2,
+      "total_evaluations": 6,
+      "handoff_step": 4,
+      "refinement_steps": 2,
+      "resizer": "rgb",
+      "alignment": "base"
+    },
+    {
+      "name": "endpoint_rgb_4hr",
+      "method": "endpoint_rgb",
+      "model_cls": "wan2.1_distill_full_lr_rgb_k_hr",
+      "lr_evaluations": 4,
+      "hr_evaluations": 4,
+      "total_evaluations": 8,
+      "handoff_step": 4,
+      "refinement_steps": 4,
+      "resizer": "rgb",
+      "alignment": "base"
+    }
+  ],
+  "analysis_pairs": [
+    {
+      "comparison": "native_hr4_vs_interp2",
+      "left_case": "native_hr4",
+      "right_case": "interp2"
+    },
+    {
+      "comparison": "native_hr4_vs_interp3",
+      "left_case": "native_hr4",
+      "right_case": "interp3"
+    },
+    {
+      "comparison": "native_hr4_vs_taa_interp3",
+      "left_case": "native_hr4",
+      "right_case": "taa_interp3"
+    },
+    {
+      "comparison": "native_hr4_vs_cll3",
+      "left_case": "native_hr4",
+      "right_case": "cll3"
+    },
+    {
+      "comparison": "native_hr4_vs_talh3",
+      "left_case": "native_hr4",
+      "right_case": "talh3"
+    },
+    {
+      "comparison": "native_hr4_vs_endpoint_stage2_0hr",
+      "left_case": "native_hr4",
+      "right_case": "endpoint_stage2_0hr"
+    },
+    {
+      "comparison": "native_hr4_vs_endpoint_stage2_1hr",
+      "left_case": "native_hr4",
+      "right_case": "endpoint_stage2_1hr"
+    },
+    {
+      "comparison": "native_hr4_vs_endpoint_stage2_2hr",
+      "left_case": "native_hr4",
+      "right_case": "endpoint_stage2_2hr"
+    },
+    {
+      "comparison": "native_hr4_vs_endpoint_stage2_4hr",
+      "left_case": "native_hr4",
+      "right_case": "endpoint_stage2_4hr"
+    },
+    {
+      "comparison": "native_hr4_vs_endpoint_interp_0hr",
+      "left_case": "native_hr4",
+      "right_case": "endpoint_interp_0hr"
+    },
+    {
+      "comparison": "native_hr4_vs_endpoint_interp_1hr",
+      "left_case": "native_hr4",
+      "right_case": "endpoint_interp_1hr"
+    },
+    {
+      "comparison": "native_hr4_vs_endpoint_interp_2hr",
+      "left_case": "native_hr4",
+      "right_case": "endpoint_interp_2hr"
+    },
+    {
+      "comparison": "native_hr4_vs_endpoint_interp_4hr",
+      "left_case": "native_hr4",
+      "right_case": "endpoint_interp_4hr"
+    },
+    {
+      "comparison": "native_hr4_vs_endpoint_rgb_0hr",
+      "left_case": "native_hr4",
+      "right_case": "endpoint_rgb_0hr"
+    },
+    {
+      "comparison": "native_hr4_vs_endpoint_rgb_1hr",
+      "left_case": "native_hr4",
+      "right_case": "endpoint_rgb_1hr"
+    },
+    {
+      "comparison": "native_hr4_vs_endpoint_rgb_2hr",
+      "left_case": "native_hr4",
+      "right_case": "endpoint_rgb_2hr"
+    },
+    {
+      "comparison": "native_hr4_vs_endpoint_rgb_4hr",
+      "left_case": "native_hr4",
+      "right_case": "endpoint_rgb_4hr"
+    },
+    {
+      "comparison": "interp3_vs_taa_interp3",
+      "left_case": "interp3",
+      "right_case": "taa_interp3"
+    },
+    {
+      "comparison": "interp3_vs_cll3",
+      "left_case": "interp3",
+      "right_case": "cll3"
+    },
+    {
+      "comparison": "cll3_vs_talh3",
+      "left_case": "cll3",
+      "right_case": "talh3"
+    },
+    {
+      "comparison": "interp3_vs_talh3",
+      "left_case": "interp3",
+      "right_case": "talh3"
+    },
+    {
+      "comparison": "cll3_vs_endpoint_stage2_1hr",
+      "left_case": "cll3",
+      "right_case": "endpoint_stage2_1hr"
+    },
+    {
+      "comparison": "talh3_vs_endpoint_stage2_1hr",
+      "left_case": "talh3",
+      "right_case": "endpoint_stage2_1hr"
+    },
+    {
+      "comparison": "talh3_vs_endpoint_rgb_1hr",
+      "left_case": "talh3",
+      "right_case": "endpoint_rgb_1hr"
+    },
+    {
+      "comparison": "endpoint_interp_0hr_vs_endpoint_stage2_0hr",
+      "left_case": "endpoint_interp_0hr",
+      "right_case": "endpoint_stage2_0hr"
+    },
+    {
+      "comparison": "endpoint_stage2_0hr_vs_endpoint_rgb_0hr",
+      "left_case": "endpoint_stage2_0hr",
+      "right_case": "endpoint_rgb_0hr"
+    },
+    {
+      "comparison": "endpoint_interp_1hr_vs_endpoint_stage2_1hr",
+      "left_case": "endpoint_interp_1hr",
+      "right_case": "endpoint_stage2_1hr"
+    },
+    {
+      "comparison": "endpoint_stage2_1hr_vs_endpoint_rgb_1hr",
+      "left_case": "endpoint_stage2_1hr",
+      "right_case": "endpoint_rgb_1hr"
+    },
+    {
+      "comparison": "endpoint_interp_2hr_vs_endpoint_stage2_2hr",
+      "left_case": "endpoint_interp_2hr",
+      "right_case": "endpoint_stage2_2hr"
+    },
+    {
+      "comparison": "endpoint_stage2_2hr_vs_endpoint_rgb_2hr",
+      "left_case": "endpoint_stage2_2hr",
+      "right_case": "endpoint_rgb_2hr"
+    },
+    {
+      "comparison": "endpoint_interp_4hr_vs_endpoint_stage2_4hr",
+      "left_case": "endpoint_interp_4hr",
+      "right_case": "endpoint_stage2_4hr"
+    },
+    {
+      "comparison": "endpoint_stage2_4hr_vs_endpoint_rgb_4hr",
+      "left_case": "endpoint_stage2_4hr",
+      "right_case": "endpoint_rgb_4hr"
+    },
+    {
+      "comparison": "endpoint_stage2_0hr_vs_endpoint_stage2_1hr",
+      "left_case": "endpoint_stage2_0hr",
+      "right_case": "endpoint_stage2_1hr"
+    },
+    {
+      "comparison": "endpoint_stage2_1hr_vs_endpoint_stage2_2hr",
+      "left_case": "endpoint_stage2_1hr",
+      "right_case": "endpoint_stage2_2hr"
+    },
+    {
+      "comparison": "endpoint_stage2_2hr_vs_endpoint_stage2_4hr",
+      "left_case": "endpoint_stage2_2hr",
+      "right_case": "endpoint_stage2_4hr"
+    },
+    {
+      "comparison": "endpoint_interp_0hr_vs_endpoint_interp_1hr",
+      "left_case": "endpoint_interp_0hr",
+      "right_case": "endpoint_interp_1hr"
+    },
+    {
+      "comparison": "endpoint_interp_1hr_vs_endpoint_interp_2hr",
+      "left_case": "endpoint_interp_1hr",
+      "right_case": "endpoint_interp_2hr"
+    },
+    {
+      "comparison": "endpoint_interp_2hr_vs_endpoint_interp_4hr",
+      "left_case": "endpoint_interp_2hr",
+      "right_case": "endpoint_interp_4hr"
+    },
+    {
+      "comparison": "endpoint_rgb_0hr_vs_endpoint_rgb_1hr",
+      "left_case": "endpoint_rgb_0hr",
+      "right_case": "endpoint_rgb_1hr"
+    },
+    {
+      "comparison": "endpoint_rgb_1hr_vs_endpoint_rgb_2hr",
+      "left_case": "endpoint_rgb_1hr",
+      "right_case": "endpoint_rgb_2hr"
+    },
+    {
+      "comparison": "endpoint_rgb_2hr_vs_endpoint_rgb_4hr",
+      "left_case": "endpoint_rgb_2hr",
+      "right_case": "endpoint_rgb_4hr"
+    }
+  ],
+  "settings": {
+    "model_root": "/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill",
+    "dit_ckpt": "/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt",
+    "prompts_file": "/mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt",
+    "num_frames": 81,
+    "guide_scale": 6.0,
+    "lora_strength": 0.75,
+    "renoise_mode": "random",
+    "stage2_use_ema": true,
+    "endpoint_refinement_steps": [
+      0,
+      1,
+      2,
+      4
+    ],
+    "endpoint_resizers": [
+      "stage2",
+      "interp",
+      "rgb"
+    ],
+    "rgb_sr_backend": "realesrgan",
+    "rgb_sr_protocol": "Wan VAE decode -> Real-ESRGAN x2 -> center crop -> same Wan VAE encode",
+    "generation_gpus": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "generation_parallelism": "one independent case process per physical GPU"
+  },
+  "artifacts": {
+    "distill_dit": {
+      "path": "/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt",
+      "size_bytes": 28577333801,
+      "mtime_ns": 1780278806438557688,
+      "sha256": "13fec11400e094785dd9dae25a928a3acfb3cfc61168ab1f388344f06bef4db7"
+    },
+    "stage2": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb/latest.pt",
+      "size_bytes": 570100417,
+      "mtime_ns": 1784209092879955091,
+      "sha256": "96c9980834823088506f0033d8423f69a66bc6ecfe1608e5c22a2319776e859e"
+    },
+    "lora3": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/step_0010000.safetensors",
+      "size_bytes": 306801824,
+      "mtime_ns": 1783307663308766311,
+      "sha256": "439851cf5c5ae48f85663cb6f8e3b705ee139f289a66e7cfe3a8a8572702d06c"
+    },
+    "realesrgan_x2": {
+      "path": "/mnt/afs_2/houze/Real-ESRGAN/weights/RealESRGAN_x2plus.pth",
+      "size_bytes": 67061725,
+      "mtime_ns": 1784729288840426192,
+      "sha256": "49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb"
+    }
+  }
+}

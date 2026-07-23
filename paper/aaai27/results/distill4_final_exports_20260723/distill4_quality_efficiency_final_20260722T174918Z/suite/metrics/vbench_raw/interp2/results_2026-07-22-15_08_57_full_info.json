@@ -1,0 +1,142 @@
+[
+    {
+        "prompt_en": "A cinematic night market street after rain, vendors cooking under warm lanterns, reflections on wet pavement, realistic crowd motion.",
+        "dimension": [
+            "subject_consistency",
+            "background_consistency",
+            "motion_smoothness",
+            "dynamic_degree",
+            "aesthetic_quality",
+            "imaging_quality"
+        ],
+        "video_list": [
+            "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/interp2/interp2_00_seed9800.mp4"
+        ]
+    },
+    {
+        "prompt_en": "A close-up of a glass teapot pouring amber tea into a ceramic cup, steam curling upward, shallow depth of field.",
+        "dimension": [
+            "subject_consistency",
+            "background_consistency",
+            "motion_smoothness",
+            "dynamic_degree",
+            "aesthetic_quality",
+            "imaging_quality"
+        ],
+        "video_list": [
+            "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/interp2/interp2_01_seed9801.mp4"
+        ]
+    },
+    {
+        "prompt_en": "A mountain biker riding along a narrow forest trail, dust and leaves flying behind the wheels, dynamic tracking shot.",
+        "dimension": [
+            "subject_consistency",
+            "background_consistency",
+            "motion_smoothness",
+            "dynamic_degree",
+            "aesthetic_quality",
+            "imaging_quality"
+        ],
+        "video_list": [
+            "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/interp2/interp2_02_seed9802.mp4"
+        ]
+    },
+    {
+        "prompt_en": "A small fishing boat crossing a misty lake at sunrise, pine trees reflected in calm water, slow cinematic camera movement.",
+        "dimension": [
+            "subject_consistency",
+            "background_consistency",
+            "motion_smoothness",
+            "dynamic_degree",
+            "aesthetic_quality",
+            "imaging_quality"
+        ],
+        "video_list": [
+            "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/interp2/interp2_03_seed9803.mp4"
+        ]
+    },
+    {
+        "prompt_en": "A white sports car driving on a coastal highway, blue ocean beside the road, smooth aerial tracking, realistic motion blur.",
+        "dimension": [
+            "subject_consistency",
+            "background_consistency",
+            "motion_smoothness",
+            "dynamic_degree",
+            "aesthetic_quality",
+            "imaging_quality"
+        ],
+        "video_list": [
+            "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/interp2/interp2_04_seed9804.mp4"
+        ]
+    },
+    {
+        "prompt_en": "A robot arm assembling a circuit board in a clean laboratory, tiny components moving precisely, sharp industrial lighting.",
+        "dimension": [
+            "subject_consistency",
+            "background_consistency",
+            "motion_smoothness",
+            "dynamic_degree",
+            "aesthetic_quality",
+            "imaging_quality"
+        ],
+        "video_list": [
+            "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/interp2/interp2_05_seed9805.mp4"
+        ]
+    },
+    {
+        "prompt_en": "A dancer performing under neon signs in a narrow alley, fast footwork, handheld cinematic framing, colorful reflections.",
+        "dimension": [
+            "subject_consistency",
+            "background_consistency",
+            "motion_smoothness",
+            "dynamic_degree",
+            "aesthetic_quality",
+            "imaging_quality"
+        ],
+        "video_list": [
+            "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/interp2/interp2_06_seed9806.mp4"
+        ]
+    },
+    {
+        "prompt_en": "A golden retriever running through shallow ocean waves at sunset, splashing water, natural playful motion.",
+        "dimension": [
+            "subject_consistency",
+            "background_consistency",
+            "motion_smoothness",
+            "dynamic_degree",
+            "aesthetic_quality",
+            "imaging_quality"
+        ],
+        "video_list": [
+            "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/interp2/interp2_07_seed9807.mp4"
+        ]
+    },
+    {
+        "prompt_en": "A glass greenhouse filled with tropical flowers, sunlight beams through mist, slow dolly movement, rich color detail.",
+        "dimension": [
+            "subject_consistency",
+            "background_consistency",
+            "motion_smoothness",
+            "dynamic_degree",
+            "aesthetic_quality",
+            "imaging_quality"
+        ],
+        "video_list": [
+            "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/interp2/interp2_08_seed9808.mp4"
+        ]
+    },
+    {
+        "prompt_en": "A spacecraft landing on a dusty desert planet, sand blowing outward from the engines, cinematic science fiction realism.",
+        "dimension": [
+            "subject_consistency",
+            "background_consistency",
+            "motion_smoothness",
+            "dynamic_degree",
+            "aesthetic_quality",
+            "imaging_quality"
+        ],
+        "video_list": [
+            "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/videos/interp2/interp2_09_seed9809.mp4"
+        ]
+    }
+]

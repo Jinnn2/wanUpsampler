@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "family": "distill4_talh_validation_sweep",
+  "purpose": "P3 hyperparameter selection only; not final test reporting",
+  "selection_rule": "maximize validation VBench-5 mean; exact ties use lower LoRA strength then lexicographic renoise mode",
+  "seed_base": 16000,
+  "prompt_offset": 0,
+  "prompts": [
+    "A red fox runs across a snowy clearing while powder trails behind its paws, steady side-tracking camera.",
+    "An artisan shapes a spinning clay vase with both hands, wet surface details remaining stable in close-up.",
+    "A commuter train passes behind rows of trees at golden hour, with coherent windows and reflections.",
+    "Two children fly a bright kite on a windy beach, the string and fabric moving naturally in a wide shot.",
+    "A macro camera slowly circles a mechanical watch while its gears continue moving under changing highlights.",
+    "A street musician plays drums in light rain as pedestrians cross behind transparent umbrellas.",
+    "An orange cat walks along a narrow garden wall, briefly disappearing behind leaves before reappearing.",
+    "A small rover descends a rocky slope on Mars, its wheels displacing dust while the camera gently pans."
+  ],
+  "settings": {
+    "prompts_file": "/mnt/afs_2/houze/wanUpsampler/paper/aaai27/experiments/distill4_talh_validation_prompts_8.txt",
+    "main_test_prompts_file": "/mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt",
+    "prompt_sets_checked_disjoint": true,
+    "strengths": [
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "renoise_modes": [
+      "random",
+      "resize_flow"
+    ],
+    "num_frames": 81,
+    "guide_scale": 6.0,
+    "generation_gpus": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "cases": [
+    {
+      "name": "talh3_s0p25_random",
+      "method": "talh",
+      "model_cls": "wan2.1_distill_last_step_lora_clean_resizer_bridge",
+      "lr_evaluations": 3,
+      "hr_evaluations": 1,
+      "total_evaluations": 4,
+      "handoff_step": 3,
+      "refinement_steps": null,
+      "resizer": "stage2",
+      "alignment": "taa",
+      "lora_strength": 0.25,
+      "renoise_mode": "random"
+    },
+    {
+      "name": "talh3_s0p25_resize_flow",
+      "method": "talh",
+      "model_cls": "wan2.1_distill_last_step_lora_clean_resizer_bridge",
+      "lr_evaluations": 3,
+      "hr_evaluations": 1,
+      "total_evaluations": 4,
+      "handoff_step": 3,
+      "refinement_steps": null,
+      "resizer": "stage2",
+      "alignment": "taa",
+      "lora_strength": 0.25,
+      "renoise_mode": "resize_flow"
+    },
+    {
+      "name": "talh3_s0p5_random",
+      "method": "talh",
+      "model_cls": "wan2.1_distill_last_step_lora_clean_resizer_bridge",
+      "lr_evaluations": 3,
+      "hr_evaluations": 1,
+      "total_evaluations": 4,
+      "handoff_step": 3,
+      "refinement_steps": null,
+      "resizer": "stage2",
+      "alignment": "taa",
+      "lora_strength": 0.5,
+      "renoise_mode": "random"
+    },
+    {
+      "name": "talh3_s0p5_resize_flow",
+      "method": "talh",
+      "model_cls": "wan2.1_distill_last_step_lora_clean_resizer_bridge",
+      "lr_evaluations": 3,
+      "hr_evaluations": 1,
+      "total_evaluations": 4,
+      "handoff_step": 3,
+      "refinement_steps": null,
+      "resizer": "stage2",
+      "alignment": "taa",
+      "lora_strength": 0.5,
+      "renoise_mode": "resize_flow"
+    },
+    {
+      "name": "talh3_s0p75_random",
+      "method": "talh",
+      "model_cls": "wan2.1_distill_last_step_lora_clean_resizer_bridge",
+      "lr_evaluations": 3,
+      "hr_evaluations": 1,
+      "total_evaluations": 4,
+      "handoff_step": 3,
+      "refinement_steps": null,
+      "resizer": "stage2",
+      "alignment": "taa",
+      "lora_strength": 0.75,
+      "renoise_mode": "random"
+    },
+    {
+      "name": "talh3_s0p75_resize_flow",
+      "method": "talh",
+      "model_cls": "wan2.1_distill_last_step_lora_clean_resizer_bridge",
+      "lr_evaluations": 3,
+      "hr_evaluations": 1,
+      "total_evaluations": 4,
+      "handoff_step": 3,
+      "refinement_steps": null,
+      "resizer": "stage2",
+      "alignment": "taa",
+      "lora_strength": 0.75,
+      "renoise_mode": "resize_flow"
+    },
+    {
+      "name": "talh3_s1_random",
+      "method": "talh",
+      "model_cls": "wan2.1_distill_last_step_lora_clean_resizer_bridge",
+      "lr_evaluations": 3,
+      "hr_evaluations": 1,
+      "total_evaluations": 4,
+      "handoff_step": 3,
+      "refinement_steps": null,
+      "resizer": "stage2",
+      "alignment": "taa",
+      "lora_strength": 1.0,
+      "renoise_mode": "random"
+    },
+    {
+      "name": "talh3_s1_resize_flow",
+      "method": "talh",
+      "model_cls": "wan2.1_distill_last_step_lora_clean_resizer_bridge",
+      "lr_evaluations": 3,
+      "hr_evaluations": 1,
+      "total_evaluations": 4,
+      "handoff_step": 3,
+      "refinement_steps": null,
+      "resizer": "stage2",
+      "alignment": "taa",
+      "lora_strength": 1.0,
+      "renoise_mode": "resize_flow"
+    }
+  ]
+}

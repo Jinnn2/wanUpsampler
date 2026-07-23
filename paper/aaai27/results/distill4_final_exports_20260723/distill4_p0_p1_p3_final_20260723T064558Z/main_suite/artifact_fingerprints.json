@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "entries": {
+    "/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt": {
+      "path": "/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt",
+      "size_bytes": 28577333801,
+      "mtime_ns": 1780278806438557688,
+      "sha256": "13fec11400e094785dd9dae25a928a3acfb3cfc61168ab1f388344f06bef4db7"
+    },
+    "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb/latest.pt": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb/latest.pt",
+      "size_bytes": 570100417,
+      "mtime_ns": 1784209092879955091,
+      "sha256": "96c9980834823088506f0033d8423f69a66bc6ecfe1608e5c22a2319776e859e"
+    },
+    "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/step_0010000.safetensors": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/step_0010000.safetensors",
+      "size_bytes": 306801824,
+      "mtime_ns": 1783307663308766311,
+      "sha256": "439851cf5c5ae48f85663cb6f8e3b705ee139f289a66e7cfe3a8a8572702d06c"
+    },
+    "/mnt/afs_2/houze/Real-ESRGAN/weights/RealESRGAN_x2plus.pth": {
+      "path": "/mnt/afs_2/houze/Real-ESRGAN/weights/RealESRGAN_x2plus.pth",
+      "size_bytes": 67061725,
+      "mtime_ns": 1784729288840426192,
+      "sha256": "49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb"
+    }
+  }
+}

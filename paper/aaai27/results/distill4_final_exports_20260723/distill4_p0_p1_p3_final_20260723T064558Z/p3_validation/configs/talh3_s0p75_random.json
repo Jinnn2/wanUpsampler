@@ -1,0 +1,51 @@
+{
+  "infer_steps": 4,
+  "target_video_length": 81,
+  "text_len": 512,
+  "target_height": 720,
+  "target_width": 1248,
+  "self_attn_1_type": "flash_attn3",
+  "cross_attn_1_type": "flash_attn3",
+  "cross_attn_2_type": "flash_attn3",
+  "sample_guide_scale": 6.0,
+  "sample_shift": 5,
+  "enable_cfg": false,
+  "cpu_offload": false,
+  "feature_caching": "NoCaching",
+  "denoising_step_list": [
+    1000,
+    750,
+    500,
+    250
+  ],
+  "dit_original_ckpt": "/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill/distill_model.pt",
+  "compare_name": "talh3_s0p75_random",
+  "changing_resolution": true,
+  "resolution_rate": [
+    0.5111111111111111
+  ],
+  "wan_lowres_latent_size": [
+    46,
+    80
+  ],
+  "changing_resolution_steps": [
+    3
+  ],
+  "wan_distill_bridge_renoise_mode": "random",
+  "wan_clean_resizer_repo": "/mnt/afs_2/houze/wanUpsampler",
+  "wan_clean_resizer_ckpt": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb/latest.pt",
+  "wan_clean_resizer_train_config": "/mnt/afs_2/houze/wanUpsampler/changing_resolution_distill/configs/train_clean_368x640_to_720x1248_lmdb_stage2_distill.yaml",
+  "wan_clean_resizer_model_class": "stage2",
+  "wan_clean_resizer_use_ema": true,
+  "lora_dynamic_apply": true,
+  "lora_active_steps": [
+    3
+  ],
+  "lora_configs": [
+    {
+      "name": "wan2.1",
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/step_0010000.safetensors",
+      "strength": 0.75
+    }
+  ]
+}

@@ -1,0 +1,642 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-07-22T17:49:28.794171+00:00",
+  "source_suite": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4",
+  "include_videos": false,
+  "probe_videos": true,
+  "require_metrics": true,
+  "require_timing": true,
+  "allow_incomplete": false,
+  "copied_files": [
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/run_manifest.json",
+      "collected": "suite/run_manifest.json",
+      "size_bytes": 15249,
+      "sha256": "71bf129d2d8f7dc0ea8845d39a6892646f4341616858d238d492b51e4c98b658"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/native_hr4.json",
+      "collected": "suite/configs/native_hr4.json",
+      "size_bytes": 570,
+      "sha256": "ae869ab61034d390712b8c3dc4355530ebb09a85327bd43c249e687f9c9c31b2"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/interp2.json",
+      "collected": "suite/configs/interp2.json",
+      "size_bytes": 790,
+      "sha256": "1c7fc5f59ef4e64979dda83dee2d046b8408ba0ff257c6b2926dc78d54566f6c"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/interp3.json",
+      "collected": "suite/configs/interp3.json",
+      "size_bytes": 790,
+      "sha256": "c16644bc985f5feaede2b29c8147e8e42f1f3ae5bafc3622609a78cc60deffaa"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/taa_interp3.json",
+      "collected": "suite/configs/taa_interp3.json",
+      "size_bytes": 1096,
+      "sha256": "7eac979cf5ef5a558306dc160c7dc472d1473255469659eff1cecaab4088261d"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/cll3.json",
+      "collected": "suite/configs/cll3.json",
+      "size_bytes": 1252,
+      "sha256": "90aa64fbc992ce73dd24b202dabd354444de53fb97b72d4399146513818a3dbf"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/talh3.json",
+      "collected": "suite/configs/talh3.json",
+      "size_bytes": 1555,
+      "sha256": "7f76f9b6d8b57a3d059ca70d3df59e41aaee1081014492b1a0127a1cae5faf4c"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/endpoint_stage2_0hr.json",
+      "collected": "suite/configs/endpoint_stage2_0hr.json",
+      "size_bytes": 1298,
+      "sha256": "489d782c90f9f3ee5ea38cb566b4872d2f255ebf9bdeb70e0a9cc44baac71a14"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/endpoint_stage2_1hr.json",
+      "collected": "suite/configs/endpoint_stage2_1hr.json",
+      "size_bytes": 1298,
+      "sha256": "d2432bec5683de61ed64e3c487e9c7072b814cdf5ae66544f3c40e64ba4e9ee9"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/endpoint_stage2_2hr.json",
+      "collected": "suite/configs/endpoint_stage2_2hr.json",
+      "size_bytes": 1298,
+      "sha256": "9281d054f0005fb0c5f2921b9bb5d3c44860e7eca6f1e5ac360bb907be9eb611"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/endpoint_stage2_4hr.json",
+      "collected": "suite/configs/endpoint_stage2_4hr.json",
+      "size_bytes": 1298,
+      "sha256": "4214e820a5161a06ac1f323b50690c0a3b7f3ac32375dcedb15a287d6eaa9cf2"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/endpoint_interp_0hr.json",
+      "collected": "suite/configs/endpoint_interp_0hr.json",
+      "size_bytes": 833,
+      "sha256": "c1e27af0214f47c7d6ed7d357fc92eb87dd07d51b3106d49467a228e60dc4596"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/endpoint_interp_1hr.json",
+      "collected": "suite/configs/endpoint_interp_1hr.json",
+      "size_bytes": 833,
+      "sha256": "0700717b34f69f9538dc2a1dba301ac16b4f4912781e83b4f914efad6ad43572"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/endpoint_interp_2hr.json",
+      "collected": "suite/configs/endpoint_interp_2hr.json",
+      "size_bytes": 833,
+      "sha256": "d020f08d285a54b915446dbafdbc148f86cc89bdeaa53759527c126f69c45597"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/endpoint_interp_4hr.json",
+      "collected": "suite/configs/endpoint_interp_4hr.json",
+      "size_bytes": 833,
+      "sha256": "a51f7e3574884bacff4c270626406a8ab1f9276f55b9accd9ebaa16106a61569"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/endpoint_rgb_0hr.json",
+      "collected": "suite/configs/endpoint_rgb_0hr.json",
+      "size_bytes": 1117,
+      "sha256": "64aa94184b4023e9c94999e324f296681b8d4cfc2c9b715f315cb557334794b2"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/endpoint_rgb_1hr.json",
+      "collected": "suite/configs/endpoint_rgb_1hr.json",
+      "size_bytes": 1117,
+      "sha256": "629f3af658047f335c42b603e11ac2f3b0bbb5583ece8eaedebc9f915418e2e0"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/endpoint_rgb_2hr.json",
+      "collected": "suite/configs/endpoint_rgb_2hr.json",
+      "size_bytes": 1117,
+      "sha256": "d67d017f06076e36dab1a1683017405d549ca2972bd6d3c69cb20e408a22dd21"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/configs/endpoint_rgb_4hr.json",
+      "collected": "suite/configs/endpoint_rgb_4hr.json",
+      "size_bytes": 1117,
+      "sha256": "4ca580a8607b743ab51af8d19d5b36e476c8c27ca5f5547167ca64496258e1f8"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/benchmark_spec.json",
+      "collected": "suite/benchmark_spec.json",
+      "size_bytes": 18704,
+      "sha256": "c4a4039083407d0d484d617e728328cff87418405d3779d993008aaf6ae24887"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/generation_schedule.json",
+      "collected": "suite/generation_schedule.json",
+      "size_bytes": 921,
+      "sha256": "53f6245f13658c0e0c0c55fb26ca5cee7013db3dd7fe488d23abde63a64e2a5e"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/warm_quality_efficiency/protocol.json",
+      "collected": "suite/protocol.json",
+      "size_bytes": 4794,
+      "sha256": "be947d33105542d57a0085fa631954df29a623497ff3e454db7a2ac737ce83f1"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/warm_quality_efficiency/warm_timing_manifest.json",
+      "collected": "suite/warm_timing_manifest.json",
+      "size_bytes": 6019,
+      "sha256": "579ad43f7283b856df4273f05599d3ebef7c786f9b22774f020cc0d198335b63"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/warm_quality_efficiency/quality_efficiency_warm.csv",
+      "collected": "suite/quality_efficiency_warm.csv",
+      "size_bytes": 13063,
+      "sha256": "3364dacbb03fdf4b6fff58a1a2e0d3c8ca33003ad464a07b5abf3b583a91317f"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/warm_quality_efficiency/quality_efficiency_warm_raw.csv",
+      "collected": "suite/quality_efficiency_warm_raw.csv",
+      "size_bytes": 30947,
+      "sha256": "ca2f6e3799d7e97ff6102baaab57474869cac233775d1b123bf44788eb2926a7"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/warm_quality_efficiency/quality_efficiency_warm_pairs.csv",
+      "collected": "suite/quality_efficiency_warm_pairs.csv",
+      "size_bytes": 10550,
+      "sha256": "2b12cbed86acccb75d5808be931ec1acf8573a32a6c238d5df4f4aa9ba802a93"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/cll3/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/cll3/prompt_map.json",
+      "size_bytes": 2465,
+      "sha256": "6a5f23094d789d0e5db50f05a0e1ffb3517cc5b5820fc024852cf45979f7a286"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/endpoint_interp_0hr/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/endpoint_interp_0hr/prompt_map.json",
+      "size_bytes": 2765,
+      "sha256": "5e4b9c6f0200c1673ce6f732ce20ee96fbd5799cd9b263c58dd1860285f860ec"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/endpoint_interp_1hr/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/endpoint_interp_1hr/prompt_map.json",
+      "size_bytes": 2765,
+      "sha256": "806d6b121a2a5a64ab665cce340a0ec51cf95be0377a3730faf82b9eb1312fde"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/endpoint_interp_2hr/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/endpoint_interp_2hr/prompt_map.json",
+      "size_bytes": 2765,
+      "sha256": "6332dc96cc925ecc22e7b1d5fd2e2cec73e7a04afd6045e52226680389e8291e"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/endpoint_interp_4hr/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/endpoint_interp_4hr/prompt_map.json",
+      "size_bytes": 2765,
+      "sha256": "647e3698a903b77b37765ee18ea51df2c696a02d326c3c95983e6d6863c09092"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/endpoint_rgb_0hr/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/endpoint_rgb_0hr/prompt_map.json",
+      "size_bytes": 2705,
+      "sha256": "59420494a033e26c881d9bd5abac33c1ebb025834d0c576c81fbfbb81bda9515"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/endpoint_rgb_1hr/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/endpoint_rgb_1hr/prompt_map.json",
+      "size_bytes": 2705,
+      "sha256": "be3a23ae87064f35f8e3356396303e5a13df9083205a6465505a1732e1f6257a"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/endpoint_rgb_2hr/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/endpoint_rgb_2hr/prompt_map.json",
+      "size_bytes": 2705,
+      "sha256": "5064848291bf9838087404c520f86686f742b8847ce92ea36910ba8d5ef34c7f"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/endpoint_rgb_4hr/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/endpoint_rgb_4hr/prompt_map.json",
+      "size_bytes": 2705,
+      "sha256": "baf3ca8bc47163c534867645c2b9849acbe30b23d8cc41fdd8b8f6b3374fbfec"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/endpoint_stage2_0hr/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/endpoint_stage2_0hr/prompt_map.json",
+      "size_bytes": 2765,
+      "sha256": "59a3362c49c655ba413f72ef63c14a8270d223fc8569a75fb5d5ec2a9b24dad5"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/endpoint_stage2_1hr/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/endpoint_stage2_1hr/prompt_map.json",
+      "size_bytes": 2765,
+      "sha256": "5fee5824b3cdd9126251d44533a162c429d7a6e5c8ff631721b64603a0b14d53"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/endpoint_stage2_2hr/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/endpoint_stage2_2hr/prompt_map.json",
+      "size_bytes": 2765,
+      "sha256": "83b2d26dd8ffe93a990f9ce21cc30e825e1649ace96c3b0ea24a708b6813f2ca"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/endpoint_stage2_4hr/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/endpoint_stage2_4hr/prompt_map.json",
+      "size_bytes": 2765,
+      "sha256": "75db97b457efaf441276a8367390439d99431f26a5905c4fce2b3dd708abfe60"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/interp2/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/interp2/prompt_map.json",
+      "size_bytes": 2525,
+      "sha256": "e7eee3cb8a3afd0b5d45f95185f15298c25bc39f079ddf7db5a60da48c5b6cc7"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/interp3/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/interp3/prompt_map.json",
+      "size_bytes": 2525,
+      "sha256": "6042e01d82a8472c6732bbc996064d497413178274f0531a6bcbd51942b296b9"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/native_hr4/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/native_hr4/prompt_map.json",
+      "size_bytes": 2585,
+      "sha256": "7ec2a87679dc84ec19fe5e925ec9681f6db0f23db14908db2979dd1055279d56"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/taa_interp3/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/taa_interp3/prompt_map.json",
+      "size_bytes": 2605,
+      "sha256": "19402a4ef01ca92dc6ce0bb23bb0c9966e3373a6f30dd2472af21d3799bda385"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_inputs/talh3/prompt_map.json",
+      "collected": "suite/metrics/vbench_inputs/talh3/prompt_map.json",
+      "size_bytes": 2485,
+      "sha256": "9cf805df3b49f89531d20712f0f1c9e6daeeeab83384f03e88ffcec7344791e3"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_paired_statistics.csv",
+      "collected": "suite/metrics/vbench_paired_statistics.csv",
+      "size_bytes": 45664,
+      "sha256": "b7964117afcabe93dd75161d7988a26e79c6dc636ec68c38ce7f95a13f013a14"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/cll3/results_2026-07-22-15:11:16_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/cll3/results_2026-07-22-15:11:16_eval_results.json",
+      "size_bytes": 15054,
+      "sha256": "8d09292c5f192fd0c32763efc24afc749dca859a7fb0e5f19c0a6bf2d3eda2e5"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/cll3/results_2026-07-22-15:11:16_full_info.json",
+      "collected": "suite/metrics/vbench_raw/cll3/results_2026-07-22-15:11:16_full_info.json",
+      "size_bytes": 5564,
+      "sha256": "f70f9cfbf628508220a5d836d0da70dfd6ee80b6913ade5f857af6aa55396123"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_interp_0hr/results_2026-07-22-15:15:54_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_interp_0hr/results_2026-07-22-15:15:54_eval_results.json",
+      "size_bytes": 16855,
+      "sha256": "cc890ec20384d6b8b7e025a31d3bd28c13f23a73b6acc000a2c5098f090e15f3"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_interp_0hr/results_2026-07-22-15:15:54_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_interp_0hr/results_2026-07-22-15:15:54_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "32790a41f230013f29c33de70098d5dba8a2e5d9e1b8ebb865bc5553ff35ec92"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_interp_1hr/results_2026-07-22-15:16:40_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_interp_1hr/results_2026-07-22-15:16:40_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "4d8cf98b4575bdecb03c4a0e647676fbcb1cc25a557f03069d615d3459b71431"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_interp_1hr/results_2026-07-22-15:16:41_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_interp_1hr/results_2026-07-22-15:16:41_eval_results.json",
+      "size_bytes": 16865,
+      "sha256": "f666d1668bf4645bd071730339d34ab516c43eb57a5794cf4cb79205371547c5"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_interp_1hr/results_2026-07-22-15:16:41_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_interp_1hr/results_2026-07-22-15:16:41_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "4d8cf98b4575bdecb03c4a0e647676fbcb1cc25a557f03069d615d3459b71431"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_interp_2hr/results_2026-07-22-15:17:27_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_interp_2hr/results_2026-07-22-15:17:27_eval_results.json",
+      "size_bytes": 16846,
+      "sha256": "ea667b8c8473dab582c92e4f9eb16f4aaf1601c53fbbcaef18f126f17833f649"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_interp_2hr/results_2026-07-22-15:17:27_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_interp_2hr/results_2026-07-22-15:17:27_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "1d909c29818388a535d21dd13f73d24389cf75ffa16aca772a1c3d4abe5e4ce1"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_interp_2hr/results_2026-07-22-15:17:28_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_interp_2hr/results_2026-07-22-15:17:28_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "1d909c29818388a535d21dd13f73d24389cf75ffa16aca772a1c3d4abe5e4ce1"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_interp_4hr/results_2026-07-22-15:18:13_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_interp_4hr/results_2026-07-22-15:18:13_eval_results.json",
+      "size_bytes": 16859,
+      "sha256": "6b5741de14fedb220ad461808e58477ae0715055539494010751b85c3ed9b926"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_interp_4hr/results_2026-07-22-15:18:13_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_interp_4hr/results_2026-07-22-15:18:13_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "20cdf5f0b0bce564c4eac75d9692282a6418dabaa045cf574b5941aa733fcace"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_rgb_0hr/results_2026-07-22-15:18:59_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_rgb_0hr/results_2026-07-22-15:18:59_eval_results.json",
+      "size_bytes": 16482,
+      "sha256": "fcb6769487a13db1806898bf5ca76a320a60caa75500355ddcb0fefe2e7d53ac"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_rgb_0hr/results_2026-07-22-15:18:59_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_rgb_0hr/results_2026-07-22-15:18:59_full_info.json",
+      "size_bytes": 5804,
+      "sha256": "fe546f4922e7f489507b8d4055f0af34cd9c8d95af3ef8e36b314d93765e0202"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_rgb_0hr/results_2026-07-22-15:19:00_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_rgb_0hr/results_2026-07-22-15:19:00_full_info.json",
+      "size_bytes": 5804,
+      "sha256": "fe546f4922e7f489507b8d4055f0af34cd9c8d95af3ef8e36b314d93765e0202"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_rgb_1hr/results_2026-07-22-15:19:45_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_rgb_1hr/results_2026-07-22-15:19:45_full_info.json",
+      "size_bytes": 5804,
+      "sha256": "fa76ad8a133df11aca29797f4892eabb600e6076b82af3f99497b74a7e3b51c0"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_rgb_1hr/results_2026-07-22-15:19:46_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_rgb_1hr/results_2026-07-22-15:19:46_eval_results.json",
+      "size_bytes": 16498,
+      "sha256": "5dd7585838d1461a85f3b31afb5ddec2e61f348cb694f354be231a592b703bd7"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_rgb_1hr/results_2026-07-22-15:19:46_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_rgb_1hr/results_2026-07-22-15:19:46_full_info.json",
+      "size_bytes": 5804,
+      "sha256": "fa76ad8a133df11aca29797f4892eabb600e6076b82af3f99497b74a7e3b51c0"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_rgb_2hr/results_2026-07-22-15:20:32_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_rgb_2hr/results_2026-07-22-15:20:32_eval_results.json",
+      "size_bytes": 16493,
+      "sha256": "08718b6723312ff74018b15c6d6c17d005b96a1fc095d812ab1beb84a8278f12"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_rgb_2hr/results_2026-07-22-15:20:32_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_rgb_2hr/results_2026-07-22-15:20:32_full_info.json",
+      "size_bytes": 5804,
+      "sha256": "403c24503d6219f1ad5ed504954f4432cca0723f3c63221065bef8e75c833c2d"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_rgb_2hr/results_2026-07-22-15:20:33_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_rgb_2hr/results_2026-07-22-15:20:33_full_info.json",
+      "size_bytes": 5804,
+      "sha256": "403c24503d6219f1ad5ed504954f4432cca0723f3c63221065bef8e75c833c2d"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_rgb_4hr/results_2026-07-22-15:21:19_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_rgb_4hr/results_2026-07-22-15:21:19_eval_results.json",
+      "size_bytes": 16500,
+      "sha256": "d0614f7504a2fbb64bb4432733fce7177fae46867f5d31b063397481a9981e14"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_rgb_4hr/results_2026-07-22-15:21:19_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_rgb_4hr/results_2026-07-22-15:21:19_full_info.json",
+      "size_bytes": 5804,
+      "sha256": "66be973fc319e0a9a86ed3061dd8b28a03f0d1890437f42449012d67b7028899"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_stage2_0hr/results_2026-07-22-15:12:49_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_stage2_0hr/results_2026-07-22-15:12:49_eval_results.json",
+      "size_bytes": 16866,
+      "sha256": "bc570efcec5fe3cb6372c5ea07f4fd269156a2b154bd436c0e0b621ba3bc2afd"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_stage2_0hr/results_2026-07-22-15:12:49_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_stage2_0hr/results_2026-07-22-15:12:49_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "fdfde40f1295a62a8bee336fb27b817acdf26613cc35768749136e9e181588ff"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_stage2_0hr/results_2026-07-22-15:12:50_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_stage2_0hr/results_2026-07-22-15:12:50_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "fdfde40f1295a62a8bee336fb27b817acdf26613cc35768749136e9e181588ff"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_stage2_1hr/results_2026-07-22-15:13:35_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_stage2_1hr/results_2026-07-22-15:13:35_eval_results.json",
+      "size_bytes": 16850,
+      "sha256": "1be82ed1ec7b8e1b5b9dc4103dc6b03e9fcf87f2d0a815b0de4b2f781ea0abf1"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_stage2_1hr/results_2026-07-22-15:13:35_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_stage2_1hr/results_2026-07-22-15:13:35_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "17cc7fc06a4f3ef6794b9c52de7cf12a14bfd5d4e9d5ba9d6c2f5df5a520b321"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_stage2_1hr/results_2026-07-22-15:13:36_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_stage2_1hr/results_2026-07-22-15:13:36_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "17cc7fc06a4f3ef6794b9c52de7cf12a14bfd5d4e9d5ba9d6c2f5df5a520b321"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_stage2_2hr/results_2026-07-22-15:14:21_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_stage2_2hr/results_2026-07-22-15:14:21_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "8f8e6573051a69e68c3b8670b0c9fdbdbc9a5114bbd3b7682782da3b1c78dffe"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_stage2_2hr/results_2026-07-22-15:14:22_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_stage2_2hr/results_2026-07-22-15:14:22_eval_results.json",
+      "size_bytes": 16846,
+      "sha256": "3edf934c23a023f1fe8805762f341290d958e1532b161640782a7403f2bc4de8"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_stage2_2hr/results_2026-07-22-15:14:22_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_stage2_2hr/results_2026-07-22-15:14:22_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "8f8e6573051a69e68c3b8670b0c9fdbdbc9a5114bbd3b7682782da3b1c78dffe"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_stage2_4hr/results_2026-07-22-15:15:07_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_stage2_4hr/results_2026-07-22-15:15:07_eval_results.json",
+      "size_bytes": 16859,
+      "sha256": "5fcd11327782aabb4133b49eb38cfbfb8adcd3d5ca80967fbb2793b8cbbba934"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_stage2_4hr/results_2026-07-22-15:15:07_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_stage2_4hr/results_2026-07-22-15:15:07_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "0ae1d9961307555af2d3065f27ab2285bb9b1f841a4a314d6b31f81ca357c8c5"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/endpoint_stage2_4hr/results_2026-07-22-15:15:08_full_info.json",
+      "collected": "suite/metrics/vbench_raw/endpoint_stage2_4hr/results_2026-07-22-15:15:08_full_info.json",
+      "size_bytes": 5864,
+      "sha256": "0ae1d9961307555af2d3065f27ab2285bb9b1f841a4a314d6b31f81ca357c8c5"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/interp2/results_2026-07-22-15:08:57_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/interp2/results_2026-07-22-15:08:57_eval_results.json",
+      "size_bytes": 15419,
+      "sha256": "620d0de014d8dd5c10f0985aa61d12460c6d2c47d72af8ceb35f6e0798d020de"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/interp2/results_2026-07-22-15:08:57_full_info.json",
+      "collected": "suite/metrics/vbench_raw/interp2/results_2026-07-22-15:08:57_full_info.json",
+      "size_bytes": 5624,
+      "sha256": "b130deeadd17241e929cedcf4dc8c9e42548b9a834a4dcc93b1b225c15c63c7b"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/interp3/results_2026-07-22-15:09:43_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/interp3/results_2026-07-22-15:09:43_eval_results.json",
+      "size_bytes": 15414,
+      "sha256": "c08c29c8bfff512a232ea285a1ac6041d6b1aa35d82322afdee4de194840cb7c"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/interp3/results_2026-07-22-15:09:43_full_info.json",
+      "collected": "suite/metrics/vbench_raw/interp3/results_2026-07-22-15:09:43_full_info.json",
+      "size_bytes": 5624,
+      "sha256": "d751d8c01965edd9f99a24693228bcfa9722ba28dccdb98fbc0331a0419a953b"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/interp3/results_2026-07-22-15:09:44_full_info.json",
+      "collected": "suite/metrics/vbench_raw/interp3/results_2026-07-22-15:09:44_full_info.json",
+      "size_bytes": 5624,
+      "sha256": "d751d8c01965edd9f99a24693228bcfa9722ba28dccdb98fbc0331a0419a953b"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/native_hr4/results_2026-07-22-15:08:11_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/native_hr4/results_2026-07-22-15:08:11_eval_results.json",
+      "size_bytes": 15773,
+      "sha256": "7fb002c702de485163514b0fd3de5a52649562b26a098f8ef112006f843c50d3"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/native_hr4/results_2026-07-22-15:08:11_full_info.json",
+      "collected": "suite/metrics/vbench_raw/native_hr4/results_2026-07-22-15:08:11_full_info.json",
+      "size_bytes": 5684,
+      "sha256": "dec4d773f582968d5703215fe59cc061fa196a9f30e0f87d2819add502673ed4"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/taa_interp3/results_2026-07-22-15:10:29_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/taa_interp3/results_2026-07-22-15:10:29_eval_results.json",
+      "size_bytes": 15879,
+      "sha256": "8ffc3a9bb47a679f9f7e4a30f866d86b4e1b8ca29b2d71de6331d41aac5f3cc6"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/taa_interp3/results_2026-07-22-15:10:29_full_info.json",
+      "collected": "suite/metrics/vbench_raw/taa_interp3/results_2026-07-22-15:10:29_full_info.json",
+      "size_bytes": 5704,
+      "sha256": "0cd9a3da46eeab2d2748be47289af35e16a5c41b34911264357abc4890c79998"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/taa_interp3/results_2026-07-22-15:10:30_full_info.json",
+      "collected": "suite/metrics/vbench_raw/taa_interp3/results_2026-07-22-15:10:30_full_info.json",
+      "size_bytes": 5704,
+      "sha256": "0cd9a3da46eeab2d2748be47289af35e16a5c41b34911264357abc4890c79998"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/talh3/results_2026-07-22-15:12:02_eval_results.json",
+      "collected": "suite/metrics/vbench_raw/talh3/results_2026-07-22-15:12:02_eval_results.json",
+      "size_bytes": 15179,
+      "sha256": "ea615faad3b6860e3584e7826cc4540bebd4f6df105a8f9493d385305a37c03e"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_raw/talh3/results_2026-07-22-15:12:02_full_info.json",
+      "collected": "suite/metrics/vbench_raw/talh3/results_2026-07-22-15:12:02_full_info.json",
+      "size_bytes": 5584,
+      "sha256": "ed4821ad6a87f360167a2b3d1858512971ccc66fff8f69a13c8d32e2d06c1fa9"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "collected": "suite/metrics/vbench_v1_custom.json",
+      "size_bytes": 149431,
+      "sha256": "bdae9eb4dde5f2f5b70d98da9d7b2099d2f822613bb458af1481e4074c7eab13"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/paper/aaai27/experiments/benchmark_warm_quality_efficiency.py",
+      "collected": "implementation/paper/aaai27/experiments/benchmark_warm_quality_efficiency.py",
+      "size_bytes": 35193,
+      "sha256": "b9c3609648cc48be4261cad38b41ab1dbfa2fefcd25ade96faf2f82f3a0bffdc"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/paper/aaai27/experiments/collect_results.py",
+      "collected": "implementation/paper/aaai27/experiments/collect_results.py",
+      "size_bytes": 64849,
+      "sha256": "1ef8043b0016f31872675c70dada6ced711f8cdefc4814d30baede76eba0db34"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/paper/aaai27/experiments/collect_quality_efficiency.py",
+      "collected": "implementation/paper/aaai27/experiments/collect_quality_efficiency.py",
+      "size_bytes": 22614,
+      "sha256": "1df52d1d2b5a66eaebd8c34cc566b6d662d79da4d482f80423c9666fc4660bd4"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/changing_resolution_distill/lightx2v_distill_bridge.py",
+      "collected": "implementation/changing_resolution_distill/lightx2v_distill_bridge.py",
+      "size_bytes": 35462,
+      "sha256": "c4c0b1f8db1d16532931f73612778b56f26c29ee3fcabe3f775bfb3f494bcb4b"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/changing_resolution_distill/rgb_super_resolution.py",
+      "collected": "implementation/changing_resolution_distill/rgb_super_resolution.py",
+      "size_bytes": 5663,
+      "sha256": "24ddb6ffb8d039981a228097aad237bf57731b5ecbf9bc8a900b888652f91d7d"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/changing_resolution_distill/realesrgan_compat.py",
+      "collected": "implementation/changing_resolution_distill/realesrgan_compat.py",
+      "size_bytes": 915,
+      "sha256": "27bb7317a5b8f68e5978e37f4e9e03edada7cf7cc092dae87a6b8dad0ce40e4e"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/changing_resolution_distill/runtime_weights.py",
+      "collected": "implementation/changing_resolution_distill/runtime_weights.py",
+      "size_bytes": 1373,
+      "sha256": "6655e53831ff1b1eeeda462e197d87318b232cc3a048fbddadbc4f3b3703ba84"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/changing_resolution_distill/scripts/bridge/run_lightx2v_distill_bridge_batch_infer.py",
+      "collected": "implementation/changing_resolution_distill/scripts/bridge/run_lightx2v_distill_bridge_batch_infer.py",
+      "size_bytes": 10179,
+      "sha256": "556790ae3d6580c603c64737521d0a78392dc3ecf6f0a6f50c317537e3e7a433"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/changing_resolution_distill/scripts/eval/run_distill4_final_18case_4gpu.sh",
+      "collected": "implementation/changing_resolution_distill/scripts/eval/run_distill4_final_18case_4gpu.sh",
+      "size_bytes": 9241,
+      "sha256": "ddc2628dbe321f4d34ae0425ef0964773811415d08ba8f59a7fded24f179bec2"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/paper/aaai27/experiments/run_distill4_quality_efficiency.py",
+      "collected": "implementation/paper/aaai27/experiments/run_distill4_quality_efficiency.py",
+      "size_bytes": 27696,
+      "sha256": "4419cd17541583d9ecf05d3c5ab476cfea5c4b3f26fdc3194b005842f027eb59"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/paper/aaai27/experiments/run_vbench_factorials.py",
+      "collected": "implementation/paper/aaai27/experiments/run_vbench_factorials.py",
+      "size_bytes": 7253,
+      "sha256": "7c3669e4486c6e8839b7659d5739fbe28c63b3f37c7165181c1b019630a9f8ba"
+    },
+    {
+      "source": "/mnt/afs_2/houze/wanUpsampler/paper/aaai27/experiments/compile_vbench_paired_statistics.py",
+      "collected": "implementation/paper/aaai27/experiments/compile_vbench_paired_statistics.py",
+      "size_bytes": 4693,
+      "sha256": "408c74a451fa549ff05aec6e3d7a80864e68cd6e7c519466e92b493bba41b8cc"
+    }
+  ]
+}

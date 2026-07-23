@@ -1,0 +1,3 @@
+现在你要听我的逻辑，然后和我讨论。在前两章负责引入以及表明：“之前有很多方法是串联两个diffusion模型，是轨迹外的超分，但是这种方法会增加额外步数，且有额外的编码和解码开销。我们致力于在原有模型生成过程里引入低分到高分的转换，加速推理。”3.1 Challenges of In-Trajectory Resolution Handoff负责引入当前In-trajectory超分的问题。不要Pre章节，第三章改为Method。
+1、插值实现会破坏latent结构，在追求效率时较少的高分辨率修复步数难以恢复；这里我记得RALU有说过插值相关的问题，你可以找找。
+2、latent Upsampler以真正的clean latent pair训练，则输入应该是包含部分细节的endpoint lr视频，这与轨迹内超分的切换点latent状态（one_step denoise的predict_clean latent)不完全匹配。

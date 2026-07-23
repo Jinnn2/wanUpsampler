@@ -1,0 +1,503 @@
+{
+  "schema_version": 1,
+  "protocol": {
+    "measurement": "warm_model_single_video_end_to_end",
+    "quality_dimensions": [
+      "subject_consistency",
+      "background_consistency",
+      "motion_smoothness",
+      "aesthetic_quality",
+      "imaging_quality"
+    ],
+    "dynamic_degree_reported_separately": true,
+    "same_model_prompt_seed_frames_resolution": true
+  },
+  "cases": [
+    {
+      "family": "distill4",
+      "name": "native_hr4",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8604061058089141,
+      "quality_components": {
+        "subject_consistency": 0.9718578515574336,
+        "background_consistency": 0.9755722045898437,
+        "motion_smoothness": 0.991226341856484,
+        "aesthetic_quality": 0.6520261108875275,
+        "imaging_quality": 0.7113480201532812
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "native_hr4",
+        "method": "native",
+        "model_cls": "wan2.1_distill",
+        "lr_evaluations": 0,
+        "hr_evaluations": 4,
+        "total_evaluations": 4,
+        "handoff_step": null,
+        "refinement_steps": null,
+        "resizer": null,
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "interp2",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8620994488584651,
+      "quality_components": {
+        "subject_consistency": 0.9590369369834661,
+        "background_consistency": 0.9714715576171875,
+        "motion_smoothness": 0.9843285912252631,
+        "aesthetic_quality": 0.674001270532608,
+        "imaging_quality": 0.7216588879338016
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "interp2",
+        "method": "interp",
+        "model_cls": "wan2.1_distill_interp_bridge",
+        "lr_evaluations": 2,
+        "hr_evaluations": 2,
+        "total_evaluations": 4,
+        "handoff_step": 2,
+        "refinement_steps": null,
+        "resizer": "interp",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "interp3",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8179629516158355,
+      "quality_components": {
+        "subject_consistency": 0.9593155089393257,
+        "background_consistency": 0.96936767578125,
+        "motion_smoothness": 0.9837640092484939,
+        "aesthetic_quality": 0.5895372688770294,
+        "imaging_quality": 0.5878302952330788
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "interp3",
+        "method": "interp",
+        "model_cls": "wan2.1_distill_interp_bridge",
+        "lr_evaluations": 3,
+        "hr_evaluations": 1,
+        "total_evaluations": 4,
+        "handoff_step": 3,
+        "refinement_steps": null,
+        "resizer": "interp",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "taa_interp3",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8190852932021038,
+      "quality_components": {
+        "subject_consistency": 0.9598087574169039,
+        "background_consistency": 0.9694430541992187,
+        "motion_smoothness": 0.9835787070169207,
+        "aesthetic_quality": 0.5923257231712341,
+        "imaging_quality": 0.5902702242062415
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "taa_interp3",
+        "method": "taa_interp",
+        "model_cls": "wan2.1_distill_last_step_lora_interp_bridge",
+        "lr_evaluations": 3,
+        "hr_evaluations": 1,
+        "total_evaluations": 4,
+        "handoff_step": 3,
+        "refinement_steps": null,
+        "resizer": "interp",
+        "alignment": "taa"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "cll3",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.856699219010246,
+      "quality_components": {
+        "subject_consistency": 0.9627588249742984,
+        "background_consistency": 0.9721209716796875,
+        "motion_smoothness": 0.9882898594286808,
+        "aesthetic_quality": 0.650935971736908,
+        "imaging_quality": 0.7093904672316562
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "cll3",
+        "method": "cll",
+        "model_cls": "wan2.1_distill_clean_resizer_bridge",
+        "lr_evaluations": 3,
+        "hr_evaluations": 1,
+        "total_evaluations": 4,
+        "handoff_step": 3,
+        "refinement_steps": null,
+        "resizer": "stage2",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "talh3",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8567990651483092,
+      "quality_components": {
+        "subject_consistency": 0.9622594356909395,
+        "background_consistency": 0.9702603149414063,
+        "motion_smoothness": 0.9881544678202626,
+        "aesthetic_quality": 0.6491378813982009,
+        "imaging_quality": 0.7141832258907366
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "talh3",
+        "method": "talh",
+        "model_cls": "wan2.1_distill_last_step_lora_clean_resizer_bridge",
+        "lr_evaluations": 3,
+        "hr_evaluations": 1,
+        "total_evaluations": 4,
+        "handoff_step": 3,
+        "refinement_steps": null,
+        "resizer": "stage2",
+        "alignment": "taa"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "endpoint_stage2_0hr",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8484091617904277,
+      "quality_components": {
+        "subject_consistency": 0.9606014748290181,
+        "background_consistency": 0.97381103515625,
+        "motion_smoothness": 0.9881081700401106,
+        "aesthetic_quality": 0.6314272582530975,
+        "imaging_quality": 0.6880978706736625
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "endpoint_stage2_0hr",
+        "method": "endpoint_stage2",
+        "model_cls": "wan2.1_distill_full_lr_stage2_k_hr",
+        "lr_evaluations": 4,
+        "hr_evaluations": 0,
+        "total_evaluations": 4,
+        "handoff_step": 4,
+        "refinement_steps": 0,
+        "resizer": "stage2",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "endpoint_stage2_1hr",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8560654213078311,
+      "quality_components": {
+        "subject_consistency": 0.9628436663746834,
+        "background_consistency": 0.9711453247070313,
+        "motion_smoothness": 0.9882347654067859,
+        "aesthetic_quality": 0.6435353517532348,
+        "imaging_quality": 0.7145679982974207
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "endpoint_stage2_1hr",
+        "method": "endpoint_stage2",
+        "model_cls": "wan2.1_distill_full_lr_stage2_k_hr",
+        "lr_evaluations": 4,
+        "hr_evaluations": 1,
+        "total_evaluations": 5,
+        "handoff_step": 4,
+        "refinement_steps": 1,
+        "resizer": "stage2",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "endpoint_stage2_2hr",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8598060977740623,
+      "quality_components": {
+        "subject_consistency": 0.9623762427642941,
+        "background_consistency": 0.9734100341796875,
+        "motion_smoothness": 0.986833442454914,
+        "aesthetic_quality": 0.6519131124019623,
+        "imaging_quality": 0.7244976570694536
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "endpoint_stage2_2hr",
+        "method": "endpoint_stage2",
+        "model_cls": "wan2.1_distill_full_lr_stage2_k_hr",
+        "lr_evaluations": 4,
+        "hr_evaluations": 2,
+        "total_evaluations": 6,
+        "handoff_step": 4,
+        "refinement_steps": 2,
+        "resizer": "stage2",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "endpoint_stage2_4hr",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8557287491497508,
+      "quality_components": {
+        "subject_consistency": 0.9702984882146118,
+        "background_consistency": 0.9709249877929688,
+        "motion_smoothness": 0.989789653809203,
+        "aesthetic_quality": 0.6454602539539337,
+        "imaging_quality": 0.7021703619780364
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "endpoint_stage2_4hr",
+        "method": "endpoint_stage2",
+        "model_cls": "wan2.1_distill_full_lr_stage2_k_hr",
+        "lr_evaluations": 4,
+        "hr_evaluations": 4,
+        "total_evaluations": 8,
+        "handoff_step": 4,
+        "refinement_steps": 4,
+        "resizer": "stage2",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "endpoint_interp_0hr",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.7683715040202993,
+      "quality_components": {
+        "subject_consistency": 0.9547147710807622,
+        "background_consistency": 0.969775390625,
+        "motion_smoothness": 0.9831617600870179,
+        "aesthetic_quality": 0.5255965858697891,
+        "imaging_quality": 0.4086090124389271
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "endpoint_interp_0hr",
+        "method": "endpoint_interp",
+        "model_cls": "wan2.1_distill_full_lr_interp_k_hr",
+        "lr_evaluations": 4,
+        "hr_evaluations": 0,
+        "total_evaluations": 4,
+        "handoff_step": 4,
+        "refinement_steps": 0,
+        "resizer": "interp",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "endpoint_interp_1hr",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8164841729809169,
+      "quality_components": {
+        "subject_consistency": 0.9576474210619926,
+        "background_consistency": 0.9644796752929687,
+        "motion_smoothness": 0.983475146588936,
+        "aesthetic_quality": 0.5886309057474136,
+        "imaging_quality": 0.5881877162132735
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "endpoint_interp_1hr",
+        "method": "endpoint_interp",
+        "model_cls": "wan2.1_distill_full_lr_interp_k_hr",
+        "lr_evaluations": 4,
+        "hr_evaluations": 1,
+        "total_evaluations": 5,
+        "handoff_step": 4,
+        "refinement_steps": 1,
+        "resizer": "interp",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "endpoint_interp_2hr",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8600071015251016,
+      "quality_components": {
+        "subject_consistency": 0.9572007064521312,
+        "background_consistency": 0.96970947265625,
+        "motion_smoothness": 0.9832171622999122,
+        "aesthetic_quality": 0.6630737125873566,
+        "imaging_quality": 0.7268344536298587
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "endpoint_interp_2hr",
+        "method": "endpoint_interp",
+        "model_cls": "wan2.1_distill_full_lr_interp_k_hr",
+        "lr_evaluations": 4,
+        "hr_evaluations": 2,
+        "total_evaluations": 6,
+        "handoff_step": 4,
+        "refinement_steps": 2,
+        "resizer": "interp",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "endpoint_interp_4hr",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.855728749173027,
+      "quality_components": {
+        "subject_consistency": 0.9702984882146118,
+        "background_consistency": 0.9709249877929688,
+        "motion_smoothness": 0.9897896539255837,
+        "aesthetic_quality": 0.6454602539539337,
+        "imaging_quality": 0.7021703619780364
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "endpoint_interp_4hr",
+        "method": "endpoint_interp",
+        "model_cls": "wan2.1_distill_full_lr_interp_k_hr",
+        "lr_evaluations": 4,
+        "hr_evaluations": 4,
+        "total_evaluations": 8,
+        "handoff_step": 4,
+        "refinement_steps": 4,
+        "resizer": "interp",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "endpoint_rgb_0hr",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.858839287710874,
+      "quality_components": {
+        "subject_consistency": 0.9631102170795203,
+        "background_consistency": 0.9728060913085937,
+        "motion_smoothness": 0.9877083878141117,
+        "aesthetic_quality": 0.6545274734497071,
+        "imaging_quality": 0.7160442689024373
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "endpoint_rgb_0hr",
+        "method": "endpoint_rgb",
+        "model_cls": "wan2.1_distill_full_lr_rgb_k_hr",
+        "lr_evaluations": 4,
+        "hr_evaluations": 0,
+        "total_evaluations": 4,
+        "handoff_step": 4,
+        "refinement_steps": 0,
+        "resizer": "rgb",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "endpoint_rgb_1hr",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8599717935793872,
+      "quality_components": {
+        "subject_consistency": 0.9633569372072814,
+        "background_consistency": 0.976278076171875,
+        "motion_smoothness": 0.9878639309132812,
+        "aesthetic_quality": 0.6525198221206665,
+        "imaging_quality": 0.7198402014838323
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "endpoint_rgb_1hr",
+        "method": "endpoint_rgb",
+        "model_cls": "wan2.1_distill_full_lr_rgb_k_hr",
+        "lr_evaluations": 4,
+        "hr_evaluations": 1,
+        "total_evaluations": 5,
+        "handoff_step": 4,
+        "refinement_steps": 1,
+        "resizer": "rgb",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "endpoint_rgb_2hr",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8597007595538816,
+      "quality_components": {
+        "subject_consistency": 0.9629873997718095,
+        "background_consistency": 0.9745513916015625,
+        "motion_smoothness": 0.987052068716628,
+        "aesthetic_quality": 0.6525818288326264,
+        "imaging_quality": 0.721331108846782
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "endpoint_rgb_2hr",
+        "method": "endpoint_rgb",
+        "model_cls": "wan2.1_distill_full_lr_rgb_k_hr",
+        "lr_evaluations": 4,
+        "hr_evaluations": 2,
+        "total_evaluations": 6,
+        "handoff_step": 4,
+        "refinement_steps": 2,
+        "resizer": "rgb",
+        "alignment": "base"
+      }
+    },
+    {
+      "family": "distill4",
+      "name": "endpoint_rgb_4hr",
+      "measurement": "warm_model_single_video_end_to_end",
+      "quality_metric": "vbench_custom_quality5_mean",
+      "quality_value": 0.8557287491599341,
+      "quality_components": {
+        "subject_consistency": 0.9702984882146118,
+        "background_consistency": 0.9709249877929688,
+        "motion_smoothness": 0.9897896538601195,
+        "aesthetic_quality": 0.6454602539539337,
+        "imaging_quality": 0.7021703619780364
+      },
+      "vbench_source": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+      "protocol": {
+        "name": "endpoint_rgb_4hr",
+        "method": "endpoint_rgb",
+        "model_cls": "wan2.1_distill_full_lr_rgb_k_hr",
+        "lr_evaluations": 4,
+        "hr_evaluations": 4,
+        "total_evaluations": 8,
+        "handoff_step": 4,
+        "refinement_steps": 4,
+        "resizer": "rgb",
+        "alignment": "base"
+      }
+    }
+  ]
+}

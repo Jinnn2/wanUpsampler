@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-07-22T17:08:43.177968+00:00",
+  "measurement": "warm_model_single_video_end_to_end",
+  "quality_outputs_reused": true,
+  "settings": {
+    "schema_version": 1,
+    "measurement": "warm_model_single_video_end_to_end",
+    "timing_boundary": {
+      "excluded": "one-time runner construction, model/checkpoint loading, and init_modules",
+      "pipeline": "CUDA-synchronized runner.run_pipeline, including all per-video handoff, VAE, and output work",
+      "denoise": "CUDA-synchronized sum of runner.run_segment calls",
+      "initialization_reported_separately": true
+    },
+    "gpu_physical": 0,
+    "warmup_videos": 1,
+    "measured_videos": 5,
+    "seed_base": 15000,
+    "prompt_offset": 0,
+    "num_frames": 81,
+    "model_root": "/mnt/afs_2/houze/lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill",
+    "prompts_file": "/mnt/afs_2/houze/wanUpsampler/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt",
+    "negative_prompt": "",
+    "batch_runner": "/mnt/afs_2/houze/wanUpsampler/changing_resolution_distill/scripts/bridge/run_lightx2v_distill_bridge_batch_infer.py",
+    "cases": [
+      "native_hr4",
+      "interp2",
+      "interp3",
+      "taa_interp3",
+      "cll3",
+      "talh3",
+      "endpoint_stage2_0hr",
+      "endpoint_stage2_1hr",
+      "endpoint_stage2_2hr",
+      "endpoint_stage2_4hr",
+      "endpoint_interp_0hr",
+      "endpoint_interp_1hr",
+      "endpoint_interp_2hr",
+      "endpoint_interp_4hr",
+      "endpoint_rgb_0hr",
+      "endpoint_rgb_1hr",
+      "endpoint_rgb_2hr",
+      "endpoint_rgb_4hr"
+    ],
+    "source_suite": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4",
+    "source_manifest_sha256": "71bf129d2d8f7dc0ea8845d39a6892646f4341616858d238d492b51e4c98b658",
+    "source_spec_sha256": "c4a4039083407d0d484d617e728328cff87418405d3779d993008aaf6ae24887",
+    "config_sha256": {
+      "native_hr4": "ae869ab61034d390712b8c3dc4355530ebb09a85327bd43c249e687f9c9c31b2",
+      "interp2": "1c7fc5f59ef4e64979dda83dee2d046b8408ba0ff257c6b2926dc78d54566f6c",
+      "interp3": "c16644bc985f5feaede2b29c8147e8e42f1f3ae5bafc3622609a78cc60deffaa",
+      "taa_interp3": "7eac979cf5ef5a558306dc160c7dc472d1473255469659eff1cecaab4088261d",
+      "cll3": "90aa64fbc992ce73dd24b202dabd354444de53fb97b72d4399146513818a3dbf",
+      "talh3": "7f76f9b6d8b57a3d059ca70d3df59e41aaee1081014492b1a0127a1cae5faf4c",
+      "endpoint_stage2_0hr": "489d782c90f9f3ee5ea38cb566b4872d2f255ebf9bdeb70e0a9cc44baac71a14",
+      "endpoint_stage2_1hr": "d2432bec5683de61ed64e3c487e9c7072b814cdf5ae66544f3c40e64ba4e9ee9",
+      "endpoint_stage2_2hr": "9281d054f0005fb0c5f2921b9bb5d3c44860e7eca6f1e5ac360bb907be9eb611",
+      "endpoint_stage2_4hr": "4214e820a5161a06ac1f323b50690c0a3b7f3ac32375dcedb15a287d6eaa9cf2",
+      "endpoint_interp_0hr": "c1e27af0214f47c7d6ed7d357fc92eb87dd07d51b3106d49467a228e60dc4596",
+      "endpoint_interp_1hr": "0700717b34f69f9538dc2a1dba301ac16b4f4912781e83b4f914efad6ad43572",
+      "endpoint_interp_2hr": "d020f08d285a54b915446dbafdbc148f86cc89bdeaa53759527c126f69c45597",
+      "endpoint_interp_4hr": "a51f7e3574884bacff4c270626406a8ab1f9276f55b9accd9ebaa16106a61569",
+      "endpoint_rgb_0hr": "64aa94184b4023e9c94999e324f296681b8d4cfc2c9b715f315cb557334794b2",
+      "endpoint_rgb_1hr": "629f3af658047f335c42b603e11ac2f3b0bbb5583ece8eaedebc9f915418e2e0",
+      "endpoint_rgb_2hr": "d67d017f06076e36dab1a1683017405d549ca2972bd6d3c69cb20e408a22dd21",
+      "endpoint_rgb_4hr": "4ca580a8607b743ab51af8d19d5b36e476c8c27ca5f5547167ca64496258e1f8"
+    },
+    "implementation_sha256": {
+      "changing_resolution/scripts/bridge/run_lightx2v_clean_bridge_batch_infer.py": "a6930b80765e953c63844357f2cfd4d0958d57eeccd9fb1bddb2d6cfbf5d0aec",
+      "changing_resolution_distill/scripts/bridge/run_lightx2v_distill_bridge_batch_infer.py": "556790ae3d6580c603c64737521d0a78392dc3ecf6f0a6f50c317537e3e7a433",
+      "changing_resolution/lightx2v_clean_bridge.py": "d9f96bb9f64d0050c7f8250becaec9511daae6120bcdbb59eb84961ca6b9c284",
+      "changing_resolution_distill/lightx2v_distill_bridge.py": "c4c0b1f8db1d16532931f73612778b56f26c29ee3fcabe3f775bfb3f494bcb4b",
+      "changing_resolution_distill/rgb_super_resolution.py": "24ddb6ffb8d039981a228097aad237bf57731b5ecbf9bc8a900b888652f91d7d",
+      "changing_resolution_distill/realesrgan_compat.py": "27bb7317a5b8f68e5978e37f4e9e03edada7cf7cc092dae87a6b8dad0ce40e4e",
+      "changing_resolution_distill/runtime_weights.py": "6655e53831ff1b1eeeda462e197d87318b232cc3a048fbddadbc4f3b3703ba84",
+      "changing_resolution/ralu_nt_math.py": "d9ad7e43f02b91f833017aa99cc9858417557c39a66b95b5f6e83a1c21b1a4af",
+      "changing_resolution/ralu_wan_state.py": "647cccc304ac8876a1dc313f0303a6f0b3faba0c0222fb7fc7e2e2cb09f41238",
+      "changing_resolution/ralu_wan_quality.py": "295b6e602f67fdadf3b808de53b09d2c31f6612d797b807ff9f8108634344968",
+      "changing_resolution/dynamic_lora.py": "7b8bd7b8a79004a6dfa4fb52364b471ee92729271423d8cce090b057718cd814"
+    },
+    "run_signature": "86bd3f14ec7945028a40b25033d2590bf2ae9a244d23e4e9e58687f054246dc6"
+  },
+  "outputs": {
+    "summary": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/warm_quality_efficiency/quality_efficiency_warm.csv",
+      "size_bytes": 13063,
+      "sha256": "3364dacbb03fdf4b6fff58a1a2e0d3c8ca33003ad464a07b5abf3b583a91317f"
+    },
+    "raw": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/warm_quality_efficiency/quality_efficiency_warm_raw.csv",
+      "size_bytes": 30947,
+      "sha256": "ca2f6e3799d7e97ff6102baaab57474869cac233775d1b123bf44788eb2926a7"
+    },
+    "pairs": {
+      "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/warm_quality_efficiency/quality_efficiency_warm_pairs.csv",
+      "size_bytes": 10550,
+      "sha256": "2b12cbed86acccb75d5808be931ec1acf8573a32a6c238d5df4f4aa9ba802a93"
+    }
+  }
+}
