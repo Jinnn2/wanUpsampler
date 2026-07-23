@@ -37,12 +37,15 @@
 
 \section{Method}
 
-\subsection{Challenges of In-Trajectory Resolution Handoff}
+\subsection{Challenges of In-Trajectory Resolution Transition}
 In-trajectory resolution scaling executes an inexpensive low-resolution
-prefix and switches to the target resolution only for the remaining denoising
-evaluations. Although this strategy avoids launching a separate
-super-resolution diffusion process, we identify two challenges that become
-particularly important when the handoff is delayed to maximize acceleration.
+prefix and reserves the target resolution for only the remaining denoising
+evaluations. Its central technical difficulty lies in the resolution
+transition between the two trajectory segments. Although this strategy avoids
+launching a separate super-resolution diffusion process, we identify two
+transition-specific challenges that become particularly important when the
+transition is placed late in the denoising trajectory to maximize
+acceleration.
 
 \paragraph{Interpolation-induced latent distortion.}
 A fixed interpolation operator only resamples the spatial grid; it does not
@@ -51,20 +54,21 @@ induced by the pretrained VAE. Consequently, interpolated latents may exhibit
 distorted structures and inaccurate high-frequency statistics on the
 target-resolution grid. RALU reported that late latent upsampling introduces
 aliasing artifacts, particularly around high-frequency edge regions. This
-exposes a fundamental quality–efficiency trade-off: a later handoff provides
-greater acceleration but leaves fewer high-resolution evaluations to correct
-the errors introduced during resolution conversion. Under an aggressive
-handoff, the short high-resolution trajectory tail may therefore be
-insufficient to recover structural details lost or distorted by fixed
-interpolation.
+exposes a fundamental quality–efficiency trade-off: a later resolution
+transition provides greater acceleration but leaves fewer high-resolution
+evaluations to correct the errors introduced during resolution conversion.
+With only a short high-resolution suffix, the remaining target-resolution
+evaluations may therefore be insufficient to recover structural details lost
+or distorted by fixed interpolation.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]
-  {../figures/fig_challenge_interpolation.pdf}
-  \caption{Fixed interpolation under a late resolution handoff. The columns
-  show content-aligned Native-HR, trilinear handoff, and InTraScale outputs at
-  evaluation 45. The bottom row enlarges the center regions marked above by
+  {figures/fig_challenge_interpolation.pdf}
+  \caption{Fixed interpolation under a late resolution transition. The
+  columns show content-aligned Native-HR, trilinear interpolation, and
+  InTraScale outputs at evaluation 45. The bottom row enlarges the center
+  regions marked above by
   \(3\times\), exposing the structural distortion introduced around
   high-frequency moving boundaries by fixed interpolation.}
   \label{fig:challenge_interpolation}
@@ -81,9 +85,10 @@ upsampler does not receive such a converged latent. Here, \(x_s^L\) denotes
 the low-resolution latent state at step \(s\), \(v_\phi\) is the frozen flow
 predictor with parameters \(\phi\), \(c\) is the text condition, and
 \(\sigma_s\) is the scheduler coefficient. We use the subscript \(0|s\) to
-denote a clean latent predicted from the state at step \(s\). At handoff step
-\(s\), its input is a one-evaluation clean prediction derived from an
-unfinished low-resolution trajectory:
+denote a clean latent predicted from the state at step \(s\). For a
+resolution transition after evaluation \(s\), the upsampler receives a
+single-evaluation clean prediction derived from an unfinished low-resolution
+trajectory:
 \[
 \widehat{z}_{0|s}^{L}
 =
@@ -102,22 +107,24 @@ scales.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]
-  {../figures/fig_challenge_alignment.pdf}
-  \caption{Unfinished-trajectory residual at handoff evaluation 45. The
-  columns show the endpoint of the corresponding native low-resolution
-  trajectory, the unaligned one-evaluation clean prediction, and the
-  TTDA-aligned prediction. The displayed frame is the final video frame, and
+  {figures/fig_challenge_alignment.pdf}
+  \caption{Unfinished-trajectory residual at evaluation 45, the final
+  low-resolution evaluation. The columns show the endpoint of the
+  corresponding native low-resolution trajectory, the unaligned single-evaluation
+  clean prediction, and the TTDA-aligned prediction. The displayed frame is the
+  final video frame, and
   the bottom row enlarges the lower-left regions marked above by \(2\times\).
-  TTDA moves the local structure of the handoff prediction toward its native
-  low-resolution endpoint.}
+  TTDA moves the local structure of the transition-point prediction toward
+  its native low-resolution endpoint.}
   \label{fig:challenge_alignment}
 \end{figure}
 
 These two challenges motivate the decoupled design of InTraScale. The
 In-Trajectory Upsampler learns the cross-resolution clean-latent
 correspondence, while the Trajectory-Tail Distillation Adapter distills the
-omitted low-resolution trajectory tail into the handoff evaluation, producing
-a more endpoint-like input for resolution conversion.
+omitted low-resolution trajectory tail into the final low-resolution
+evaluation, producing a more endpoint-like input for the subsequent
+resolution transition.
 
 \subsection{Overall Framework}
 
@@ -129,17 +136,18 @@ and \(c\) is the text condition. We use \(\sigma_k\) for the corresponding
 scheduler coefficient and \(T\) for the total number of denoising evaluations.
 We refer to the pretrained flow predictor and VAE collectively as the frozen
 target model.
-A handoff at step \(s\) counts the \(s\)-th evaluation as the final
-low-resolution evaluation. Evaluations \(1,\ldots,s-1\) form the frozen
-low-resolution prefix, TTDA is activated only at evaluation \(s\), and
-evaluations \(s+1,\ldots,T\) form the frozen high-resolution tail.
+We define a resolution transition after evaluation \(s\). The \(s\)-th
+evaluation is therefore the final evaluation executed on the low-resolution
+grid. Evaluations \(1,\ldots,s-1\) form the frozen low-resolution prefix,
+TTDA is activated only during evaluation \(s\), and evaluations
+\(s+1,\ldots,T\) form the frozen high-resolution continuation.
 
-At the handoff, the prediction \(\widehat{z}_{0|s}^{L}\) introduced in the
-preceding subsection is not directly passed to the upsampler. The
-Trajectory-Tail Distillation Adapter (TTDA) first produces an endpoint-aligned
-clean prediction \(\widetilde{z}_{0|s}^{L}\). The In-Trajectory Upsampler
-(ITU), parameterized by \(\psi\), then maps this prediction to the
-target-resolution clean latent
+During the final low-resolution evaluation, the prediction
+\(\widehat{z}_{0|s}^{L}\) introduced in the preceding subsection is not
+directly passed to the upsampler. The Trajectory-Tail Distillation Adapter
+(TTDA) first produces an endpoint-aligned clean prediction
+\(\widetilde{z}_{0|s}^{L}\). The In-Trajectory Upsampler (ITU), parameterized
+by \(\psi\), then maps this prediction to the target-resolution clean latent
 \(\widehat{z}_{0|s}^{H}=U_\psi(\widetilde{z}_{0|s}^{L})\).
 
 To continue the original denoising trajectory, InTraScale reconstructs the
@@ -157,7 +165,7 @@ where \(\epsilon^{H}\) is target-resolution noise determined by the generation
 seed. The complete inference pipeline is
 \[
 x_1^{L}
-\xrightarrow{\text{prefix}}
+\xrightarrow{\text{LR}}
 x_s^{L}
 \xrightarrow{\text{TTDA}}
 \widetilde{z}_{0|s}^{L}
@@ -165,7 +173,7 @@ x_s^{L}
 \widehat{z}_{0|s}^{H}
 \xrightarrow{\text{reconstruction}}
 x_{s+1}^{H}
-\xrightarrow{\text{tail}}
+\xrightarrow{\text{HR}}
 z_{\mathrm{out}}^{H}.
 \]
 Here, \(z_{\mathrm{out}}^{H}\) denotes the final target-resolution clean latent,
@@ -174,7 +182,7 @@ which is decoded into the output video by the frozen VAE.
 ITU and TTDA are trained independently using supervision generated by the
 frozen target model. ITU learns the cross-resolution clean-latent
 correspondence, whereas TTDA learns to remove the unfinished
-low-resolution trajectory residual at the handoff.
+low-resolution trajectory residual at the transition point.
 
 \subsection{In-Trajectory Upsampler}
 \label{sec:itu}
@@ -275,21 +283,22 @@ input.
 ITU is trained on completed clean-latent pairs, whereas its inference input is
 predicted from an unfinished low-resolution trajectory. TTDA reduces this
 deployment mismatch by distilling the omitted low-resolution trajectory tail
-into the handoff evaluation. The aligned prediction is subsequently lifted by
-ITU and returned to the native high-resolution schedule.
+into the final low-resolution evaluation. The aligned prediction is
+subsequently lifted by ITU and returned to the native high-resolution
+schedule.
 
-\paragraph{Handoff-local endpoint supervision.}
+\paragraph{Trajectory-tail endpoint supervision.}
 For each training sample, we run the frozen target model using a fixed prompt,
 generation seed, initial noise, scheduler, and guidance configuration. We
-cache the state \(x_s^{L}\) immediately before the designated handoff
+cache the state \(x_s^{L}\) immediately before the final low-resolution
 evaluation and continue the same low-resolution trajectory to completion. We
 denote the resulting clean endpoint by \(z_{\mathrm{end}}^{L}\). The pair
 \[
 \left(x_s^{L},z_{\mathrm{end}}^{L}\right)
 \]
-therefore preserves the semantic and stochastic conditions of the handoff
-while isolating the residual that would have been removed by evaluations
-\(s+1,\ldots,T\) at low resolution.
+therefore preserves the semantic and stochastic conditions at the
+transition point while providing direct supervision for the trajectory
+residual remaining at evaluation \(s\).
 
 \paragraph{Localized trajectory-tail distillation.}
 TTDA is implemented as a step-specific low-rank update
@@ -333,15 +342,16 @@ Here, \(\mathcal{L}_{1}\) and \(\mathcal{L}_{\mathrm{MSE}}\) compare
 \(\widetilde{z}_{0|s}^{L}\) with \(z_{\mathrm{end}}^{L}\), while
 \(\mathcal{L}_{\mathrm{temp}}\) matches their first-order temporal
 differences. We set \(\lambda_{\mathrm{tt}}=0.05\) for the earlier
-\(s=40\) handoff of the 50-step sampler and zero for the later and distilled
-settings. We select the inference strength \(\lambda=0.75\) on held-out
+transition after evaluation \(s=40\) in the 50-step sampler and zero for
+the later and distilled settings. We select the inference strength
+\(\lambda=0.75\) on held-out
 development prompts and keep it fixed for all reported samples.
 
 TTDA is activated only during evaluation \(s\). Its strength is zero for the
 preceding evaluations, so the frozen low-resolution prefix and the cached
-handoff state \(x_s^{L}\) remain unchanged under matched deterministic
-conditions. TTDA is therefore a localized trajectory adapter rather than a
-general low-resolution step-reduction model.
+pre-transition state \(x_s^{L}\) remain unchanged under matched
+deterministic conditions. TTDA is therefore a localized trajectory adapter
+rather than a general low-resolution step-reduction model.
 
 \paragraph{Scheduler-consistent high-resolution continuation.}
 After TTDA and ITU produce
@@ -366,7 +376,7 @@ without introducing an auxiliary diffusion process or a decode--encode
 round trip.
 
 We require \(s<T\), leaving at least one target-resolution evaluation after
-the handoff. The frozen flow predictor then processes
+the resolution transition. The frozen flow predictor then processes
 \(x_{s+1}^{H}\) through evaluations \(s+1,\ldots,T\) and produces
 \(z_{\mathrm{out}}^{H}\). State reconstruction itself does not synthesize new
 detail; it only provides a scheduler-consistent entry into the
