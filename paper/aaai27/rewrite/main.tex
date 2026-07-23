@@ -384,7 +384,348 @@ target-resolution trajectory. The frozen high-resolution tail performs the
 actual generative refinement, completing spatial structures and textures that
 cannot be uniquely recovered from the low-resolution latent.
 
-\section{Experiment}
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Experimental Setup}
+\label{sec:experimental_setup}
+
+We evaluate InTraScale on both the standard 50-evaluation Wan2.1 T2V-1.3B
+sampler and a four-evaluation Wan2.1 T2V-14B StepDistill-CfgDistill sampler.
+This section first examines the 50-evaluation setting, where resolution
+transitions are placed after evaluation 40 or 45. We additionally evaluate
+fixed interpolation after evaluations 40, 45, and 48 to characterize the
+effect of increasingly delayed transitions. All configurations generate
+81-frame videos at \(720\times1248\) resolution from matched text prompts,
+random seeds, initial noise, schedulers, and guidance settings.
+
+We evaluate generation quality on ten matched prompts using VBench. Our primary
+aggregate metric, VBench-5, is the unweighted mean of subject consistency,
+background consistency, motion smoothness, aesthetic quality, and imaging
+quality. Dynamic degree is reported separately because a larger motion
+magnitude does not necessarily indicate better quality. Prompt-level
+differences are analyzed using paired bootstrap confidence intervals and
+two-sided exact sign tests.
+
+We measure efficiency using single-video warm-model end-to-end latency. Each
+configuration is loaded once, followed by one warm-up video and five measured
+videos in the same resident process. Measurements are CUDA-synchronized and
+include all per-video denoising evaluations, TTDA and ITU execution,
+scheduler-state reconstruction, VAE processing, and output operations.
+One-time runner construction and checkpoint loading are excluded.
+
+\subsection{Overall Quality--Efficiency Trade-off}
+\label{sec:quality_efficiency}
+
+We compare InTraScale with three classes of alternatives. Native-HR executes
+all 50 evaluations at the target resolution. Fixed Interpolation directly
+resamples the latent grid at different transition points. RALU-style
+rescheduling adjusts the noise--timestep correspondence at the representative
+transition after evaluation 45. Finally, Endpoint-ITU completes all 50
+evaluations at low resolution, applies ITU to the resulting endpoint, and
+performs five additional high-resolution refinement evaluations.
+
+\begin{table*}[t]
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{6pt}
+  \begin{tabular}{lcccc}
+    \toprule
+    Method & LR/HR evaluations & Warm latency (s) \(\downarrow\) &
+    Speedup \(\uparrow\) & VBench-5 \(\uparrow\) \\
+    \midrule
+    Native-HR & 0/50 & \(187.54\pm0.26\) & \(1.00\times\) &
+    \textbf{0.82836} \\
+    Fixed Interpolation@40 & 40/10 & \(58.12\pm0.20\) & \(3.23\times\) &
+    0.77812 \\
+    \textbf{InTraScale@40} & 40/10 & \(58.49\pm0.16\) &
+    \(\mathbf{3.21\times}\) & \textbf{0.80983} \\
+    Fixed Interpolation@45 & 45/5 & \(41.98\pm0.19\) & \(4.47\times\) &
+    0.76776 \\
+    RALU-style@45 & 45/5 & \(42.01\pm0.19\) & \(4.46\times\) & 0.80440 \\
+    \textbf{InTraScale@45} & 45/5 & \(42.26\pm0.20\) &
+    \(\mathbf{4.44\times}\) & \textbf{0.80792} \\
+    Fixed Interpolation@48 & 48/2 & \(32.27\pm0.18\) & \(5.81\times\) &
+    0.76409 \\
+    Endpoint-ITU, 5 HR & 50/5 & \(44.00\pm0.27\) & \(4.26\times\) &
+    0.80073 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Warm-model quality--efficiency comparison for the 50-evaluation
+  sampler. Each latency is the mean and standard deviation over five
+  measurements after one warm-up video. All per-video processing is included,
+  while one-time runner construction and checkpoint loading are excluded.}
+  \label{tab:wan50_quality_efficiency}
+\end{table*}
+
+InTraScale@40 reduces warm-model latency from 187.54 to 58.49 seconds,
+corresponding to a \(3.21\times\) speedup, while retaining 97.76\% of the
+Native-HR VBench-5 score. Delaying the transition to evaluation 45 further
+reduces latency to 42.26 seconds, achieving a \(4.44\times\) speedup and
+retaining 97.53\% of the Native-HR score. Moving the transition from
+evaluation 40 to 45 reduces latency by an additional 27.74\%, with a VBench-5
+decrease of only 0.00191. The two operating points therefore provide a
+controllable quality--efficiency trade-off.
+
+At matched transition positions, the learned transition introduces little
+additional latency over fixed interpolation. InTraScale@40 and InTraScale@45
+add only 0.63\% and 0.67\% latency, respectively, while improving VBench-5 by
+0.03171 and 0.04016. The widening quality gap at the later transition supports
+the challenge identified in Section~3.1: as the high-resolution continuation
+becomes shorter, fixed interpolation leaves insufficient evaluations to repair
+the induced latent distortion.
+
+At evaluation 45, InTraScale also improves VBench-5 over RALU-style
+rescheduling by 0.00352 with a 0.61\% latency increase. This comparison
+suggests that scheduler adaptation alone does not fully recover the
+cross-resolution latent correspondence addressed by ITU.
+
+The Endpoint-ITU baseline completes the entire low-resolution trajectory
+before resolution conversion and adds five high-resolution refinements.
+Despite executing these additional evaluations, it reaches only 0.80073
+VBench-5 at 44.00 seconds. InTraScale@45 is 3.96\% faster and improves
+VBench-5 by 0.00719. Transitioning before the low-resolution endpoint therefore
+provides a more favorable operating point than completing low-resolution
+generation and subsequently launching a separate high-resolution refinement
+suffix.
+
+Overall, InTraScale@40 and InTraScale@45 establish two non-dominated operating
+points between Native-HR quality and aggressive low-resolution execution. The
+prompt-paired confidence intervals against Native-HR overlap zero, but the
+evaluation does not constitute an equivalence test. We therefore characterize
+InTraScale as a quality--efficiency frontier rather than claiming lossless
+acceleration.
+
+\subsection{Further Accelerating Distilled Video Generation}
+\label{sec:distilled_acceleration}
+
+Although Section~\ref{sec:quality_efficiency} demonstrates substantial
+acceleration for conventional 50-evaluation sampling, deployment-oriented
+video generators increasingly rely on timestep-distilled models to reduce the
+trajectory length. We therefore ask whether in-trajectory resolution scaling
+can provide additional gains after temporal computation has already been
+compressed. To this end, we apply InTraScale to a four-evaluation Wan2.1
+T2V-14B StepDistill-CfgDistill model. The resolution transition occurs after
+the third low-resolution evaluation, leaving only one target-resolution
+evaluation for generative refinement.
+
+We compare against Native-HR4, which executes all four evaluations at the
+target resolution, and Trilinear@3, which uses the same
+\(3\)-LR/\(1\)-HR schedule as InTraScale but replaces ITU with fixed
+interpolation and disables TTDA. We further construct two controlled
+endpoint-first baselines on the same distilled backbone. LUVE-style completes
+four low-resolution evaluations, applies learned latent upsampling, and
+performs two high-resolution refinements. MrFlow-style completes the
+low-resolution trajectory, uses a decode--RGB-upsample--re-encode path, and
+performs one high-resolution correction. These configurations reproduce the
+corresponding computational patterns rather than the complete original
+systems.
+
+\begin{table*}[t]
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{lccccc}
+    \toprule
+    Method & LR/HR evaluations & VBench-5 \(\uparrow\) &
+    Temporal \(\uparrow\) & Warm latency (s) \(\downarrow\) & Speedup \\
+    \midrule
+    Native-HR4 & 0/4 & \textbf{0.86041} & \textbf{0.98412} & 42.49 &
+    \(1.00\times\) \\
+    Trilinear@3 & 3/1 & 0.81796 & 0.97400 & \textbf{18.33} &
+    \(\mathbf{2.32\times}\) \\
+    \textbf{InTraScale-D4@3} & 3/1 & 0.85680 & \textbf{0.97663} & 19.92 &
+    \(\mathbf{2.13\times}\) \\
+    LUVE-style & 4/2 & 0.85981 & 0.97331 & 28.76 & \(1.48\times\) \\
+    MrFlow-style & 4/1 & 0.85903 & 0.97484 & 27.12 & \(1.57\times\) \\
+    \bottomrule
+  \end{tabular}
+  \caption{Quality and warm-model efficiency under aggressive four-evaluation
+  sampling. Native-HR4 executes the distilled sampler entirely at the target
+  resolution. The remaining rows use either an in-trajectory transition or a
+  controlled endpoint-first pipeline on the same distilled backbone.}
+  \label{tab:distilled_acceleration}
+\end{table*}
+
+InTraScale-D4 reduces warm-model latency from 42.49 to 19.92 seconds, providing
+an additional \(2.13\times\) acceleration over Native-HR4. Meanwhile, its
+VBench-5 decreases by only 0.00361, corresponding to a relative reduction of
+0.42\% and a score retention of 99.58\%. The prompt-paired confidence interval
+overlaps zero; we therefore describe this difference as marginal rather than
+claiming quality equivalence.
+
+Fixed interpolation reaches a slightly higher \(2.32\times\) speedup, but its
+VBench-5 drops by 0.04244 relative to Native-HR4. At the same
+\(3\)-LR/\(1\)-HR schedule, InTraScale adds only 1.59 seconds over
+Trilinear@3 while improving VBench-5 by 0.03884 and temporal consistency by
+0.00264. This result strengthens the observation from the 50-evaluation
+experiments: when the high-resolution continuation is reduced to a single
+evaluation, fixed interpolation leaves insufficient correction capacity,
+whereas the learned transition preserves most of the native quality.
+
+InTraScale also provides a more favorable operating point than the
+endpoint-first alternatives. It reduces latency by 30.73\% relative to
+LUVE-style and by 26.53\% relative to MrFlow-style, while its VBench-5 is lower
+by only 0.00301 and 0.00223, respectively. The quality difference from
+MrFlow-style has a prompt-paired confidence interval that overlaps zero; the
+LUVE-style advantage is small but detectable. InTraScale additionally obtains
+the highest temporal-consistency score among the accelerated alternatives
+shown in Table~\ref{tab:distilled_acceleration}.
+
+These results demonstrate that in-trajectory resolution scaling is
+complementary to timestep distillation. Even after the denoising trajectory
+has been compressed to four evaluations, InTraScale further reduces spatial
+computation by more than half while retaining nearly all of the native
+distilled-model quality.
+
+\subsection{Component-Level Evidence}
+\label{sec:component_evidence}
+
+We next isolate whether ITU and TTDA address the two transition-specific
+challenges identified in Section~3.1. ITU is evaluated on completed,
+content-aligned latent pairs to measure cross-resolution reconstruction
+independently of trajectory mismatch. TTDA is evaluated before ITU by measuring
+how closely its clean prediction approaches the endpoint of the corresponding
+complete low-resolution trajectory.
+
+\begin{table*}[t]
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{llccccc}
+    \toprule
+    Scale & Method & Latent \(L_1\) \(\downarrow\) & PSNR \(\uparrow\) &
+    SSIM \(\uparrow\) & LPIPS \(\downarrow\) &
+    Temporal \(L_1\) \(\downarrow\) \\
+    \midrule
+    \(480\mathrm{p}\rightarrow720\mathrm{p}\) & Trilinear &
+    0.19288 & 24.29 & 0.71588 & 0.23575 & 0.02121 \\
+    \(480\mathrm{p}\rightarrow720\mathrm{p}\) & ITU &
+    \textbf{0.09913} & \textbf{30.00} & \textbf{0.86961} &
+    \textbf{0.06294} & \textbf{0.01468} \\
+    \(368\mathrm{p}\rightarrow720\mathrm{p}\) & Trilinear &
+    0.24437 & 23.42 & 0.67404 & 0.33522 & 0.02388 \\
+    \(368\mathrm{p}\rightarrow720\mathrm{p}\) & ITU &
+    \textbf{0.16284} & \textbf{24.10} & \textbf{0.75920} &
+    \textbf{0.16403} & \textbf{0.02017} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Cross-resolution reconstruction on 50 completed clean-latent pairs
+  per scale. ITU and trilinear interpolation receive the same low-resolution
+  clean latent and are compared against the corresponding target-resolution
+  VAE latent.}
+  \label{tab:itu_operator}
+\end{table*}
+
+Across 50 clean-latent test pairs, ITU consistently outperforms fixed
+interpolation. For \(480\mathrm{p}\rightarrow720\mathrm{p}\), ITU reduces
+latent \(L_1\) by 48.6\%, improves decoded PSNR by 5.71 dB, reduces LPIPS by
+73.3\%, and reduces temporal \(L_1\) by 30.8\%. Under the more aggressive
+\(368\mathrm{p}\rightarrow720\mathrm{p}\) conversion, it reduces latent
+\(L_1\), LPIPS, and temporal \(L_1\) by 33.4\%, 51.1\%, and 15.5\%,
+respectively. The consistent improvements across both scale ratios show that
+ITU learns the VAE-specific cross-resolution correspondence rather than merely
+approximating a geometric resize operator.
+
+\begin{table}[t]
+  \centering
+  \scriptsize
+  \setlength{\tabcolsep}{3pt}
+  \begin{tabular}{lcccc}
+    \toprule
+    Transition & Unaligned \(L_1\) & TTDA \(L_1\) & Reduction & Wins \\
+    \midrule
+    Wan50@40 & 0.03215 & \textbf{0.02385} & 25.82\% & 10/10 \\
+    Wan50@45 & 0.02363 & \textbf{0.01866} & 21.03\% & 10/10 \\
+    Distill4@3 & 0.04286 & \textbf{0.04070} & 5.03\% & 10/10 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Endpoint alignment before ITU. Wins count samples for which TTDA
+  reduces latent \(L_1\) relative to the unaligned clean prediction.}
+  \label{tab:ttda_endpoint}
+\end{table}
+
+TTDA reduces the residual endpoint error at every transition, winning on all
+ten samples in each setting. The improvement is strongest for the conventional
+50-evaluation sampler, where endpoint \(L_1\) decreases by 25.82\% at
+evaluation 40 and 21.03\% at evaluation 45. At evaluation 45, TTDA also
+improves decoded PSNR by 2.23 dB, reduces MSE by 44.79\%, and reduces temporal
+latent error by 21.24\%. The four-step model exhibits a smaller but consistent
+5.03\% endpoint-error reduction.
+
+The end-to-end factorial evaluation further clarifies the distinct roles of
+the two modules. Replacing trilinear interpolation with ITU improves VBench-5
+by 0.03085, 0.04066, and 0.03874 at Wan50@40, Wan50@45, and Distill4@3,
+respectively. With ITU fixed, the additional VBench-5 changes from TTDA are
+\(+0.00087\), \(-0.00050\), and \(+0.00010\). ITU therefore supplies the
+dominant aggregate quality improvement, while TTDA has a narrower
+transition-alignment effect that is more directly reflected by endpoint error
+and localized structural changes than by the aggregate VBench score.
+
+\subsection{Additional Design Analysis}
+\label{sec:design_analysis}
+
+We finally examine two implementation choices associated with the resolution
+transition: reconstruction of the next target-resolution scheduler state and
+the inference strength of TTDA. These choices are selected on an independent
+eight-prompt validation set and remain fixed for the ten-prompt test
+evaluation.
+
+For state reconstruction, we compare the proposed seed-derived
+target-resolution noise with a resized-flow alternative. The latter
+interpolates the low-resolution flow prediction to the target grid and uses it
+as the residual for constructing the next scheduler state.
+
+\begin{table}[t]
+  \centering
+  \scriptsize
+  \setlength{\tabcolsep}{3pt}
+  \begin{tabular}{lccc}
+    \toprule
+    Reconstruction & Strength & VBench-5 \(\uparrow\) &
+    Temporal \(\uparrow\) \\
+    \midrule
+    Resized flow & 0.75 & 0.81526 & 0.95860 \\
+    Seed-derived noise & 0.75 & \textbf{0.84009} & \textbf{0.97465} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Validation of target-resolution state reconstruction on eight
+  prompts. Both rows use the same TTDA strength and ITU checkpoint.}
+  \label{tab:state_reconstruction}
+\end{table}
+
+Using seed-derived target-resolution noise improves VBench-5 by 0.02483 and
+temporal consistency by 0.01605. Interpolating the low-resolution flow
+residual therefore preserves an inaccurate cross-resolution trajectory
+direction, whereas reconstructing the state with target-resolution noise
+places the ITU output at the noise level expected by the frozen
+high-resolution scheduler.
+
+\begin{table}[t]
+  \centering
+  \scriptsize
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{ccc}
+    \toprule
+    TTDA strength & VBench-5 \(\uparrow\) & Temporal \(\uparrow\) \\
+    \midrule
+    0.25 & 0.83816 & \textbf{0.97476} \\
+    0.50 & 0.83893 & 0.97468 \\
+    0.75 & \textbf{0.84009} & 0.97465 \\
+    1.00 & 0.83933 & 0.97464 \\
+    \bottomrule
+  \end{tabular}
+  \caption{TTDA inference-strength sweep with seed-derived
+  target-resolution state reconstruction.}
+  \label{tab:ttda_strength}
+\end{table}
+
+The effect of TTDA strength is non-monotonic but small within the seed-derived
+reconstruction setting. An intermediate strength of 0.75 obtains the highest
+validation VBench-5 and is therefore fixed before test-set evaluation. The
+weak sensitivity across the four strengths also indicates that the main gain
+in this experiment comes from scheduler-consistent target-resolution state
+reconstruction rather than aggressive adapter scaling.
 
 \section{Conclusion}
 
