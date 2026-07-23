@@ -32,6 +32,7 @@ doc/*
 !doc/360P_FOUR_WAY_EVAL_PROTOCOL.md
 !doc/PAPER_DRAFT_OUTLINE.md
 /paper/aaai27/build/
+/paper/aaai27/figures/_challenge_work/
 
 # OS/editor
 .DS_Store

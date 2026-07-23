@@ -38,6 +38,341 @@
 \section{Method}
 
 \subsection{Challenges of In-Trajectory Resolution Handoff}
+In-trajectory resolution scaling executes an inexpensive low-resolution
+prefix and switches to the target resolution only for the remaining denoising
+evaluations. Although this strategy avoids launching a separate
+super-resolution diffusion process, we identify two challenges that become
+particularly important when the handoff is delayed to maximize acceleration.
+
+\paragraph{Interpolation-induced latent distortion.}
+A fixed interpolation operator only resamples the spatial grid; it does not
+recover the correspondence between the low- and high-resolution representations
+induced by the pretrained VAE. Consequently, interpolated latents may exhibit
+distorted structures and inaccurate high-frequency statistics on the
+target-resolution grid. RALU reported that late latent upsampling introduces
+aliasing artifacts, particularly around high-frequency edge regions. This
+exposes a fundamental quality–efficiency trade-off: a later handoff provides
+greater acceleration but leaves fewer high-resolution evaluations to correct
+the errors introduced during resolution conversion. Under an aggressive
+handoff, the short high-resolution trajectory tail may therefore be
+insufficient to recover structural details lost or distorted by fixed
+interpolation.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]
+  {../figures/fig_challenge_interpolation.pdf}
+  \caption{Fixed interpolation under a late resolution handoff. The columns
+  show content-aligned Native-HR, trilinear handoff, and InTraScale outputs at
+  evaluation 45. The bottom row enlarges the center regions marked above by
+  \(3\times\), exposing the structural distortion introduced around
+  high-frequency moving boundaries by fixed interpolation.}
+  \label{fig:challenge_interpolation}
+\end{figure}
+
+\paragraph{Training–inference mismatch for learned upsampling.}
+Replacing interpolation with a learned latent upsampler introduces an input
+distribution shift. A latent upsampler is naturally trained using paired clean
+latents obtained from completed, content-aligned low- and high-resolution
+videos. Its low-resolution training input is thus an endpoint-like clean
+representation containing all spatial and temporal details supported by the
+low-resolution bandwidth. During in-trajectory inference, however, the
+upsampler does not receive such a converged latent. Here, \(x_s^L\) denotes
+the low-resolution latent state at step \(s\), \(v_\phi\) is the frozen flow
+predictor with parameters \(\phi\), \(c\) is the text condition, and
+\(\sigma_s\) is the scheduler coefficient. We use the subscript \(0|s\) to
+denote a clean latent predicted from the state at step \(s\). At handoff step
+\(s\), its input is a one-evaluation clean prediction derived from an
+unfinished low-resolution trajectory:
+\[
+\widehat{z}_{0|s}^{L}
+=
+x_s^{L}
+-
+\sigma_s v_\phi(x_s^{L},s,c).
+\]
+It contains a timestep- and scheduler-dependent residual that would otherwise
+be removed by the remaining low-resolution evaluations. Its distribution
+therefore differs from that of the clean low-resolution latents used to train
+the upsampler. Directly applying the upsampler to this prediction forces a
+single module to perform both cross-resolution reconstruction and unfinished
+trajectory correction, weakening its ability to preserve structure across
+scales.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]
+  {../figures/fig_challenge_alignment.pdf}
+  \caption{Unfinished-trajectory residual at handoff evaluation 45. The
+  columns show the endpoint of the corresponding native low-resolution
+  trajectory, the unaligned one-evaluation clean prediction, and the
+  TTDA-aligned prediction. The displayed frame is the final video frame, and
+  the bottom row enlarges the lower-left regions marked above by \(2\times\).
+  TTDA moves the local structure of the handoff prediction toward its native
+  low-resolution endpoint.}
+  \label{fig:challenge_alignment}
+\end{figure}
+
+These two challenges motivate the decoupled design of InTraScale. The
+In-Trajectory Upsampler learns the cross-resolution clean-latent
+correspondence, while the Trajectory-Tail Distillation Adapter distills the
+omitted low-resolution trajectory tail into the handoff evaluation, producing
+a more endpoint-like input for resolution conversion.
+
+\subsection{Overall Framework}
+
+We now formalize the decoupled pipeline motivated by the two challenges above.
+Let \(v_\phi(x_k^R,k,c)\) denote the frozen flow predictor, where
+\(R\in\{L,H\}\) indicates the low- or target-resolution latent space,
+\(x_k^R\) is the latent state presented to the \(k\)-th denoising evaluation,
+and \(c\) is the text condition. We use \(\sigma_k\) for the corresponding
+scheduler coefficient and \(T\) for the total number of denoising evaluations.
+We refer to the pretrained flow predictor and VAE collectively as the frozen
+target model.
+A handoff at step \(s\) counts the \(s\)-th evaluation as the final
+low-resolution evaluation. Evaluations \(1,\ldots,s-1\) form the frozen
+low-resolution prefix, TTDA is activated only at evaluation \(s\), and
+evaluations \(s+1,\ldots,T\) form the frozen high-resolution tail.
+
+At the handoff, the prediction \(\widehat{z}_{0|s}^{L}\) introduced in the
+preceding subsection is not directly passed to the upsampler. The
+Trajectory-Tail Distillation Adapter (TTDA) first produces an endpoint-aligned
+clean prediction \(\widetilde{z}_{0|s}^{L}\). The In-Trajectory Upsampler
+(ITU), parameterized by \(\psi\), then maps this prediction to the
+target-resolution clean latent
+\(\widehat{z}_{0|s}^{H}=U_\psi(\widetilde{z}_{0|s}^{L})\).
+
+To continue the original denoising trajectory, InTraScale reconstructs the
+next target-resolution scheduler state as
+\[
+x_{s+1}^{H}
+=
+(1-\sigma_{s+1})\widehat{z}_{0|s}^{H}
++
+\sigma_{s+1}\epsilon^{H},
+\qquad
+\epsilon^{H}\sim\mathcal{N}(0,I),
+\]
+where \(\epsilon^{H}\) is target-resolution noise determined by the generation
+seed. The complete inference pipeline is
+\[
+x_1^{L}
+\xrightarrow{\text{prefix}}
+x_s^{L}
+\xrightarrow{\text{TTDA}}
+\widetilde{z}_{0|s}^{L}
+\xrightarrow{\text{ITU}}
+\widehat{z}_{0|s}^{H}
+\xrightarrow{\text{reconstruction}}
+x_{s+1}^{H}
+\xrightarrow{\text{tail}}
+z_{\mathrm{out}}^{H}.
+\]
+Here, \(z_{\mathrm{out}}^{H}\) denotes the final target-resolution clean latent,
+which is decoded into the output video by the frozen VAE.
+
+ITU and TTDA are trained independently using supervision generated by the
+frozen target model. ITU learns the cross-resolution clean-latent
+correspondence, whereas TTDA learns to remove the unfinished
+low-resolution trajectory residual at the handoff.
+
+\subsection{In-Trajectory Upsampler}
+\label{sec:itu}
+
+The In-Trajectory Upsampler (ITU) addresses the cross-resolution representation
+mismatch identified in Section~3.1. Rather than treating latent upsampling as
+spatial interpolation, ITU learns the correspondence between clean
+low- and high-resolution representations induced by the frozen target model.
+
+\paragraph{Generator-endogenous supervision.}
+We construct the training pairs using videos generated by the frozen target
+model. Given a generated target-resolution video \(v^{H}\), we first obtain its
+content-aligned low-resolution counterpart through RGB-space downsampling:
+\[
+v^{L}=\mathcal{D}_{\mathrm{rgb}}(v^{H}).
+\]
+The two videos are then encoded independently by the same frozen VAE
+\(\mathcal{E}\):
+\[
+z_{\mathrm{pair}}^{L}=\mathcal{E}(v^{L}),
+\qquad
+z_{\mathrm{pair}}^{H}=\mathcal{E}(v^{H}).
+\]
+The resulting pair
+\((z_{\mathrm{pair}}^{L},z_{\mathrm{pair}}^{H})\) shares the same semantics,
+frame count, and motion trajectory. Performing the resolution change before
+VAE encoding allows ITU to learn the target model's actual cross-resolution
+latent correspondence instead of imitating a predefined interpolation
+operator in latent space.
+
+\paragraph{Spatiotemporal latent upsampling.}
+ITU maps a clean low-resolution latent to the target-resolution latent grid
+while preserving the temporal dimension:
+\[
+U_\psi:
+\mathbb{R}^{B\times16\times F\times h_L\times w_L}
+\rightarrow
+\mathbb{R}^{B\times16\times F\times h_H\times w_H},
+\]
+where \(B\) and \(F\) denote the batch size and number of latent frames,
+respectively. The network follows an encoder--resampler--decoder design. A
+3D convolution first projects the input into a 256-channel hidden
+representation, followed by four spatiotemporal residual blocks. A learned
+spatial lifting operator then changes only the height and width. Four
+additional residual blocks and a final 3D convolution reconstruct the
+16-channel target latent. The 3D blocks allow adjacent latent frames to
+contribute to the reconstruction without changing the temporal resolution.
+
+We instantiate the spatial lifting operator according to the required grid
+ratio. For \(480\times832\rightarrow720\times1248\), the latent grid changes
+from \(60\times104\) to \(90\times156\). We realize this \(3/2\) ratio using a
+\(3\times\) spatial PixelShuffle followed by anti-aliased stride-2
+downsampling. For
+\(368\times640\rightarrow720\times1248\), a \(2\times\) PixelShuffle produces
+a \(92\times160\) grid, which is center-cropped to \(90\times156\). The
+resolution-specific lifting operators determine the target geometry, while
+the surrounding spatiotemporal network learns the latent correspondence.
+
+\paragraph{Cross-resolution objective.}
+Given
+\[
+\widehat{z}_{\mathrm{pair}}^{H}
+=
+U_\psi(z_{\mathrm{pair}}^{L}),
+\]
+We train ITU with
+\[
+\mathcal{L}_{\mathrm{ITU}}
+=
+\mathcal{L}_{\mathrm{rec}}
++0.2\mathcal{L}_{\mathrm{lf}}
++0.1\mathcal{L}_{\mathrm{temp}}.
+\]
+Here, \(\mathcal{L}_{\mathrm{rec}}\) is the Charbonnier reconstruction loss,
+\(\mathcal{L}_{\mathrm{lf}}\) enforces consistency between the spatially
+downsampled prediction and the low-resolution input, and
+\(\mathcal{L}_{\mathrm{temp}}\) matches first-order temporal differences
+between adjacent latent frames. We use a Charbonnier constant of
+\(\epsilon=10^{-3}\).
+Here, \(\mathcal{D}_{\mathrm{lat}}\) maps the prediction back to the
+low-resolution latent grid, and \(\Delta_t\) denotes first-order differences
+between adjacent latent frames. We use
+\(\lambda_{\mathrm{lf}}=0.2\),
+\(\lambda_{\mathrm{temp}}=0.1\), and
+\(\epsilon=10^{-3}\). The three terms constrain target-latent reconstruction,
+low-frequency content preservation, and temporal evolution, respectively.
+
+A low-resolution latent does not uniquely determine every high-frequency
+detail in its target-resolution counterpart. ITU therefore focuses on
+transferring structure, motion, and latent statistics to the target grid. The
+remaining frozen high-resolution trajectory retains the generative
+responsibility for details that are underdetermined by the low-resolution
+input.
+
+\subsection{Trajectory-Tail Distillation and High-Resolution Continuation}
+\label{sec:ttda}
+
+ITU is trained on completed clean-latent pairs, whereas its inference input is
+predicted from an unfinished low-resolution trajectory. TTDA reduces this
+deployment mismatch by distilling the omitted low-resolution trajectory tail
+into the handoff evaluation. The aligned prediction is subsequently lifted by
+ITU and returned to the native high-resolution schedule.
+
+\paragraph{Handoff-local endpoint supervision.}
+For each training sample, we run the frozen target model using a fixed prompt,
+generation seed, initial noise, scheduler, and guidance configuration. We
+cache the state \(x_s^{L}\) immediately before the designated handoff
+evaluation and continue the same low-resolution trajectory to completion. We
+denote the resulting clean endpoint by \(z_{\mathrm{end}}^{L}\). The pair
+\[
+\left(x_s^{L},z_{\mathrm{end}}^{L}\right)
+\]
+therefore preserves the semantic and stochastic conditions of the handoff
+while isolating the residual that would have been removed by evaluations
+\(s+1,\ldots,T\) at low resolution.
+
+\paragraph{Localized trajectory-tail distillation.}
+TTDA is implemented as a step-specific low-rank update
+\(\Delta\theta_s\) to the frozen flow predictor. For a linear layer \(W\), the
+LoRA parameterization is
+\[
+W_{\lambda}
+=
+W
++
+\lambda\frac{\alpha}{r}BA,
+\]
+where \(r\) is the LoRA rank, \(\alpha\) is its training scale, and
+\(\lambda\) controls the adapter strength during inference. We use rank
+\(r=32\) and inject the update into the \(q\), \(k\), \(v\), and \(o\)
+attention projections and the two feed-forward projections. The base
+parameters \(\phi\) remain frozen.
+
+At evaluation \(s\), the adapted predictor produces
+\[
+\widetilde{z}_{0|s}^{L}
+=
+x_s^{L}
+-
+\sigma_s
+v_{\phi+\lambda\Delta\theta_s}
+(x_s^{L},s,c).
+\]
+We train TTDA to regress the corresponding native low-resolution endpoint
+using
+\[
+\mathcal{L}_{\mathrm{TTDA}}
+=
+\mathcal{L}_{1}
++
+0.1\mathcal{L}_{\mathrm{MSE}}
++
+\lambda_{\mathrm{tt}}\mathcal{L}_{\mathrm{temp}}.
+\]
+Here, \(\mathcal{L}_{1}\) and \(\mathcal{L}_{\mathrm{MSE}}\) compare
+\(\widetilde{z}_{0|s}^{L}\) with \(z_{\mathrm{end}}^{L}\), while
+\(\mathcal{L}_{\mathrm{temp}}\) matches their first-order temporal
+differences. We set \(\lambda_{\mathrm{tt}}=0.05\) for the earlier
+\(s=40\) handoff of the 50-step sampler and zero for the later and distilled
+settings. We select the inference strength \(\lambda=0.75\) on held-out
+development prompts and keep it fixed for all reported samples.
+
+TTDA is activated only during evaluation \(s\). Its strength is zero for the
+preceding evaluations, so the frozen low-resolution prefix and the cached
+handoff state \(x_s^{L}\) remain unchanged under matched deterministic
+conditions. TTDA is therefore a localized trajectory adapter rather than a
+general low-resolution step-reduction model.
+
+\paragraph{Scheduler-consistent high-resolution continuation.}
+After TTDA and ITU produce
+\[
+\widehat{z}_{0|s}^{H}
+=
+U_\psi(\widetilde{z}_{0|s}^{L}),
+\]
+we reconstruct the next target-resolution scheduler state as
+\[
+x_{s+1}^{H}
+=
+(1-\sigma_{s+1})
+\widehat{z}_{0|s}^{H}
++
+\sigma_{s+1}\epsilon^{H},
+\]
+using the target-resolution noise realization \(\epsilon^{H}\) determined by
+the generation seed. This reconstruction is parameter-free: it places the
+upsampled clean prediction at the noise level expected by the next evaluation
+without introducing an auxiliary diffusion process or a decode--encode
+round trip.
+
+We require \(s<T\), leaving at least one target-resolution evaluation after
+the handoff. The frozen flow predictor then processes
+\(x_{s+1}^{H}\) through evaluations \(s+1,\ldots,T\) and produces
+\(z_{\mathrm{out}}^{H}\). State reconstruction itself does not synthesize new
+detail; it only provides a scheduler-consistent entry into the
+target-resolution trajectory. The frozen high-resolution tail performs the
+actual generative refinement, completing spatial structures and textures that
+cannot be uniquely recovered from the low-resolution latent.
 
 \section{Experiment}
 

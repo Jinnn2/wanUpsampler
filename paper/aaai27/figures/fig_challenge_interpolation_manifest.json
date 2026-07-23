@@ -1,0 +1,63 @@
+{
+  "group": "interpolation",
+  "fraction": 0.5,
+  "frame_selection": "fraction",
+  "crop_position": "center",
+  "linear_magnification": 3,
+  "canvas_pixels": [
+    990,
+    462
+  ],
+  "png": "C:\\WorkPlace\\wanUpsampler\\wanUpsampler\\paper\\aaai27\\figures\\fig_challenge_interpolation.png",
+  "pdf": "C:\\WorkPlace\\wanUpsampler\\wanUpsampler\\paper\\aaai27\\figures\\fig_challenge_interpolation.pdf",
+  "videos": [
+    {
+      "key": "native_hr",
+      "label": "Native-HR",
+      "video": "E:\\Downloads\\AAAI27\\drive-download-20260723T153420Z-1-001\\01_Native-HR.mp4",
+      "frame": "C:\\WorkPlace\\wanUpsampler\\wanUpsampler\\paper\\aaai27\\figures\\_challenge_work\\frames\\interpolation\\native_hr_0p5000.png",
+      "source_size": [
+        640,
+        360
+      ],
+      "crop_box": [
+        213,
+        120,
+        426,
+        240
+      ]
+    },
+    {
+      "key": "trilinear",
+      "label": "Trilinear",
+      "video": "E:\\Downloads\\AAAI27\\drive-download-20260723T153420Z-1-001\\02_Trilinear-at-45.mp4",
+      "frame": "C:\\WorkPlace\\wanUpsampler\\wanUpsampler\\paper\\aaai27\\figures\\_challenge_work\\frames\\interpolation\\trilinear_0p5000.png",
+      "source_size": [
+        1248,
+        702
+      ],
+      "crop_box": [
+        416,
+        234,
+        832,
+        468
+      ]
+    },
+    {
+      "key": "intrascale",
+      "label": "InTraScale",
+      "video": "E:\\Downloads\\AAAI27\\drive-download-20260723T153420Z-1-001\\04_TALH-E-at-45.mp4",
+      "frame": "C:\\WorkPlace\\wanUpsampler\\wanUpsampler\\paper\\aaai27\\figures\\_challenge_work\\frames\\interpolation\\intrascale_0p5000.png",
+      "source_size": [
+        1248,
+        702
+      ],
+      "crop_box": [
+        416,
+        234,
+        832,
+        468
+      ]
+    }
+  ]
+}

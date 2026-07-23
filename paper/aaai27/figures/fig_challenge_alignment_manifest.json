@@ -1,0 +1,63 @@
+{
+  "group": "alignment",
+  "fraction": 1.0,
+  "frame_selection": "last_edge",
+  "crop_position": "bottom_left",
+  "linear_magnification": 2,
+  "canvas_pixels": [
+    990,
+    462
+  ],
+  "png": "C:\\WorkPlace\\wanUpsampler\\wanUpsampler\\paper\\aaai27\\figures\\fig_challenge_alignment.png",
+  "pdf": "C:\\WorkPlace\\wanUpsampler\\wanUpsampler\\paper\\aaai27\\figures\\fig_challenge_alignment.pdf",
+  "videos": [
+    {
+      "key": "lr_endpoint",
+      "label": "LR endpoint",
+      "video": "E:\\Downloads\\AAAI27\\ori_50_02_seed9702.mp4",
+      "frame": "C:\\WorkPlace\\wanUpsampler\\wanUpsampler\\paper\\aaai27\\figures\\_challenge_work\\frames\\alignment\\lr_endpoint_last_edge.png",
+      "source_size": [
+        640,
+        360
+      ],
+      "crop_box": [
+        0,
+        180,
+        320,
+        360
+      ]
+    },
+    {
+      "key": "unaligned",
+      "label": "Unaligned",
+      "video": "E:\\Downloads\\AAAI27\\ori_45_02_seed9702.mp4",
+      "frame": "C:\\WorkPlace\\wanUpsampler\\wanUpsampler\\paper\\aaai27\\figures\\_challenge_work\\frames\\alignment\\unaligned_last_edge.png",
+      "source_size": [
+        640,
+        360
+      ],
+      "crop_box": [
+        0,
+        180,
+        320,
+        360
+      ]
+    },
+    {
+      "key": "ttda_aligned",
+      "label": "TTDA-aligned",
+      "video": "E:\\Downloads\\AAAI27\\lora_45_02_seed9702.mp4",
+      "frame": "C:\\WorkPlace\\wanUpsampler\\wanUpsampler\\paper\\aaai27\\figures\\_challenge_work\\frames\\alignment\\ttda_aligned_last_edge.png",
+      "source_size": [
+        640,
+        360
+      ],
+      "crop_box": [
+        0,
+        180,
+        320,
+        360
+      ]
+    }
+  ]
+}

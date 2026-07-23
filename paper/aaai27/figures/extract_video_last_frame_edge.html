@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    video {
+      display: none;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <video id="video" muted preload="auto"></video>
+  <canvas id="canvas"></canvas>
+  <script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const context = canvas.getContext("2d", { alpha: false });
+    const source = new URLSearchParams(location.search).get("src");
+
+    function fail(message) {
+      document.title = `ERROR:${message}`;
+      document.body.dataset.ready = "error";
+    }
+
+    video.addEventListener("error", () => {
+      fail(video.error ? video.error.message : "video error");
+    });
+
+    video.addEventListener("loadedmetadata", () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      // Seek inside the presentation interval of the final decoded frame.
+      video.currentTime = Math.max(0, video.duration - 0.0001);
+    });
+
+    video.addEventListener("seeked", () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          document.title = `READY:${video.currentTime.toFixed(6)}`;
+          document.body.dataset.ready = "true";
+        });
+      });
+    });
+
+    if (!source) {
+      fail("missing src query parameter");
+    } else {
+      video.src = source;
+      video.load();
+    }
+  </script>
+</body>
+</html>
