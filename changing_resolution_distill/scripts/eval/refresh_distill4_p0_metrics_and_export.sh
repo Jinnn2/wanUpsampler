@@ -17,6 +17,7 @@ if (( ${#GPUS[@]} != 4 )); then
   exit 2
 fi
 WARM_GPU="${WARM_GPU:-${GPUS[0]}}"
+REFRESH_VBENCH="${REFRESH_VBENCH:-1}"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 RAW_SUBDIR="vbench_raw_p0_sigma012_${timestamp}"
 PARTIAL_JSON_NAME="vbench_p0_rgb1_sigma012_${timestamp}.json"
@@ -33,26 +34,30 @@ for path in \
   [[ -f "${path}" ]] || { echo "Required file not found: ${path}" >&2; exit 1; }
 done
 
-echo "[1/5] VBench-5 refresh: endpoint_rgb_1hr only"
-CUDA_VISIBLE_DEVICES="${GPU_IDS}" "${VBENCH_PYTHON}" \
-  "${PROJECT_ROOT}/paper/aaai27/experiments/run_vbench_factorials.py" run \
-  --factorial-root "${MAIN_ROOT}" \
-  --vbench-root "${VBENCH_ROOT}" \
-  --python "${VBENCH_PYTHON}" \
-  --ngpus 4 \
-  --cases endpoint_rgb_1hr \
-  --raw-subdir "${RAW_SUBDIR}" \
-  --output-name "${PARTIAL_JSON_NAME}"
+if [[ "${REFRESH_VBENCH}" == "1" ]]; then
+  echo "[1/5] VBench-5 refresh: endpoint_rgb_1hr only"
+  CUDA_VISIBLE_DEVICES="${GPU_IDS}" "${VBENCH_PYTHON}" \
+    "${PROJECT_ROOT}/paper/aaai27/experiments/run_vbench_factorials.py" run \
+    --factorial-root "${MAIN_ROOT}" \
+    --vbench-root "${VBENCH_ROOT}" \
+    --python "${VBENCH_PYTHON}" \
+    --ngpus 4 \
+    --cases endpoint_rgb_1hr \
+    --raw-subdir "${RAW_SUBDIR}" \
+    --output-name "${PARTIAL_JSON_NAME}"
 
-echo "[2/5] Merge VBench case and rebuild paired statistics"
-"${WAN_PYTHON}" \
-  "${PROJECT_ROOT}/paper/aaai27/experiments/refresh_distill4_p0_results.py" \
-  merge-vbench \
-  --suite-root "${MAIN_ROOT}" \
-  --partial-json "${PARTIAL_JSON}"
-"${WAN_PYTHON}" \
-  "${PROJECT_ROOT}/paper/aaai27/experiments/compile_vbench_paired_statistics.py" \
-  --factorial-root "${MAIN_ROOT}"
+  echo "[2/5] Merge VBench case and rebuild paired statistics"
+  "${WAN_PYTHON}" \
+    "${PROJECT_ROOT}/paper/aaai27/experiments/refresh_distill4_p0_results.py" \
+    merge-vbench \
+    --suite-root "${MAIN_ROOT}" \
+    --partial-json "${PARTIAL_JSON}"
+  "${WAN_PYTHON}" \
+    "${PROJECT_ROOT}/paper/aaai27/experiments/compile_vbench_paired_statistics.py" \
+    --factorial-root "${MAIN_ROOT}"
+else
+  echo "[1-2/5] Reusing the already merged P0 VBench refresh"
+fi
 
 mapfile -t WARM_SETTINGS < <(
   "${WAN_PYTHON}" - "${WARM_PROTOCOL}" <<'PY'
@@ -60,7 +65,8 @@ import json
 import sys
 from pathlib import Path
 
-settings = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["settings"]
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+settings = payload.get("settings", payload)
 for key in (
     "warmup_videos",
     "measured_videos",
