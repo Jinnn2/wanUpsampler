@@ -150,6 +150,62 @@ Our contributions are summarized as follows:
 
 \section{Related Work}
 
+\paragraph{Post-Generation Resolution Enhancement.}
+Cascaded video generation reduces the cost of high-resolution synthesis by
+first producing a low-resolution video and subsequently increasing its
+resolution~\citep{ho2022imagenvideo,blattmann2023videoldm,wang2023lavie}.
+RGB-space methods enhance an already decoded video using generative
+super-resolution or restoration models. Upscale-A-Video, VideoGigaGAN, and
+VEnhancer improve spatial detail while addressing temporal consistency in
+the enhanced output~\citep{zhou2024upscale,xu2024videogigagan,
+he2024venhancer}. Such enhancement can directly produce the final RGB video.
+If the result is returned to a generative model for further refinement,
+however, the pipeline additionally requires decoding, upsampling,
+re-encoding, and target-resolution state construction. MrFlow follows this
+strategy for image flow-matching models by combining pixel-space
+super-resolution with subsequent high-resolution
+refinement~\citep{zheng2026mrflow}. Latent cascades avoid this codec path.
+SimpleGVR and LUVE directly upsample the completed low-resolution latent
+before an additional refinement stage~\citep{xie2025simplegvr,zhao2026luve}.
+Nevertheless, both RGB and latent post-generation approaches perform
+resolution enhancement only after completing the low-resolution trajectory,
+so their refinement computation is appended to the base generation process.
+
+\paragraph{In-Trajectory Resolution Scaling.}
+A related direction changes resolution within the generative trajectory.
+Pyramidal Flow Matching jointly trains a unified video DiT over multiple
+pyramid stages, allowing only the final stage to operate at full
+resolution~\citep{jin2025pyramidalflow}. In contrast, training-free
+approaches apply mixed-resolution sampling to pretrained generators. RALU
+combines region-adaptive latent expansion with noise--timestep rescheduling
+and shows that late interpolation-based upsampling produces aliasing near
+high-frequency edges~\citep{jeong2025ralu}. LightX2V similarly supports
+changing-resolution inference for pretrained video
+models~\citep{lightx2v2026}. More recent methods improve cross-resolution
+trajectory construction: Fresco maintains a unified noise field and
+progressively expands converged regions, whereas Spectral Progressive
+Diffusion introduces spectral noise expansion and derives resolution
+schedules from the model power spectrum~\citep{zheng2026fresco,
+xiao2026spectral}. These methods either train the generator around a
+multiscale trajectory or rely on prescribed spatial and noise transformations.
+InTraScale instead keeps the pretrained video generator frozen and learns two
+lightweight, decoupled functions: ITU models the VAE-specific clean-latent
+correspondence across resolutions, while TTDA corrects the residual caused by
+the unfinished low-resolution trajectory.
+
+\paragraph{Video Diffusion Acceleration.}
+Temporal acceleration reduces the number of denoising evaluations through
+video consistency or diffusion distillation. VideoLCM, T2V-Turbo, and DOLLAR
+demonstrate high-quality video generation using only a few
+evaluations~\citep{wang2023videolcm,li2024t2vturbo,ding2025dollar}.
+Orthogonal training-free methods reduce the cost of individual evaluations by
+reusing attention maps or intermediate features across
+timesteps~\citep{zhao2025pab,liu2025teacache}. InTraScale instead reduces the
+spatial cost of the low-resolution prefix. TTDA distills only the omitted
+low-resolution trajectory tail at the resolution transition, allowing the
+framework to provide additional acceleration when applied to an independently
+distilled video generator.
+
 \section{Method}
 
 \subsection{Challenges of In-Trajectory Resolution Transition}
