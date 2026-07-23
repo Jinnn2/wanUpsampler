@@ -62,12 +62,14 @@ IMPLEMENTATION_FILES = (
     "changing_resolution_distill/scripts/eval/run_distill4_p1_temporal_flickering_4gpu.sh",
     "changing_resolution_distill/scripts/eval/run_distill4_p3_talh_validation_4gpu.sh",
     "changing_resolution_distill/scripts/eval/export_distill4_p0_p1_p3_final.sh",
+    "changing_resolution_distill/scripts/eval/refresh_distill4_p0_metrics_and_export.sh",
     "paper/aaai27/experiments/run_distill4_quality_efficiency.py",
     "paper/aaai27/experiments/run_vbench_factorials.py",
     "paper/aaai27/experiments/compile_vbench_paired_statistics.py",
     "paper/aaai27/experiments/run_distill4_talh_validation_sweep.py",
     "paper/aaai27/experiments/distill4_talh_validation_prompts_8.txt",
     "paper/aaai27/experiments/export_distill4_p0_p1_p3.py",
+    "paper/aaai27/experiments/refresh_distill4_p0_results.py",
 )
 OPTIONAL_MAIN_FILES = (
     "artifact_fingerprints.json",
@@ -85,6 +87,8 @@ OPTIONAL_MAIN_FILES = (
     "warm_quality_efficiency/quality_efficiency_warm_raw.csv",
     "warm_quality_efficiency/quality_efficiency_warm_pairs.csv",
     "warm_quality_efficiency/warm_timing_manifest.json",
+    "metrics/p0_vbench_refresh_manifest.json",
+    "warm_quality_efficiency/p0_warm_refresh_manifest.json",
 )
 
 

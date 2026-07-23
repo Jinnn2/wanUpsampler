@@ -26,6 +26,13 @@ def main() -> None:
     root = Path(args.factorial_root).resolve()
     manifest = load_json(root / "run_manifest.json")
     inputs = prepare_inputs(root, manifest)
+    if args.cases:
+        unknown = sorted(set(args.cases) - set(inputs))
+        if unknown:
+            raise SystemExit("Unknown VBench case(s): " + ", ".join(unknown))
+        if len(args.cases) != len(set(args.cases)):
+            raise SystemExit("--cases contains duplicates")
+        inputs = {name: inputs[name] for name in args.cases}
     if args.action == "prepare":
         print(f"Prepared {len(inputs)} VBench cases under {root / 'metrics/vbench_inputs'}")
         return
@@ -48,6 +55,7 @@ def main() -> None:
         Path(args.vbench_root).resolve() if args.vbench_root else None,
         raw_subdir=args.raw_subdir,
         output_name=args.output_name,
+        case_names=list(inputs),
     )
     print(f"Canonical VBench JSON: {output}")
 
@@ -127,12 +135,16 @@ def collect_results(
     *,
     raw_subdir: str = "vbench_raw",
     output_name: str = "vbench_v1_custom.json",
+    case_names: list[str] | None = None,
 ) -> Path:
     raw_root = root / "metrics" / raw_subdir
     cases: dict[str, Any] = {}
     missing: list[str] = []
+    selected = set(case_names) if case_names is not None else None
     for case in manifest["cases"]:
         name = str(case["name"])
+        if selected is not None and name not in selected:
+            continue
         files = sorted((raw_root / name).rglob("*.json")) if (raw_root / name).is_dir() else []
         numeric: dict[str, float] = {}
         sources: list[str] = []
@@ -204,6 +216,11 @@ def parse_args() -> argparse.Namespace:
         help="Python executable from the isolated VBench environment",
     )
     parser.add_argument("--dimension", dest="dimensions", action="append", default=[])
+    parser.add_argument(
+        "--cases",
+        nargs="+",
+        help="Optional case subset. Collection output contains only these cases.",
+    )
     parser.add_argument("--ngpus", type=int, default=1)
     parser.add_argument(
         "--raw-subdir",

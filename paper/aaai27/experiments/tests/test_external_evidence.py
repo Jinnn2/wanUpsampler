@@ -73,6 +73,33 @@ class VBenchFactorialTest(unittest.TestCase):
                 {"sentinel": True},
             )
 
+    def test_collects_only_requested_vbench_case(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = {
+                "family": "distill4",
+                "prompts": ["prompt"],
+                "cases": [{"name": "old"}, {"name": "refreshed"}],
+            }
+            for case in ("old", "refreshed"):
+                raw = root / "metrics/vbench_raw_partial" / case
+                raw.mkdir(parents=True)
+                (raw / "result.json").write_text(
+                    json.dumps({"motion_smoothness": [0.8, []]}),
+                    encoding="utf-8",
+                )
+            output = collect_results(
+                root,
+                manifest,
+                ["motion_smoothness"],
+                None,
+                raw_subdir="vbench_raw_partial",
+                output_name="partial.json",
+                case_names=["refreshed"],
+            )
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(set(payload["cases"]), {"refreshed"})
+
 
 class HumanReviewTest(unittest.TestCase):
     def test_multistep_blind_ids_do_not_collide_and_single_step_ids_stay_stable(self) -> None:
