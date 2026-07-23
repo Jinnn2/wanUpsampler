@@ -472,7 +472,9 @@ T2V-14B StepDistill-CfgDistill. CRLU is trained on
 \(368\times640\rightarrow720\times1248\) clean latent pairs, while EAA pairs
 the state preceding step 3 with the complete step-4 low-resolution endpoint.
 Training, validation, and test partitions are separated by both text prompts
-and random seeds.
+and random seeds. The final comparison uses 10 matched test prompts; a disjoint
+eight-prompt \(4\times2\) validation sweep selects EAA strength \(0.75\) with
+random re-noising.
 
 CRLU is optimized with AdamW for up to 50k steps using a learning rate of
 \(1\times10^{-4}\), \(bf16\) precision, and an EMA decay of 0.9999. EAA is
@@ -500,6 +502,15 @@ and \textbf{TrajScale-45} retain 10 and 5 native high-resolution suffix
 evaluations. These settings compare the principal alternatives under the same
 model, prompts, seeds, frame count, and output resolution.
 
+For the four-step sampler, \textbf{Trilinear@3} and
+\textbf{TrajScale-D4} hand off after three low-resolution evaluations.
+Controlled endpoint adaptations instead finish all four low-resolution
+evaluations: \textbf{LUVE-style} \citep{zhao2026luve} applies CRLU and two
+high-resolution refinements, while \textbf{MrFlow-style}
+\citep{zheng2026mrflow} uses a Real-ESRGAN decode--upsample--re-encode path and
+one correction at \(\sigma=0.12\). They isolate design principles inside the
+same Wan model rather than reproduce the original systems.
+
 Module interactions are evaluated through a \(2\times2\) diagnostic design
 that crosses CRLU input states
 \(\{\text{Unaligned},\text{EAA-aligned}\}\) with resolution operators
@@ -520,7 +531,9 @@ Pareto analysis uses \textbf{VBench-5}, the unweighted mean of subject
 consistency, background consistency, motion smoothness, aesthetic quality, and
 imaging quality. Dynamic degree is reported separately as a motion
 characteristic rather than treated as a monotonic quality score; we also
-report all six original dimensions for the principal configurations.
+report all six original dimensions for the principal configurations. For the
+four-step comparison, we further report VBench temporal flickering as a
+higher-is-better temporal-consistency score.
 
 All paired configurations share identical prompts, random seeds, initial noise,
 schedulers, and guidance parameters. Prompt-level score differences are
@@ -632,7 +645,7 @@ TrajScale primarily reduces runtime rather than peak memory.
 \subsection{Component Analysis}
 
 \paragraph{Cross-resolution latent upsampling.}
-Table~\ref{tab:operator} isolates the cross-resolution operator before
+Supplementary Table S1 isolates the cross-resolution operator before
 considering transition-time mismatch. Over 50 paired clean latent samples,
 CRLU substantially outperforms trilinear interpolation. For
 \(480\text{p}\rightarrow720\text{p}\), it reduces latent \(L_1\) from
@@ -647,31 +660,6 @@ shows the same trend: latent \(L_1\), LPIPS, and temporal \(L_1\) decrease by
 show that the primary cross-resolution capability comes from learning the
 VAE-specific latent correspondence rather than relying on a geometry-only
 resize rule.
-
-\begin{table*}[!t]
-\centering
-\footnotesize
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{llrrrrr}
-\toprule
-Input $\rightarrow$ Output & Operator & Latent $L_1\downarrow$ &
-PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ &
-Temp. $L_1\downarrow$ \\
-\midrule
-480p $\rightarrow$ 720p & Trilinear & 0.1929 & 24.29 & 0.7159 &
-0.2358 & 0.02121 \\
-480p $\rightarrow$ 720p & CRLU & \textbf{0.0991} & \textbf{30.00} &
-\textbf{0.8696} & \textbf{0.0629} & \textbf{0.01468} \\
-368p $\rightarrow$ 720p & Trilinear & 0.2444 & 23.42 & 0.6740 &
-0.3352 & 0.02388 \\
-368p $\rightarrow$ 720p & CRLU & \textbf{0.1628} & \textbf{24.10} &
-\textbf{0.7592} & \textbf{0.1640} & \textbf{0.02017} \\
-\bottomrule
-\end{tabular}
-\caption{CRLU versus trilinear interpolation on paired clean latents
-(\(n=50\)).}
-\label{tab:operator}
-\end{table*}
 
 \paragraph{Transition-time endpoint alignment.}
 With the scale operator fixed, EAA tests whether CRLU can be deployed more
@@ -742,7 +730,8 @@ win/loss/tie counts of \(8/2/0\) at step 40 and \(9/0/1\) at step 45.
 Overall-quality judgments are also positive, reaching \(6/2/2\) and
 \(6/0/4\), respectively. These preferences support the dimension-level VBench
 observation that endpoint alignment selectively improves imaging quality and
-localized structure.
+localized structure; complete majority votes are reported in Supplementary
+Table S5.
 
 The additional fine-scale content introduces a spatial--temporal trade-off:
 temporal stability favors the unaligned CRLU state in both settings. This is
@@ -751,45 +740,41 @@ beneficial denoising module: it shifts the operating point toward sharper local
 rendering, while CRLU and the remaining high-resolution suffix provide the
 broader spatial and temporal reconstruction.
 
-\begin{table}[!t]
-\centering
-\footnotesize
-\setlength{\tabcolsep}{2pt}
-\begin{tabular}{lrrr}
-\toprule
-Comparison & Details & Overall & Temporal \\
-\midrule
-EAA vs.\ Unaligned, CRLU (S40) & 8/2/0 & 6/2/2 & 1/9/0 \\
-EAA vs.\ Unaligned, CRLU (S45) &
-\textbf{9/0/1} & \textbf{6/0/4} & 0/8/2 \\
-CRLU-only vs.\ Trilinear (S45) &
-\textbf{10/0/0} & \textbf{10/0/0} & \textbf{8/0/2} \\
-TrajScale-45 vs.\ Trilinear (S45) &
-\textbf{10/0/0} & \textbf{10/0/0} & \textbf{9/0/1} \\
-\bottomrule
-\end{tabular}
-\caption{Prompt-level majority votes (W/L/T) over ten prompts with three
-raters per prompt. Bold entries have exact sign-test \(p<0.05\).}
-\label{tab:human}
-\end{table}
-
 CRLU provides the broader perceptual improvement. At step 45, both CRLU-only
 and TrajScale-45 obtain \(10/10\) prompt-level wins over trilinear handoff for
 fine details and overall quality, while also improving temporal stability. EAA
 adds a narrower local-detail refinement on top of this learned
 cross-resolution reconstruction.
 
-TrajScale is also compatible with the 4-step distilled Wan sampler. On the
-\(368\text{p}\) trajectory, TrajScale-D4 improves over Trilinear Handoff in
-subject consistency (0.96226 vs.\ 0.95932), background consistency (0.97026
-vs.\ 0.96937), motion smoothness (0.98815 vs.\ 0.98376), aesthetic quality
-(0.64914 vs.\ 0.58954), and imaging quality (0.71418 vs.\ 0.58783), while both
-have dynamic degree 0.50. Cold-start latency increases only from 167.09 to
-170.29 seconds. As in the 50-step setting, CRLU supplies the
-primary cross-resolution quality improvement, while EAA reduces the
-transition-time endpoint residual and improves the imaging-quality component.
-This result supports the orthogonality of spatial mixed-resolution sampling and
-temporal step distillation.
+\begin{table}[!t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{2.4pt}
+\begin{tabular}{lrrrr}
+\toprule
+Method & LR/HR & VBench-5 \(\uparrow\) & Temp. \(\uparrow\) &
+Time (s) \(\downarrow\) \\
+\midrule
+Trilinear@3 & 3/1 & 0.81796 & 0.97400 & \textbf{18.33} \\
+\textbf{TrajScale-D4} & 3/1 & 0.85680 & \textbf{0.97663} & 19.92 \\
+LUVE-style & 4/2 & \textbf{0.85981} & 0.97331 & 28.76 \\
+MrFlow-style & 4/1 & 0.85903 & 0.97484 & 27.12 \\
+\bottomrule
+\end{tabular}
+\caption{Four-step comparison on ten matched prompts. Time is warm-model
+end-to-end latency; ``Temp.'' is VBench temporal consistency. Endpoint-style
+rows are the controlled adaptations in Section~\ref{sec:factorialsetup}.}
+\label{tab:distill4}
+\end{table}
+
+Table~\ref{tab:distill4} separates four-step quality from efficiency.
+TrajScale-D4 improves over Trilinear@3 by \(0.03884\) VBench-5 and
+\(0.00264\) temporal consistency for \(1.59\) seconds. LUVE- and MrFlow-style
+refinement score only \(0.00301\) and \(0.00223\) higher in VBench-5, while
+TrajScale-D4 is \(30.7\%\) and \(26.5\%\) faster and has the best temporal
+score. The MrFlow-style paired quality interval crosses zero; LUVE-style wins
+only \(7/10\) prompts. Full paired statistics and the independent selection
+sweep appear in Supplementary Tables S3 and S4.
 
 Qualitative comparisons in Figure~\ref{fig:teaser}(a) further illustrate
 CRLU's recovery of high-frequency textures and EAA's localized adjustments.
@@ -827,7 +812,9 @@ cross-degradation transfer remain unverified. Fixed handoff steps require
 step-specific EAA parameters; timestep-conditioned adapters would be needed for
 adaptive transitions. Quality also depends on the manually selected suffix
 length and on whether the scheduler-state reconstruction remains appropriate
-for other solver families. Finally, TrajScale addresses model-generated
+for other solver families. The distilled study uses ten test prompts and
+controlled endpoint-style adaptations, so its small quality gaps are not
+universal system rankings. Finally, TrajScale addresses model-generated
 in-trajectory spatial scaling rather than real-world degradations such as
 compression, blur, or sensor noise, and inherits the base generator's content
 risks and safety requirements.
@@ -851,7 +838,10 @@ overhead is below 0.7\% relative to matched fixed interpolation, and
 TrajScale-45 improves VBench-5 over RALU-style rescheduling at nearly identical
 latency. CRLU consistently outperforms trilinear interpolation and supplies
 the primary cross-resolution quality gain; EAA reduces endpoint residuals and
-improves localized visual detail across standard and distilled samplers. These
+improves localized visual detail across standard and distilled samplers. On
+the four-step sampler, TrajScale-D4 stays within \(0.00301\) VBench-5 of the
+two endpoint-style references while reducing warm latency by
+\(26.5\)--\(30.7\%\) and achieving the highest temporal consistency. These
 results show that accurate learned scale transfer, transition-specific input
 calibration, and native suffix refinement provide a practical division of
 labor for mixed-resolution video diffusion.

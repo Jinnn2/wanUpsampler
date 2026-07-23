@@ -52,13 +52,13 @@
     },
     {
       "panel": "spatial",
-      "method": "CLL-only @ 40",
+      "method": "CRLU-only @ 40",
       "path": "C:\\Codes\\wanUpsampler\\outputs\\aaai27_figure_work\\talh_figure_video_candidates\\TALH-Q_spatial_detail\\prompt_05_seed9705\\03_CLL-only-at-40.mp4",
       "sha256": "44759c5e0a97867df18bf444f762c8a7864d5b7be6513af493a23f03025d86a4"
     },
     {
       "panel": "spatial",
-      "method": "TALH-Q @ 40",
+      "method": "TrajScale-40",
       "path": "C:\\Codes\\wanUpsampler\\outputs\\aaai27_figure_work\\talh_figure_video_candidates\\TALH-Q_spatial_detail\\prompt_05_seed9705\\04_TALH-Q-at-40.mp4",
       "sha256": "cb6637667bcb19006a175ce8fc6e91b0c834fa0c27b3f252adcfd2225cb0d813"
     },
@@ -76,13 +76,13 @@
     },
     {
       "panel": "temporal",
-      "method": "CLL-only @ 45",
+      "method": "CRLU-only @ 45",
       "path": "C:\\Codes\\wanUpsampler\\outputs\\aaai27_figure_work\\talh_figure_video_candidates\\TALH-E_motion\\prompt_07_seed9707\\03_CLL-only-at-45.mp4",
       "sha256": "146365985d31fc66cff6a1c56b0f48017e9c338719ecc7c7d41d4a6d09323ee9"
     },
     {
       "panel": "temporal",
-      "method": "TALH-E @ 45",
+      "method": "TrajScale-45",
       "path": "C:\\Codes\\wanUpsampler\\outputs\\aaai27_figure_work\\talh_figure_video_candidates\\TALH-E_motion\\prompt_07_seed9707\\04_TALH-E-at-45.mp4",
       "sha256": "cd6a7f1711c27f6e97fc84aee876a255908172aaab6e71d5fe4b6a8e8b1d66d0"
     }

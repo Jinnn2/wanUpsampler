@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-07-23T06:36:29.185033+00:00",
+  "case": "endpoint_rgb_1hr",
+  "partial": {
+    "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_p0_rgb1_sigma012_20260723T063542Z.json",
+    "size_bytes": 8777,
+    "sha256": "75e26497f2e11c3785fc12e542511518c4de8ca6ec1a14be37712c4fba0f437b"
+  },
+  "canonical": {
+    "path": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/vbench_v1_custom.json",
+    "size_bytes": 149918,
+    "sha256": "4c3a8e69a9bbfd465928747a784b03a2c9ac5e59f071c35d345cdbe08cf3bb50"
+  },
+  "history": "/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_experiments/quality_efficiency_distill4/metrics/history/p0_vbench_20260723T063629Z"
+}

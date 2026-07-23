@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "strategy": "case_parallel_longest_estimated_cost_first",
+  "gpu_assignments": [
+    {
+      "gpu": 0,
+      "estimated_cost": 51.0,
+      "cases": [
+        "endpoint_rgb_4hr",
+        "endpoint_rgb_1hr",
+        "endpoint_interp_1hr",
+        "taa_interp3"
+      ]
+    },
+    {
+      "gpu": 1,
+      "estimated_cost": 50.0,
+      "cases": [
+        "endpoint_stage2_4hr",
+        "endpoint_interp_2hr",
+        "endpoint_stage2_1hr",
+        "talh3"
+      ]
+    },
+    {
+      "gpu": 2,
+      "estimated_cost": 54.0,
+      "cases": [
+        "endpoint_interp_4hr",
+        "endpoint_stage2_2hr",
+        "cll3",
+        "endpoint_rgb_0hr",
+        "endpoint_stage2_0hr"
+      ]
+    },
+    {
+      "gpu": 3,
+      "estimated_cost": 53.0,
+      "cases": [
+        "endpoint_rgb_2hr",
+        "native_hr4",
+        "interp2",
+        "interp3",
+        "endpoint_interp_0hr"
+      ]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Supplementary Figure S1 from content-aligned TALH video groups.
+"""Generate Supplementary Figure S1 from content-aligned TrajScale video groups.
 
 The spatial panel uses prompt 05 / seed 9705 at frame 41. The temporal
 panel uses prompt 07 / seed 9707 around frame 61. All crop coordinates are
@@ -120,14 +120,14 @@ def main() -> None:
     spatial_specs = [
         ("Native-HR\n(estimated)", "Native-HR", COLORS["native"], True),
         ("Trilinear @ 40", "Trilinear-at-40", COLORS["baseline"], False),
-        ("CLL-only @ 40", "CLL-only-at-40", COLORS["cll"], False),
-        ("TALH-Q @ 40", "TALH-Q-at-40", COLORS["talh_q"], False),
+        ("CRLU-only @ 40", "CLL-only-at-40", COLORS["cll"], False),
+        ("TrajScale-40", "TALH-Q-at-40", COLORS["talh_q"], False),
     ]
     temporal_specs = [
         ("Native-HR\n(estimated)", "Native-HR", COLORS["native"], True),
         ("Trilinear\n@ 45", "Trilinear-at-45", COLORS["baseline"], False),
-        ("CLL-only\n@ 45", "CLL-only-at-45", COLORS["cll"], False),
-        ("TALH-E\n@ 45", "TALH-E-at-45", COLORS["talh_e"], False),
+        ("CRLU-only\n@ 45", "CLL-only-at-45", COLORS["cll"], False),
+        ("TrajScale-45", "TALH-E-at-45", COLORS["talh_e"], False),
     ]
 
     spatial_data = []
