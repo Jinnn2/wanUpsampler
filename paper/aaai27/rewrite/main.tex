@@ -578,154 +578,39 @@ has been compressed to four evaluations, InTraScale further reduces spatial
 computation by more than half while retaining nearly all of the native
 distilled-model quality.
 
-\subsection{Component-Level Evidence}
-\label{sec:component_evidence}
+\subsection{Component and Design Analysis}
+\label{sec:component_analysis}
 
-We next isolate whether ITU and TTDA address the two transition-specific
-challenges identified in Section~3.1. ITU is evaluated on completed,
-content-aligned latent pairs to measure cross-resolution reconstruction
-independently of trajectory mismatch. TTDA is evaluated before ITU by measuring
-how closely its clean prediction approaches the endpoint of the corresponding
-complete low-resolution trajectory.
+We next examine whether ITU and TTDA address the two transition-specific
+challenges identified in Section~3.1. On 50 completed clean-latent pairs per
+scale, ITU consistently improves cross-resolution reconstruction over
+trilinear interpolation. For \(480\mathrm{p}\rightarrow720\mathrm{p}\), it
+reduces latent \(L_1\), LPIPS, and temporal \(L_1\) by 48.6\%, 73.3\%, and
+30.8\%, respectively. Under the more aggressive
+\(368\mathrm{p}\rightarrow720\mathrm{p}\) conversion, the corresponding
+reductions are 33.4\%, 51.1\%, and 15.5\%. These results confirm that ITU
+learns the VAE-specific cross-resolution correspondence rather than merely
+approximating geometric interpolation.
 
-\begin{table*}[t]
-  \centering
-  \footnotesize
-  \setlength{\tabcolsep}{5pt}
-  \begin{tabular}{llccccc}
-    \toprule
-    Scale & Method & Latent \(L_1\) \(\downarrow\) & PSNR \(\uparrow\) &
-    SSIM \(\uparrow\) & LPIPS \(\downarrow\) &
-    Temporal \(L_1\) \(\downarrow\) \\
-    \midrule
-    \(480\mathrm{p}\rightarrow720\mathrm{p}\) & Trilinear &
-    0.19288 & 24.29 & 0.71588 & 0.23575 & 0.02121 \\
-    \(480\mathrm{p}\rightarrow720\mathrm{p}\) & ITU &
-    \textbf{0.09913} & \textbf{30.00} & \textbf{0.86961} &
-    \textbf{0.06294} & \textbf{0.01468} \\
-    \(368\mathrm{p}\rightarrow720\mathrm{p}\) & Trilinear &
-    0.24437 & 23.42 & 0.67404 & 0.33522 & 0.02388 \\
-    \(368\mathrm{p}\rightarrow720\mathrm{p}\) & ITU &
-    \textbf{0.16284} & \textbf{24.10} & \textbf{0.75920} &
-    \textbf{0.16403} & \textbf{0.02017} \\
-    \bottomrule
-  \end{tabular}
-  \caption{Cross-resolution reconstruction on 50 completed clean-latent pairs
-  per scale. ITU and trilinear interpolation receive the same low-resolution
-  clean latent and are compared against the corresponding target-resolution
-  VAE latent.}
-  \label{tab:itu_operator}
-\end{table*}
+TTDA consistently brings the handoff prediction closer to the endpoint of the
+complete low-resolution trajectory. It reduces endpoint latent \(L_1\) by
+25.82\%, 21.03\%, and 5.03\% at Wan50@40, Wan50@45, and Distill4@3,
+respectively, with improvements on all ten samples in each setting. The
+factorial evaluation further separates the roles of the two modules:
+replacing trilinear interpolation with ITU improves VBench-5 by
+0.03085--0.04066, whereas adding TTDA changes the aggregate score by only
+\(-0.00050\) to \(+0.00087\). ITU therefore provides the dominant perceptual
+gain, while TTDA primarily corrects the transition-specific endpoint mismatch.
 
-Across 50 clean-latent test pairs, ITU consistently outperforms fixed
-interpolation. For \(480\mathrm{p}\rightarrow720\mathrm{p}\), ITU reduces
-latent \(L_1\) by 48.6\%, improves decoded PSNR by 5.71 dB, reduces LPIPS by
-73.3\%, and reduces temporal \(L_1\) by 30.8\%. Under the more aggressive
-\(368\mathrm{p}\rightarrow720\mathrm{p}\) conversion, it reduces latent
-\(L_1\), LPIPS, and temporal \(L_1\) by 33.4\%, 51.1\%, and 15.5\%,
-respectively. The consistent improvements across both scale ratios show that
-ITU learns the VAE-specific cross-resolution correspondence rather than merely
-approximating a geometric resize operator.
-
-\begin{table}[t]
-  \centering
-  \scriptsize
-  \setlength{\tabcolsep}{3pt}
-  \begin{tabular}{lcccc}
-    \toprule
-    Transition & Unaligned \(L_1\) & TTDA \(L_1\) & Reduction & Wins \\
-    \midrule
-    Wan50@40 & 0.03215 & \textbf{0.02385} & 25.82\% & 10/10 \\
-    Wan50@45 & 0.02363 & \textbf{0.01866} & 21.03\% & 10/10 \\
-    Distill4@3 & 0.04286 & \textbf{0.04070} & 5.03\% & 10/10 \\
-    \bottomrule
-  \end{tabular}
-  \caption{Endpoint alignment before ITU. Wins count samples for which TTDA
-  reduces latent \(L_1\) relative to the unaligned clean prediction.}
-  \label{tab:ttda_endpoint}
-\end{table}
-
-TTDA reduces the residual endpoint error at every transition, winning on all
-ten samples in each setting. The improvement is strongest for the conventional
-50-evaluation sampler, where endpoint \(L_1\) decreases by 25.82\% at
-evaluation 40 and 21.03\% at evaluation 45. At evaluation 45, TTDA also
-improves decoded PSNR by 2.23 dB, reduces MSE by 44.79\%, and reduces temporal
-latent error by 21.24\%. The four-step model exhibits a smaller but consistent
-5.03\% endpoint-error reduction.
-
-The end-to-end factorial evaluation further clarifies the distinct roles of
-the two modules. Replacing trilinear interpolation with ITU improves VBench-5
-by 0.03085, 0.04066, and 0.03874 at Wan50@40, Wan50@45, and Distill4@3,
-respectively. With ITU fixed, the additional VBench-5 changes from TTDA are
-\(+0.00087\), \(-0.00050\), and \(+0.00010\). ITU therefore supplies the
-dominant aggregate quality improvement, while TTDA has a narrower
-transition-alignment effect that is more directly reflected by endpoint error
-and localized structural changes than by the aggregate VBench score.
-
-\subsection{Additional Design Analysis}
-\label{sec:design_analysis}
-
-We finally examine two implementation choices associated with the resolution
-transition: reconstruction of the next target-resolution scheduler state and
-the inference strength of TTDA. These choices are selected on an independent
-eight-prompt validation set and remain fixed for the ten-prompt test
-evaluation.
-
-For state reconstruction, we compare the proposed seed-derived
-target-resolution noise with a resized-flow alternative. The latter
-interpolates the low-resolution flow prediction to the target grid and uses it
-as the residual for constructing the next scheduler state.
-
-\begin{table}[t]
-  \centering
-  \scriptsize
-  \setlength{\tabcolsep}{3pt}
-  \begin{tabular}{lccc}
-    \toprule
-    Reconstruction & Strength & VBench-5 \(\uparrow\) &
-    Temporal \(\uparrow\) \\
-    \midrule
-    Resized flow & 0.75 & 0.81526 & 0.95860 \\
-    Seed-derived noise & 0.75 & \textbf{0.84009} & \textbf{0.97465} \\
-    \bottomrule
-  \end{tabular}
-  \caption{Validation of target-resolution state reconstruction on eight
-  prompts. Both rows use the same TTDA strength and ITU checkpoint.}
-  \label{tab:state_reconstruction}
-\end{table}
-
-Using seed-derived target-resolution noise improves VBench-5 by 0.02483 and
-temporal consistency by 0.01605. Interpolating the low-resolution flow
-residual therefore preserves an inaccurate cross-resolution trajectory
-direction, whereas reconstructing the state with target-resolution noise
-places the ITU output at the noise level expected by the frozen
-high-resolution scheduler.
-
-\begin{table}[t]
-  \centering
-  \scriptsize
-  \setlength{\tabcolsep}{5pt}
-  \begin{tabular}{ccc}
-    \toprule
-    TTDA strength & VBench-5 \(\uparrow\) & Temporal \(\uparrow\) \\
-    \midrule
-    0.25 & 0.83816 & \textbf{0.97476} \\
-    0.50 & 0.83893 & 0.97468 \\
-    0.75 & \textbf{0.84009} & 0.97465 \\
-    1.00 & 0.83933 & 0.97464 \\
-    \bottomrule
-  \end{tabular}
-  \caption{TTDA inference-strength sweep with seed-derived
-  target-resolution state reconstruction.}
-  \label{tab:ttda_strength}
-\end{table}
-
-The effect of TTDA strength is non-monotonic but small within the seed-derived
-reconstruction setting. An intermediate strength of 0.75 obtains the highest
-validation VBench-5 and is therefore fixed before test-set evaluation. The
-weak sensitivity across the four strengths also indicates that the main gain
-in this experiment comes from scheduler-consistent target-resolution state
-reconstruction rather than aggressive adapter scaling.
+Finally, we validate the target-resolution state reconstruction on an
+independent eight-prompt set. Using seed-derived target-resolution noise
+instead of resized low-resolution flow improves VBench-5 by 0.02483 and
+temporal consistency by 0.01605, showing the importance of reconstructing a
+scheduler-consistent high-resolution state. Performance remains stable when
+the TTDA strength varies from 0.25 to 1.0; we select
+\(\lambda=0.75\) on the validation set and keep it fixed for all test
+evaluations. Full metric breakdowns and strength sweeps are provided in the
+supplementary material.
 
 \section{Conclusion}
 
