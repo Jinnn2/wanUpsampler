@@ -513,13 +513,13 @@ We compare against Native-HR4, which executes all four evaluations at the
 target resolution, and Trilinear@3, which uses the same
 \(3\)-LR/\(1\)-HR schedule as InTraScale but replaces ITU with fixed
 interpolation and disables TTDA. We further construct two controlled
-endpoint-first baselines on the same distilled backbone. LUVE-style completes
-four low-resolution evaluations, applies learned latent upsampling, and
-performs two high-resolution refinements. MrFlow-style completes the
-low-resolution trajectory, uses a decode--RGB-upsample--re-encode path, and
-performs one high-resolution correction. These configurations reproduce the
-corresponding computational patterns rather than the complete original
-systems.
+post-generation baselines on the same distilled backbone. Both complete all
+four low-resolution evaluations before increasing the spatial resolution.
+LUVE-style then applies learned latent upsampling followed by two
+high-resolution refinements, whereas MrFlow-style uses a
+decode--RGB-upsample--re-encode path followed by one high-resolution
+correction. These configurations reproduce the corresponding computational
+patterns rather than the complete original systems.
 
 \begin{table*}[t]
   \centering
@@ -543,7 +543,7 @@ systems.
   \caption{Quality and warm-model efficiency under aggressive four-evaluation
   sampling. Native-HR4 executes the distilled sampler entirely at the target
   resolution. The remaining rows use either an in-trajectory transition or a
-  controlled endpoint-first pipeline on the same distilled backbone.}
+  controlled post-generation cascade on the same distilled backbone.}
   \label{tab:distilled_acceleration}
 \end{table*}
 
@@ -564,7 +564,7 @@ evaluation, fixed interpolation leaves insufficient correction capacity,
 whereas the learned transition preserves most of the native quality.
 
 InTraScale also provides a more favorable operating point than the
-endpoint-first alternatives. It reduces latency by 30.73\% relative to
+post-generation alternatives. It reduces latency by 30.73\% relative to
 LUVE-style and by 26.53\% relative to MrFlow-style, while its VBench-5 is lower
 by only 0.00301 and 0.00223, respectively. The quality difference from
 MrFlow-style has a prompt-paired confidence interval that overlaps zero; the
