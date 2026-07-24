@@ -161,34 +161,54 @@ refinement for image flow-matching models~\citep{zheng2026mrflow}. Latent
 cascades instead upsample the completed low-resolution representation
 directly: SimpleGVR uses an efficient cascaded video super-resolution model,
 while LUVE further introduces frequency-specialized
-refinement~\citep{xie2025simplegvr,zhao2026luve}. Although latent processing
-avoids codec conversion, both categories place resolution enhancement after
-the low-resolution trajectory has reached its endpoint.
+refinement~\citep{xie2025simplegvr,zhao2026luve}. FlashVSR distills
+diffusion-based restoration into a one-step streaming model with sparse causal
+attention and a lightweight decoder~\citep{zhuang2026flashvsr}. Even when
+implemented in latent space or distilled to one step, these systems enhance a
+completed low-resolution output rather than reducing the target-resolution
+cost within the original generative trajectory.
 
-\paragraph{In-Trajectory Resolution Scaling.}
-Another line of work changes spatial resolution within the generative
-trajectory. Pyramidal Flow Matching jointly trains a unified video DiT over
-multiple resolution stages~\citep{jin2025pyramidalflow}. RALU applies
-region-adaptive latent expansion and noise--timestep rescheduling to
-pretrained diffusion transformers, while LightX2V supports
-changing-resolution inference for pretrained video
-models~\citep{jeong2025ralu,lightx2v2026}. More recent approaches improve
-cross-resolution trajectory construction: Fresco combines a unified noise
-field with variance-guided progressive expansion, whereas Spectral
-Progressive Diffusion derives noise expansion and resolution schedules in the
-spectral domain~\citep{zheng2026fresco,xiao2026spectral}. These methods either
-train the generator around a multiscale trajectory or rely on prescribed
-spatial and noise transformations. InTraScale instead keeps the generator
-frozen, learns the VAE-specific clean-latent correspondence, and separately
-distills the omitted low-resolution trajectory tail.
+\paragraph{Multiscale and Resolution-Changing Generation.}
+Matryoshka Diffusion jointly denoises variables at multiple resolutions using
+a nested architecture, while Pyramidal Flow Matching trains a unified video
+DiT over successive resolution stages~\citep{gu2024matryoshka,
+jin2025pyramidalflow}. For pretrained models, RALU applies region-adaptive
+latent expansion and noise--timestep rescheduling, and the LightX2V inference
+framework implements variable-resolution schedules~\citep{jeong2025ralu,
+lightx2v2026}. Fresco couples a unified noise field with variance-guided
+progressive expansion, whereas Spectral Progressive Diffusion derives
+resolution schedules and noise expansion in the spectral
+domain~\citep{zheng2026fresco,xiao2026spectral}. These approaches either train
+the generator around a multiscale process or prescribe how noisy states are
+expanded. InTraScale keeps the generator frozen and instead learns the
+VAE-specific clean-latent correspondence while separately correcting the
+omitted low-resolution trajectory tail.
+
+\paragraph{Dynamic Spatial Computation.}
+Related methods reduce spatial cost without necessarily changing the complete
+latent state. FlexiDiT adapts pretrained DiTs to operate at multiple compute
+budgets~\citep{anagnostidis2025flexidit}. DDiT varies patch sizes across
+denoising evaluations and demonstrates dynamic patch scheduling on Wan2.1,
+while DynaPatch assigns region-wise spatiotemporal patch sizes according to
+content complexity~\citep{kim2026ddit,li2026dynapatch}. These methods primarily
+vary tokenization or compute allocation. InTraScale instead transitions the
+entire latent state between VAE-defined low- and high-resolution spaces, which
+requires both cross-resolution latent alignment and correction of the
+unfinished low-resolution trajectory.
 
 \paragraph{Video Diffusion Acceleration.}
 Video consistency and diffusion distillation reduce the number of denoising
-evaluations~\citep{wang2023videolcm,li2024t2vturbo,ding2025dollar}, while
-caching methods reuse attention maps or intermediate features across
-timesteps~\citep{zhao2025pab,liu2025teacache}. InTraScale reduces spatial
-computation during the low-resolution prefix and can therefore provide
-additional acceleration to independently distilled or cached generators.
+evaluations~\citep{wang2023videolcm,li2024t2vturbo,ding2025dollar};
+Transition Matching Distillation further represents each few-step probability
+transition with a lightweight conditional flow~\citep{nie2026tmd}. Caching
+methods instead reuse attention maps or intermediate features across
+timesteps~\citep{zhao2025pab,liu2025teacache}. DisCa learns a feature
+predictor together with restricted step distillation, showing that aggressive
+caching and sparse distilled trajectories require explicit compatibility
+mechanisms~\citep{zou2026disca}. InTraScale changes the spatial cost of each
+retained evaluation rather than reducing their number or reusing their
+features; our experiments verify this complementarity on a distilled
+four-evaluation generator.
 
 % Declared before Method so the two-column float appears at the top of page 3.
 \begin{figure*}[t]
@@ -440,7 +460,7 @@ remaining frozen high-resolution trajectory retains the generative
 responsibility for details that are underdetermined by the low-resolution
 input.
 
-\subsection{Trajectory-Tail Distillation and High-Resolution Continuation}
+\subsection{Trajectory-Tail Distillation Adapter}
 \label{sec:ttda}
 
 ITU is trained on completed clean-latent pairs, whereas its inference input is
@@ -450,12 +470,12 @@ into the final low-resolution evaluation. The aligned prediction is
 subsequently lifted by ITU and returned to the native high-resolution
 schedule.
 
-\paragraph{Trajectory-tail endpoint supervision.}
-For each training sample, we run the frozen target model using a fixed prompt,
-generation seed, initial noise, scheduler, and guidance configuration. We
-cache the state \(x_s^{L}\) immediately before the final low-resolution
-evaluation and continue the same low-resolution trajectory to completion. We
-denote the resulting clean endpoint by \(z_{\mathrm{end}}^{L}\). The pair
+For endpoint supervision, we run the frozen target model for each training
+sample using a fixed prompt, generation seed, initial noise, scheduler, and
+guidance configuration. We cache the state \(x_s^{L}\) immediately before the
+final low-resolution evaluation and continue the same low-resolution
+trajectory to completion. We denote the resulting clean endpoint by
+\(z_{\mathrm{end}}^{L}\). The pair
 \[
 \left(x_s^{L},z_{\mathrm{end}}^{L}\right)
 \]
@@ -463,8 +483,7 @@ therefore preserves the semantic and stochastic conditions at the
 transition point while providing direct supervision for the trajectory
 residual remaining at evaluation \(s\).
 
-\paragraph{Localized trajectory-tail distillation.}
-TTDA is implemented as a step-specific low-rank update
+We implement TTDA as a step-specific low-rank update
 \(\Delta\theta_s\) to the frozen flow predictor. For a linear layer \(W\), the
 LoRA parameterization is
 \[
@@ -516,36 +535,23 @@ pre-transition state \(x_s^{L}\) remain unchanged under matched
 deterministic conditions. TTDA is therefore a localized trajectory adapter
 rather than a general low-resolution step-reduction model.
 
-\paragraph{Scheduler-consistent high-resolution continuation.}
-After TTDA and ITU produce
-\[
-\widehat{z}_{0|s}^{H}
-=
-U_\psi(\widetilde{z}_{0|s}^{L}),
-\]
-we reconstruct the next target-resolution scheduler state as
-\[
-x_{s+1}^{H}
-=
-(1-\sigma_{s+1})
-\widehat{z}_{0|s}^{H}
-+
-\sigma_{s+1}\epsilon^{H},
-\]
-using the target-resolution noise realization \(\epsilon^{H}\) determined by
-the generation seed. This reconstruction is parameter-free: it places the
-upsampled clean prediction at the noise level expected by the next evaluation
-without introducing an auxiliary diffusion process or a decode--encode
-round trip.
+\subsection{Scheduler-Consistent High-Resolution Continuation}
+\label{sec:hr-continuation}
 
-We require \(s<T\), leaving at least one target-resolution evaluation after
-the resolution transition. The frozen flow predictor then processes
-\(x_{s+1}^{H}\) through evaluations \(s+1,\ldots,T\) and produces
-\(z_{\mathrm{out}}^{H}\). State reconstruction itself does not synthesize new
-detail; it only provides a scheduler-consistent entry into the
-target-resolution trajectory. The frozen high-resolution tail performs the
-actual generative refinement, completing spatial structures and textures that
-cannot be uniquely recovered from the low-resolution latent.
+After TTDA and ITU, we reconstruct the target-resolution scheduler state as
+\[
+\begin{aligned}
+\widehat{z}_{0|s}^{H} &= U_\psi(\widetilde{z}_{0|s}^{L}),\\
+x_{s+1}^{H} &= (1-\sigma_{s+1})\widehat{z}_{0|s}^{H}
+              +\sigma_{s+1}\epsilon^{H},
+\end{aligned}
+\]
+where \(\epsilon^{H}\) is fixed by the generation seed. This parameter-free
+operation matches the next scheduler noise level without auxiliary diffusion
+or a decode--encode round trip. We require \(s<T\), so the frozen predictor
+performs at least one high-resolution evaluation and produces
+\(z_{\mathrm{out}}^{H}\); this high-resolution tail completes structures and
+textures underdetermined by the low-resolution latent.
 
 \section{Experiments}
 \label{sec:experiments}
