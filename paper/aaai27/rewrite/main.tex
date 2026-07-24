@@ -26,6 +26,26 @@
 
 \begin{document}
 
+\makeatletter
+\g@addto@macro\@maketitle{%
+  \par\vspace{0.5em}
+  \begin{minipage}{\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{figures/fig_teaser.pdf}
+  \captionof{figure}{\textbf{Real-video temporal comparison of the resolution
+  transition.} Five matched frames compare a content-aligned
+  Native-HR (estimated) structural reference, trilinear interpolation at
+  evaluation 45, and InTraScale at the same transition point. Every cell uses
+  the same head-centered \(2\times\) crop coordinates. The first row is a
+  completed low-resolution trajectory used as a structural reference rather
+  than a 720p sharpness baseline; the remaining rows are 720p handoff
+  outputs.}
+  \label{fig:teaser}
+  \end{minipage}
+  \vspace{0.5em}
+}
+\makeatother
+
 \maketitle
 
 \begin{abstract}
@@ -174,6 +194,26 @@ timesteps~\citep{zhao2025pab,liu2025teacache}. InTraScale reduces spatial
 computation during the low-resolution prefix and can therefore provide
 additional acceleration to independently distilled or cached generators.
 
+% Declared before Method so the two-column float appears at the top of page 3.
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]
+  {figures/fig_overall_framework.pdf}
+  \caption{\textbf{Sampling budget and overall framework of InTraScale.}
+  (a) Native-HR executes all \(T\) evaluations at target resolution, whereas
+  a post-generation cascade appends \(K\) super-resolution evaluations after
+  completing low-resolution generation. InTraScale instead preserves the
+  \(T\)-evaluation budget by executing a low-resolution prefix, applying a
+  learned resolution transition at evaluation \(s\), and continuing at the
+  target resolution. (b) At evaluation \(s\), TTDA distills the omitted
+  low-resolution trajectory tail into an endpoint-aligned clean prediction.
+  ITU, trained on content-aligned clean-latent pairs, lifts this prediction to
+  the target-resolution latent space. Parameter-free scheduler-weighted state
+  reconstruction then combines the lifted clean latent with seeded noise
+  before the frozen high-resolution continuation.}
+  \label{fig:overall_framework}
+\end{figure*}
+
 \section{Method}
 
 \subsection{Challenges of In-Trajectory Resolution Transition}
@@ -267,7 +307,9 @@ resolution transition.
 
 \subsection{Overall Framework}
 
-We now formalize the decoupled pipeline motivated by the two challenges above.
+Figure~\ref{fig:overall_framework} summarizes the sampling budget and the
+decoupled pipeline motivated by the two challenges above. We now formalize
+its components and trajectory states.
 Let \(v_\phi(x_k^R,k,c)\) denote the frozen flow predictor, where
 \(R\in\{L,H\}\) indicates the low- or target-resolution latent space,
 \(x_k^R\) is the latent state presented to the \(k\)-th denoising evaluation,
