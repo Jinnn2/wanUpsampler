@@ -1,0 +1,81 @@
+{
+  "figure": "fig_overall_framework_local",
+  "assembly": "Deterministic local HTML/SVG rendered by headless Chrome",
+  "generated_pixels": {
+    "overall_assembly": false,
+    "real_video_frames": false,
+    "generated_components": [
+      {
+        "component": "ITU internal architecture",
+        "source": "assets\\overall_framework_local\\itu_component_generated_v2.png",
+        "cropped_asset": "assets\\overall_framework_local\\itu_component_generated_v2_cropped.png",
+        "cropped_sha256": "7378A208C83BFA0FE3C96ACDE82C1D5BF11A77784058523808FF77C0E6318F6C"
+      }
+    ]
+  },
+  "canvas_pixels": [2200, 650],
+  "paper_size_inches": [7.0, 2.07],
+  "terminology": {
+    "transition_term": "resolution transition",
+    "modules": ["TTDA", "ITU"],
+    "latent_time_dimension": "F"
+  },
+  "real_frame_sources": {
+    "low_resolution_stack": {
+      "role": "Content-aligned low-resolution video-frame illustration",
+      "source_video": "E:\\Downloads\\AAAI27\\drive-download-20260723T153420Z-1-001\\01_Native-HR.mp4",
+      "extracted_sources": [
+        "figures\\_challenge_work\\frames\\interpolation\\native_hr_0p3000.png",
+        "figures\\_challenge_work\\frames\\interpolation\\native_hr_0p5000.png",
+        "figures\\_challenge_work\\frames\\interpolation\\native_hr_0p7000.png"
+      ],
+      "local_assets": [
+        {
+          "path": "assets\\overall_framework_local\\lr_frame_030.png",
+          "sha256": "C012693041DF9137F7C5D611FCE9C6C52576A8A470394A9870FD11916BC63FB1"
+        },
+        {
+          "path": "assets\\overall_framework_local\\lr_frame_050.png",
+          "sha256": "C012693041DF9137F7C5D611FCE9C6C52576A8A470394A9870FD11916BC63FB1"
+        },
+        {
+          "path": "assets\\overall_framework_local\\lr_frame_070.png",
+          "sha256": "C012693041DF9137F7C5D611FCE9C6C52576A8A470394A9870FD11916BC63FB1"
+        }
+      ]
+    },
+    "high_resolution_stack": {
+      "role": "InTraScale target-resolution output-frame illustration",
+      "source_video": "E:\\Downloads\\AAAI27\\drive-download-20260723T153420Z-1-001\\04_TALH-E-at-45.mp4",
+      "extracted_sources": [
+        "figures\\_challenge_work\\frames\\interpolation\\intrascale_0p3000.png",
+        "figures\\_challenge_work\\frames\\interpolation\\intrascale_0p5000.png",
+        "figures\\_challenge_work\\frames\\interpolation\\intrascale_0p9000.png"
+      ],
+      "local_assets": [
+        {
+          "path": "assets\\overall_framework_local\\hr_frame_030.png",
+          "sha256": "B0A9F300EBAF90F0F8175AD3B4D32F195BF40EF583D1A1E2FCC6CEF58502749E"
+        },
+        {
+          "path": "assets\\overall_framework_local\\hr_frame_050.png",
+          "sha256": "932234D02A1E00AE363CEB2B90B9D2B06E6E526768C59A86AB3E944BA4BEBD9D"
+        },
+        {
+          "path": "assets\\overall_framework_local\\hr_frame_070.png",
+          "sha256": "77BB64C790F9CA6341C3B2E4291BCEAA314E0F79F63BF2A5188075D26416E63E"
+        }
+      ]
+    }
+  },
+  "local_vector_components": [
+    "sampling-budget tiles and braces",
+    "noise latent tensor",
+    "frozen LR and HR predictor schematics",
+    "TTDA and LoRA bracket with endpoint-supervision branch",
+    "ITU clean-latent-pair supervision branch",
+    "seeded high-resolution noise branch",
+    "scheduler-consistent state-reconstruction equation",
+    "integrated evaluation schedule and compact technical key"
+  ]
+}

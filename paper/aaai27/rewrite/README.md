@@ -1,8 +1,9 @@
 # InTraScale AAAI 2027 submission source
 
-This directory is the self-contained anonymous-submission source package.
-It contains only the manuscript, official AAAI support files, bibliography,
-reproducibility checklist, and the four PDF figures referenced by `main.tex`.
+This directory is the self-contained anonymous-submission workspace. It
+contains the manuscript, official AAAI support files, bibliography,
+reproducibility checklist, the four PDF figures referenced by `main.tex`, and
+editable sources for the terminology-sensitive figures.
 
 ## Submission contents
 
@@ -14,6 +15,8 @@ reproducibility checklist, and the four PDF figures referenced by `main.tex`.
 - `figures/fig_overall_framework.pdf`: sampling budget and framework.
 - `figures/fig_challenge_interpolation.pdf`: interpolation challenge.
 - `figures/fig_challenge_alignment.pdf`: trajectory-alignment challenge.
+- `figure_sources/`: editable templates, recovered framework assets, and the
+  reproducible TTD figure renderer.
 
 Build from this directory with:
 
@@ -27,8 +30,8 @@ latexmk -pdf main.tex
   Resolution Scaling**
 - Framework: **InTraScale**
 - Upsampling module: **In-Trajectory Upsampler (ITU)**
-- LoRA module: **Trajectory-Tail Distillation Adapter (TTDA)**,
-  Chinese: **轨迹尾段蒸馏适配器**
+- Distillation mechanism: **Trajectory-Tail Distillation (TTD)**,
+  implemented through a step-specific LoRA update; Chinese: **轨迹尾段蒸馏**
 
 These names replace the previous TrajScale, CRLU, and EAA terminology in all
 newly rewritten text.
