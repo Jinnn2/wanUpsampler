@@ -29,6 +29,30 @@
 \maketitle
 
 \begin{abstract}
+High-resolution video diffusion remains expensive because every denoising
+evaluation processes the full target-resolution spatiotemporal latent
+sequence. In-trajectory resolution scaling reduces this cost by executing an
+inexpensive low-resolution prefix and reserving target-resolution computation
+for the remaining evaluations, without launching a separate super-resolution
+diffusion process or increasing the total denoising-evaluation budget.
+However, fixed interpolation cannot recover the VAE-induced cross-resolution
+latent correspondence, while a learned upsampler faces a training--inference
+mismatch between completed clean latents and predictions from an unfinished
+trajectory. We introduce InTraScale, a decoupled framework that addresses
+these challenges while keeping the pretrained generator frozen. Its
+In-Trajectory Upsampler learns the cross-resolution correspondence from
+content-aligned clean latent pairs, whereas its Trajectory-Tail Distillation
+Adapter distills the omitted low-resolution trajectory tail into the
+transition evaluation to produce a more endpoint-like input. A
+scheduler-consistent state reconstruction then returns the prediction to the
+remaining target-resolution trajectory. On a 50-evaluation Wan2.1 sampler,
+InTraScale achieves \(3.21\times\) and \(4.44\times\) warm-model speedups
+while retaining 97.76\% and 97.53\% of the Native-HR VBench-5 score,
+respectively. On a distilled four-evaluation model, it provides an additional
+\(2.13\times\) acceleration while retaining 99.58\% of the native distilled
+score. These results establish in-trajectory resolution scaling as an
+effective spatial acceleration strategy complementary to timestep
+distillation.
 \end{abstract}
 
 \section{Introduction}
