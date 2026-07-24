@@ -68,24 +68,24 @@ layout, semantic structure, and motion can be established economically at low
 resolution, while expensive target-resolution computation is reserved for
 recovering local structure and high-frequency details.
 
-Existing low-to-high-resolution pipelines commonly follow a post-generation
-schedule: a low-resolution generator first completes its trajectory, after
-which an upsampling or super-resolution stage increases the output
-resolution~\citep{ho2022imagenvideo,blattmann2023videoldm,wang2023lavie}.
-RGB-space pipelines may incur codec and state-reconstruction overhead when the
-enhanced video is returned to a generative model for further refinement,
-whereas latent cascades avoid this conversion by upsampling the completed
-low-resolution representation directly~\citep{xie2025simplegvr,
-zhao2026luve}. Despite this difference, both schedules append refinement
-after completing low-resolution generation. In-trajectory resolution scaling
-instead performs the resolution transition before the low-resolution
-trajectory is complete and uses the remaining denoising evaluations as the
-high-resolution continuation~\citep{jeong2025ralu,lightx2v2026}. It therefore
-accelerates generation without launching a separate super-resolution
-diffusion process or increasing the original denoising-evaluation budget.
+Such low-to-high-resolution pipelines can follow two schedules, depending on whether
+resolution is increased after low-resolution generation or before its
+trajectory is complete. Most existing pipelines follow the former, completing
+a low-resolution trajectory before applying an RGB-space or latent-space
+upsampling stage~\citep{ho2022imagenvideo,blattmann2023videoldm,
+wang2023lavie}. RGB-space refinement may incur codec and state-reconstruction
+overhead when its output is returned to a generative model, whereas latent
+cascades avoid this conversion by directly upsampling the completed
+representation~\citep{xie2025simplegvr,zhao2026luve}. Both nevertheless append
+refinement only after low-resolution generation has completed. In-trajectory
+resolution scaling follows the latter: it transitions earlier and uses the
+remaining denoising evaluations as the high-resolution
+continuation~\citep{jeong2025ralu,lightx2v2026}, avoiding a separate
+super-resolution diffusion process or an increase in the original evaluation
+budget.
 
-Existing in-trajectory approaches primarily rely on prescribed latent
-interpolation to perform the resolution transition. Such interpolation only
+Moving the resolution transition inside the denoising trajectory, however,
+creates two coupled representation challenges. Simple latent interpolation only
 resamples the spatial grid and cannot recover the cross-resolution
 correspondence induced by the pretrained VAE. The resulting structural
 distortion becomes particularly difficult to correct under a late transition,
@@ -189,15 +189,18 @@ four-evaluation generator.
 
 \section{Method}
 
+This section develops InTraScale by decomposing the transition into 
+cross-resolution reconstruction and unfinished-trajectory correction. 
+Accordingly, ITU learns the clean-latent correspondence across resolutions, 
+TTD produces a more endpoint-like transition prediction, and parameter-free 
+state reconstruction returns the lifted latent to the target-resolution trajectory.
+
 \subsection{Challenges of In-Trajectory Transition}
 In-trajectory resolution scaling executes an inexpensive low-resolution
 prefix and reserves the target resolution for only the remaining denoising
 evaluations. Its central technical difficulty lies in the resolution
-transition between the two trajectory segments. Although this strategy avoids
-launching a separate super-resolution diffusion process, we identify two
-transition-specific challenges that become particularly important when the
-transition is placed late in the denoising trajectory to maximize
-acceleration.
+transition between the two trajectory segments. We identify two
+transition-specific challenges.
 
 \paragraph{Interpolation-induced latent distortion.}
 A fixed interpolation operator only resamples the spatial grid; it does not
@@ -517,6 +520,12 @@ textures underdetermined by the low-resolution latent.
 
 \section{Experiments}
 \label{sec:experiments}
+
+We evaluate whether InTraScale improves the quality--efficiency trade-off 
+under conventional 50-evaluation sampling, remains effective after four-step 
+timestep distillation, and addresses the transition failures identified in 
+Section~3.1. We report system-level comparisons followed by component and 
+design analyses.
 
 \subsection{Experimental Setup}
 \label{sec:experimental_setup}

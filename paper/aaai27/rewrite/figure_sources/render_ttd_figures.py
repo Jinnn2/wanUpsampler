@@ -9,6 +9,7 @@ original alignment-figure generator.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 import fitz
@@ -20,6 +21,31 @@ REWRITE_DIR = SOURCE_DIR.parent
 FIGURE_DIR = REWRITE_DIR / "figures"
 TIMES_BOLD = Path(r"C:\Windows\Fonts\timesbd.ttf")
 TTD_LABEL = "TTD"
+TEXT_OBJECT = re.compile(rb"BT(?P<body>.*?)ET", re.DOTALL)
+
+
+def remove_lower_itu_label(document: fitz.Document, page: fitz.Page) -> None:
+    """Remove only the template's lower ITU heading for full-name replacement."""
+
+    text_object_index = 0
+    for xref in page.get_contents():
+        stream = document.xref_stream(xref)
+
+        def keep_or_remove(match: re.Match[bytes]) -> bytes:
+            nonlocal text_object_index
+            current = text_object_index
+            text_object_index += 1
+            return b"" if current == 57 else match.group(0)
+
+        updated = TEXT_OBJECT.sub(keep_or_remove, stream)
+        if updated != stream:
+            document.update_stream(xref, updated)
+
+    if text_object_index != 73:
+        raise RuntimeError(
+            "Unexpected overall-framework template text-object count: "
+            f"{text_object_index}"
+        )
 
 
 def render_overall_framework() -> Path:
@@ -33,29 +59,39 @@ def render_overall_framework() -> Path:
 
     document = fitz.open(template)
     page = document[0]
+    remove_lower_itu_label(document, page)
     font = fitz.Font(fontfile=str(TIMES_BOLD))
     labels = (
         {
-            "box": fitz.Rect(268.5, 47.9, 287.0, 55.6),
+            "text": "TTD",
+            "center_x": 277.75,
             "baseline": 53.922016,
             "size": 6.4125,
             "color": (17 / 255, 17 / 255, 17 / 255),
         },
         {
-            "box": fitz.Rect(158.0, 93.9, 178.8, 102.5),
+            "text": "Trajectory-Tail Distillation (TTD)",
+            "center_x": 168.4,
             "baseline": 100.656395,
             "size": 7.215,
             "color": (193 / 255, 59 / 255, 131 / 255),
         },
+        {
+            "text": "In-Trajectory Upsampler (ITU)",
+            "center_x": 295.5,
+            "baseline": 100.656395,
+            "size": 7.215,
+            "color": (22 / 255, 128 / 255, 79 / 255),
+        },
     )
     for label in labels:
-        box = label["box"]
+        text = label["text"]
         size = label["size"]
-        width = font.text_length(TTD_LABEL, fontsize=size)
-        origin = ((box.x0 + box.x1 - width) / 2, label["baseline"])
+        width = font.text_length(text, fontsize=size)
+        origin = (label["center_x"] - width / 2, label["baseline"])
         page.insert_text(
             origin,
-            TTD_LABEL,
+            text,
             fontsize=size,
             fontname="TimesNewRomanBold",
             fontfile=str(TIMES_BOLD),
