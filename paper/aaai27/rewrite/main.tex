@@ -35,11 +35,7 @@
   \captionof{figure}{\textbf{Real-video temporal comparison of the resolution
   transition.} Five matched frames compare a content-aligned
   Native-HR (estimated) structural reference, trilinear interpolation at
-  evaluation 45, and InTraScale at the same transition point. Every cell uses
-  the same head-centered \(2\times\) crop coordinates. The first row is a
-  completed low-resolution trajectory used as a structural reference rather
-  than a 720p sharpness baseline; the remaining rows are 720p handoff
-  outputs.}
+  evaluation 45, and InTraScale at the same transition point. }
   \label{fig:teaser}
   \end{minipage}
   \vspace{0.5em}
@@ -202,21 +198,16 @@ additional acceleration to independently distilled or cached generators.
   \caption{\textbf{Sampling budget and overall framework of InTraScale.}
   (a) Native-HR executes all \(T\) evaluations at target resolution, whereas
   a post-generation cascade appends \(K\) super-resolution evaluations after
-  completing low-resolution generation. InTraScale instead preserves the
-  \(T\)-evaluation budget by executing a low-resolution prefix, applying a
-  learned resolution transition at evaluation \(s\), and continuing at the
-  target resolution. (b) At evaluation \(s\), TTDA distills the omitted
+  completing low-resolution generation. (b) At evaluation \(s\), TTDA distills the omitted
   low-resolution trajectory tail into an endpoint-aligned clean prediction.
   ITU, trained on content-aligned clean-latent pairs, lifts this prediction to
-  the target-resolution latent space. Parameter-free scheduler-weighted state
-  reconstruction then combines the lifted clean latent with seeded noise
-  before the frozen high-resolution continuation.}
+  the target-resolution latent space.}
   \label{fig:overall_framework}
 \end{figure*}
 
 \section{Method}
 
-\subsection{Challenges of In-Trajectory Resolution Transition}
+\subsection{Challenges of In-Trajectory Transition}
 In-trajectory resolution scaling executes an inexpensive low-resolution
 prefix and reserves the target resolution for only the remaining denoising
 evaluations. Its central technical difficulty lies in the resolution
@@ -246,10 +237,7 @@ or distorted by fixed interpolation.
   {figures/fig_challenge_interpolation.pdf}
   \caption{Fixed interpolation under a late resolution transition. The
   columns show content-aligned Native-HR, trilinear interpolation, and
-  InTraScale outputs at evaluation 45. The bottom row enlarges the center
-  regions marked above by
-  \(3\times\), exposing the structural distortion introduced around
-  high-frequency moving boundaries by fixed interpolation.}
+  InTraScale outputs at evaluation 45. }
   \label{fig:challenge_interpolation}
 \end{figure}
 
@@ -288,13 +276,7 @@ scales.
   \includegraphics[width=\columnwidth]
   {figures/fig_challenge_alignment.pdf}
   \caption{Unfinished-trajectory residual at evaluation 45, the final
-  low-resolution evaluation. The columns show the endpoint of the
-  corresponding native low-resolution trajectory, the unaligned single-evaluation
-  clean prediction, and the TTDA-aligned prediction. The displayed frame is the
-  final video frame, and
-  the bottom row enlarges the lower-left regions marked above by \(2\times\).
-  TTDA moves the local structure of the transition-point prediction toward
-  its native low-resolution endpoint.}
+  low-resolution evaluation. }
   \label{fig:challenge_alignment}
 \end{figure}
 
@@ -595,17 +577,6 @@ include all per-video denoising evaluations, TTDA and ITU execution,
 scheduler-state reconstruction, VAE processing, and output operations.
 One-time runner construction and checkpoint loading are excluded.
 
-\subsection{Overall Quality--Efficiency Trade-off}
-\label{sec:quality_efficiency}
-
-We compare InTraScale with three classes of alternatives. Native-HR executes
-all 50 evaluations at the target resolution. Fixed Interpolation directly
-resamples the latent grid at different transition points. RALU-style
-rescheduling adjusts the noise--timestep correspondence at the representative
-transition after evaluation 45. Finally, Endpoint-ITU completes all 50
-evaluations at low resolution, applies ITU to the resulting endpoint, and
-performs five additional high-resolution refinement evaluations.
-
 \begin{table*}[t]
   \centering
   \footnotesize
@@ -633,11 +604,22 @@ performs five additional high-resolution refinement evaluations.
     \bottomrule
   \end{tabular}
   \caption{Warm-model quality--efficiency comparison for the 50-evaluation
-  sampler. Each latency is the mean and standard deviation over five
-  measurements after one warm-up video. All per-video processing is included,
-  while one-time runner construction and checkpoint loading are excluded.}
+  sampler. }
   \label{tab:wan50_quality_efficiency}
 \end{table*}
+
+\subsection{Overall Quality--Efficiency Trade-off}
+\label{sec:quality_efficiency}
+
+We compare InTraScale with three classes of alternatives. Native-HR executes
+all 50 evaluations at the target resolution. Fixed Interpolation directly
+resamples the latent grid at different transition points. RALU-style
+rescheduling adjusts the noise--timestep correspondence at the representative
+transition after evaluation 45. Finally, Endpoint-ITU completes all 50
+evaluations at low resolution, applies ITU to the resulting endpoint, and
+performs five additional high-resolution refinement evaluations.
+
+
 
 InTraScale@40 reduces warm-model latency from 187.54 to 58.49 seconds,
 corresponding to a \(3.21\times\) speedup, while retaining 97.76\% of the
@@ -722,9 +704,7 @@ patterns rather than the complete original systems.
     \bottomrule
   \end{tabular}
   \caption{Quality and warm-model efficiency under aggressive four-evaluation
-  sampling. Native-HR4 executes the distilled sampler entirely at the target
-  resolution. The remaining rows use either an in-trajectory transition or a
-  controlled post-generation cascade on the same distilled backbone.}
+  sampling.}
   \label{tab:distilled_acceleration}
 \end{table*}
 
