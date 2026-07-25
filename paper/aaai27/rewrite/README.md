@@ -2,7 +2,7 @@
 
 This directory is the self-contained anonymous-submission workspace. It
 contains the manuscript, official AAAI support files, bibliography,
-reproducibility checklist, the four PDF figures referenced by `main.tex`, and
+reproducibility checklist, the five PDF figures referenced by `main.tex`, and
 editable sources for the terminology-sensitive figures.
 
 ## Submission contents
@@ -15,8 +15,10 @@ editable sources for the terminology-sensitive figures.
 - `figures/fig_overall_framework.pdf`: sampling budget and framework.
 - `figures/fig_challenge_interpolation.pdf`: interpolation challenge.
 - `figures/fig_challenge_alignment.pdf`: trajectory-alignment challenge.
+- `figures/fig_quality_efficiency.pdf`: Wan50 quality--efficiency operating
+  points.
 - `figure_sources/`: editable templates, recovered framework assets, and the
-  reproducible TTD figure renderer.
+  reproducible figure renderers.
 
 Build from this directory with:
 

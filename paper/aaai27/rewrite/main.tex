@@ -48,7 +48,7 @@
 \maketitle
 
 \begin{abstract}
-High-resolution video diffusion remains expensive because every denoising evaluation processes the full target-resolution spatiotemporal latent sequence. In-trajectory resolution scaling reduces this cost by executing an inexpensive low-resolution prefix and reserving target-resolution computation for the remaining evaluations, without launching a separate super-resolution diffusion process or increasing the total denoising-evaluation budget. However, fixed interpolation cannot recover the VAE-induced cross-resolution
+High-resolution video diffusion remains expensive because every denoising evaluation processes the full target-resolution spatiotemporal latent sequence. In-trajectory resolution scaling reduces this cost by executing an inexpensive low-resolution prefix and reserving target-resolution computation for the remaining evaluations, without launching a separate super-resolution diffusion process or increasing the total denoising-evaluation budget. However, fixed trilinear interpolation cannot recover the VAE-induced cross-resolution
 latent correspondence, while a learned upsampler faces a training--inference mismatch between completed clean latents and predictions from an unfinished trajectory. We introduce InTraScale, a decoupled framework that addresses these challenges while keeping the pretrained generator frozen. Its In-Trajectory Upsampler learns the cross-resolution correspondence from content-aligned clean latent pairs, whereas its Trajectory-Tail Distillation mechanism transfers the corrective effect of the omitted low-resolution trajectory tail to the transition evaluation, producing a more endpoint-like input. A scheduler-consistent state reconstruction then returns the prediction to the remaining target-resolution trajectory. On a 50-evaluation Wan2.1 sampler, InTraScale achieves \(3.21\times\) and \(4.44\times\) warm-model speedups
 while retaining 97.76\% and 97.53\% of the Native-HR VBench-5 score,
 respectively. On a distilled four-evaluation model, it provides an additional \(2.13\times\) acceleration while retaining 99.58\% of the native distilled score. These results establish in-trajectory resolution scaling as an effective spatial acceleration strategy complementary to timestep distillation.
@@ -196,14 +196,9 @@ TTD produces a more endpoint-like transition prediction, and parameter-free
 state reconstruction returns the lifted latent to the target-resolution trajectory.
 
 \subsection{Challenges of In-Trajectory Transition}
-In-trajectory resolution scaling executes an inexpensive low-resolution
-prefix and reserves the target resolution for only the remaining denoising
-evaluations. Its central technical difficulty lies in the resolution
-transition between the two trajectory segments. We identify two
-transition-specific challenges.
 
-\paragraph{Interpolation-induced latent distortion.}
-A fixed interpolation operator only resamples the spatial grid; it does not
+\paragraph{Latent distortion from trilinear interpolation.}
+A fixed trilinear interpolation operator only resamples the spatial grid; it does not
 recover the correspondence between the low- and high-resolution representations
 induced by the pretrained VAE. Consequently, interpolated latents may exhibit
 distorted structures and inaccurate high-frequency statistics on the
@@ -214,13 +209,13 @@ transition provides greater acceleration but leaves fewer high-resolution
 evaluations to correct the errors introduced during resolution conversion.
 With only a short high-resolution suffix, the remaining target-resolution
 evaluations may therefore be insufficient to recover structural details lost
-or distorted by fixed interpolation.
+or distorted by trilinear interpolation.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]
   {figures/fig_challenge_interpolation.pdf}
-  \caption{Fixed interpolation under a late resolution transition. The
+  \caption{Trilinear interpolation under a late resolution transition. The
   columns show content-aligned Native-HR, trilinear interpolation, and
   InTraScale outputs at evaluation 45. }
   \label{fig:challenge_interpolation}
@@ -521,7 +516,7 @@ We evaluate InTraScale on both the standard 50-evaluation Wan2.1 T2V-1.3B
 sampler and a four-evaluation Wan2.1 T2V-14B StepDistill-CfgDistill sampler.
 This section first examines the 50-evaluation setting, where resolution
 transitions are placed after evaluation 40 or 45. We additionally evaluate
-fixed interpolation after evaluations 40, 45, and 48 to characterize the
+trilinear interpolation after evaluations 40, 45, and 48 to characterize the
 effect of increasingly delayed transitions. All configurations generate
 81-frame videos at \(720\times1248\) resolution from matched text prompts,
 random seeds, initial noise, schedulers, and guidance settings.
@@ -552,16 +547,16 @@ One-time runner construction and checkpoint loading are excluded.
     \midrule
     Native-HR & 0/50 & \(187.54\pm0.26\) & \(1.00\times\) &
     \textbf{0.82836} \\
-    Fixed Interpolation@40 & 40/10 & \(58.12\pm0.20\) & \(3.23\times\) &
+    Trilinear@40 & 40/10 & \(58.12\pm0.20\) & \(3.23\times\) &
     0.77812 \\
     \textbf{InTraScale@40} & 40/10 & \(58.49\pm0.16\) &
     \(\mathbf{3.21\times}\) & \textbf{0.80983} \\
-    Fixed Interpolation@45 & 45/5 & \(41.98\pm0.19\) & \(4.47\times\) &
+    Trilinear@45 & 45/5 & \(41.98\pm0.19\) & \(4.47\times\) &
     0.76776 \\
     RALU-style@45 & 45/5 & \(42.01\pm0.19\) & \(4.46\times\) & 0.80440 \\
     \textbf{InTraScale@45} & 45/5 & \(42.26\pm0.20\) &
     \(\mathbf{4.44\times}\) & \textbf{0.80792} \\
-    Fixed Interpolation@48 & 48/2 & \(32.27\pm0.18\) & \(5.81\times\) &
+    Trilinear@48 & 48/2 & \(32.27\pm0.18\) & \(5.81\times\) &
     0.76409 \\
     Endpoint-ITU, 5 HR & 50/5 & \(44.00\pm0.27\) & \(4.26\times\) &
     0.80073 \\
@@ -576,14 +571,22 @@ One-time runner construction and checkpoint loading are excluded.
 \label{sec:quality_efficiency}
 
 We compare InTraScale with three classes of alternatives. Native-HR executes
-all 50 evaluations at the target resolution. Fixed Interpolation directly
+all 50 evaluations at the target resolution. Trilinear directly
 resamples the latent grid at different transition points. RALU-style
 rescheduling adjusts the noise--timestep correspondence at the representative
 transition after evaluation 45. Finally, Endpoint-ITU completes all 50
 evaluations at low resolution, applies ITU to the resulting endpoint, and
 performs five additional high-resolution refinement evaluations.
+Figure~\ref{fig:quality_efficiency} visualizes the resulting operating points,
+while Table~\ref{tab:wan50_quality_efficiency} reports their exact values.
 
-
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]
+  {figures/fig_quality_efficiency_pareto_v2.pdf}
+  \caption{\textbf{Wan50 quality--efficiency Pareto frontier.}}
+  \label{fig:quality_efficiency}
+\end{figure}
 
 InTraScale@40 reduces warm-model latency from 187.54 to 58.49 seconds,
 corresponding to a \(3.21\times\) speedup, while retaining 97.76\% of the
@@ -595,11 +598,11 @@ decrease of only 0.00191. The two operating points therefore provide a
 controllable quality--efficiency trade-off.
 
 At matched transition positions, the learned transition introduces little
-additional latency over fixed interpolation. InTraScale@40 and InTraScale@45
+additional latency over trilinear interpolation. InTraScale@40 and InTraScale@45
 add only 0.63\% and 0.67\% latency, respectively, while improving VBench-5 by
 0.03171 and 0.04016. The widening quality gap at the later transition supports
 the challenge identified in Section~3.1: as the high-resolution continuation
-becomes shorter, fixed interpolation leaves insufficient evaluations to repair
+becomes shorter, trilinear interpolation leaves insufficient evaluations to repair
 the induced latent distortion.
 
 At evaluation 45, InTraScale also improves VBench-5 over RALU-style
@@ -639,7 +642,7 @@ evaluation for generative refinement.
 We compare against Native-HR4, which executes all four evaluations at the
 target resolution, and Trilinear@3, which uses the same
 \(3\)-LR/\(1\)-HR schedule as InTraScale but replaces ITU with fixed
-interpolation and disables TTD. We further construct two controlled
+trilinear interpolation and disables TTD. We further construct two controlled
 post-generation baselines on the same distilled backbone. Both complete all
 four low-resolution evaluations before increasing the spatial resolution.
 LUVE-style then applies learned latent upsampling followed by two
@@ -647,6 +650,8 @@ high-resolution refinements, whereas MrFlow-style uses a
 decode--RGB-upsample--re-encode path followed by one high-resolution
 correction. These configurations reproduce the corresponding computational
 patterns rather than the complete original systems.
+Figure~\ref{fig:distill4_quality_efficiency} visualizes these operating points,
+while Table~\ref{tab:distilled_acceleration} reports their exact values.
 
 \begin{table*}[t]
   \centering
@@ -672,6 +677,14 @@ patterns rather than the complete original systems.
   \label{tab:distilled_acceleration}
 \end{table*}
 
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]
+  {figures/fig_quality_efficiency_distill4_pareto.pdf}
+  \caption{\textbf{Distill4 quality--efficiency Pareto frontier.} }
+  \label{fig:distill4_quality_efficiency}
+\end{figure}
+
 InTraScale-D4 reduces warm-model latency from 42.49 to 19.92 seconds, providing
 an additional \(2.13\times\) acceleration over Native-HR4. Meanwhile, its
 VBench-5 decreases by only 0.00361, corresponding to a relative reduction of
@@ -679,13 +692,13 @@ VBench-5 decreases by only 0.00361, corresponding to a relative reduction of
 overlaps zero; we therefore describe this difference as marginal rather than
 claiming quality equivalence.
 
-Fixed interpolation reaches a slightly higher \(2.32\times\) speedup, but its
+Trilinear@3 reaches a slightly higher \(2.32\times\) speedup, but its
 VBench-5 drops by 0.04244 relative to Native-HR4. At the same
 \(3\)-LR/\(1\)-HR schedule, InTraScale adds only 1.59 seconds over
 Trilinear@3 while improving VBench-5 by 0.03884 and temporal consistency by
 0.00264. This result strengthens the observation from the 50-evaluation
 experiments: when the high-resolution continuation is reduced to a single
-evaluation, fixed interpolation leaves insufficient correction capacity,
+evaluation, trilinear interpolation leaves insufficient correction capacity,
 whereas the learned transition preserves most of the native quality.
 
 InTraScale also provides a more favorable operating point than the
