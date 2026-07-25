@@ -310,7 +310,12 @@ x_{s+1}^{H}
 \epsilon^{H}\sim\mathcal{N}(0,I),
 \]
 where \(\epsilon^{H}\) is target-resolution noise determined by the generation
-seed. The complete inference pipeline is
+seed. This parameter-free operation matches the next scheduler noise level
+without auxiliary diffusion or a decode--encode round trip. We require
+\(s<T\), so the frozen predictor performs at least one target-resolution
+evaluation. This high-resolution tail completes structures and textures
+underdetermined by the low-resolution latent. The complete inference pipeline
+is
 \[
 x_1^{L}
 \xrightarrow{\text{LR}}
@@ -499,24 +504,6 @@ preceding evaluations, so the frozen low-resolution prefix and the cached
 pre-transition state \(x_s^{L}\) remain unchanged under matched
 deterministic conditions. TTD is therefore a transition-localized distillation update
 rather than a general low-resolution step-reduction model.
-
-\subsection{Scheduler-Consistent High-Resolution Continuation}
-\label{sec:hr-continuation}
-
-After TTD alignment and ITU upsampling, we reconstruct the target-resolution scheduler state as
-\[
-\begin{aligned}
-\widehat{z}_{0|s}^{H} &= U_\psi(\widetilde{z}_{0|s}^{L}),\\
-x_{s+1}^{H} &= (1-\sigma_{s+1})\widehat{z}_{0|s}^{H}
-              +\sigma_{s+1}\epsilon^{H},
-\end{aligned}
-\]
-where \(\epsilon^{H}\) is fixed by the generation seed. This parameter-free
-operation matches the next scheduler noise level without auxiliary diffusion
-or a decode--encode round trip. We require \(s<T\), so the frozen predictor
-performs at least one high-resolution evaluation and produces
-\(z_{\mathrm{out}}^{H}\); this high-resolution tail completes structures and
-textures underdetermined by the low-resolution latent.
 
 \section{Experiments}
 \label{sec:experiments}
@@ -750,44 +737,29 @@ the TTD update strength varies from 0.25 to 1.0; we select
 evaluations. Full metric breakdowns and strength sweeps are provided in the
 supplementary material.
 
-\section{Conclusion and Limitations}
+\section{Conclusion}
 
-We presented InTraScale, a learned in-trajectory resolution-scaling framework
-that distributes a fixed denoising-evaluation budget between an inexpensive
-low-resolution prefix and a target-resolution continuation. Unlike
-post-generation cascades, InTraScale performs the resolution transition before
-the low-resolution trajectory is completed and does not launch a separate
-super-resolution diffusion process. ITU learns the VAE-specific
-cross-resolution clean-latent correspondence, while TTD distills the omitted
-low-resolution trajectory tail to provide a more endpoint-like input for
-resolution conversion. Scheduler-consistent state reconstruction then allows
-the frozen generator to execute the remaining target-resolution evaluations.
-On conventional 50-evaluation Wan2.1 sampling, InTraScale achieves
-\(3.21\times\) and \(4.44\times\) acceleration while retaining 97.76\% and
-97.53\% of the Native-HR VBench-5 score, respectively. On the distilled
-four-evaluation model, it provides an additional \(2.13\times\) acceleration
-while retaining 99.58\% of the native distilled-model score. Component
-analysis confirms the distinct roles of the proposed modules: ITU improves
-cross-resolution reconstruction, TTD reduces the transition-point endpoint
-discrepancy, and scheduler-consistent state reconstruction supports stable
-high-resolution continuation. These results demonstrate that learned
-in-trajectory resolution scaling provides spatial acceleration complementary
-to timestep distillation.
+We presented InTraScale, which accelerates high-resolution video generation
+by scaling resolution within a fixed denoising budget, without a separate
+super-resolution diffusion process. TTD adapts the transition state, while
+ITU performs VAE-specific cross-resolution latent lifting, allowing the
+frozen generator to continue at the target resolution. On 50-evaluation
+Wan2.1 sampling, InTraScale achieves \(3.21\times\) and \(4.44\times\)
+warm-model speedups while retaining 97.76\% and 97.53\% of the Native-HR
+VBench-5 score. On a four-evaluation distilled model, it achieves
+\(2.13\times\) acceleration with 99.58\% score retention. Ablations confirm
+the complementary roles of TTD and ITU, establishing in-trajectory resolution
+scaling as a spatial acceleration strategy complementary to timestep
+distillation.
 
 \paragraph{Limitations.}
-The lightweight modules in InTraScale remain specific to their deployment
-configuration. ITU learns the cross-resolution latent correspondence for a
-particular VAE and scaling factor, while TTD is specific to a particular
-resolution transition evaluation. Extending InTraScale to a new backbone,
-scaling factor, or transition point may therefore require regenerating
-model-endogenous supervision and training the corresponding modules.
-Moreover, the current framework uses a predefined resolution transition
-schedule rather than dynamically allocating low- and high-resolution
-computation according to the convergence state of each video. Future work
-could develop transition modules shared across models and scaling factors,
-together with content- and trajectory-aware strategies for selecting the
-resolution transition point, and validate their generalization across a
-broader range of video generators.
+Model-endogenous self-distillation specializes ITU to the VAE and resolution
+pair and TTD to the transition evaluation. This enables close adaptation
+without external paired data, but new configurations may require renewed
+supervision and module adaptation. Future work will explore cross-configuration
+transfer and content-aware transition policies.
+
+
 
 \bibliography{references}
 
