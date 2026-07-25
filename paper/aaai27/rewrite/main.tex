@@ -518,10 +518,10 @@ effect of increasingly delayed transitions. All configurations generate
 81-frame videos at \(720\times1248\) resolution from matched text prompts,
 random seeds, initial noise, schedulers, and guidance settings.
 
-We evaluate ten matched prompt--seed pairs using VBench. VBench-5 averages
-subject consistency, background consistency, motion smoothness, aesthetic
-quality, and imaging quality; the distilled comparison additionally reports
-Temporal Flickering. Paired analyses use prompt--seed pairs as units.
+We evaluate ten matched prompt--seed pairs using VBench. We report Subject
+Consistency, Background Consistency, Motion Smoothness, Aesthetic Quality, and
+Imaging Quality; Overall (VBench-5) is their unweighted mean, not an official
+VBench aggregate. Paired analyses use prompt--seed pairs as units.
 
 We measure single-video warm-model end-to-end latency after one untimed warm-up,
 using five matched prompt--seed generations per resident process. CUDA-synchronized
@@ -530,32 +530,39 @@ writing, but excludes runner construction and checkpoint loading.
 
 \begin{table*}[t]
   \centering
-  \footnotesize
-  \setlength{\tabcolsep}{6pt}
-  \begin{tabular}{lcccc}
+  \scriptsize
+  \setlength{\tabcolsep}{2.4pt}
+  \renewcommand{\arraystretch}{1.0}
+  \begin{tabular}{@{}lccccccccc@{}}
     \toprule
-    Method & LR/HR steps & Warm latency (s) \(\downarrow\) &
-    Speedup \(\uparrow\) & VBench-5 \(\uparrow\) \\
+    Method & LR/HR & Subj. Cons. \(\uparrow\) & Back. Cons. \(\uparrow\) &
+    Motion \(\uparrow\) & Aesthetic \(\uparrow\) & Imaging \(\uparrow\) &
+    Overall \(\uparrow\) & Latency (s) \(\downarrow\) & Speedup \(\uparrow\) \\
     \midrule
-    Native-HR & 0/50 & \(187.54\pm0.26\) & \(1.00\times\) &
-    \textbf{0.82836} \\
-    Trilinear@40 & 40/10 & \(58.12\pm0.20\) & \(3.23\times\) &
-    0.77812 \\
-    \textbf{InTraScale@40} & 40/10 & \(58.49\pm0.16\) &
-    \(\mathbf{3.21\times}\) & \textbf{0.80983} \\
-    Trilinear@45 & 45/5 & \(41.98\pm0.19\) & \(4.47\times\) &
-    0.76776 \\
-    RALU-style@45 & 45/5 & \(42.01\pm0.19\) & \(4.46\times\) & 0.80440 \\
-    \textbf{InTraScale@45} & 45/5 & \(42.26\pm0.20\) &
-    \(\mathbf{4.44\times}\) & \textbf{0.80792} \\
-    Trilinear@48 & 48/2 & \(32.27\pm0.18\) & \(5.81\times\) &
-    0.76409 \\
-    ITU-5HR (LUVE-style) & 50/5 & \(44.00\pm0.27\) & \(4.26\times\) &
-    0.80073 \\
+    Native-HR & 0/50 & \textbf{0.96140} & \textbf{0.96961} &
+    \textbf{0.98477} & \textbf{0.59493} & \textbf{0.63112} &
+    \textbf{0.82836} & \(187.54{\pm}0.26\) & \(1.00\times\) \\
+    Trilinear@40 & 40/10 & 0.92179 & 0.95916 & 0.97542 & 0.55312 &
+    0.48110 & 0.77812 & \(58.12{\pm}0.20\) & \(3.23\times\) \\
+    \textbf{InTraScale@40} & 40/10 & \textbf{0.92713} & 0.95947 &
+    \textbf{0.97975} & \textbf{0.59451} & 0.58829 &
+    \textbf{0.80983} & \(58.49{\pm}0.16\) & \(3.21\times\) \\
+    Trilinear@45 & 45/5 & 0.92263 & 0.95986 & 0.97532 & 0.52675 &
+    0.45425 & 0.76776 & \(\mathbf{41.98{\pm}0.19}\) &
+    \(\mathbf{4.47\times}\) \\
+    RALU-style@45 & 45/5 & 0.91940 & 0.95873 & 0.97222 & 0.56949 &
+    \textbf{0.60216} & 0.80440 & \(42.01{\pm}0.19\) & \(4.46\times\) \\
+    \textbf{InTraScale@45} & 45/5 & 0.92359 & 0.95844 & 0.97957 &
+    0.58032 & 0.59768 & 0.80792 & \(42.26{\pm}0.20\) & \(4.44\times\) \\
+    Trilinear@48 & 48/2 & 0.91995 & \textbf{0.96193} & 0.97552 &
+    0.49471 & 0.46833 & 0.76409 & \(\mathbf{32.27{\pm}0.18}\) &
+    \(\mathbf{5.81\times}\) \\
+    ITU-5HR (LUVE-style) & 50/5 & 0.92543 & 0.95046 & 0.97542 &
+    0.57839 & 0.57395 & 0.80073 & \(44.00{\pm}0.27\) & \(4.26\times\) \\
     \bottomrule
   \end{tabular}
-  \caption{Warm-model quality--efficiency comparison for the 50-step
-  sampler. }
+  \caption{Wan50 warm-model quality--efficiency. Bold marks the two best
+  values in each metric; Overall denotes VBench-5.}
   \label{tab:wan50_quality_efficiency}
 \end{table*}
 
@@ -646,25 +653,34 @@ while Table~\ref{tab:distilled_acceleration} reports their exact values.
 
 \begin{table*}[t]
   \centering
-  \footnotesize
-  \setlength{\tabcolsep}{5pt}
-  \begin{tabular}{lccccc}
+  \scriptsize
+  \setlength{\tabcolsep}{2.4pt}
+  \renewcommand{\arraystretch}{1.0}
+  \begin{tabular}{@{}lccccccccc@{}}
     \toprule
-    Method & LR/HR steps & VBench-5 \(\uparrow\) &
-    Temporal Flickering \(\uparrow\) & Warm latency (s) \(\downarrow\) & Speedup \\
+    Method & LR/HR & Subj. Cons. \(\uparrow\) & Back. Cons. \(\uparrow\) &
+    Motion \(\uparrow\) & Aesthetic \(\uparrow\) & Imaging \(\uparrow\) &
+    Overall \(\uparrow\) & Latency (s) \(\downarrow\) & Speedup \(\uparrow\) \\
     \midrule
-    Native-HR4 & 0/4 & \textbf{0.86041} & \textbf{0.98412} & 42.49 &
-    \(1.00\times\) \\
-    Trilinear@3 & 3/1 & 0.81796 & 0.97400 & \textbf{18.33} &
-    \(\mathbf{2.32\times}\) \\
-    \textbf{InTraScale-D4@3} & 3/1 & 0.85680 & \textbf{0.97663} & 19.92 &
-    \(\mathbf{2.13\times}\) \\
-    LUVE-style & 4/2 & 0.85981 & 0.97331 & 28.76 & \(1.48\times\) \\
-    MrFlow-style & 4/1 & 0.85903 & 0.97484 & 27.12 & \(1.57\times\) \\
+    Native-HR4 & 0/4 & \textbf{0.97186} & \textbf{0.97557} &
+    \textbf{0.99123} & \textbf{0.65203} & 0.71135 &
+    \textbf{0.86041} &
+    42.49 & \(1.00\times\) \\
+    Trilinear@3 & 3/1 & 0.95932 & 0.96937 & 0.98376 & 0.58954 &
+    0.58783 & 0.81796 & \textbf{18.33} & \(\mathbf{2.32\times}\) \\
+    \textbf{InTraScale-D4@3} & 3/1 & 0.96226 & 0.97026 &
+    \textbf{0.98815} & 0.64914 & 0.71418 & 0.85680 &
+    \textbf{19.92} & \(\mathbf{2.13\times}\) \\
+    LUVE-style & 4/2 & 0.96238 & \textbf{0.97341} & 0.98683 &
+    0.65191 & \textbf{0.72450} & \textbf{0.85981} & 28.76 &
+    \(1.48\times\) \\
+    MrFlow-style & 4/1 & \textbf{0.96379} & 0.97259 & 0.98796 &
+    \textbf{0.65491} & \textbf{0.71591} & 0.85903 & 27.12 &
+    \(1.57\times\) \\
     \bottomrule
   \end{tabular}
-  \caption{Quality and warm-model efficiency under aggressive four-step
-  sampling.}
+  \caption{Distill4 warm-model quality--efficiency. Bold marks the two best
+  values in each metric; Overall denotes VBench-5.}
   \label{tab:distilled_acceleration}
 \end{table*}
 
@@ -684,8 +700,9 @@ claiming quality equivalence.
 Trilinear@3 reaches a slightly higher \(2.32\times\) speedup, but its
 VBench-5 drops by 0.04244 relative to Native-HR4. At the same
 \(3\)-LR/\(1\)-HR schedule, InTraScale adds only 1.59 seconds over
-Trilinear@3 while improving VBench-5 by 0.03884 and the temporal-flickering
-score by 0.00264. This result strengthens the observation from the 50-step
+Trilinear@3 while improving every component and Overall by 0.03884, driven by
+imaging quality (\(+0.12635\)) and aesthetic quality (\(+0.05960\)). This result
+strengthens the observation from the 50-step
 experiments: when the target-resolution continuation is reduced to a single
 step, trilinear interpolation leaves insufficient correction capacity,
 whereas the learned transition preserves most of the native quality.
@@ -696,8 +713,8 @@ LUVE-style and by 26.53\% relative to MrFlow-style, while its VBench-5 is lower
 by only 0.00301 and 0.00223, respectively. The quality difference from
 MrFlow-style has a prompt-paired confidence interval that overlaps zero; the
 LUVE-style advantage is small but detectable. InTraScale additionally obtains
-the highest temporal-consistency score among the accelerated alternatives
-shown in Table~\ref{tab:distilled_acceleration}.
+higher motion smoothness than both post-generation baselines shown in
+Table~\ref{tab:distilled_acceleration}.
 
 These results demonstrate that in-trajectory resolution scaling is
 complementary to timestep distillation. Even after the denoising trajectory

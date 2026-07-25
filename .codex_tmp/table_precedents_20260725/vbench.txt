@@ -1,0 +1,849 @@
+                                       This CVPR paper is the Open Access version, provided by the Computer Vision Foundation.
+                                                    Except for this watermark, it is identical to the accepted version;
+                                              the final published version of the proceedings is available on IEEE Xplore.
+
+
+
+
+        VBench: Comprehensive Benchmark Suite for Video Generative Models
+
+      Ziqi Huang1∗ Yinan He2∗ Jiashuo Yu2∗ Fan Zhang2∗ Chenyang Si1 Yuming Jiang1
+               Yuanhan Zhang1 Tianxing Wu1 Qingyang Jin1 Nattapol Chanpaisit1
+      Yaohui Wang2 Xinyuan Chen2 Limin Wang4,2 Dahua Lin2,3B Yu Qiao2B Ziwei Liu1B
+          1
+              S-Lab, Nanyang Technological University 2 Shanghai Artificial Intelligence Laboratory
+                          3
+                            The Chinese University of Hong Kong 4 Nanjing University
+
+                                                     https://vchitect.github.io/VBench-project/
+
+
+
+         Evaluation Dimension Suite                                                                                                                   Evaluation
+       • comprehensive, hierarchical, fine-grained, objective                                                   Prompt Suite
+       • revealing individual models' strengths and weaknesses                                                                                       Method Suite
+                                                                                                        separate prompts for:
+                                                        Subject Consistency                                                                      for each dimension:
+                                                                                                        • each evaluation dimension
+                             Temporal Quality           Background Consistency                                                                   • designated model and pipeline
+                                                        Temporal Flickering
+                                                                                                        • each content category
+                                                        Motion Smoothness
+                 Video Quality
+                                                        Dynamic Degree
+
+
+                            Frame-Wise Quality
+                                                        Aesthetic Quality
+                                                                                                                                                                    Alignment
+                                                        Imaging Quality
+                                                                                 Object Class                Generated Videos                                      Verification
+   Video Generation
+        Quality
+                                                                                 Multiple Objects                                     ……
+                                                      Semantics               Human Action
+                                                                                 Color
+                            Video-Text Consistency                               Spatial Relationship
+
+
+                                                                                                                                                   Human Preference
+                                                                                 Scene
+                                                                                                                    ……
+                Video-Condition                      Overall Consistency
+                  Consistency
+
+                             ……
+                                                       Style
+                                                                      Temporal Style
+
+
+                                                                      Appearance Style
+                                                                                                          video generation
+                                                                                                               models
+                                                                                                                                sampled videos
+                                                                                                                                                      Annotation
+Figure 1. Overview of VBench. We propose VBench, a comprehensive benchmark suite for video generative models. We design a com-
+prehensive and hierarchical Evaluation Dimension Suite to decompose “video generation quality” into multiple well-defined dimensions
+to facilitate fine-grained and objective evaluation. For each dimension and each content category, we carefully design a Prompt Suite as
+test cases, and sample Generated Videos from a set of video generation models. For each evaluation dimension, we specifically design
+an Evaluation Method Suite, which uses a carefully crafted method or designated pipeline for automatic objective evaluation. We also
+conduct Human Preference Annotation for the generated videos for each dimension and show that VBench evaluation results are well
+aligned with human perceptions. VBench can provide valuable insights from multiple perspectives.
+
+                                      Abstract                                                                      16 dimensions in video generation (e.g., subject identity in-
+                                                                                                                    consistency, motion smoothness, temporal flickering, and
+    Video generation has witnessed significant advance-
+                                                                                                                    spatial relationship, etc.). The evaluation metrics with
+ments, yet evaluating these models remains a challenge. A
+                                                                                                                    fine-grained levels reveal individual models’ strengths and
+comprehensive evaluation benchmark for video generation
+                                                                                                                    weaknesses. 2) Human Alignment: We also provide a
+is indispensable for two reasons: 1) Existing metrics do
+                                                                                                                    dataset of human preference annotations to validate our
+not fully align with human perceptions; 2) An ideal eval-
+                                                                                                                    benchmarks’ alignment with human perception, for each
+uation system should provide insights to inform future de-
+                                                                                                                    evaluation dimension respectively. 3) Valuable Insights:
+velopments of video generation. To this end, we present
+                                                                                                                    We look into current models’ ability across various evalua-
+VBench, a comprehensive benchmark suite that dissects
+                                                                                                                    tion dimensions, and various content types. We also investi-
+“video generation quality” into specific, hierarchical, and
+                                                                                                                    gate the gaps between video and image generation models.
+disentangled dimensions, each with tailored prompts and
+                                                                                                                    We will open-source VBench, including all prompts, evalua-
+evaluation methods. VBench has three appealing proper-
+                                                                                                                    tion methods, generated videos, and human preference an-
+ties: 1) Comprehensive Dimensions: VBench comprises
+                                                                                                                    notations, and also include more video generation models
+    ∗ equal contributions. B corresponding authors.                                Code is available                in VBench to drive forward the field of video generation.
+
+
+                                                                                                               1
+                                                                                                               21807
+                                                                    suite that employs a hierarchical and disentangled approach
+                                                                    to the decomposition of “video generation quality”. This
+                                                                    suite systematically breaks down the evaluation into two
+                                                                    primary dimensions at a coarse level: Video Quality and
+                                                                    Video-Condition Consistency. Each of these dimensions
+                                                                    is further subdivided into more granular criteria. This hi-
+                                                                    erarchical separation ensures that each dimension isolates
+                                                                    and evaluates a single aspect of video quality, without in-
+                                                                    terference from other variables, as illustrated in Figure 1.
+                                                                    Recognizing video generation’s unique challenges, we have
+                                                                    tailored evaluation dimensions to its specific characteris-
+                                                                    tics. For example, in terms of Video Quality, maintaining
+Figure 2. VBench Evaluation Results of Video Generative             consistent subject identity (e.g., a teddy bear) in generated
+Models. We visualize the evaluation results of four video gen-      videos is crucial, and is a problem rarely encountered in
+eration models in 16 VBench dimensions. We normalize the re-        real-world videos. Additionally, Video-Condition Consis-
+sults per dimension for clearer comparisons. For comprehensive
+                                                                    tency is vital for conditional video generation tasks, requir-
+numerical results, please refer to Table 1.
+                                                                    ing its dedicated evaluation criteria. For each evaluation di-
+                                                                    mension, we carefully prepared around 100 text prompts as
+1. Introduction                                                     test cases for text-to-video (T2V) generation, and devised
+Image generation models have made rapid progress in                 specialized evaluation methods tailored to each dimension.
+the past few years, such as Variational Autoencoders                In addition to multi-dimensional evaluations, we also assess
+(VAEs) [51], Generative Adversarial Networks (GANs) [6,             T2V models across diverse content categories. We orga-
+19, 20, 24, 39, 41, 44–47, 67], vector quantized (VQ) based         nized prompt suites for eight distinct types, such as animal,
+approaches [16, 40, 85], and diffusion models [31, 78, 79].         architecture, human, and scenery, allowing for a separate
+This fuels recent explorations in video generation [3, 5, 10,       evaluation within each category. This exploration reveals
+21, 23, 27, 29, 34, 52, 62, 66, 77, 86, 87, 89, 91, 101, 107–       variable competencies in T2V generation across different
+109], which goes beyond static imagery and models the               content types, highlighting areas of proficiency and those
+dynamics and kinematics of real-world scenes. With the              requiring further enhancement.
+growth of video generation models, there arises a criti-               Second, we systematically demonstrate that our evalu-
+cal need for effective evaluation methods. The evaluation           ation method suite is closely aligned with human percep-
+should be able to accurately reflect human perception of            tion in every fine-grained evaluation dimension. We col-
+generated videos, providing reliable measures of a model’s          lected human preference annotations for each dimension.
+performance. Additionally, it should reflect each model’s           Specifically, we use various T2V models to sample videos
+specific strengths and weaknesses, offering insights that in-       from our prompt suites. Then given two videos sampled
+form the data, training, and architectural choices of future        from the same prompt, we ask human annotators to indicate
+video generation models.                                            preferences according to each VBench dimension respec-
+   However, existing metrics for video generation such              tively. We show that VBench evaluations highly correlate
+as Inception Score (IS) [76], Fréchet inception distance           with human preferences. Additionally, the human prefer-
+(FID) [30], Fréchet Video Distance (FVD) [83, 84], and             ence annotations can be utilized for multiple purposes, such
+CLIPSIM [73] are inconsistent with human judgement [15,             as fine-tuning generation or evaluation models to enhance
+69]. Meanwhile, the Video Quality Assessment (VQA)                  alignment with human perceptions. For instance, we utilize
+methods [55, 82, 93–99] are primarily designed for real             the annotations to implement Instruction Tuning within a
+videos, thereby neglecting the unique challenges posed by           Visual-Language Model (VLM), enhancing its T2V evalu-
+generative models, such as artifacts in synthesized videos.         ation alignment with human preferences.
+Hence, there is a pressing need for an evaluation framework            Third, VBench’s multi-dimensional and multi-
+that aligns closely with human perception, and specifically         categorical approach can provide valuable insights to
+designed for the characteristics of video generation models.        the video generation community. Our multi-dimensional
+   To this end, we introduce VBench, a comprehensive                system enables detailed feedback on the strengths and
+benchmark suite for evaluating video generation model per-          weaknesses of video generation models across various
+formance. VBench has three appealing properties: 1) com-            ability aspects. This approach not only ensures a compre-
+prehensive evaluation dimensions, 2) human alignment, and           hensive evaluation of existing models but also provides
+3) valuable insights.                                               valuable insights into the training of advanced video
+   First, our framework includes an evaluation dimension            generation models, guiding architectural and data choices
+
+
+                                                                 21808
+for improved video generation outcomes. Additionally,              3. VBench Suite
+VBench can be readily applied to evaluate image generation
+models, and thus we investigate the disparities between            In this section, we introduce the main components of
+video and image generation models. In Section 5, we                VBench. In Section 3.1, we present our rationale for de-
+discuss in detail on various observations and insights drawn       signing the 16 evaluation dimensions, as well as each di-
+                                                                   mension’s definition and evaluation method. We then elab-
+from VBench evaluations.
+                                                                   orate on the prompt suites we use in Section 3.2. To vali-
+   We are open-sourcing VBench, including its evaluation           date VBench’s alignment with human perception, we con-
+dimension suite, evaluation method suite, prompt suite, gen-       duct human preference annotation for each dimension (see
+erated videos, and the dataset of human preference annota-         Section 3.3). The experiments and the insights drawn from
+tions. We also encourage more video generation models to           VBench will be detailed in Section 4 and Section 5.
+participate in the VBench challenge.
+                                                                   3.1. Evaluation Dimension Suite
+                                                                   We first introduce our evaluation dimensions and their cor-
+2. Related Works                                                   responding evaluation methods.
+                                                                       Existing evaluation metrics like FVD [83] often con-
+Video Generative Models. Recently, diffusion models [14,           clude video generation model performance to a single num-
+31, 78, 79] have achieved significant progress in image            ber. This oversimplifies the evaluation and has several risks.
+synthesis [25, 37, 38, 68, 71, 74, 75], and enabled a line         First, a single number can obscure an individual model’s
+of works towards video generation [5, 9, 22, 26, 28, 29,           strengths and weaknesses, and it fails to provide insights
+32, 33, 42, 50, 62, 63, 77, 87, 91, 102, 103, 109, 113].           into specific areas where a model excels or underperforms.
+Many recent diffusion-based works [29, 62, 87, 91] are             This makes it challenging to derive insights for future ar-
+text-to-video (T2V) models. Other guidance modalities are          chitectural and training designs based on single-valued met-
+also available, including image-to-video [11, 13, 17, 106],        rics. Second, the notion of “high-quality video generation”
+video-to-video [8, 59, 70, 72, 105], and a variety of control      is complex and multifaceted, with individuals prioritizing
+maps [12, 43, 50, 64, 90, 110, 111] such as pose, depth, and       different video attributes based on the intended application.
+sketch. The boom of video generation models requires a             For instance, some may prioritize the absence of tempo-
+comprehensive evaluation system to inform their current ca-        ral flickering, while others may consider fidelity to the text
+pabilities and guide future developments, and VBench takes         prompt as the most significant, with less emphasis on flick-
+the initiative in providing a comprehensive benchmark suite        ering. Therefore, in contrast with performing single-valued
+for fine-grained and human-aligned evaluation.                     evaluations of video generation quality, we propose a dis-
+Evaluation of Visual Generative Models. Existing video             aggregated approach by decomposing the brand notion of
+generation models typically use metrics like Inception             “video generation performance” into multiple discrete di-
+Score (IS) [76], Fréchet inception distance (FID) [30],           mensions for fine-grained evaluation.
+Fréchet Video Distance (FVD) [83], and CLIPSIM [73] for               Specifically, we break “video generation quality” down
+evaluation. The UCF-101 [80] dataset’s class labels of-            into 16 disentangled dimensions in a top-down manner,
+ten serve as text prompts for IS, FID, and FVD, whereas            with each evaluation dimension assessing one aspect of
+MSR-VTT [104]’s human-labeled video captions are used              video generation quality. On the top level, we evaluate
+for CLIPSIM. Despite covering various real-world sce-              T2V performance from two broad perspectives: 1) Video
+narios, these prompts lack diversity and specificity, lim-         Quality — “Without considering alignment with the text
+iting accurate and fine-grained evaluation of video gen-           prompt, does the video alone look good?”, which focuses
+eration. For text-to-image (T2I) models, several bench-            on the perceptual quality of the synthesized video, and does
+marks [2, 4, 35, 54, 65, 75, 88] are proposed to assess            not consider the input condition (e.g., text prompt), and
+various capabilities like compositionality [35] and editing        2) Video-Condition Consistency — “Is the video consis-
+ability [4, 88]. However, video generative models still            tent with what the user wants to generate?”, which fo-
+lack comprehensive evaluation benchmarks for detailed and          cuses on whether the synthesized video is consistent with
+human-aligned feedback. Our work differs from concurrent           the guiding condition that the user provides (e.g., the text
+research [60, 61] in three key ways: 1) We have created            prompt for T2V generation). Under both “Video Quality”
+16 distinct evaluation dimensions, each with specialized           and “Video-Condition Consistency”, we further break the
+prompts for precise assessment; 2) We have empirically             coarse-grained dimensions into more fine-grained dimen-
+validated that every dimension aligns closely with human           sions, as shown in Figure 1. We briefly introduce each di-
+perception; 3) Our multi-dimensional and multi-categorical         mension here. Please refer to the Supplementary File for
+evaluation offers valuable and comprehensive insights into         the detailed definition and evaluation method of each di-
+video generation.                                                  mension.
+
+
+                                                                231809
+3.1.1   Video Quality                                                is consistent with user-requested style), with each decom-
+                                                                     posed into more fine-grained dimensions.
+We split “Video Quality” into two disentangled aspects,              Semantics - Object Class. We use GRiT [100] to detect
+“Temporal Quality” and “Frame-Wise Quality”, where the               the success rate of generating the specific class of objects
+former only considers the cross-frame consistency and dy-            depicted in the text prompt.
+namics, and the latter only considers the quality of each            Semantics - Multiple Objects. Other than generating a sin-
+individual frame without taking temporal quality into con-           gle object of a particular class, the ability to compose mul-
+cern. For “Temporal Quality”, we further devise five evalu-          tiple objects from different classes in the same frame is also
+ation dimensions, where each focusing on a different aspect          an essential ability in video generation. We detect the suc-
+of temporal quality.                                                 cess rate of generating all the objects specified in the text
+Temporal Quality - Subject Consistency. For a subject                prompt within each video frame.
+(e.g., a person, a car, or a cat) in the video, we assess            Semantics - Human Action. Human action is an impor-
+whether its appearance remains consistent throughout the             tant aspect in human-centric video generation. We apply
+whole video. To this end, we calculate the DINO [7] fea-             UMT [57] to evaluate whether human subjects in gener-
+ture similarity across frames.                                       ated videos can accurately execute the specific actions men-
+Temporal Quality - Background Consistency. We eval-                  tioned in the text prompts.
+uate the temporal consistency of the background scenes by            Semantics - Color. To evaluate whether synthesized object
+calculating CLIP [73] feature similarity across frames.              colors align with the text prompt, we use GRiT [100] for
+Temporal Quality - Temporal Flickering. Generated                    color captioning and comparison with expected colors.
+videos can exhibit imperfect temporal consistency at local           Semantics - Spatial Relationship. Other than classes and
+and high-frequency details. We take static frames and com-           attributes of synthesized objects, we also evaluate whether
+pute the mean absolute difference across frames.                     their spatial relationship follows what is specified by the
+Temporal Quality - Motion Smoothness. Subject Consis-                text prompt. We focus on four primary types of spatial rela-
+tency and Background Consistency focus on temporal con-              tionships, and perform rule-based evaluation similar to [35].
+sistency of the “look” instead of the smoothness of “move-           Semantics - Scene. We need to evaluate whether the syn-
+ment and motion”. We believe it is important to evaluate             thesized video is consistent with the intended scene de-
+whether the motion in the generated video is smooth, and             scribed by the text prompt. For example, when prompted
+follows the physical law of the real world. We utilize the           “ocean”, the generated video should be “ocean” instead of
+motion priors in the video frame interpolation model [58]            “river”. We use Tag2Text [36] to caption the generated
+to evaluate the smoothness of generated motions.                     scenes, and then check its correspondence with scene de-
+Temporal Quality - Dynamic Degree. Since a completely                scriptions in the text prompt.
+static video can score well in the aforementioned temporal           Style - Appearance Style. Apart from semantics con-
+quality dimensions, it is important to also evaluate the de-         sistency with the text prompt, another important pillar in
+gree of dynamics (i.e., whether it contains large motions)           video-condition consistency is style. There are many styles
+generated by each model. We use RAFT [81] to estimate                that alter the look, color, and texture of synthesized video
+the degree of dynamics in synthesized videos.                        frames, such as “oil painting style”, “black and white style”,
+Frame-Wise Quality - Aesthetic Quality. We evaluate the              “watercolor painting style”, “cyberpunk style”, “black and
+artistic and beauty value perceived by humans towards each           white” etc. We calculate the CLIP [73] feature similarity
+video frame using the LAION aesthetic predictor [53]. It             between synthesized frames and these style descriptions.
+can reflect aesthetic aspects such as the layout, the richness       Style - Temporal Style. Apart from appearance styles,
+and harmony of colors, the photo-realism, naturalness, and           videos also have temporal styles like various camera mo-
+artistic quality of the video frames.                                tions. We use ViCLIP [92] to calculate the video feature
+Frame-Wise Quality - Imaging Quality. Imaging qual-                  and the temporal style description feature similarity to re-
+ity refers to the distortion (e.g., over-exposure, noise, blur)      flect temporal style consistency.
+presented in the generated frames, and we evaluate it us-            Overall Consistency. We further use overall video-text
+ing the MUSIQ [49] image quality predictor trained on the            consistency computed by ViCLIP [92] on general text
+SPAQ [18] dataset.                                                   prompts as an aiding metric to reflect both semantics and
+                                                                     style consistency.
+3.1.2   Video-Condition Consistency                                  3.2. Prompt Suite
+We mainly dissect “Video-Condition Consistency” into                 The sampling procedure of current diffusion-based video
+“Semantics” (i.e., the type of the entities and their at-            generation models [29, 87, 91] is time-consuming (e.g., 90
+tributes) and “Style” (i.e., whether the generated video             seconds per video for LaVie [91], and more than 2 minutes
+
+
+                                                                  241810
+                                                                                                  【Prompt】The bund Shanghai, Van Gogh style｜【Question】Is the style of the video in the Van Gogh style?              search tags
+
+
+                                                                                                                                                                                                                    Compare
+
+
+                                                                                                                                                                                                                    A is better
+
+                                                                                                                                                                                                                    B is better
+
+                                                                                                                                                                                                                    Same quality
+
+
+
+
+                                                                                                                 playback speed                                                                   shortcuts
+                                                                                                                                                                                                              clear annotations   mark as invalid
+
+
+
+
+                                                                                             Figure 4. Interface for Human Prefer-
+Figure 3. Prompt Suite Statistics. The two graphs provide an overview of our prompt ence Annotation. Top: prompt and question.
+suites. Left: the word cloud to visualize word distribution of our prompt suites. Right: the Right: choices that annotators can make. Bot-
+number of prompts across different evaluation dimensions and different content categories. tom left: control for stop and playback.
+
+per video for CogVideo [34]). Therefore, we need to control             3.3. Human Preference Annotation
+the amount of test cases for efficient evaluation. Meanwhile,
+we need to maintain the diversity and comprehensiveness of              We perform human preference labeling on massive gener-
+our prompt suite, so we design compact yet representative               ated videos. The primary goal is to validate VBench evalu-
+prompts in terms of both the evaluation dimensions and the              ation’s alignment with human perception in each of the 16
+content categories. We visualize our prompt suite distribu-             evaluation dimensions, and the verification results will be
+tions in Figure 3.                                                      detailed in Section 4.2. We also show that our human pref-
+                                                                        erence annotations can be useful in future tasks of finetun-
+Prompt Suite per Dimension. For each VBench evalu-                      ing generation and evaluation models to enhance alignment
+ation dimension, we carefully designed a suite of around                with human perceptions.
+100 prompts as test cases. The prompt suite is carefully                Data Preparation. Given a text prompt pi , and four
+curated to probe the specific ability relevant to the dimen-            video generation models to be evaluated {A, B, C, D}, we
+sion tested. For example, for the “Subject Consistency” di-             use each model to generate a video, forming a “group”
+mension which aims to evaluate the consistency of subjects’             of videos Gi,j = {Vi,A,j , Vi,B,j , Vi,C,j , Vi,D,j }. For
+appearances throughout the video, we ensure every prompt                each prompt pi , we sample five such groups of videos
+has a movable subject (e.g., animals or vehicles) performing            {Gi,0 , Gi,1 , Gi,2 , Gi,3 , Gi,4 }. For each group, we pair
+non-static actions, where their consistency might be com-               the videos up in pair-wise combinations, yielding six
+promised due to inconsistency introduced by their move-                 pairs: (VA , VB ), (VA , VC ), (VA , VD ), (VB , VC ), (VB , VD ),
+ments or changing locations. In “Object Class” dimension,               (VC , VD ), and ask human annotators to indicate their pre-
+we ensure the existence of a specific class of object in every          ferred video for each pair. Within the VBench evaluation
+prompt. For “Human Action”, each test prompt contains                   framework, a prompt suite of N prompts produces N ×5×6
+a human subject performing a well-defined action from the               pairwise video comparisons. The video order within each
+Kinetics-400 dataset [48], where 100 representative actions             pair is randomized to ensure unbiased annotation.
+are selected with minimal semantic overlaps among them-                 Human Labeling Rules. Specifically, the human annota-
+selves. Please refer to the Supplementary File for the design           tors are asked to only consider the specific evaluation di-
+rationale of the prompt suite for all 16 dimensions.                    mension of interest and select the preferred video. For ex-
+Prompt Suite per Category. When designing prompts for                   ample, in Figure 4, for the Appearance Style dimension,
+each dimension, the focus was to showcase models’ ability               the question is “Is the style of the video in the Van Gogh
+in that specific dimension. We further incorporate prompt               style?”, and human annotators are instructed to only focus
+suites for eight content categories to provide insights into            on whether the generated video’s style belongs to the Van
+the performance across varied content types. To this end,               Gogh style and should not consider other quality aspects
+we prepare a collection of human-curated prompts from the               of the generated video, such as potential issues like the de-
+Internet and divide them into 8 distinctive categories fol-             gree of temporal flickering. In the example in this figure,
+lowing YouTube’s categorization. Subsequently, we feed                  video A resembles the Van Gogh better than video B, and
+both the category labels and prompts into a Large Lan-                  the annotator is expected to select “A is better”. For every
+guage Model (LLM) [112] (see more implementation de-                    dimension, we carefully prepare instructions and train the
+tails in Supplementary File), obtaining multi-label outputs             human annotators to understand the definition of the dimen-
+for each caption. We select 800 prompts and manually clean              sion, and perform multiple quality assurance protocols via
+their labels to serve as per-category prompt suites. Finally,           a pre-labeling trial, and two rounds of post-labeling checks
+we obtain 100 prompts for each of these eight categories:               Annotations for VLM Tuning. We map VBench evalu-
+Animal, Architecture, Food, Human, Lifestyle,                           ation scores from various dimensions to the scale of 0-10
+Plant, Scenery, and Vehicles.                                           and combine them with human preference annotations to
+
+
+                                                                    251811
+Table 1. VBench Evaluation Results per Dimension. This table compares the performance of four video generation models across
+each of the 16 VBench dimensions. A higher score indicates relatively better performance for a particular dimension. We also provide two
+specially built baselines, i.e., Empirical Min and Max (the approximated achievable min and max scores for each dimension), as references.
+                                          Subject    Background Temporal      Motion   Dynamic     Aesthetic   Imaging    Object
+                           Models
+                                         Consistency Consistency Flickering Smoothness Degree      Quality     Quality    Class
+                         LaVie [91]        91.41%      97.47%     98.30%      96.38%    49.72%     54.94%      61.90%    91.82%
+                     ModelScope [62, 87]   89.87%      95.29%      98.28%     95.79%    66.39%      52.06%      58.57%   82.25%
+                      VideoCrafter [29]    86.24%      92.88%      97.60%     91.79%   89.72%       44.41%      57.22%   87.34%
+                       CogVideo [34]      92.19%       96.20%      97.64%    96.47%     42.22%      38.18%      41.03%   73.40%
+                       Empirical Min       14.62%      26.15%      62.93%     70.60%     0.00%       0.00%      0.00%     0.00%
+                       Empirical Max      100.00%     100.00%     100.00%     99.75%   100.00%     100.00%     100.00%   100.00%
+                                           Multiple   Human                 Spatial               Appearance Temporal  Overall
+                           Models                                Color                   Scene
+                                           Objects     Action             Relationship               Style     Style  Consistency
+                         LaVie [91]         33.32%    96.80%    86.39%      34.09%       52.69%    23.56%     25.93%   26.41%
+                     ModelScope [62, 87]   38.98%     92.40%     81.72%     33.68%       39.26%     23.39%    25.37%    25.67%
+                      VideoCrafter [29]     25.93%    93.00%     78.84%     36.74%       43.36%     21.57%    25.42%    25.21%
+                       CogVideo [34]        18.11%    78.20%     79.57%     18.24%       28.24%     22.01%     7.80%     7.70%
+                       Empirical Min        0.00%      0.00%     0.00%       0.00%        0.00%      0.09%     0.00%     0.00%
+                       Empirical Max       100.00%    100.00%   100.00%    100.00%       82.22%     28.55%    36.40%    36.40%
+
+
+form the instruction data, which is then used to fine-tune                    WebVid-Avg. Similar to Empirical Max, we compute
+the pre-trained VideoChat [56] model to demonstrate im-                       the average for each dimension on retrieved WebVid-
+proved evaluation capabilities. For implementation details                    10M [1] videos. This baseline could reflect the average per-
+and tuning results, please refer to the Supplementary File.                   dimension quality of the commonly used video generation
+                                                                              training dataset WebVid-10M, and provide a reference for
+4. Experiments                                                                model performances. The comparison against WebVid-Avg
+We adopt the video generation models LaVie [91], Mod-                         and Empirical Max is visualized in Figure 6 (b).
+elScope [62, 87], VideoCrafter [29], and CogVideo [34] for                    4.2. Validating Human Alignment of VBench
+VBench evaluation, and more will be added as they become                      To validate that our evaluation method can faithfully reflect
+open-sourced. Details of the models and sampling proce-                       human perception, we performed a large-scale human an-
+dures are in the Supplementary File.                                          notation for each dimension, as mentioned in Section 3.3.
+4.1. Per-Dimension Evaluation                                                 We show the correlation between VBench evaluation results
+                                                                              and human preference annotations in Figure 5.
+For every dimension, we calculate the VBench scores using
+                                                                              Win Ratio. Given the human labels, we calculate the win
+the evaluation method suite described in Section 3.1, and
+                                                                              ratio of each model. During pairwise comparisons, if a
+show the results using Figure 2 and Table 1. We additionally
+                                                                              model’s video is selected as better, then the model scores
+designed three reference baselines, namely Empirical Max,
+                                                                              1 and the other model scores 0. If there is a tie, then both
+Empirical Min, and WebVid-Avg. The first two approximate
+                                                                              models score 0.5. For each model, the win ratio is calcu-
+the maximum / minimum scores that videos might be able
+                                                                              lated as the total score divided by the total number of pairs-
+to achieve, and WebVid-Avg reflects the WebVid-10M [1]
+                                                                              wise comparisons participated.
+dataset quality in each VBench dimension.
+                                                                              Per-Dimension Evaluation. For each evaluation dimen-
+Empirical Max. For most dimensions, to approximate
+                                                                              sion, we calculate the model win ratio based on (1) VBench
+the maximum achievable values, we first retrieve WebVid-
+                                                                              evaluation results, and (2) human annotation results, respec-
+10M [1] videos according to our prompt suites. We use
+                                                                              tively, and compute their correlations, as shown in Figure 5.
+CLIP [73] to extract text features of both WebVid-10M’s
+                                                                              We observe that VBench’s per-dimension evaluation results
+captions and our prompts. For each prompt, we retrieve the
+                                                                              are highly correlated with human preference annotations.
+top-5 WebVid-10M videos according to text feature sim-
+ilarity with the given prompt. Given that the generated                       4.3. Per-Category Evaluation
+videos are usually 2 seconds in length, we randomly select                    We evaluate the T2V models across eight different con-
+a 2-second segment from each retrieved video and sample                       tent categories, by generating videos based on Prompt Suite
+frames at 8 frames per second (FPS). For each dimension,                      per Category described in Section 3.2, and then calculating
+we use the retrieved videos according to its prompt suite and                 their performance across different evaluation dimensions.
+report the highest-scoring video’s result as Empirical Max.                   Figure 7 visualizes the evaluation results of each model in
+Empirical Min. To approximate the minimum achiev-                             terms of the eight content categories.
+able values, we use randomly generated 2-second Gaus-
+sian noise clips to calculate results for the “Video-Condition                4.4. Video Generation V.S. Image Generation
+Consistency” dimensions. For most “Video Quality” di-                         We conduct a comparative analysis of the frame-wise gen-
+mensions, we select frames from real videos and design                        eration capability exhibited by text-to-video (T2V) mod-
+frame concatenation for each dimension, approximating the                     els and text-to-image (T2I) models with two primary ob-
+minimum score achievable for each VBench dimension.                           jectives: first, to assess the extent to which T2V models
+
+
+                                                                          261812
+                  Subject                        Background
+         1.0
+                Consistency             1.0
+                                                 Consistency         1.0
+                                                                           Temporal Flickering     1.0
+                                                                                                         Motion Smoothness      1.0
+                                                                                                                                      Dynamic Degree         1.0
+                                                                                                                                                                   Aesthetic Quality         1.0
+                                                                                                                                                                                                   Imaging Quality         1.0
+                                                                                                                                                                                                                                  Object Class
+               = 0.9651                         = 0.9412                     = 0.8873                      = 0.9980                    = 0.8209                     = 0.9865                        = 0.9216                     = 0.8037
+
+         0.5                            0.5                          0.5                           0.5                          0.5                          0.5                             0.5                           0.5
+
+
+
+         0.0                            0.0                          0.0                           0.0                          0.0                          0.0                             0.0                           0.0
+                     0.5          1.0                0.5       1.0                 0.5       1.0                0.5       1.0               0.5        1.0                0.5          1.0               0.5         1.0              0.5        1.0
+VBench
+
+
+
+
+         1.0
+               Multiple Objects         1.0
+                                                Human Action         1.0
+                                                                                 Color             1.0
+                                                                                                       Spatial Relationship     1.0
+                                                                                                                                           Scene             1.0
+                                                                                                                                                                 Appearance Style            1.0
+                                                                                                                                                                                                   Temporal Style          1.0
+                                                                                                                                                                                                                               Overall Consistency
+                = 0.9898                        = 0.8915                     = 0.6073                    = 0.9759                      = 0.9407                   = 0.9965                         = 0.9753                      = 0.9327
+
+         0.5                            0.5                          0.5                           0.5                          0.5                          0.5                             0.5                           0.5
+
+
+
+         0.0                            0.0                          0.0                           0.0                          0.0                          0.0                             0.0                           0.0
+                     0.5          1.0                0.5       1.0                 0.5       1.0                0.5       1.0               0.5        1.0                0.5          1.0               0.5         1.0              0.5        1.0
+                                                                                                                        Human
+                                              LaVie win ratio                  ModelScope win ratio                      VideoCrafter win ratio                         CogVideo win ratio                       Fitting
+Figure 5. Validate VBench’s Human Alignment. Our experiments show that VBench evaluations across all dimensions closely match
+human perceptions. Each plot shows the alignment verification result of a specific VBench dimension. In each plot, a dot represents the
+human preference win ratio (horizontal axis) and VBench evaluation win ratio (vertical axis) for a particular video generation model. We
+linearly fit a straight line to visualize the correlation, and calculate the Spearman’s correlation coefficient (ρ) for each dimension.
+
+                                                                                                                                      what complementary (see Figure 2 and Table 1). For exam-
+                                                                                                                                      ple, LaVie excels in Background Consistency and Tempo-
+                                                                                                                                      ral Flickering but has a low Dynamic Degree, probably be-
+                                                                                                                                      cause generating relatively static scenes can “cheat” to get
+                                                                                                                                      high temporal consistency scores. Conversely, VideoCrafter
+                                                                                                                                      shows a high Dynamic Degree but suffers from poor perfor-
+                                                                                                                                      mance in all temporal consistency dimensions. This trend
+                                                                                                                                      highlights the current challenge for models to achieve tem-
+                                                                                                                                      poral consistency with dynamic content of large motions.
+                   (a) T2V vs. T2I                                    (b) T2V vs. WebVid-Avg & Max                                    Future research should focus on enhancing both aspects si-
+Figure 6. More Comparisons of Video Generation Models with                                                                            multaneously, as improving only one might indicate com-
+Other Models and Baselines. We use VBench to evaluate other                                                                           promising the other.
+models and baselines for further comparative analysis of T2V                                                                          · Uncovering Hidden Potential of T2V Models in Spe-
+models. (a) Comparison with text-to-image (T2I) generation mod-
+                                                                                                                                      cific Content Categories. Our analysis reveals that the
+els. (b) Comparison with WebVid-Avg and Empirical Max base-
+lines. See the Supplementary File for comprehensive numerical
+                                                                                                                                      capabilities of some models vary significantly across dif-
+results and details on normalization methods.                                                                                         ferent content types. For instance, for Aesthetic Quality,
+                                                                                                                                      CogVideo scores well for Food (see Figure 7 rightmost
+have successfully inherited the frame-wise generative ca-                                                                             chart), whereas it underperforms in others like Animal and
+pability of the T2I models; and second, to investigate the                                                                            Vehicles. The average results across various prompts
+frame-wise generation capability gap between existing T2I                                                                             might suggest a lower overall “Aesthetic Quality” (as seen
+and T2V models. As an initial exploration into this prob-                                                                             in Figure 2), but CogVideo demonstrates relatively strong
+lem, we compare video generation models with three image                                                                              aesthetics in at least the Food category. This suggests that
+generation models, namely Stable Diffusion (SD) 1.4 [74],                                                                             with tailored training data and strategies, CogVideo could
+SD2.1 [74], and SDXL [71]. We choose 10 VBench dimen-                                                                                 potentially match other models in aesthetics by improving
+sions that can encompass frame-wise generation capabili-                                                                              such ability in other content types. Therefore, we recom-
+ties, and sample frames from all the image and video gen-                                                                             mend evaluating video generation models not just based on
+eration models according to Prompt Suite per Evaluation                                                                               ability dimensions but also considering specific content cat-
+Dimension described in Section 3.2. Figure 6 (a) visualizes                                                                           egories to uncover their hidden potential.
+the evaluation results of T2V versus T2I models.                                                                                      · Bottleneck in Temporally Complex Categories Af-
+                                                                                                                                      fecting Spatial and Temporal Performance. For spa-
+5. Insights and Discussions                                                                                                           tially complex categories (e.g., Animal, LifeStyle,
+In this section, we discuss the observations and insights we                                                                          Human, Vehicles), models all perform relatively poorly
+draw from our comprehensive evaluation experiments.                                                                                   mainly in Aesthetic Quality (shown in Figure 7). This is
+· Trade-off across Ability Dimensions. We have noticed                                                                                likely due to the challenges in synthesizing harmonious
+a trade-off in video generation models between 1) temporal                                                                            color schemes, articulated structures, and appealing layouts
+consistency (Subject Consistency, Background Consistency,                                                                             amidst complex elements. On the other hand, for cate-
+Temporal Flickering, Motion Smoothness) and 2) Dynamic                                                                                gories involving complex and intense motions like Human
+Degree. Models strong in temporal consistency often have                                                                              and Vehicle (see their Dynamic Degree in Supplemen-
+a lower Dynamic Degree, as these two aspects are some-                                                                                tary File), performance is relatively poor across all dimen-
+
+
+                                                                                                                             271813
+Figure 7. VBench Results across Eight Content Categories (best viewed in color). For each chart, we plot the VBench evaluation results
+across eight different content categories, benchmarked by our Prompt Suite per Category. The results are linearly normalized between 0
+and 1 for better visibility across categories. See the Supplementary File for comprehensive numerical results, and normalization details.
+
+sions. This suggests that motion complexity and dynamic                formance gap. As T2I models leverage bigger (OpenCLIP
+intensity significantly hinder synthesis, impacting both spa-          ViT-H for SD2.1 [74]) or more sophisticated (CLIP ViT-L &
+tial and temporal dimensions, probably because poor tem-               OpenCLIP ViT-G for SDXL [71]) text encoders compared
+poral modeling results in distorted and blurred imagery.               with T2V models (e.g., CLIP ViT-L alone for LaVie), more
+This highlights the need for improved handling of dynamic              representative text embeddings could be featuring more ac-
+motions in video generation models.                                    curate object composition comprehension.
+· Challenges of Data Quantity in Handling Complex
+Categories like Human. The WebVid-10M dataset [1] al-                  6. Conclusion
+locates 26% of its content to the Human category, which                With the growing focus on video generation, comprehen-
+is the largest share among the eight categories (see statis-           sive evaluation of these models is essential to assess cur-
+tics in Supplementary File). However, the Human category               rent advancements and guide future research. In this work,
+exhibits one of the poorest results among eight categories             we take the first step forward and propose VBench, a com-
+(see Figure 7). This suggests that merely increasing data              prehensive benchmark suite for evaluating video genera-
+volume may not significantly enhance performance in com-               tion models. With its multi-dimensional, human-aligned,
+plex categories like Human. A potential approach could in-             and insight-rich properties, VBench could play vital roles
+volve integrating human-related priors or controls, such as            for evaluating future video generation models and inspiring
+skeletons, to better capture the articulated nature of human           further advancements in video generation. We believe that
+appearances and movements.                                             VBench is a significant contribution to the video generation
+· Prioritizing Data Quality Over Quantity in Large-                    and evaluation community.
+Scale Datasets. For Aesthetic Quality, Figure 7 shows that             Limitations and Future Work. We plan to extend VBench
+the Food category almost always tends to have the high-                to include more models that recently became available, and
+est scores among all categories. This is corroborated by               extend the evaluations aspects to additional video genera-
+the WebVid-10M dataset [1], where Food ranks highest                   tion tasks, like image-to-video.
+in Aesthetic Quality according to VBench evaluation (refer             Potential Negative Societal Impacts. We also recognize
+to Supplementary File for more details), despite compris-              the importance of considering ethical aspects in future iter-
+ing just 11% of the total data. This observation suggests              ations of VBench. While VBench currently does not assess
+that at million scales, data quality might hold greater im-            safety and equality dimensions, we urge users to exercise
+portance than quantity. Furthermore, VBench’s evaluation               caution with open-sourced video generation models.
+dimensions can be potentially useful for cleaning datasets             Acknowledgement. This study is supported by the Min-
+in specified quality dimensions.                                       istry of Education, Singapore, under its MOE AcRF
+· Compositionality: T2I versus T2V. As shown in Figure 6               Tier 2 (MOET2EP20221-0012), NTU NAP, and un-
+(a), T2V models significantly underperform in Multiple Ob-             der the RIE2020 Industry Alignment Fund – Industry
+jects and Spatial Relationship compared to T2I models (es-             Collaboration Projects (IAF-ICP) Funding Initiative, as
+pecially SDXL [71]), which highlights the need to enhance              well as cash and in-kind contribution from the indus-
+compositionality (i.e., correctly composing multiple objects           try partner(s); the National Key R&D Program of China
+in the same frame). We believe possible solutions might                (2022ZD0160201); National Natural Science Foundation
+be: 1) curating training data incorporating multiple objects           of China (62076119, 61921006, 62102150); the Science
+with corresponding captions explicitly depicting this com-             and Technology Commission of Shanghai Municipality
+positionality, or 2) adding intermediate spatial control mod-          (23YF1461900, 23QD1400800); and Shanghai Artificial
+ules or modalities during video synthesis. Furthermore, the            lntelligence Laboratory. We thank Shangchen Zhou, Jianyi
+disparity of the text encoders might also account for the per-         Wang, and Ruicheng Feng for helpful suggestions.
+
+
+                                                                   281814
+References                                                             [15] Ming Ding, Wendi Zheng, Wenyi Hong, and Jie Tang.
+                                                                            Cogview2: Faster and better text-to-image generation via
+ [1] Max Bain, Arsha Nagrani, Gül Varol, and Andrew Zisser-                hierarchical transformers. In NeurIPS, 2022. 2
+     man. Frozen in time: A joint video and image encoder for
+                                                                       [16] Patrick Esser, Robin Rombach, and Bjorn Ommer. Taming
+     end-to-end retrieval. In ICCV, 2021. 6, 8
+                                                                            transformers for high-resolution image synthesis. In CVPR,
+ [2] Eslam Mohamed Bakr, Pengzhan Sun, Xiaogian Shen,                       2021. 2
+     Faizan Farooq Khan, Li Erran Li, and Mohamed Elhoseiny.
+                                                                       [17] Patrick Esser, Johnathan Chiu, Parmida Atighehchian,
+     Hrs-bench: Holistic, reliable and scalable benchmark for
+                                                                            Jonathan Granskog, and Anastasis Germanidis. Structure
+     text-to-image models. In ICCV, 2023. 3
+                                                                            and content-guided video synthesis with diffusion models.
+ [3] Omer Bar-Tal, Hila Chefer, Omer Tov, Charles Her-
+                                                                            In ICCV, 2023. 3
+     rmann, Roni Paiss, Shiran Zada, Ariel Ephrat, Junhwa Hur,
+                                                                       [18] Yuming Fang, Hanwei Zhu, Yan Zeng, Kede Ma, and Zhou
+     Yuanzhen Li, Tomer Michaeli, et al. Lumiere: A space-
+                                                                            Wang. Perceptual quality assessment of smartphone pho-
+     time diffusion model for video generation. arXiv preprint
+                                                                            tography. In CVPR, 2020. 4
+     arXiv:2401.12945, 2024. 2
+                                                                       [19] Jianglin Fu, Shikai Li, Yuming Jiang, Kwan-Yee Lin,
+ [4] Samyadeep Basu, Mehrdad Saberi, Shweta Bhardwaj,
+                                                                            Chen Qian, Chen Change Loy, Wayne Wu, and Ziwei Liu.
+     Atoosa Malemir Chegini, Daniela Massiceti, Maziar San-
+                                                                            Stylegan-human: A data-centric odyssey of human genera-
+     jabi, Shell Xu Hu, and Soheil Feizi. Editval: Benchmarking
+                                                                            tion. In ECCV, 2022. 2
+     diffusion based text-guided image editing methods. arXiv
+     preprint arXiv:2310.02426, 2023. 3                                [20] Jianglin Fu, Shikai Li, Yuming Jiang, Kwan-Yee Lin,
+ [5] Andreas Blattmann, Robin Rombach, Huan Ling, Tim                       Wayne Wu, and Ziwei Liu. Unitedhuman: Harnessing
+     Dockhorn, Seung Wook Kim, Sanja Fidler, and Karsten                    multi-source data for high-resolution human generation. In
+     Kreis. Align your latents: High-resolution video synthesis             ICCV, 2023. 2
+     with latent diffusion models. In CVPR, 2023. 2, 3                 [21] Songwei Ge, Thomas Hayes, Harry Yang, Xi Yin, Guan
+ [6] Andrew Brock, Jeff Donahue, and Karen Simonyan. Large                  Pang, David Jacobs, Jia-Bin Huang, and Devi Parikh.
+     scale GAN training for high fidelity natural image synthe-             Long video generation with time-agnostic vqgan and time-
+     sis. arXiv preprint arXiv:1809.11096, 2018. 2                          sensitive transformer. In ECCV, 2022. 2
+ [7] Mathilde Caron, Hugo Touvron, Ishan Misra, Hervé Jégou,         [22] Songwei Ge, Seungjun Nah, Guilin Liu, Tyler Poon, An-
+     Julien Mairal, Piotr Bojanowski, and Armand Joulin.                    drew Tao, Bryan Catanzaro, David Jacobs, Jia-Bin Huang,
+     Emerging properties in self-supervised vision transformers.            Ming-Yu Liu, and Yogesh Balaji. Preserve your own corre-
+     In ICCV, 2021. 4                                                       lation: A noise prior for video diffusion models. In ICCV,
+ [8] Wenhao Chai, Xun Guo, Gaoang Wang, and Yan Lu. Sta-                    2023. 3
+     blevideo: Text-driven consistency-aware diffusion video           [23] Rohit Girdhar, Mannat Singh, Andrew Brown, Quentin Du-
+     editing. arXiv preprint arXiv:2308.09592, 2023. 3                      val, Samaneh Azadi, Sai Saketh Rambhatla, Akbar Shah,
+ [9] Haoxin Chen, Menghan Xia, Yingqing He, Yong Zhang,                     Xi Yin, Devi Parikh, and Ishan Misra. Emu video: Factoriz-
+     Xiaodong Cun, Shaoshu Yang, Jinbo Xing, Yaofang Liu,                   ing text-to-video generation by explicit image conditioning.
+     Qifeng Chen, Xintao Wang, Chao Weng, and Ying Shan.                    arXiv preprint arXiv:2311.10709, 2023. 2
+     Videocrafter1: Open diffusion models for high-quality             [24] Ian J Goodfellow, Jean Pouget-Abadie, Mehdi Mirza, Bing
+     video generation. arXiv preprint arXiv:2310.19512, 2023.               Xu, David Warde-Farley, Sherjil Ozair, Aaron C Courville,
+     3                                                                      and Yoshua Bengio. Generative adversarial nets. In
+[10] Haoxin Chen, Yong Zhang, Xiaodong Cun, Menghan Xia,                    NeurIPS, 2014. 2
+     Xintao Wang, Chao Weng, and Ying Shan. Videocrafter2:             [25] Shuyang Gu, Dong Chen, Jianmin Bao, Fang Wen, Bo
+     Overcoming data limitations for high-quality video diffu-              Zhang, Dongdong Chen, Lu Yuan, and Baining Guo. Vec-
+     sion models. arXiv preprint arXiv:2401.09047, 2024. 2                  tor quantized diffusion model for text-to-image synthesis.
+[11] Tsai-Shien Chen, Chieh Hubert Lin, Hung-Yu Tseng,                      In CVPR, 2022. 3
+     Tsung-Yi Lin, and Ming-Hsuan Yang. Motion-conditioned             [26] Yuwei Guo, Ceyuan Yang, Anyi Rao, Yaohui Wang, Yu
+     diffusion model for controllable video synthesis. arXiv                Qiao, Dahua Lin, and Bo Dai. Animatediff: Animate your
+     preprint arXiv:2304.14404, 2023. 3                                     personalized text-to-image diffusion models without spe-
+[12] Weifeng Chen, Jie Wu, Pan Xie, Hefeng Wu, Jiashi Li,                   cific tuning. In ICLR, 2024. 3
+     Xin Xia, Xuefeng Xiao, and Liang Lin. Control-a-video:            [27] Agrim Gupta, Lijun Yu, Kihyuk Sohn, Xiuye Gu, Meera
+     Controllable text-to-video generation with diffusion mod-              Hahn, Li Fei-Fei, Irfan Essa, Lu Jiang, and José Lezama.
+     els. arXiv preprint arXiv:2305.13840, 2023. 3                          Photorealistic video generation with diffusion models.
+[13] Xinyuan Chen, Yaohui Wang, Lingjun Zhang, Shaobin                      arXiv preprint arXiv:2312.06662, 2023. 2
+     Zhuang, Xin Ma, Jiashuo Yu, Yali Wang, Dahua Lin, Yu              [28] William Harvey, Saeid Naderiparizi, Vaden Masrani, Chris-
+     Qiao, and Ziwei Liu. Seine: Short-to-long video diffu-                 tian Weilbach, and Frank Wood. Flexible diffusion model-
+     sion model for generative transition and prediction. arXiv             ing of long videos. arXiv preprint arXiv:2205.11495, 2022.
+     preprint arXiv:2310.20700, 2023. 3                                     3
+[14] Prafulla Dhariwal and Alexander Nichol. Diffusion models          [29] Yingqing He, Tianyu Yang, Yong Zhang, Ying Shan, and
+     beat GANs on image synthesis. In NeurIPS, 2021. 3                      Qifeng Chen. Latent video diffusion models for high-
+
+
+                                                                   291815
+     fidelity video generation with arbitrary lengths. arXiv            [45] Tero Karras, Samuli Laine, and Timo Aila. A style-based
+     preprint arXiv:2211.13221, 2022. 2, 3, 4, 6                             generator architecture for generative adversarial networks.
+[30] Martin Heusel, Hubert Ramsauer, Thomas Unterthiner,                     In CVPR, 2019.
+     Bernhard Nessler, and Sepp Hochreiter. GANs trained by a           [46] Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten,
+     two time-scale update rule converge to a local nash equilib-            Jaakko Lehtinen, and Timo Aila. Analyzing and improving
+     rium. In NeurIPS, 2017. 2, 3                                            the image quality of StyleGAN. In CVPR, 2020.
+[31] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising dif-          [47] Tero Karras, Miika Aittala, Samuli Laine, Erik Härkönen,
+     fusion probabilistic models. In NeurIPS, 2020. 2, 3                     Janne Hellsten, Jaakko Lehtinen, and Timo Aila. Alias-free
+                                                                             generative adversarial networks. In NeurIPS, 2021. 2
+[32] Jonathan Ho, William Chan, Chitwan Saharia, Jay Whang,
+     Ruiqi Gao, Alexey Gritsenko, Diederik P Kingma, Ben                [48] Will Kay, Joao Carreira, Karen Simonyan, Brian Zhang,
+     Poole, Mohammad Norouzi, David J Fleet, et al. Ima-                     Chloe Hillier, Sudheendra Vijayanarasimhan, Fabio Vi-
+     gen video: High definition video generation with diffusion              ola, Tim Green, Trevor Back, Paul Natsev, et al. The
+     models. arXiv preprint arXiv:2210.02303, 2022. 3                        kinetics human action video dataset.          arXiv preprint
+                                                                             arXiv:1705.06950, 2017. 5
+[33] Jonathan Ho, Tim Salimans, Alexey Gritsenko, William
+                                                                        [49] Junjie Ke, Qifei Wang, Yilin Wang, Peyman Milanfar, and
+     Chan, Mohammad Norouzi, and David J Fleet. Video dif-
+                                                                             Feng Yang. MUSIQ: multi-scale image quality transformer.
+     fusion models. arXiv preprint arXiv:2204.03458, 2022. 3
+                                                                             CoRR, abs/2108.05997, 2021. 4
+[34] Wenyi Hong, Ming Ding, Wendi Zheng, Xinghan Liu,                   [50] Levon Khachatryan, Andranik Movsisyan, Vahram Tade-
+     and Jie Tang. CogVideo: Large-scale pretraining for                     vosyan, Roberto Henschel, Zhangyang Wang, Shant
+     text-to-video generation via transformers. arXiv preprint               Navasardyan, and Humphrey Shi. Text2video-zero: Text-
+     arXiv:2205.15868, 2022. 2, 5, 6                                         to-image diffusion models are zero-shot video generators.
+[35] Kaiyi Huang, Kaiyue Sun, Enze Xie, Zhenguo Li, and Xi-                  arXiv preprint arXiv:2303.13439, 2023. 3
+     hui Liu. T2i-compbench: A comprehensive benchmark for              [51] Diederik P Kingma and Max Welling. Auto-encoding vari-
+     open-world compositional text-to-image generation. arXiv                ational bayes. arXiv preprint arXiv:1312.6114, 2013. 2
+     preprint arXiv: 2307.06350, 2023. 3, 4                             [52] Dan Kondratyuk, Lijun Yu, Xiuye Gu, José Lezama,
+[36] Xinyu Huang, Youcai Zhang, Jinyu Ma, Weiwei Tian, Rui                   Jonathan Huang, Rachel Hornung, Hartwig Adam, Hassan
+     Feng, Yuejie Zhang, Yaqian Li, Yandong Guo, and Lei                     Akbari, Yair Alon, Vighnesh Birodkar, et al. Videopoet: A
+     Zhang. Tag2text: Guiding vision-language model via im-                  large language model for zero-shot video generation. arXiv
+     age tagging. arXiv preprint arXiv:2303.05657, 2023. 4                   preprint arXiv:2312.14125, 2023. 2
+[37] Ziqi Huang, Kelvin C.K. Chan, Yuming Jiang, and Ziwei              [53] LAION-AI. aesthetic-predictor. https://github.
+     Liu. Collaborative diffusion for multi-modal face genera-               com/LAION-AI/aesthetic-predictor, 2022. 4
+     tion and editing. In CVPR, 2023. 3                                 [54] Tony Lee, Michihiro Yasunaga, Chenlin Meng, Yifan Mai,
+[38] Ziqi Huang, Tianxing Wu, Yuming Jiang, Kelvin C.K.                      Joon Sung Park, Agrim Gupta, Yunzhi Zhang, Deepak
+     Chan, and Ziwei Liu. ReVersion: Diffusion-based relation                Narayanan, Hannah Benita Teufel, Marco Bellagente, et al.
+     inversion from images. arXiv preprint arXiv:2303.13495,                 Holistic evaluation of text-to-image models. arXiv preprint
+     2023. 3                                                                 arXiv:2311.04287, 2023. 3
+[39] Yuming Jiang, Ziqi Huang, Xingang Pan, Chen Change                 [55] Dingquan Li, Tingting Jiang, and Ming Jiang. Quality as-
+     Loy, and Ziwei Liu. Talk-to-Edit: Fine-grained facial edit-             sessment of in-the-wild videos. In ACM MM, 2019. 2
+     ing via dialog. In ICCV, 2021. 2                                   [56] Kunchang Li, Yinan He, Yi Wang, Yizhuo Li, Wen-
+                                                                             hai Wang, Ping Luo, Yali Wang, Limin Wang, and Yu
+[40] Yuming Jiang, Shuai Yang, Haonan Qju, Wayne Wu,
+                                                                             Qiao. Videochat: Chat-centric video understanding. arXiv
+     Chen Change Loy, and Ziwei Liu. Text2human: Text-
+                                                                             preprint arXiv:2305.06355, 2023. 6
+     driven controllable human image generation. ACM TOG,
+                                                                        [57] Kunchang Li, Yali Wang, Yizhuo Li, Yi Wang, Yinan He,
+     2022. 2
+                                                                             Limin Wang, and Yu Qiao. Unmasked teacher: Towards
+[41] Yuming Jiang, Ziqi Huang, Tianxing Wu, Xingang Pan,                     training-efficient video foundation models. arXiv preprint
+     Chen Change Loy, and Ziwei Liu. Talk-to-edit: Fine-                     arXiv:2303.16058, 2023. 4
+     grained 2d and 3d facial editing via dialog. IEEE TPAMI,
+                                                                        [58] Zhen Li, Zuo-Liang Zhu, Ling-Hao Han, Qibin Hou, Chun-
+     2023. 2
+                                                                             Le Guo, and Ming-Ming Cheng. Amt: All-pairs multi-field
+[42] Yuming Jiang, Shuai Yang, Tong Liang Koh, Wayne Wu,                     transforms for efficient frame interpolation. In CVPR, 2023.
+     Chen Change Loy, and Ziwei Liu. Text2Performer: Text-                   4
+     driven human video generation. In ICCV, 2023. 3                    [59] Jun Hao Liew, Hanshu Yan, Jianfeng Zhang, Zhong-
+[43] Johanna Karras, Aleksander Holynski, Ting-Chun Wang,                    cong Xu, and Jiashi Feng. Magicedit: High-fidelity
+     and Ira Kemelmacher-Shlizerman. Dreampose: Fash-                        and temporally coherent video editing. arXiv preprint
+     ion image-to-video synthesis via stable diffusion. arXiv                arXiv:2308.14749, 2023. 3
+     preprint arXiv:2304.06025, 2023. 3                                 [60] Yuanxin Liu, Lei Li, Shuhuai Ren, Rundong Gao, Shicheng
+[44] Tero Karras, Timo Aila, Samuli Laine, and Jaakko Lehti-                 Li, Sishuo Chen, Xu Sun, and Lu Hou. Fetv: A bench-
+     nen. Progressive growing of GANs for improved quality,                  mark for fine-grained evaluation of open-domain text-to-
+     stability, and variation. In ICLR, 2018. 2                              video generation. In NeurIPS, 2023. 3
+
+
+                                                                    10
+                                                                    21816
+[61] Yaofang Liu, Xiaodong Cun, Xuebo Liu, Xintao Wang,                      synthesis with latent diffusion models. In CVPR, 2022. 3,
+     Yong Zhang, Haoxin Chen, Yang Liu, Tieyong Zeng, Ray-                   7, 8
+     mond Chan, and Ying Shan. Evalcrafter: Benchmarking                [75] Chitwan Saharia, William Chan, Saurabh Saxena, Lala
+     and evaluating large video generation models. In CVPR,                  Li, Jay Whang, Emily Denton, Seyed Kamyar Seyed
+     2024. 3                                                                 Ghasemipour, Burcu Karagol Ayan, S Sara Mahdavi,
+[62] Zhengxiong Luo, Dayou Chen, Yingya Zhang, Yan Huang,                    Rapha Gontijo Lopes, et al. Photorealistic text-to-image
+     Liang Wang, Yujun Shen, Deli Zhao, Jingren Zhou, and                    diffusion models with deep language understanding. arXiv
+     Tieniu Tan. VideoFusion: Decomposed diffusion models                    preprint arXiv:2205.11487, 2022. 3
+     for high-quality video generation. In CVPR, 2023. 2, 3, 6          [76] Tim Salimans, Ian Goodfellow, Wojciech Zaremba, Vicki
+[63] Xin Ma, Yaohui Wang, Gengyun Jia, Xinyuan Chen, Zi-                     Cheung, Alec Radford, Xi Chen, and Xi Chen. Improved
+     wei Liu, Yuan-Fang Li, Cunjian Chen, and Yu Qiao. Latte:                techniques for training gans. In NeurIPS, 2016. 2, 3
+     Latent diffusion transformer for video generation. arXiv           [77] Uriel Singer, Adam Polyak, Thomas Hayes, Xi Yin, Jie An,
+     preprint arXiv:2401.03048, 2024. 3                                      Songyang Zhang, Qiyuan Hu, Harry Yang, Oron Ashual,
+[64] Yue Ma, Yingqing He, Xiaodong Cun, Xintao Wang, Ying                    Oran Gafni, et al. Make-a-video: Text-to-video generation
+     Shan, Xiu Li, and Qifeng Chen. Follow your pose: Pose-                  without text-video data. arXiv preprint arXiv:2209.14792,
+     guided text-to-video generation using pose-free videos.                 2022. 2, 3
+     arXiv preprint arXiv:2304.01186, 2023. 3                           [78] Jascha Sohl-Dickstein, Eric Weiss, Niru Maheswaranathan,
+[65] Kai Zhang Yujie Lu Xingyu Fu Wenwen Zhuang                              and Surya Ganguli. Deep unsupervised learning using
+     Wenhu Chen Max Ku, Tianle Li. Imagenhub: Standardiz-                    nonequilibrium thermodynamics. In ICML, 2015. 2, 3
+     ing the evaluation of conditional image generation models.         [79] Yang Song, Jascha Sohl-Dickstein, Diederik P Kingma,
+     In ICLR, 2024. 3                                                        Abhishek Kumar, Stefano Ermon, and Ben Poole. Score-
+[66] Willi Menapace, Aliaksandr Siarohin, Ivan Skorokhodov,                  based generative modeling through stochastic differential
+     Ekaterina Deyneka, Tsai-Shien Chen, Anil Kag, Yuwei                     equations. In ICLR, 2021. 2, 3
+     Fang, Aleksei Stoliar, Elisa Ricci, Jian Ren, et al. Snap          [80] Khurram Soomro, Amir Roshan Zamir, and Mubarak Shah.
+     video: Scaled spatiotemporal transformers for text-to-video             Ucf101: A dataset of 101 human actions classes from
+     synthesis. arXiv preprint arXiv:2402.14797, 2024. 2                     videos in the wild. arXiv preprint arXiv:1212.0402, 2012.
+[67] Mehdi Mirza and Simon Osindero. Conditional generative                  3
+     adversarial nets. arXiv preprint arXiv:1411.1784, 2014. 2          [81] Zachary Teed and Jia Deng. Raft: Recurrent all-pairs field
+[68] Alex Nichol, Prafulla Dhariwal, Aditya Ramesh, Pranav                   transforms for optical flow. In ECCV, 2020. 4
+     Shyam, Pamela Mishkin, Bob McGrew, Ilya Sutskever, and             [82] Zhengzhong Tu, Yilin Wang, Neil Birkbeck, Balu
+     Mark Chen. GLIDE: Towards photorealistic image gener-                   Adsumilli, and Alan C. Bovik. Ugc-vqa: Benchmarking
+     ation and editing with text-guided diffusion models. arXiv              blind video quality assessment for user generated content.
+     preprint arXiv:2112.10741, 2021. 3                                      IEEE TIP, 2021. 2
+[69] Mayu Otani, Riku Togashi, Yu Sawai, Ryosuke Ishigami,              [83] Thomas Unterthiner, Sjoerd van Steenkiste, Karol Kurach,
+     Yuta Nakashima, Esa Rahtu, Janne Heikkilä, and Shin’ichi               Raphael Marinier, Marcin Michalski, and Sylvain Gelly.
+     Satoh. Toward verifiable and reproducible human evalua-                 Towards accurate generative models of video: A new met-
+     tion for text-to-image generation. In CVPR, 2023. 2                     ric & challenges. arXiv preprint arXiv:1812.01717, 2018.
+[70] Hao Ouyang, Qiuyu Wang, Yuxi Xiao, Qingyan Bai, Juntao                  2, 3
+     Zhang, Kecheng Zheng, Xiaowei Zhou, Qifeng Chen, and               [84] Thomas Unterthiner, Sjoerd van Steenkiste, Karol Kurach,
+     Yujun Shen. Codef: Content deformation fields for tempo-                Raphaël Marinier, Marcin Michalski, and Sylvain Gelly.
+     rally consistent video processing. In CVPR, 2024. 3                     FVD: A new metric for video generation. In ICLRW, 2019.
+[71] Dustin Podell, Zion English, Kyle Lacey, Andreas                        2
+     Blattmann, Tim Dockhorn, Jonas Müller, Joe Penna, and             [85] Aaron Van Den Oord, Oriol Vinyals, et al. Neural discrete
+     Robin Rombach. Sdxl: Improving latent diffusion mod-                    representation learning. In NeurIPS, 2017. 2
+     els for high-resolution image synthesis. arXiv preprint            [86] Ruben Villegas, Mohammad Babaeizadeh, Pieter-Jan Kin-
+     arXiv:2307.01952, 2023. 3, 7, 8                                         dermans, Hernan Moraldo, Han Zhang, Mohammad Taghi
+[72] Chenyang Qi, Xiaodong Cun, Yong Zhang, Chenyang Lei,                    Saffar, Santiago Castro, Julius Kunze, and Dumitru Erhan.
+     Xintao Wang, Ying Shan, and Qifeng Chen. Fatezero: Fus-                 Phenaki: Variable length video generation from open do-
+     ing attentions for zero-shot text-based video editing. arXiv            main textual descriptions. In ICLR, 2022. 2
+     preprint arXiv:2303.09535, 2023. 3                                 [87] Jiuniu Wang, Hangjie Yuan, Dayou Chen, Yingya Zhang,
+[73] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya                      Xiang Wang, and Shiwei Zhang. Modelscope text-to-video
+     Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry,                   technical report. arXiv preprint arXiv:2308.06571, 2023.
+     Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learn-                2, 3, 4, 6
+     ing transferable visual models from natural language super-        [88] Su Wang, Chitwan Saharia, Ceslee Montgomery, Jordi
+     vision. In ICML, 2021. 2, 3, 4, 6                                       Pont-Tuset, Shai Noy, Stefano Pellegrini, Yasumasa Onoe,
+[74] Robin Rombach, Andreas Blattmann, Dominik Lorenz,                       Sarah Laszlo, David J Fleet, Radu Soricut, et al. Imagen ed-
+     Patrick Esser, and Björn Ommer. High-resolution image                  itor and EditBench: Advancing and evaluating text-guided
+
+
+                                                                    11
+                                                                    21817
+      image inpainting. arXiv preprint arXiv:2212.06909, 2022.           [101] Jay Zhangjie Wu, Yixiao Ge, Xintao Wang, Stan Weixian
+      3                                                                        Lei, Yuchao Gu, Wynne Hsu, Ying Shan, Xiaohu Qie, and
+ [89] Weimin Wang, Jiawei Liu, Zhijie Lin, Jiangqiao Yan, Shuo                 Mike Zheng Shou. Tune-a-video: One-shot tuning of im-
+      Chen, Chetwin Low, Tuyen Hoang, Jie Wu, Jun Hao                          age diffusion models for text-to-video generation. arXiv
+      Liew, Hanshu Yan, et al.           Magicvideo-v2: Multi-                 preprint arXiv:2212.11565, 2022. 2
+      stage high-aesthetic video generation. arXiv preprint              [102] Jinbo Xing, Menghan Xia, Yong Zhang, Haoxin Chen, Xin-
+      arXiv:2401.04468, 2024. 2                                                tao Wang, Tien-Tsin Wong, and Ying Shan. Dynamicrafter:
+ [90] Xiang Wang, Hangjie Yuan, Shiwei Zhang, Dayou Chen,                      Animating open-domain images with video diffusion pri-
+      Jiuniu Wang, Yingya Zhang, Yujun Shen, Deli Zhao,                        ors. arXiv preprint arXiv:2310.12190, 2023. 3
+      and Jingren Zhou. Videocomposer: Compositional video               [103] Zhen Xing, Qijun Feng, Haoran Chen, Qi Dai, Han Hu,
+      synthesis with motion controllability.        arXiv preprint             Hang Xu, Zuxuan Wu, and Yu-Gang Jiang. A survey on
+      arXiv:2306.02018, 2023. 3                                                video diffusion models. arXiv preprint arXiv:2310.10647,
+ [91] Yaohui Wang, Xinyuan Chen, Xin Ma, Shangchen Zhou,                       2023. 3
+      Ziqi Huang, Yi Wang, Ceyuan Yang, Yinan He, Jiashuo                [104] Jun Xu, Tao Mei, Ting Yao, and Yong Rui. Msr-vtt: A large
+      Yu, Peiqing Yang, et al. Lavie: High-quality video genera-               video description dataset for bridging video and language.
+      tion with cascaded latent diffusion models. arXiv preprint               In CVPR, 2016. 3
+      arXiv:2309.15103, 2023. 2, 3, 4, 6                                 [105] Shuai Yang, Yifan Zhou, Ziwei Liu, and Chen Change
+ [92] Yi Wang, Yinan He, Yizhuo Li, Kunchang Li, Jiashuo Yu,                   Loy. Rerender a video: Zero-shot text-guided video-to-
+      Xin Ma, Xinyuan Chen, Yaohui Wang, Ping Luo, Ziwei                       video translation. arXiv preprint arXiv:2306.07954, 2023.
+      Liu, Yali Wang, Limin Wang, and Yu Qiao. Internvid: A                    3
+      large-scale video-text dataset for multimodal understanding        [106] Shengming Yin, Chenfei Wu, Jian Liang, Jie Shi, Houqiang
+      and generation. arXiv preprint arXiv:2307.06942, 2023. 4                 Li, Gong Ming, and Nan Duan. Dragnuwa: Fine-grained
+ [93] Haoning Wu, Chaofeng Chen, Jingwen Hou, Liang Liao,                      control in video generation by integrating text, image, and
+      Annan Wang, Wenxiu Sun, Qiong Yan, and Weisi Lin. Fast-                  trajectory. arXiv preprint arXiv:2308.08089, 2023. 3
+      vqa: Efficient end-to-end video quality assessment with            [107] Lijun Yu, Yong Cheng, Kihyuk Sohn, José Lezama, Han
+      fragment sampling. In ECCV, 2022. 2                                      Zhang, Huiwen Chang, Alexander G Hauptmann, Ming-
+ [94] Haoning Wu, Chaofeng Chen, Liang Liao, Jingwen                           Hsuan Yang, Yuan Hao, Irfan Essa, et al. Magvit: Masked
+      Hou, Wenxiu Sun, Qiong Yan, Jinwei Gu, and Weisi                         generative video transformer. In CVPR, 2023. 2
+      Lin. Neighbourhood representative sampling for effi-
+                                                                         [108] Lijun Yu, José Lezama, Nitesh B Gundavarapu, Luca Ver-
+      cient end-to-end video quality assessment. arXiv preprint
+                                                                               sari, Kihyuk Sohn, David Minnen, Yong Cheng, Agrim
+      arXiv:2210.05357, 2022.
+                                                                               Gupta, Xiuye Gu, Alexander G Hauptmann, et al. Lan-
+ [95] Haoning Wu, Chaofeng Chen, Liang Liao, Jingwen Hou,                      guage model beats diffusion–tokenizer is key to visual gen-
+      Wenxiu Sun, Qiong Yan, and Weisi Lin. Discovqa: Tempo-                   eration. arXiv preprint arXiv:2310.05737, 2023.
+      ral distortion-content transformers for video quality assess-
+                                                                         [109] David Junhao Zhang, Jay Zhangjie Wu, Jia-Wei Liu,
+      ment. IEEE TCSVT, 2023.
+                                                                               Rui Zhao, Lingmin Ran, Yuchao Gu, Difei Gao, and
+ [96] Haoning Wu, Liang Liao, Chaofeng Chen, Jingwen Hou
+                                                                               Mike Zheng Shou. Show-1: Marrying pixel and latent dif-
+      Hou, Erli Zhang, Annan Wang, Wenxiu Sun, Qiong Yan,
+                                                                               fusion models for text-to-video generation. arXiv preprint
+      and Weisi Lin. Exploring opinion-unaware video quality
+                                                                               arXiv:2309.15818, 2023. 2, 3
+      assessment with semantic affinity criterion. In ICME, 2023.
+                                                                         [110] Jianfeng Zhang, Hanshu Yan, Zhongcong Xu, Jiashi Feng,
+ [97] Haoning Wu, Liang Liao, Annan Wang, Chaofeng Chen,
+                                                                               and Jun Hao Liew. Magicavatar: Multimodal avatar gen-
+      Jingwen Hou Hou, Erli Zhang, Wenxiu Sun, Qiong Yan,
+                                                                               eration and animation. arXiv preprint arXiv:2308.14748,
+      and Weisi Lin. Towards robust text-prompted semantic
+                                                                               2023. 3
+      criterion for in-the-wild video quality assessment. arXiv
+      preprint arXiv:2304.14672, 2023.                                   [111] Yabo Zhang, Yuxiang Wei, Dongsheng Jiang, Xiaopeng
+                                                                               Zhang, Wangmeng Zuo, and Qi Tian. Controlvideo:
+ [98] Haoning Wu, Erli Zhang, Liang Liao, Chaofeng Chen, Jing-
+                                                                               Training-free controllable text-to-video generation. arXiv
+      wen Hou Hou, Annan Wang, Wenxiu Sun, Qiong Yan, and
+                                                                               preprint arXiv:2305.13077, 2023. 3
+      Weisi Lin. Exploring video quality assessment on user gen-
+      erated contents from aesthetic and technical perspectives.         [112] Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan
+      In ICCV, 2023.                                                           Zhuang, Zhanghao Wu, Yonghao Zhuang, Zi Lin, Zhuo-
+ [99] Haoning Wu, Erli Zhang, Liang Liao, Chaofeng Chen, Jing-                 han Li, Dacheng Li, Eric Xing, et al. Judging llm-as-a-
+      wen Hou Hou, Annan Wang, Wenxiu Sun, Qiong Yan, and                      judge with mt-bench and chatbot arena. arXiv preprint
+      Weisi Lin. Towards explainable video quality assessment:                 arXiv:2306.05685, 2023. 5
+      A database and a language-prompted approach. In ACM                [113] Daquan Zhou, Weimin Wang, Hanshu Yan, Weiwei Lv,
+      MM, 2023. 2                                                              Yizhe Zhu, and Jiashi Feng. Magicvideo: Efficient video
+[100] Jialian Wu, Jianfeng Wang, Zhengyuan Yang, Zhe Gan,                      generation with latent diffusion models. arXiv preprint
+      Zicheng Liu, Junsong Yuan, and Lijuan Wang. Grit: A gen-                 arXiv:2211.11018, 2022. 3
+      erative region-to-text transformer for object understanding.
+      arXiv preprint arXiv:2212.00280, 2022. 4
+
+
+                                                                      12
+                                                                      21818
+
