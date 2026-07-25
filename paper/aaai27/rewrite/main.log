@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.5.1)  25 JUL 2026 12:18
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.5.1)  25 JUL 2026 13:29
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -327,14 +327,14 @@ LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
 
 
  <./figures/fig_teaser.pdf>]
-LaTeX Font Info:    Trying to load font information for TS1+ntxtlf on input line 121.
+LaTeX Font Info:    Trying to load font information for TS1+ntxtlf on input line 120.
  (c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/tex/latex/newtx/ts1ntxtlf.fd
 File: ts1ntxtlf.fd 2015/01/18 v1.0 fd file for TS1/ntxtlf
 )
 LaTeX Font Info:    Font shape `TS1/ntxtlf/m/n' will be
-(Font)              scaled to size 10.0pt on input line 121.
+(Font)              scaled to size 10.0pt on input line 120.
 
-Underfull \hbox (badness 3977) in paragraph at lines 121--124
+Underfull \hbox (badness 3977) in paragraph at lines 120--123
 []\T1/ntxtlf/m/n/10 We in-tro-duce In-TraScale, a learned in-trajectory
  []
 
@@ -343,54 +343,53 @@ Underfull \hbox (badness 10000) in paragraph at lines 138--148
  \T1/ntxtlf/b/n/10 Post-Generation Res-o-lu-tion En-hance-ment. \T1/ntxtlf/m/n/10 Post-
  []
 
-<figures/fig_overall_framework.pdf, id=14, 505.89pt x 174.6525pt>
+<figures/fig_overall_framework.pdf, id=15, 505.89pt x 174.6525pt>
 File: figures/fig_overall_framework.pdf Graphic file (type pdf)
 <use figures/fig_overall_framework.pdf>
 Package pdftex.def Info: figures/fig_overall_framework.pdf  used on input line 179.
 (pdftex.def)             Requested size: 505.89pt x 174.65472pt.
 [2{c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/enc/dvips/tex-gyre/q-ts1.enc}]
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 10.95pt on input line 198.
+(Font)              scaled to size 10.95pt on input line 199.
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/n' will be
-(Font)              scaled to size 10.95pt on input line 198.
+(Font)              scaled to size 10.95pt on input line 199.
 <figures/fig_challenge_interpolation.pdf, id=22, 238.49101pt x 111.29579pt>
 File: figures/fig_challenge_interpolation.pdf Graphic file (type pdf)
 <use figures/fig_challenge_interpolation.pdf>
-Package pdftex.def Info: figures/fig_challenge_interpolation.pdf  used on input line 217.
+Package pdftex.def Info: figures/fig_challenge_interpolation.pdf  used on input line 219.
 (pdftex.def)             Requested size: 239.39438pt x 111.72005pt.
 <figures/fig_challenge_alignment.pdf, id=23, 238.49101pt x 111.29579pt>
 File: figures/fig_challenge_alignment.pdf Graphic file (type pdf)
 <use figures/fig_challenge_alignment.pdf>
-Package pdftex.def Info: figures/fig_challenge_alignment.pdf  used on input line 257.
+Package pdftex.def Info: figures/fig_challenge_alignment.pdf  used on input line 260.
 (pdftex.def)             Requested size: 239.39438pt x 111.72005pt.
  [3 <./figures/fig_overall_framework.pdf> <./figures/fig_challenge_interpolation.pdf>]
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 7.0pt on input line 316.
+(Font)              scaled to size 7.0pt on input line 319.
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/n' will be
-(Font)              scaled to size 5.0pt on input line 316.
+(Font)              scaled to size 5.0pt on input line 319.
  [4 <./figures/fig_challenge_alignment.pdf>]
+Underfull \hbox (badness 1509) in paragraph at lines 521--525
+[]\T1/ntxtlf/m/n/10 We eval-u-ate ten matched prompt--seed pairs us-ing
+ []
+
 LaTeX Font Info:    Font shape `T1/ntxtlf/b/n' will be
-(Font)              scaled to size 9.0pt on input line 549.
-<figures/fig_quality_efficiency_pareto_v2.pdf, id=88, 238.49101pt x 148.1535pt>
+(Font)              scaled to size 9.0pt on input line 541.
+<figures/fig_quality_efficiency_pareto_v2.pdf, id=93, 238.49101pt x 148.1535pt>
 File: figures/fig_quality_efficiency_pareto_v2.pdf Graphic file (type pdf)
 <use figures/fig_quality_efficiency_pareto_v2.pdf>
-Package pdftex.def Info: figures/fig_quality_efficiency_pareto_v2.pdf  used on input line 586.
+Package pdftex.def Info: figures/fig_quality_efficiency_pareto_v2.pdf  used on input line 578.
 (pdftex.def)             Requested size: 239.39438pt x 148.71829pt.
- [5]
-<figures/fig_quality_efficiency_distill4_pareto.pdf, id=92, 238.49101pt x 148.1535pt>
+[5]
+<figures/fig_quality_efficiency_distill4_pareto.pdf, id=97, 238.49101pt x 148.1535pt>
 File: figures/fig_quality_efficiency_distill4_pareto.pdf Graphic file (type pdf)
 <use figures/fig_quality_efficiency_distill4_pareto.pdf>
-Package pdftex.def Info: figures/fig_quality_efficiency_distill4_pareto.pdf  used on input line 683.
+Package pdftex.def Info: figures/fig_quality_efficiency_distill4_pareto.pdf  used on input line 674.
 (pdftex.def)             Requested size: 239.39438pt x 148.71829pt.
- [6 <./figures/fig_quality_efficiency_pareto_v2.pdf>]
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [7 <./figures/fig_quality_efficiency_distill4_pareto.pdf>] (./main.bbl
+ [6 <./figures/fig_quality_efficiency_pareto_v2.pdf>] (./main.bbl
 LaTeX Font Info:    Font shape `T1/ntxtlf/m/it' will be
 (Font)              scaled to size 10.0pt on input line 7.
- [8]) [9
-
-] (./main.aux)
+ [7 <./figures/fig_quality_efficiency_distill4_pareto.pdf>]) [8] (./main.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2020/03/25>
@@ -399,16 +398,16 @@ L3 programming layer <2020/03/25>
 Here is how much of TeX's memory you used:
  7001 strings out of 469339
  114932 string characters out of 5464316
- 535442 words of memory out of 5000000
+ 534442 words of memory out of 5000000
  35714 multiletter control sequences out of 15000+600000
  672497 words of font info for 80 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 89i,11n,117p,883b,437s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 89i,11n,117p,886b,461s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx9.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi5.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi9.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/tex-gyre/qtmr.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/newtx/ztmb.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/newtx/ztmr.pfb><c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/newtx/ztmri.pfb>
-Output written on main.pdf (9 pages, 4727965 bytes).
+Output written on main.pdf (8 pages, 5390535 bytes).
 PDF statistics:
- 233 PDF objects out of 1000 (max. 8388607)
- 137 compressed objects within 2 object streams
+ 235 PDF objects out of 1000 (max. 8388607)
+ 139 compressed objects within 2 object streams
  0 named destinations out of 1000 (max. 500000)
  31 words of extra memory for PDF output out of 10000 (max. 10000000)
 

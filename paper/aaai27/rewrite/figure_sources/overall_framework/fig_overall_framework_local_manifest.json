@@ -76,6 +76,6 @@
     "ITU clean-latent-pair supervision branch",
     "seeded high-resolution noise branch",
     "scheduler-consistent state-reconstruction equation",
-    "integrated evaluation schedule and compact technical key"
+    "integrated denoising-step schedule and compact technical key"
   ]
 }

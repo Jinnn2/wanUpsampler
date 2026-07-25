@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex main"] 1784953132.92449 "main.aux" "main.bbl" "main" 1784953133.47582 0
+["bibtex main"] 1784957363.93281 "main.aux" "main.bbl" "main" 1784957364.57151 0
   "./aaai2027.bst" 1784905138 31700 bd248dfe461b9b2fc7481a44feafe197 ""
   "./references.bib" 1784905138 11094 a40dea0975161ff21cf7af8e1fb9f60d ""
-  "main.aux" 1784953133 4770 b37c85481b4411bb756a9acb8a938c3b "pdflatex"
+  "main.aux" 1784957364 4795 bfa0d53e0e195085e24c21764c8939af "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1784953132.96357 "main.tex" "main.pdf" "main" 1784953133.47632 0
+["pdflatex"] 1784957363.9719 "main.tex" "main.pdf" "main" 1784957364.57215 0
   "aaai2027.sty" 1779092464 16915 1b1c792e2acfbbd8b672259e267b95d8 ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/enc/dvips/newtx/ntx-ec-tlf.enc" 1784399516 2914 fdbc4a54b9bc76f4551b5303f2737d33 ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/enc/dvips/tex-gyre/q-ts1.enc" 1784399636 3124 3813fd4c981d99822890a2861b0d274c ""
@@ -109,15 +109,15 @@
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1784399674 176285 e68d14301976c9be24b7e4c2db0f15c2 ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-var/web2c/pdftex/pdflatex.fmt" 1777610046 2242008 123ec13fe6cfb84c98f573694213d5bb ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf.cnf" 1777609962 903 164c5b127cd0d6dc91abad2f62421ea2 ""
-  "figures/fig_challenge_alignment.pdf" 1784909029 93054 9132b31eaebe32587323dc9a93561760 ""
+  "figures/fig_challenge_alignment.pdf" 1784957345 93343 43b7f9be6acc81177d1d4e763b35e59a ""
   "figures/fig_challenge_interpolation.pdf" 1784905138 58645 361a54a58c12a3ab0428f3cb4e6cc2af ""
-  "figures/fig_overall_framework.pdf" 1784916087 3817138 c195085a50865696f6100fbef3de57a7 ""
+  "figures/fig_overall_framework.pdf" 1784957345 4494918 6b13d5a48348a71760397856ebd7c3b9 ""
   "figures/fig_quality_efficiency_distill4_pareto.pdf" 1784953117 55808 572eafbdde9f06218f5f14dc803816f2 ""
   "figures/fig_quality_efficiency_pareto_v2.pdf" 1784953115 59820 6b36ac3693b77207370cdd081b441503 ""
   "figures/fig_teaser.pdf" 1784905138 390889 df2b283beabaca74299fa1f39987e402 ""
-  "main.aux" 1784953133 4770 b37c85481b4411bb756a9acb8a938c3b "pdflatex"
-  "main.bbl" 1784953132 9951 d563fb4fe2e34e321946d92a6e85755c "bibtex main"
-  "main.tex" 1784952928 39826 f59fab44028275c3087410bdd57b2ef6 ""
+  "main.aux" 1784957364 4795 bfa0d53e0e195085e24c21764c8939af "pdflatex"
+  "main.bbl" 1784957363 9951 d563fb4fe2e34e321946d92a6e85755c "bibtex main"
+  "main.tex" 1784957171 38015 327c158cb9fbb9305131fc6fe06e766f ""
   (generated)
   "main.aux"
   "main.log"

@@ -58,14 +58,14 @@
   <text class="section" x="537" y="73" text-anchor="middle">LR input / noise</text>
   <text class="section" x="680" y="63" text-anchor="middle" style="fill:#276fba">Frozen LR prefix</text>
   <text class="small" x="680" y="82" text-anchor="middle" style="fill:#276fba">
-    evaluations 1,…,s−1
+    steps 1,…,s−1
   </text>
   <text class="section" x="866" y="73" text-anchor="middle">Low-resolution state</text>
   <text class="section" x="1872" y="63" text-anchor="middle" style="fill:#dc5b0d">
     Frozen HR continuation
   </text>
   <text class="small" x="1872" y="82" text-anchor="middle" style="fill:#dc5b0d">
-    evaluations s+1,…,T
+    steps s+1,…,T
   </text>
   <text class="section" x="2071" y="73" text-anchor="middle">Output (HR)</text>
 
@@ -94,7 +94,7 @@
   <rect x="952" y="202" width="816" height="310" rx="8" fill="#fdfdfc"
         stroke="#777" stroke-width="1.2" stroke-dasharray="7 5"/>
   <text class="section" x="970" y="229" style="fill:#333">
-    Resolution transition at evaluation s
+    Resolution transition at step s
   </text>
   <text class="tiny" x="1748" y="228" text-anchor="end" style="fill:#777">
     dashed inputs: training supervision
@@ -180,7 +180,7 @@
   <path class="arrow" d="M1755,341 H1785 V177 H1800"/>
   <path class="arrow" d="M1944,177 H1971"/>
 
-  <!-- Integrated evaluation schedule -->
+  <!-- Integrated denoising-step schedule -->
   <line x1="510" y1="551" x2="958" y2="551" stroke="#397dcc" stroke-width="2.4"/>
   <line x1="958" y1="551" x2="1785" y2="551" stroke="#d8539a" stroke-width="2.4"/>
   <line x1="1785" y1="551" x2="2130" y2="551" stroke="#e56318" stroke-width="2.4"/>
@@ -201,7 +201,7 @@
   <text class="math" x="958" y="591" text-anchor="middle" font-size="19">s</text>
   <text class="math" x="1785" y="591" text-anchor="middle" font-size="19">s+1</text>
   <text class="math" x="2130" y="591" text-anchor="middle" font-size="19">T</text>
-  <text class="tiny" x="2150" y="543" text-anchor="end">evaluation step</text>
+  <text class="tiny" x="2150" y="543" text-anchor="end">denoising step</text>
 
   <!-- One-line technical key -->
   <g id="technicalKey"></g>
@@ -348,8 +348,8 @@
     el("rect", {x, y, width: 20, height: 20, fill, stroke, "stroke-width": 1.1}, budget);
     txt(budget, x+30, y+15, label, "small");
   });
-  txt(budget, 18, 594, "T: fixed total denoising evaluations.", "small");
-  txt(budget, 18, 619, "s: resolution-transition evaluation.", "small");
+  txt(budget, 18, 594, "T: fixed total denoising steps.", "small");
+  txt(budget, 18, 619, "s: resolution-transition step.", "small");
 
   // Right: input noise and frozen predictor schematics.
   const inputNoise = document.getElementById("noiseTensor");

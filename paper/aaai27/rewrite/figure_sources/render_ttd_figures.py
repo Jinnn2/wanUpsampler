@@ -20,13 +20,15 @@ SOURCE_DIR = Path(__file__).resolve().parent
 REWRITE_DIR = SOURCE_DIR.parent
 FIGURE_DIR = REWRITE_DIR / "figures"
 TIMES_BOLD = Path(r"C:\Windows\Fonts\timesbd.ttf")
+TIMES_REGULAR = Path(r"C:\Windows\Fonts\times.ttf")
 TTD_LABEL = "TTD"
 TEXT_OBJECT = re.compile(rb"BT(?P<body>.*?)ET", re.DOTALL)
 
 
-def remove_lower_itu_label(document: fitz.Document, page: fitz.Page) -> None:
-    """Remove only the template's lower ITU heading for full-name replacement."""
+def remove_replaced_labels(document: fitz.Document, page: fitz.Page) -> None:
+    """Remove template labels that are replaced with canonical terminology."""
 
+    replaced_objects = {34, 38, 41, 56, 57}
     text_object_index = 0
     for xref in page.get_contents():
         stream = document.xref_stream(xref)
@@ -35,7 +37,7 @@ def remove_lower_itu_label(document: fitz.Document, page: fitz.Page) -> None:
             nonlocal text_object_index
             current = text_object_index
             text_object_index += 1
-            return b"" if current == 57 else match.group(0)
+            return b"" if current in replaced_objects else match.group(0)
 
         updated = TEXT_OBJECT.sub(keep_or_remove, stream)
         if updated != stream:
@@ -59,15 +61,59 @@ def render_overall_framework() -> Path:
 
     document = fitz.open(template)
     page = document[0]
-    remove_lower_itu_label(document, page)
-    font = fitz.Font(fontfile=str(TIMES_BOLD))
+    remove_replaced_labels(document, page)
+    bold_font = fitz.Font(fontfile=str(TIMES_BOLD))
+    regular_font = fitz.Font(fontfile=str(TIMES_REGULAR))
     labels = (
+        {
+            "text": "steps 1,\u2026,s\u22121",
+            "center_x": 183.2603,
+            "baseline": 40.4103,
+            "size": 6.4125,
+            "color": (39 / 255, 112 / 255, 186 / 255),
+            "font": regular_font,
+            "fontname": "TimesNewRoman",
+            "fontfile": TIMES_REGULAR,
+        },
+        {
+            "text": "step s",
+            "center_x": 306.5201,
+            "baseline": 33.0744,
+            "size": 6.4125,
+            "color": (193 / 255, 59 / 255, 131 / 255),
+            "font": regular_font,
+            "fontname": "TimesNewRoman",
+            "fontfile": TIMES_REGULAR,
+        },
+        {
+            "text": "steps s+1,\u2026,T",
+            "center_x": 380.2802,
+            "baseline": 40.4103,
+            "size": 6.4125,
+            "color": (220 / 255, 91 / 255, 13 / 255),
+            "font": regular_font,
+            "fontname": "TimesNewRoman",
+            "fontfile": TIMES_REGULAR,
+        },
+        {
+            "text": "active only at step s",
+            "center_x": 188.9894,
+            "baseline": 158.3830,
+            "size": 5.61,
+            "color": (193 / 255, 59 / 255, 131 / 255),
+            "font": regular_font,
+            "fontname": "TimesNewRoman",
+            "fontfile": TIMES_REGULAR,
+        },
         {
             "text": "TTD",
             "center_x": 277.75,
             "baseline": 53.922016,
             "size": 6.4125,
             "color": (17 / 255, 17 / 255, 17 / 255),
+            "font": bold_font,
+            "fontname": "TimesNewRomanBold",
+            "fontfile": TIMES_BOLD,
         },
         {
             "text": "Trajectory-Tail Distillation (TTD)",
@@ -75,6 +121,9 @@ def render_overall_framework() -> Path:
             "baseline": 100.656395,
             "size": 7.215,
             "color": (193 / 255, 59 / 255, 131 / 255),
+            "font": bold_font,
+            "fontname": "TimesNewRomanBold",
+            "fontfile": TIMES_BOLD,
         },
         {
             "text": "In-Trajectory Upsampler (ITU)",
@@ -82,19 +131,22 @@ def render_overall_framework() -> Path:
             "baseline": 100.656395,
             "size": 7.215,
             "color": (22 / 255, 128 / 255, 79 / 255),
+            "font": bold_font,
+            "fontname": "TimesNewRomanBold",
+            "fontfile": TIMES_BOLD,
         },
     )
     for label in labels:
         text = label["text"]
         size = label["size"]
-        width = font.text_length(text, fontsize=size)
+        width = label["font"].text_length(text, fontsize=size)
         origin = (label["center_x"] - width / 2, label["baseline"])
         page.insert_text(
             origin,
             text,
             fontsize=size,
-            fontname="TimesNewRomanBold",
-            fontfile=str(TIMES_BOLD),
+            fontname=label["fontname"],
+            fontfile=str(label["fontfile"]),
             color=label["color"],
             overlay=True,
         )
@@ -135,7 +187,7 @@ def render_challenge_alignment() -> Path:
         image = loaded.convert("RGB")
     draw = ImageDraw.Draw(image)
     font = ImageFont.truetype(str(TIMES_BOLD), size=29)
-    centered_text(draw, (660, 18, 971, 56), "TTD-aligned", font)
+    centered_text(draw, (660, 18, 971, 56), "TTD-calibrated", font)
 
     if temporary.exists():
         temporary.unlink()
@@ -145,8 +197,9 @@ def render_challenge_alignment() -> Path:
 
 
 def main() -> None:
-    if not TIMES_BOLD.exists():
-        raise FileNotFoundError(f"Required font not found: {TIMES_BOLD}")
+    for font_path in (TIMES_BOLD, TIMES_REGULAR):
+        if not font_path.exists():
+            raise FileNotFoundError(f"Required font not found: {font_path}")
     print(f"Rendered {render_overall_framework()}")
     print(f"Rendered {render_challenge_alignment()}")
 
