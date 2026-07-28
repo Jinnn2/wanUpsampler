@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "captured_at_utc": "2026-07-28T14:45:00+00:00",
+  "scope": "Compact, path-sanitized evidence exported from the original experiment machine; latent tensors and generated videos are not copied.",
+  "raw_generated_video_inventory": {
+    "wan50": {
+      "mp4_files_observed": 1002,
+      "total_bytes": 1881594977,
+      "realized_lmdb_samples": 1000,
+      "inventory_sha256": "4da01ba1113cd6f098b42baa3b5a2bf9c9cf1fe5dbe3addcd9860de14e6ac38a"
+    },
+    "distill4": {
+      "mp4_files_observed": 5000,
+      "total_bytes": 6866319417,
+      "realized_lmdb_samples": 5000,
+      "inventory_sha256": "29ad141761e6014726325bfa717a1eb1bb75195e08e6439b1a6ddec942dfea31"
+    }
+  },
+  "realized_lmdb_collections": [
+    {
+      "name": "wan50_itu",
+      "schema": "wan_clean_latent_pair_lmdb_v1",
+      "shards": 10,
+      "samples": 1000,
+      "unique_prompt_hashes": 998,
+      "split": {
+        "algorithm": "random.Random(1234).shuffle(indices)",
+        "training_samples": 950,
+        "validation_samples": 50
+      }
+    },
+    {
+      "name": "wan50_ttd_step40",
+      "schema": "wan_tail_skip_lora_lmdb_v1",
+      "shards": 12,
+      "samples": 1000,
+      "unique_prompt_hashes": 998,
+      "seed_min": 9400,
+      "seed_max": 10399,
+      "split": {
+        "algorithm": "random.Random(1234).shuffle(indices)",
+        "training_samples": 980,
+        "validation_samples": 20
+      }
+    },
+    {
+      "name": "wan50_ttd_step45",
+      "schema": "wan_tail_skip_lora_lmdb_v1",
+      "shards": 16,
+      "samples": 1000,
+      "unique_prompt_hashes": 998,
+      "seed_min": 9400,
+      "seed_max": 10399,
+      "split": {
+        "algorithm": "random.Random(1234).shuffle(indices)",
+        "training_samples": 980,
+        "validation_samples": 20
+      }
+    },
+    {
+      "name": "distill4_itu",
+      "schema": "wan_clean_latent_pair_lmdb_v1",
+      "shards": 50,
+      "samples": 5000,
+      "unique_prompt_hashes": 5000,
+      "split": {
+        "algorithm": "random.Random(1234).shuffle(indices)",
+        "training_samples": 4900,
+        "validation_samples": 100
+      }
+    }
+  ],
+  "pending_followup": {
+    "distill4_ttd_step3": "The first export inspected an empty canonical directory. A legacy candidate is evidenced by its complete step-10000 training-output inventory and is handled by the corrected exporter, but its LMDB sample manifest still requires the small follow-up export."
+  },
+  "source_evidence_sha256": {
+    "full_lmdb_manifest": "d578bf3780475eb4da5741b8ac51e38c06cc6cc6160320e303e513936fa77cb6",
+    "wan50_itu_output_inventory": "4783515736999b73202a03dce8a6d037b2a458cc68cc4cc9c3873bfec257e04b",
+    "wan50_ttd40_output_inventory": "5a5aed6b6bc0d5e711ae8bf183e04fef0b621c13d7af9f442da469e4004b6fc5",
+    "wan50_ttd45_output_inventory": "958689583d927b4143dd48d4191532ae9dc8f5da6fb1c69e11906e4912f64d2c",
+    "distill4_itu_output_inventory": "8f10c86456dde16cdc354f619d93d104c71eba269e5c790cdf8fbcd248b8b79e",
+    "distill4_ttd3_legacy_output_inventory": "25497f7b83c65d9ffa84a8c9426005bac57558aa7f264dd9a9f3a2b6c9a36fc1"
+  }
+}

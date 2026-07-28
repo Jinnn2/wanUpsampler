@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import random
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -14,18 +15,21 @@ import lmdb
 
 
 DATASETS = [
-    ("wan50_itu", "data/changing_resolution/lmdb_368x640_720x1248_1k", 0.05, 100),
-    ("wan50_ttd_step40", "data/changing_resolution/lmdb_tail_skip_lora_step40_to_step50", 0.02, 64),
-    ("wan50_ttd_step45", "data/changing_resolution/lmdb_tail_skip_lora_step45_to_step50", 0.02, 64),
+    ("wan50_itu", ("data/changing_resolution/lmdb_368x640_720x1248_1k",), 0.05, 100),
+    ("wan50_ttd_step40", ("data/changing_resolution/lmdb_tail_skip_lora_step40_to_step50",), 0.02, 64),
+    ("wan50_ttd_step45", ("data/changing_resolution/lmdb_tail_skip_lora_step45_to_step50",), 0.02, 64),
     (
         "distill4_itu",
-        "data/changing_resolution_distill/lmdb_clean_368x640_720x1248_14b_cfgdistill_5k",
+        ("data/changing_resolution_distill/lmdb_clean_368x640_720x1248_14b_cfgdistill_5k",),
         0.05,
         100,
     ),
     (
         "distill4_ttd_step3",
-        "data/changing_resolution_distill/lmdb_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3",
+        (
+            "data/changing_resolution_distill/lmdb_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3",
+            "data/changing_resolution_distill/lmdb_last_step_skip_lora_14b_cfgdistill_5k_step3",
+        ),
         0.02,
         64,
     ),
@@ -48,6 +52,12 @@ def sanitize(value: Any) -> Any:
         for key, item in value.items():
             if key in {"source_video", "source_lmdb", "model_root", "path"}:
                 result[key] = f"<sanitized:{Path(str(item)).name}>"
+            elif key == "prompt":
+                encoded = str(item).encode("utf-8")
+                result[key] = {
+                    "sha256": hashlib.sha256(encoded).hexdigest(),
+                    "utf8_bytes": len(encoded),
+                }
             else:
                 result[key] = sanitize(item)
         return result
@@ -56,13 +66,27 @@ def sanitize(value: Any) -> Any:
     return value
 
 
-def inspect_dataset(project: Path, name: str, relative: str, val_ratio: float, val_cap: int) -> dict[str, Any]:
+def inspect_dataset(
+    project: Path,
+    name: str,
+    relative_candidates: tuple[str, ...],
+    val_ratio: float,
+    val_cap: int,
+) -> dict[str, Any]:
+    relative = relative_candidates[0]
     root = project / relative
+    for candidate in relative_candidates:
+        candidate_root = project / candidate
+        if any(candidate_root.rglob("data.mdb")):
+            relative = candidate
+            root = candidate_root
+            break
     shards = sorted(path.parent for path in root.rglob("data.mdb"))
     result: dict[str, Any] = {
         "name": name,
         "relative_path": relative,
-        "exists": root.is_dir(),
+        "candidate_relative_paths": list(relative_candidates),
+        "exists": bool(shards),
         "shards": [],
     }
     total = 0
@@ -127,12 +151,23 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     project = args.project_root.resolve()
+    commit = None
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(project), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        commit = completed.stdout.strip() or None
+    except (OSError, subprocess.CalledProcessError):
+        pass
     report = {
         "schema_version": 1,
-        "project_commit": None,
+        "project_commit": commit,
         "datasets": [
-            inspect_dataset(project, name, relative, ratio, cap)
-            for name, relative, ratio, cap in DATASETS
+            inspect_dataset(project, name, candidates, ratio, cap)
+            for name, candidates, ratio, cap in DATASETS
         ],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

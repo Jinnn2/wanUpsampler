@@ -204,8 +204,18 @@ warm-up and then five matched generations.  CUDA synchronization surrounds
 each measurement.  Pipeline latency covers denoising, TTD, ITU, scheduler
 state reconstruction, VAE decoding, and output writing; it excludes runner
 construction and checkpoint loading.  Exact GPU, driver, CUDA, and framework
-versions were not preserved in the local export and are not included in this
-review package.
+versions are recorded by the recovered original-machine snapshot.  It reports
+NVIDIA H100 80GB HBM3 GPUs (81,559 MiB each); the supplied training launchers
+use four ranks, while the later audit container exposed one GPU.  The host had
+two Intel Xeon Platinum 8462Y+ sockets (32 physical cores per socket, 128
+logical CPUs) and 2,159,612,928,000 bytes of RAM.  It ran Ubuntu 22.04.5 LTS,
+kernel 5.14.0, NVIDIA driver 550.90.07, CUDA 12.8, cuDNN 9.10.2, Python
+3.11.13, PyTorch 2.8.0+cu128, torchvision 0.23.0+cu128, Transformers 4.57.1,
+Diffusers 0.32.2, and Accelerate 1.11.0.  The external framework revisions are
+LightX2V \texttt{c0fb09a827d8}, DiffSynth-Studio \texttt{6fbd3dd6526c}, and
+VBench \texttt{45e79ec14e69}; the code-and-data supplement records the full
+commits in a sanitized machine-readable summary with hashes of the underlying
+export records.
 
 \paragraph{Statistics.}
 For quality, we report prompt-paired means, nonparametric bootstrap 95\%
@@ -222,10 +232,14 @@ prompt lists, sanitized raw metric JSONs, and the compact CSV tables used here.
 The source snapshot includes all paper-specific preprocessing, construction,
 training, inference, and analysis modules together with a static internal-import
 closure check.  A code-to-paper map and core-file comments point to the
-corresponding method subsections.  The generated-data appendix records the
-construction targets (1,000 Wan50 and 5,000 Distill4 samples), LMDB schemas,
-deterministic split rule, and why ordinary public RGB video datasets cannot
-replace matched generator-internal states.
+corresponding method subsections.  The generated-data appendix records both
+construction targets and recovered realized manifests: Wan50 ITU and
+step-40/45 TTD each contain 1,000 records, and Distill4 ITU contains 5,000
+records.  It also records LMDB schemas, deterministic splits, prompt-hash
+counts, raw-video inventory sizes, and why ordinary public RGB video datasets
+cannot replace matched generator-internal states.  The Distill4 step-3 TTD LMDB
+is explicitly marked for a corrected legacy-path follow-up rather than being
+inferred from its training output.
 The media ZIP contains two matched prompt--seed groups.  Each group compares
 Trilinear, ITU-only, and InTraScale at 1248-by-720 resolution, 81 frames, and
 16 frames per second.  Legacy 640-by-368 files misleadingly named
@@ -435,7 +449,7 @@ claims, but full regeneration requires adding the final custom checkpoints.
 \section{Reproducibility Checklist Notes}
 
 The standalone checklist uses conservative answers.  This section records the
-evidence boundary behind every \emph{partial} or \emph{no} response.
+evidence boundary behind every response that is not \emph{yes}.
 
 \paragraph{Theoretical contributions (2.1--2.8).}
 The paper makes empirical and methodological contributions, not theorem-level
@@ -472,10 +486,10 @@ code-to-paper map cover each introduced method operation (4.6: \emph{yes}).
 Seeds and sample counts are explicit;
 paired bootstrap confidence intervals and two-sided sign tests use
 prompt--seed pairs as units (4.7 and 4.10--4.12: \emph{yes}).  The recovered
-environment identifies Linux, Python 3.11.13, NVIDIA H100 training resources,
-and the archived project revision, but lacks the exact GPU SKU and memory,
-CPU, driver, CUDA, PyTorch, and external-framework revisions (4.8:
-\emph{partial}).  Formal definitions and motivations cover every reported
+original-machine snapshot records the exact H100 SKU and memory, CPU and host
+memory, operating system, driver, CUDA/cuDNN, Python/PyTorch packages, and
+LightX2V, DiffSynth-Studio, and VBench revisions (4.8: \emph{yes}).
+Formal definitions and motivations cover every reported
 metric, and the supplied final-parameter inventory covers architecture, loss,
 training, generation, scheduler, attention, randomness, resolution, and timing
 settings for both suites (4.9 and 4.13: \emph{yes}).

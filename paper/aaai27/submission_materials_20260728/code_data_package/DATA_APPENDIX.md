@@ -65,3 +65,21 @@ The large LMDBs are not included in the review ZIP. The complete builders are
 under `code/`, and `tools/export_missing_repro_metadata.sh` exports exact shard,
 sample, schema, shape, split, and environment records from the original
 experiment machine without copying latent tensors.
+
+## Realized original-machine inventory
+
+The 2026-07-28 export verified 1,000 Wan50 ITU samples (10 shards), 1,000
+Wan50 step-40 TTD samples (12 shards), 1,000 Wan50 step-45 TTD samples
+(16 shards), and 5,000 Distill4 ITU samples (50 shards). Their realized
+train/validation counts are 950/50, 980/20, 980/20, and 4,900/100,
+respectively. The Wan50 collections contain 998 distinct prompt hashes; the
+Distill4 ITU collection contains 5,000. The source-video inventories contain
+1,002 Wan50 MP4 files (1,881,594,977 bytes) and 5,000 Distill4 MP4 files
+(6,866,319,417 bytes); the realized Wan50 LMDB uses 1,000 records.
+
+The first export followed a canonical Distill4 TTD3 directory that existed but
+contained no LMDB shards. A complete legacy-path training-output inventory
+exists through step 10,000, but that does not prove the latent-pair count.
+Accordingly, `data/generated_dataset_realized_manifest.json` marks this one
+collection as pending until the corrected candidate-path exporter is run; it
+does not promote the empty directory to dataset evidence.

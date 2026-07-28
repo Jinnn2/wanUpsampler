@@ -28,12 +28,12 @@ and Data 分别低于 Submission 21838 界面显示的 10 MB、50 MB 和 50 MB
 - 全宽 teaser 使用标准 `figure*`，位于第二页顶部；`main.tex` 不再使用
   `\g@addto@macro\@maketitle`、`\captionof` 或手工标题间距，原有模板
   合规风险已关闭。
-- standalone checklist 保留官方 31 个问题：18 个 `yes`、1 个
+- standalone checklist 保留官方 31 个问题：19 个 `yes`、0 个
   `partial`、2 个 `no`、4 个 `NA`；理论贡献总问题为 `no`，其 6 个
   条件项按官方 “If yes” 逻辑留空。Dataset Usage 明确区分实验中生成的
   模型内生样本与外部文献数据集。
-- 技术补充为 US Letter、5 页，给出训练配置、协议、完整扩展表和
-  checklist 中 `partial/no` 的证据边界。
+- 技术补充为 US Letter，给出训练配置、协议、完整扩展表和
+  checklist 中所有非 `yes` 项的证据边界。
 - Media ZIP 含 6 个 H.264 MP4；每个都已实际解码为 1248x720、
   5.0625 秒，无解码错误。两组内 prompt、seed 和 transition step
   严格匹配，所有 6 个视频均已抽帧目检。
@@ -52,10 +52,12 @@ and Data 分别低于 Submission 21838 界面显示的 10 MB、50 MB 和 50 MB
 
 1. 确认 Submission 21838 对应的 OpenReview abstract registration 已在
    截止时间前有效完成。
-2. Checklist 当前唯一的 `partial` 是 4.8 计算基础设施。需从原实验机
-   运行 `tools/export_missing_repro_metadata.sh`，取回 GPU/CPU/显存、
-   driver/CUDA/PyTorch、外部框架 revision 和 LMDB shard 元数据后才能
-   改为 `yes`。5 个完整自研 checkpoint 则用于完整端到端复现包。
+2. Checklist 4.8 计算基础设施已由 2026-07-28 原实验机导出补为
+   `yes`：GPU/显存、CPU/内存、OS、driver/CUDA/cuDNN、Python/PyTorch
+   与 LightX2V、DiffSynth-Studio、VBench revision 均已记录。VBench
+   独立 Python 环境的旧固定路径已不存在，但框架 commit 已精确固定；
+   Distill4 TTD3 的 legacy LMDB 路径仍需运行小型补导。5 个完整自研
+   checkpoint 仍用于完整端到端复现包。
 3. 确认录用后的源码、权重和生成数据公开许可证。未确认前，checklist
    中相关公开承诺保持 `no`。
 4. 上传后在网页端重新下载一次五个文件，并与 `SHA256SUMS.txt` 比对，

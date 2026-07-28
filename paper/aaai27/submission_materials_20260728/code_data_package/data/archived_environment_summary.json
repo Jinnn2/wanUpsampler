@@ -1,33 +1,84 @@
 {
-  "schema_version": 1,
-  "snapshots": [
+  "schema_version": 2,
+  "sanitization": "Machine-specific absolute paths, hostname, and user identifiers are omitted.",
+  "experiment_archive_snapshots": [
     {
       "generated_at_utc": "2026-07-17T09:26:48.514215+00:00",
-      "python": "3.11.13 | packaged by conda-forge | (main, Jun 4 2025, 14:48:23) [GCC 13.3.0]",
-      "platform": "Linux-5.14.0-284.25.1.el9_2.x86_64-x86_64-with-glibc2.35",
+      "python": "3.11.13",
+      "platform": "Linux 5.14.0, glibc 2.35",
       "wanupsampler_git_commit": "0d1dfb5e34b0a740e2e13971f9fedc4964ac886f"
     },
     {
       "generated_at_utc": "2026-07-18T03:51:37.631902+00:00",
-      "python": "3.11.13 | packaged by conda-forge | (main, Jun 4 2025, 14:48:23) [GCC 13.3.0]",
-      "platform": "Linux-5.14.0-284.25.1.el9_2.x86_64-x86_64-with-glibc2.35",
+      "python": "3.11.13",
+      "platform": "Linux 5.14.0, glibc 2.35",
       "wanupsampler_git_commit": "48e9e0af9df1125c5ea3a231e4e0834e1b8d6bf6"
     }
   ],
-  "author_reported_training_resources": {
-    "gpu_model": "NVIDIA H100",
+  "recovered_original_machine_snapshot": {
+    "captured_at_utc": "2026-07-28T14:45:02+00:00",
+    "hardware": {
+      "visible_gpu_count_at_export": 1,
+      "gpu_model": "NVIDIA H100 80GB HBM3",
+      "gpu_memory_mib": 81559,
+      "cpu_model": "Intel Xeon Platinum 8462Y+",
+      "cpu_sockets": 2,
+      "physical_cores_per_socket": 32,
+      "logical_cpu_count": 128,
+      "system_memory_bytes": 2159612928000
+    },
+    "operating_system": {
+      "distribution": "Ubuntu 22.04.5 LTS",
+      "kernel": "5.14.0-284.25.1.el9_2.x86_64",
+      "glibc": "2.35"
+    },
+    "gpu_stack": {
+      "nvidia_driver": "550.90.07",
+      "cuda_runtime_reported_by_torch": "12.8",
+      "nvcc": "12.8.93",
+      "cudnn_runtime": 91002,
+      "cudnn_package": "9.10.2.21",
+      "nccl_package": "2.27.3"
+    },
+    "core_packages": {
+      "python": "3.11.13",
+      "torch": "2.8.0+cu128",
+      "torchvision": "0.23.0+cu128",
+      "transformers": "4.57.1",
+      "diffusers": "0.32.2",
+      "accelerate": "1.11.0",
+      "safetensors": "0.6.2",
+      "numpy": "2.2.6",
+      "scipy": "1.16.3",
+      "opencv": "4.12.0",
+      "lmdb": "2.3.0",
+      "decord": "0.6.0",
+      "av": "16.0.1",
+      "imageio": "2.37.2",
+      "triton": "3.4.0"
+    },
+    "framework_revisions": {
+      "wanupsampler_audit_checkout": "27810decd8ae24c1d79dc792e354efe1869b886c",
+      "lightx2v": "c0fb09a827d86a73734cfd4729200b87a5f28d73",
+      "diffsynth_studio": "6fbd3dd6526c2aa985564b24a584e8d9e01fc236",
+      "vbench": "45e79ec14e69a2187202c675d2dbce1a71843d53"
+    },
+    "source_evidence_sha256": {
+      "python_runtime_json": "dda2c8ae5d3dee13f72efe00e589cc1298f82ca5f969240744593d801e90dea5",
+      "nvidia_smi_txt": "0f98202fcbd782ba9189589e728662944dd5a0c7ff0393324afb40ed3a76f424",
+      "cpu_memory_txt": "07d5aa58e1e7c6c43a818ebdd9bd8cd47cdddc0fca82c8fa2f3fbe5b4bafb02e",
+      "os_txt": "65ca2dd6e8d8f3e1e8b314b7a9019612ef1ef77346aacc3f2806d0286f1e5ca2",
+      "toolchain_txt": "2b07bd8aa2bcf3435b9744d65e6a424cf725b102acecd80ccda734db20cbef67"
+    }
+  },
+  "training_allocation": {
     "gpu_count": 4,
+    "gpu_model": "NVIDIA H100 80GB HBM3",
+    "evidence": "Author record and supplied four-rank training launchers; the later audit container exposed one GPU.",
     "itu_wall_clock_hours": 8,
     "ttd_wall_clock_hours": 33
   },
-  "still_missing": [
-    "GPU memory and exact GPU SKU",
-    "NVIDIA driver",
-    "CUDA, cuDNN, and NCCL versions",
-    "exact PyTorch and package freeze",
-    "LightX2V revision and dirty patch",
-    "DiffSynth-Studio revision and dirty patch",
-    "separate VBench environment freeze"
-  ],
-  "sanitization": "Machine-specific absolute paths and user identifiers are omitted."
+  "remaining_environment_gap": {
+    "separate_vbench_python_freeze": "The recorded executable path no longer existed at audit time; the exact VBench framework revision is nevertheless pinned above."
+  }
 }

@@ -71,6 +71,7 @@ mkdir -p "${OUTPUT_ROOT}/environment" "${OUTPUT_ROOT}/git"
 if command -v conda >/dev/null 2>&1; then
   conda env export > "${OUTPUT_ROOT}/environment/conda_environment.yml"
   conda list --explicit > "${OUTPUT_ROOT}/environment/conda_explicit.txt"
+  conda env list --json > "${OUTPUT_ROOT}/environment/conda_env_list.json"
 fi
 
 "${PYTHON_BIN}" - > "${OUTPUT_ROOT}/environment/python_runtime.json" <<'PY'
@@ -103,6 +104,30 @@ except Exception:
     pass
 print(json.dumps(out, indent=2, sort_keys=True))
 PY
+
+if [[ -n "${VBENCH_PYTHON:-}" && -x "${VBENCH_PYTHON}" ]]; then
+  mkdir -p "${OUTPUT_ROOT}/environment/vbench"
+  "${VBENCH_PYTHON}" -VV \
+    > "${OUTPUT_ROOT}/environment/vbench/python.txt" 2>&1
+  "${VBENCH_PYTHON}" -m pip freeze --all \
+    > "${OUTPUT_ROOT}/environment/vbench/pip_freeze.txt"
+  PYTHONPATH="${VBENCH_REPO:-}${PYTHONPATH:+:${PYTHONPATH}}" \
+    "${VBENCH_PYTHON}" - > "${OUTPUT_ROOT}/environment/vbench/runtime.json" <<'PY'
+import importlib
+import json
+import platform
+import sys
+
+out = {"python": sys.version, "platform": platform.platform(), "modules": {}}
+for name in ["torch", "torchvision", "numpy", "scipy", "cv2", "vbench"]:
+    try:
+        module = importlib.import_module(name)
+        out["modules"][name] = {"version": getattr(module, "__version__", None)}
+    except Exception as exc:
+        out["modules"][name] = {"error": repr(exc)}
+print(json.dumps(out, indent=2, sort_keys=True))
+PY
+fi
 
 capture_git() {
   local name="$1"

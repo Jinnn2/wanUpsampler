@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1785247714.35143 "main.tex" "main.pdf" "main" 1785247715.19933 0
+["pdflatex"] 1785250961.16226 "main.tex" "main.pdf" "main" 1785250961.96051 0
   "aaai2027.sty" 1779092464 16915 1b1c792e2acfbbd8b672259e267b95d8 ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/enc/dvips/base/8r.enc" 1777610000 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/enc/dvips/newtx/ntx-ec-tlf.enc" 1784399516 2914 fdbc4a54b9bc76f4551b5303f2737d33 ""
@@ -86,8 +86,8 @@
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1784399674 176285 e68d14301976c9be24b7e4c2db0f15c2 ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-var/web2c/pdftex/pdflatex.fmt" 1777610046 2242008 123ec13fe6cfb84c98f573694213d5bb ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf.cnf" 1777609962 903 164c5b127cd0d6dc91abad2f62421ea2 ""
-  "main.aux" 1785247715 510 f817142bdd16e4ff6a843615066d8bf8 "pdflatex"
-  "main.tex" 1785247588 21663 aaba9f8e17000254b4f5115d9e2d95de ""
+  "main.aux" 1785250961 510 5e97bf62434d1e56424ab492fc82dfd1 "pdflatex"
+  "main.tex" 1785250940 22702 dd776aaaab5802c2ef3e928ceb4cb9ba ""
   (generated)
   "main.aux"
   "main.log"

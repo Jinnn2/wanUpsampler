@@ -39,5 +39,6 @@
 当前材料是可直接上传的保守版候选包：主论文、Checklist、Technical、
 Media、Code and Data 均已生成。368p 原始逐样本证据已经找回并加入数据包。
 仍需作者确认的事项见 `OPEN_ISSUES_ZH.md`，其中最重要的是 OpenReview
-摘要注册状态、实验机环境快照、五个完整自研权重和公开许可证计划。Checklist
-已经如实把这些缺口回答为 `partial` 或 `no`。
+摘要注册状态、五个完整自研权重、Distill4 TTD3 legacy LMDB 补导和公开
+许可证计划。实验机环境快照已经取回，Checklist 4.8 已由 `partial` 补为
+`yes`；无法由证据代替的公开许可证承诺仍保持 `no`。

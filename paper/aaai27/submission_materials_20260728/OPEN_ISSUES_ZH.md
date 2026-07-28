@@ -15,16 +15,22 @@
   与旧导出清单一致。由原始记录重新计算的 latent L1、LPIPS 和 temporal
   L1 相对降幅分别为 33.3614%、51.0682% 和 15.5441%。匿名原始记录、
   逐样本 CSV、汇总表和确定性恢复脚本已加入代码数据包。
-- [ ] 从实际计时机器补录 GPU 型号/显存、CPU、操作系统、驱动、CUDA、
-  Python、PyTorch、LightX2V 和 DiffSynth revision。归档只保留了
-  单卡 resident-model 协议。现已恢复 Python 3.11.13、Linux
-  5.14/glibc 2.35、wanUpsampler commit 和作者记录的 4×H100 训练资源，
-  但驱动、CUDA、PyTorch、GPU 精确 SKU/显存及外部仓库 revision 仍缺。
+- [x] 已从原实验机补录基础设施：NVIDIA H100 80GB HBM3（81,559 MiB）、
+  双路 Intel Xeon Platinum 8462Y+、2,159,612,928,000 B RAM、Ubuntu
+  22.04.5、driver 550.90.07、CUDA 12.8、cuDNN 9.10.2、Python 3.11.13、
+  PyTorch 2.8.0+cu128，以及 LightX2V、DiffSynth-Studio 和 VBench
+  commit。导出时容器可见 1 卡；训练 launchers 和作者记录对应 4 卡任务，
+  两种口径已在证据摘要中明确区分。
 - [x] 已提供轻量导出脚本
   `code_data_package/tools/export_missing_repro_metadata.sh`：不复制权重、
   视频或 latent tensor，只导出环境、Git revision、LMDB shard/sample/
   schema/shape/seed 与确定性 split 证据。远程入口和确切目录见
-  `REMOTE_EVIDENCE_LOCATIONS_ZH.md`；本次因跳板端口拒绝连接尚未执行。
+  `REMOTE_EVIDENCE_LOCATIONS_ZH.md`。2026-07-28 的首轮导出已执行并通过
+  27 项 metadata 内部 SHA-256 校验；四个 realized LMDB 集合已核实。
+- [ ] 运行 `remote_export/export_temp_followup.sh`，补查 Distill4 TTD3
+  legacy LMDB 的实际 shards/samples，并尝试从 conda 环境清单定位已经
+  迁移的 VBench Python。首轮固定路径 `/opt/conda/envs/vbench/bin/python`
+  已不存在，不能伪造其 freeze。
 - [ ] 在原实验机运行 `tools/export_full_repro_bundle.sh`，取回 5 个最终
   checkpoint：Wan50 ITU、Wan50 TTD step40/45、Distill4 ITU、Distill4
   TTD step3。脚本已经写入每个文件的精确大小和 SHA-256，缺失、截断或
@@ -43,9 +49,9 @@
   50 MB、Code and Data 50 MB。
 - [ ] 对补充 PDF 和 ZIP 做人工匿名检查：PDF properties、注释、绝对路径、
   用户名、邮件、实验室标志、可识别声音和校园场景。
-- [x] 已逐项核对 31 个 checklist 问题；本地证据已将数据描述、开发范围、
-  预处理/实验源码、代码映射、指标定义和最终参数补为 `yes`。缺失的精确
-  基础设施仍为 `partial`，未选择公开许可证仍为 `no`。
+- [x] 已逐项核对 31 个 checklist 问题；数据描述、开发范围、
+  预处理/实验源码、代码映射、基础设施、指标定义和最终参数均有证据并答为
+  `yes`。未选择公开许可证仍为 `no`。
 - [x] `main.tex` 已移除 `\g@addto@macro\@maketitle`、`\captionof` 和
   手工标题间距，改用标准 `figure*`；teaser 经编译和逐页视觉检查确认位于
   第二页顶部。`origin.tex` 保持不变，正文仍为 7 页、参考文献仍为 2 页。

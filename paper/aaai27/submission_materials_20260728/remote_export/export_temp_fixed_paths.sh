@@ -51,6 +51,7 @@ WAN50_TTD40_LMDB="${PROJECT_ROOT}/data/changing_resolution/lmdb_tail_skip_lora_s
 WAN50_TTD45_LMDB="${PROJECT_ROOT}/data/changing_resolution/lmdb_tail_skip_lora_step45_to_step50"
 DISTILL4_ITU_LMDB="${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_clean_368x640_720x1248_14b_cfgdistill_5k"
 DISTILL4_TTD3_LMDB="${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3"
+DISTILL4_TTD3_LEGACY_LMDB="${PROJECT_ROOT}/data/changing_resolution_distill/lmdb_last_step_skip_lora_14b_cfgdistill_5k_step3"
 
 WAN50_ITU_OUTPUT="${PROJECT_ROOT}/outputs/changing_resolution_clean_368x640_720x1248_stage2_lmdb"
 WAN50_TTD40_OUTPUT="${PROJECT_ROOT}/outputs/changing_resolution_tail_skip_lora_step40_to_step50_temporal"
@@ -83,6 +84,24 @@ if [[ -e "${RUN_ROOT}" || -e "${ARCHIVE}" ]]; then
 fi
 mkdir -p "${EXPORT_PARENT}" "${RUN_ROOT}/audit"
 
+if [[ ! -x "${VBENCH_PYTHON}" ]] && command -v conda >/dev/null 2>&1; then
+  while IFS= read -r env_root; do
+    candidate="${env_root}/bin/python"
+    if [[ -x "${candidate}" ]] && \
+        PYTHONPATH="${VBENCH_REPO}${PYTHONPATH:+:${PYTHONPATH}}" \
+          "${candidate}" -c 'import vbench' >/dev/null 2>&1; then
+      VBENCH_PYTHON="${candidate}"
+      export VBENCH_PYTHON
+      break
+    fi
+  done < <(conda env list 2>/dev/null | awk '!/^#/ && NF {print $NF}')
+fi
+
+if ! find "${DISTILL4_TTD3_LMDB}" -type f -name data.mdb -print -quit \
+    2>/dev/null | grep -q .; then
+  DISTILL4_TTD3_LMDB="${DISTILL4_TTD3_LEGACY_LMDB}"
+fi
+
 PREFLIGHT="${RUN_ROOT}/audit/preflight_paths.tsv"
 printf 'kind\tlogical_name\trequired\tstatus\tpath\n' > "${PREFLIGHT}"
 MISSING_REQUIRED=0
@@ -97,6 +116,10 @@ record_path() {
     dir) [[ -d "${path}" ]] && status="present" ;;
     file) [[ -f "${path}" ]] && status="present" ;;
     exe) [[ -x "${path}" ]] && status="present" ;;
+    lmdb)
+      find "${path}" -type f -name data.mdb -print -quit 2>/dev/null \
+        | grep -q . && status="present"
+      ;;
     *) echo "Unknown path kind: ${kind}" >&2; exit 2 ;;
   esac
   printf '%s\t%s\t%s\t%s\t%s\n' \
@@ -117,11 +140,11 @@ record_path exe wan_python yes "${WAN_PYTHON}"
 record_path exe vbench_python yes "${VBENCH_PYTHON}"
 record_path dir wan50_raw_videos yes "${WAN50_RAW_VIDEO_DIR}"
 record_path dir distill4_raw_videos yes "${DISTILL4_RAW_VIDEO_DIR}"
-record_path dir wan50_itu_lmdb yes "${WAN50_ITU_LMDB}"
-record_path dir wan50_ttd40_lmdb yes "${WAN50_TTD40_LMDB}"
-record_path dir wan50_ttd45_lmdb yes "${WAN50_TTD45_LMDB}"
-record_path dir distill4_itu_lmdb yes "${DISTILL4_ITU_LMDB}"
-record_path dir distill4_ttd3_lmdb yes "${DISTILL4_TTD3_LMDB}"
+record_path lmdb wan50_itu_lmdb yes "${WAN50_ITU_LMDB}"
+record_path lmdb wan50_ttd40_lmdb yes "${WAN50_TTD40_LMDB}"
+record_path lmdb wan50_ttd45_lmdb yes "${WAN50_TTD45_LMDB}"
+record_path lmdb distill4_itu_lmdb yes "${DISTILL4_ITU_LMDB}"
+record_path lmdb distill4_ttd3_lmdb yes "${DISTILL4_TTD3_LMDB}"
 record_path file metadata_exporter yes "${METADATA_EXPORTER}"
 record_path file full_exporter yes "${FULL_EXPORTER}"
 record_path file asset_manifest yes "${PACKAGE_ROOT}/reproduction_assets.json"
