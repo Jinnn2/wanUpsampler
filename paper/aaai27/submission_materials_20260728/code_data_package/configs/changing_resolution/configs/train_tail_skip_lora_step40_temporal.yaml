@@ -1,0 +1,79 @@
+# Step40 tail-skip LoRA with temporal-difference supervision.
+
+task:
+  name: tail_skip_lora
+  recipe: wan21_50step_tail_skip_lora_step40_to_step50_temporal
+  input_key: x_pre_step_lr
+  target_key: z_final_lr_teacher
+  train_step: 40
+  target_step: 50
+
+data:
+  lmdb_dir: data/changing_resolution/lmdb_tail_skip_lora_step40_to_step50
+  max_samples: null
+  val_ratio: 0.02
+  val_max_samples: 64
+  expected_keys:
+    - x_pre_step_lr
+    - z_final_lr_teacher
+    - z0_hr
+    - prompt
+    - seed
+    - meta
+
+model:
+  framework: diffsynth-studio
+  base_model_id: Wan-AI/Wan2.1-T2V-1.3B
+  model_paths: null
+  model_id_with_origin_paths: null
+  tokenizer_path: null
+  model_cls: wan2.1
+  lora_base_model: dit
+  lora_target_modules: q,k,v,o,ffn.0,ffn.2
+  lora_rank: 32
+  lora_alpha: 32
+  lora_checkpoint: null
+  preset_lora_path: null
+  preset_lora_model: null
+  remove_prefix_in_ckpt: pipe.dit.
+  freeze_base_model: true
+  enable_cfg: true
+  negative_prompt: ""
+  sample_guide_scale: 6.0
+
+wan:
+  infer_steps: 50
+  train_step: 40
+  sample_shift: 8
+  sample_guide_scale: 6
+
+train:
+  precision: bf16
+  batch_size: 1
+  grad_accum: 8
+  lr: 5.0e-5
+  weight_decay: 0.01
+  max_steps: 10000
+  num_workers: 4
+  log_every: 10
+  save_every: 500
+  eval_every: 500
+  val_batches: 0
+  grad_clip_norm: 1.0
+  gradient_checkpointing: true
+  gradient_checkpointing_offload: false
+  ema_decay: null
+  seed: 1234
+  training_mode: cached_x_pre_step
+
+loss:
+  l1_weight: 1.0
+  mse_weight: 0.1
+  temporal_weight: 0.05
+  velocity_mse_weight: 0.0
+  velocity_l1_weight: 0.0
+
+output:
+  out_dir: outputs/changing_resolution_tail_skip_lora_step40_to_step50_temporal
+  checkpoint_format: lora_only
+  remove_prefix_in_ckpt: pipe.dit.

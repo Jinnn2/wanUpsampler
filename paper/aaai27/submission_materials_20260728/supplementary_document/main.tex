@@ -1,0 +1,483 @@
+\documentclass[letterpaper]{article}
+\usepackage[submission]{aaai2027}
+\usepackage[hyphens]{url}
+\urlstyle{rm}
+\def\UrlFont{\rm}
+\usepackage{natbib}
+\usepackage{caption}
+\frenchspacing
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{graphicx}
+
+\setlength{\pdfpagewidth}{8.5in}
+\setlength{\pdfpageheight}{11in}
+
+\pdfinfo{
+/TemplateVersion (2027.1)
+}
+
+\title{Supplementary Material for\\
+InTraScale: Accelerating Video Generation via In-Trajectory Resolution Scaling}
+\author{Anonymous Submission}
+\affiliations{}
+
+\begin{document}
+\maketitle
+
+\section{Scope and Evidence Conventions}
+
+This supplement provides implementation details, protocol definitions,
+additional results, and paired statistical analyses for InTraScale.  The main
+paper remains self-contained.  All comparisons within a suite use matched text
+prompts, generation seeds, initial noise, scheduler, guidance, frame count, and
+output resolution.
+
+\paragraph{Metric naming.}
+We evaluate Subject Consistency, Background Consistency, Motion Smoothness,
+Aesthetic Quality, and Imaging Quality using the VBench custom-input protocol.
+We call their unweighted mean \emph{VBench-5}.  VBench-5 is a compact
+paper-specific summary and is not the official VBench Quality, Semantic, or
+Total score.  Paired analyses use prompt--seed pairs as statistical units.
+
+\paragraph{Method naming and provenance.}
+The immutable experiment archives predate the final terminology.  Internal
+case identifiers containing \texttt{talh}, \texttt{cll}, or \texttt{stage2}
+denote InTraScale, ITU-only, and ITU, respectively.  The code-and-data package
+contains an explicit mapping and retains the internal identifiers so that
+archived results remain traceable.
+
+\paragraph{Evidence coverage.}
+The package includes validated Wan50 and Distill4 quality, timing, component,
+and paired-statistics exports.  It also includes the checksum-verified
+50-sample raw \(368{\times}640\rightarrow720{\times}1248\) ITU operator
+evaluation and a deterministic aggregation script.  The local archive does not
+contain the complete custom ITU/TTD checkpoints or exact hardware/software
+version metadata.  These missing items are not reconstructed from filenames or
+earlier prose.
+
+\section{Implementation and Training Details}
+
+\subsection{In-Trajectory Upsampler}
+
+ITU maps a 16-channel clean video latent to the target spatial grid without
+changing the temporal dimension.  A 3D input projection and four
+spatiotemporal residual blocks precede the spatial lifting operator; four
+further residual blocks and a 3D output projection reconstruct the target
+latent.  The hidden width is 256.  For the \(3/2\) grid ratio, a \(3\times\)
+PixelShuffle is followed by anti-aliased stride-2 downsampling.  For the
+approximately \(2\times\) ratio, a \(2\times\) PixelShuffle produces a
+\(92\times160\) latent grid that is center-cropped to \(90\times156\).
+
+ITU minimizes
+\[
+  \mathcal{L}_{\mathrm{ITU}}
+  =\mathcal{L}_{\mathrm{rec}}
+   +0.2\mathcal{L}_{\mathrm{lf}}
+   +0.1\mathcal{L}_{\mathrm{temp}},
+\]
+where the reconstruction term is Charbonnier loss with
+\(\epsilon=10^{-3}\), the low-frequency term preserves downsampled content,
+and the temporal term matches first-order latent differences.
+
+\subsection{Trajectory-Tail Distillation}
+
+TTD is a transition-local LoRA update.  It targets the attention
+\(q,k,v,o\) projections and the two feed-forward projections, uses rank and
+training scale \(r=\alpha=32\), and keeps the base denoiser frozen.  Its loss is
+\[
+  \mathcal{L}_{\mathrm{TTD}}
+  =\mathcal{L}_{1}+0.1\mathcal{L}_{\mathrm{MSE}}
+   +\lambda_{\mathrm{tt}}\mathcal{L}_{\mathrm{temp}}.
+\]
+We use \(\lambda_{\mathrm{tt}}=0.05\) for Wan50 step 40 and zero for Wan50
+step 45 and Distill4 step 3.  The inference strength is selected from
+\(\{0.25,0.5,0.75,1.0\}\) on held-out development prompts; \(0.75\) is then
+fixed for the test sets.
+
+\begin{table}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lcc}
+    \toprule
+    Setting & ITU & TTD \\
+    \midrule
+    Optimizer & AdamW & AdamW \\
+    Maximum steps & 50,000 & 10,000 \\
+    Precision & bf16 & bf16 \\
+    Learning rate & \(1{\times}10^{-4}\) & \(5{\times}10^{-5}\) \\
+    Weight decay & 0.01 & 0.01 \\
+    Effective batch size & 8 & 8 \\
+    Gradient clipping & 1.0 & 1.0 \\
+    Training seed & 1234 & 1234 \\
+    EMA & 0.9999 & none \\
+    Validation fraction & 0.05 & 0.02 \\
+    Trainable parameters & ITU only & rank-32 LoRA only \\
+    \bottomrule
+  \end{tabular}
+  \caption{Final training settings encoded in the supplied configurations.
+  ITU uses batch size 1 with distributed ranks/accumulation totaling an
+  effective batch size of 8.}
+  \label{tab:training}
+\end{table}
+
+\paragraph{Complete final-parameter inventory.}
+Table~\ref{tab:training} gives the shared optimization settings.  ITU has 16
+input/output channels, hidden width 256, eight residual blocks, zero dropout,
+and no residual bypass.  Its main \(368{\times}640\) route uses the
+\(2\times\) PixelShuffle-and-crop operator; the \(480{\times}832\) operator
+study uses the rational \(3/2\) operator.  The remaining ITU loss weights are
+\((\lambda_{\mathrm{rec}},\lambda_{\mathrm{lf}},
+\lambda_{\mathrm{temp}},\lambda_{\mathrm{res}})
+=(1,0.2,0.1,0)\).  TTD uses batch size one per rank, rank and
+\(\alpha\) equal to 32, targets \(q,k,v,o,\mathrm{ffn}.0,\mathrm{ffn}.2\),
+uses \(L_1\) and MSE weights \(1\) and \(0.1\), and has zero velocity-loss
+weights.  Checkpoints are written every 1,000 ITU steps and 500 TTD steps.
+The machine-readable inventory in the code-and-data package additionally lists
+every generation, scheduler, attention, guidance, resolution, seed, and timing
+parameter for each suite.
+
+\paragraph{Development ranges and selection.}
+The development variables, and no others, were swept for final protocol
+selection.  Wan50 transition steps \(\{30,35,40,45,50\}\) were inspected under
+matched prompt--seed generation; steps 40 and 45 are both reported to expose
+the quality--efficiency trade-off.  Wan50 step-40 TTD strength was evaluated at
+\(\{0.5,0.75,1.0\}\).  Distill4 evaluated the Cartesian product of TTD strength
+\(\{0.25,0.5,0.75,1.0\}\) and reconstruction noise
+\(\{\text{random},\text{resized LR flow}\}\) on eight validation-only prompts.
+The rule was to maximize validation VBench-5; exact ties prefer lower strength
+and then lexicographic noise mode.  This selected strength \(0.75\) with random
+target-grid noise.  Endpoint baselines report, rather than select among, all
+refinement counts \(\{0,1,2,4\}\) and all three resizers
+\{latent interpolation, ITU, RGB Real-ESRGAN\}.  Architecture, optimizer, loss,
+LoRA-rank, guidance, and scheduler settings were fixed before these recorded
+sweeps and were not chosen on the final test prompts.
+
+\section{Evaluation Protocol}
+
+\paragraph{Generation.}
+Wan50 uses Wan2.1 T2V-1.3B with 50 denoising evaluations and transition steps
+40 or 45 for InTraScale.  Distill4 uses Wan2.1 T2V-14B
+StepDistill-CfgDistill with scheduler steps
+\([1000,750,500,250]\); InTraScale-D4 performs three low-resolution
+evaluations and one target-resolution evaluation.  Every output contains 81
+frames at \(720\times1248\).
+
+\paragraph{Prompts and randomness.}
+Quality uses ten matched prompt--seed pairs in each suite.  Wan50 uses seeds
+9700--9709 and Distill4 uses seeds 9800--9809.  The state-reconstruction and
+strength selection study uses eight disjoint prompts with seed base 16000.
+Prompt lists are included in the code-and-data package.
+
+\paragraph{Metrics and motivation.}
+Let \(x,\hat{x}\in[0,1]^N\) denote matched decoded RGB videos.  We define
+\(\mathrm{MSE}=N^{-1}\lVert x-\hat{x}\rVert_2^2\) and
+\(\mathrm{PSNR}=10\log_{10}(1/\mathrm{MSE})\); PSNR measures absolute
+reconstruction fidelity.  SSIM compares local luminance, contrast, and
+structure and therefore complements pixel error.  LPIPS is the mean learned
+feature distance between corresponding decoded frames and measures perceptual
+rather than exact-pixel agreement.  Latent \(L_1\) is the elementwise mean
+absolute difference between predicted and target clean latents.  Temporal
+\(L_1\) is
+\(N_{\Delta}^{-1}\lVert\Delta_t x-\Delta_t\hat{x}\rVert_1\), measuring whether
+first-order frame evolution is preserved.  HF-energy error is the absolute
+difference between mean high-pass residual energies after removing the
+low-pass component, measuring detail-statistics mismatch.
+
+For generated-video quality, VBench-5 is
+\[
+ \tfrac15(S_{\mathrm{subj}}+S_{\mathrm{back}}+S_{\mathrm{motion}}
+             +S_{\mathrm{aesthetic}}+S_{\mathrm{imaging}}).
+\]
+The five terms jointly test subject persistence, background stability, smooth
+motion, perceptual appeal, and imaging/detail quality; their unweighted mean is
+a transparent paper-specific summary, not an official VBench aggregate.
+Temporal Consistency is also shown separately when diagnosing scheduler-state
+reconstruction.  End-to-end latency is measured because the paper's primary
+claim is reducing generation cost while retaining quality; its precise
+inclusion boundary is given next.
+
+\paragraph{Warm latency.}
+The model and checkpoints remain resident in one process.  We run one untimed
+warm-up and then five matched generations.  CUDA synchronization surrounds
+each measurement.  Pipeline latency covers denoising, TTD, ITU, scheduler
+state reconstruction, VAE decoding, and output writing; it excludes runner
+construction and checkpoint loading.  Exact GPU, driver, CUDA, and framework
+versions were not preserved in the local export and are not included in this
+review package.
+
+\paragraph{Statistics.}
+For quality, we report prompt-paired means, nonparametric bootstrap 95\%
+confidence intervals, win/loss counts, and two-sided sign tests.  Timing
+variation is the sample standard deviation across the five warm repeats.
+These two forms of uncertainty are not interchanged.
+
+\section{Code, Data, and Media Inventory}
+
+The accompanying code-and-data ZIP contains the ITU model, TTD LoRA utilities,
+Wan50 and Distill4 bridges, data builders, training entry points, inference
+runners, VBench aggregation, paired-statistics scripts, final configurations,
+prompt lists, sanitized raw metric JSONs, and the compact CSV tables used here.
+The source snapshot includes all paper-specific preprocessing, construction,
+training, inference, and analysis modules together with a static internal-import
+closure check.  A code-to-paper map and core-file comments point to the
+corresponding method subsections.  The generated-data appendix records the
+construction targets (1,000 Wan50 and 5,000 Distill4 samples), LMDB schemas,
+deterministic split rule, and why ordinary public RGB video datasets cannot
+replace matched generator-internal states.
+The media ZIP contains two matched prompt--seed groups.  Each group compares
+Trilinear, ITU-only, and InTraScale at 1248-by-720 resolution, 81 frames, and
+16 frames per second.  Legacy 640-by-368 files misleadingly named
+\texttt{Native-HR} are explicitly excluded.
+
+\paragraph{Reproducibility boundary.}
+Public base-model weights, large latent LMDBs, and generated-video test sets are
+not duplicated.  More importantly, the current local archive does not contain
+the final custom ITU/TTD weights.  The package therefore supports independent
+audit of implementation, protocols, raw metric exports, and statistical
+claims, but full regeneration requires adding the final custom checkpoints.
+
+\section{Additional Wan50 Results}
+
+\begin{table*}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{lrrrr}
+    \toprule
+    Method & LR evals & HR evals & VBench-5 \(\uparrow\) &
+    Warm latency (s) \(\downarrow\) \\
+    \midrule
+    Native-HR & 0 & 50 & 0.82836 & \(187.54\pm0.26\) \\
+    Trilinear@40 & 40 & 10 & 0.77812 & \(58.12\pm0.20\) \\
+    InTraScale@40 & 40 & 10 & 0.80983 & \(58.49\pm0.16\) \\
+    Trilinear@45 & 45 & 5 & 0.76776 & \(41.98\pm0.19\) \\
+    RALU-style@45 & 45 & 5 & 0.80440 & \(42.01\pm0.19\) \\
+    InTraScale@45 & 45 & 5 & 0.80792 & \(42.26\pm0.20\) \\
+    Trilinear@48 & 48 & 2 & 0.76409 & \(32.27\pm0.18\) \\
+    ITU-0HR & 50 & 0 & 0.79647 & \(25.88\pm0.11\) \\
+    ITU-1HR & 50 & 1 & 0.80093 & \(29.46\pm0.22\) \\
+    ITU-2HR & 50 & 2 & 0.80355 & \(33.23\pm0.10\) \\
+    ITU-5HR (LUVE-style) & 50 & 5 & 0.80073 & \(44.00\pm0.27\) \\
+    \bottomrule
+  \end{tabular}
+  \caption{Wan50 warm-model operating points.  Endpoint-first ITU baselines
+  complete all 50 low-resolution evaluations before lifting and optional
+  target-resolution refinement.}
+  \label{tab:wan50-full}
+\end{table*}
+
+\subsection{ITU Cross-Resolution Reconstruction}
+
+\begin{table}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{3.2pt}
+  \begin{tabular}{llrrr}
+    \toprule
+    Input & Metric & Trilinear & ITU & Wins \\
+    \midrule
+    \(480p\) & Latent \(L_1\) \(\downarrow\) & 0.19288 & 0.09913 & 49/50 \\
+    \(480p\) & PSNR \(\uparrow\) & 24.2927 & 29.9980 & 50/50 \\
+    \(480p\) & SSIM \(\uparrow\) & 0.71588 & 0.86961 & 49/50 \\
+    \(480p\) & LPIPS \(\downarrow\) & 0.23575 & 0.06294 & 50/50 \\
+    \(480p\) & Temporal \(L_1\) \(\downarrow\) & 0.02121 & 0.01468 & 50/50 \\
+    \(480p\) & HF-energy error \(\downarrow\) & 0.00449 & 0.00161 & 48/50 \\
+    \midrule
+    \(368p\) & Latent \(L_1\) \(\downarrow\) & 0.24437 & 0.16284 & 50/50 \\
+    \(368p\) & PSNR \(\uparrow\) & 23.4238 & 24.1021 & 37/50 \\
+    \(368p\) & SSIM \(\uparrow\) & 0.67404 & 0.75920 & 48/50 \\
+    \(368p\) & LPIPS \(\downarrow\) & 0.33522 & 0.16403 & 50/50 \\
+    \(368p\) & Temporal \(L_1\) \(\downarrow\) & 0.02388 & 0.02017 & 49/50 \\
+    \(368p\) & HF-energy error \(\downarrow\) & 0.00792 & 0.00233 & 50/50 \\
+    \bottomrule
+  \end{tabular}
+  \caption{ITU operator evaluation on 50 clean-latent pairs per setting.
+  ``Wins'' counts samples on which ITU is better.  The raw 368p records and
+  deterministic aggregation script accompany the submission.}
+  \label{tab:itu-operator}
+\end{table}
+
+\subsection{TTD Endpoint Alignment}
+
+\begin{table*}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lrrrrr}
+    \toprule
+    Transition & Base \(L_1\) & TTD \(L_1\) & Reduction &
+    95\% CI of improvement & Wins \\
+    \midrule
+    Wan50 \(s=40\) & 0.03215 & 0.02385 & 25.82\% &
+    [0.00479, 0.01302] & 10/10 \\
+    Wan50 \(s=45\) & 0.02363 & 0.01866 & 21.03\% &
+    [0.00260, 0.00840] & 10/10 \\
+    Distill4 \(s=3\) & 0.04286 & 0.04070 & 5.03\% &
+    [0.00148, 0.00299] & 10/10 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Prompt-paired endpoint alignment at the selected TTD strength
+  \(\lambda=0.75\).  Positive confidence intervals indicate lower endpoint
+  \(L_1\) after TTD.}
+  \label{tab:ttd-endpoint}
+\end{table*}
+
+\subsection{Factorial Separation of ITU and TTD}
+
+\begin{table*}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{llrrr}
+    \toprule
+    Suite & Effect & Before & After & \(\Delta\) VBench-5 \\
+    \midrule
+    Wan50@40 & ITU within matched transition & 0.77812 & 0.80896 & +0.03085 \\
+    Wan50@40 & TTD within ITU & 0.80896 & 0.80983 & +0.00087 \\
+    Wan50@45 & ITU within matched transition & 0.76776 & 0.80842 & +0.04066 \\
+    Wan50@45 & TTD within ITU & 0.80842 & 0.80792 & \(-0.00050\) \\
+    Distill4@3 & ITU within matched transition & 0.81796 & 0.85670 & +0.03874 \\
+    Distill4@3 & TTD within ITU & 0.85670 & 0.85680 & +0.00010 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Factorial quality effects.  ITU supplies the dominant aggregate
+  perceptual gain; TTD targets transition endpoint mismatch rather than acting
+  as a general perceptual enhancer.}
+  \label{tab:factorial}
+\end{table*}
+
+\section{Additional Distill4 Results}
+
+\begin{table*}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{3.2pt}
+  \begin{tabular}{lrrrrrrrr}
+    \toprule
+    Method & LR/HR & Subject & Background & Motion & Aesthetic & Imaging &
+    VBench-5 & Latency (s) \\
+    \midrule
+    Native-HR4 & 0/4 & 0.97186 & 0.97557 & 0.99123 & 0.65203 & 0.71135 &
+    0.86041 & 42.49 \\
+    Trilinear@3 & 3/1 & 0.95932 & 0.96937 & 0.98376 & 0.58954 & 0.58783 &
+    0.81796 & 18.33 \\
+    InTraScale-D4@3 & 3/1 & 0.96226 & 0.97026 & 0.98815 & 0.64914 & 0.71418 &
+    0.85680 & 19.92 \\
+    ITU-2HR (LUVE-style) & 4/2 & 0.96238 & 0.97341 & 0.98683 & 0.65191 &
+    0.72450 & 0.85981 & 28.76 \\
+    MrFlow-style & 4/1 & 0.96379 & 0.97259 & 0.98796 & 0.65491 & 0.71591 &
+    0.85903 & 27.12 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Distill4 warm-model quality--efficiency.  The last two methods are
+  endpoint-first baselines and perform additional processing after completing
+  the four-step low-resolution trajectory.}
+  \label{tab:distill4-full}
+\end{table*}
+
+\begin{table*}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{llrrrr}
+    \toprule
+    Baseline & Metric & Baseline--InTraScale & 95\% CI & Wins/Losses & \(p\) \\
+    \midrule
+    Trilinear@3 & VBench-5 & \(-0.03884\) & [\(-0.04840,-0.02921\)] &
+    0/10 & 0.00195 \\
+    Trilinear@3 & Temporal & \(-0.00264\) & [\(-0.00434,-0.00130\)] &
+    1/9 & 0.02148 \\
+    ITU-2HR & VBench-5 & \(+0.00301\) & [0.00077, 0.00564] &
+    7/3 & 0.34375 \\
+    ITU-2HR & Temporal & \(-0.00333\) & [\(-0.00547,-0.00152\)] &
+    1/9 & 0.02148 \\
+    MrFlow-style & VBench-5 & \(+0.00223\) & [\(-0.00277,0.00752\)] &
+    6/4 & 0.75391 \\
+    MrFlow-style & Temporal & \(-0.00180\) & [\(-0.00289,-0.00075\)] &
+    2/8 & 0.10938 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Distill4 prompt-paired statistics.  Differences are baseline minus
+  InTraScale; ``Temporal'' is temporal consistency, so higher is better.
+  \(p\) is the two-sided sign-test value.}
+  \label{tab:distill4-stats}
+\end{table*}
+
+\subsection{Scheduler-State Reconstruction and Strength Selection}
+
+\begin{table*}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lrrrr}
+    \toprule
+    Target-grid noise & TTD strength & VBench-5 & Temporal consistency & Selected \\
+    \midrule
+    Seed-derived Gaussian & 0.25 & 0.83816 & 0.97476 & no \\
+    Seed-derived Gaussian & 0.50 & 0.83893 & 0.97468 & no \\
+    Seed-derived Gaussian & 0.75 & 0.84009 & 0.97465 & yes \\
+    Seed-derived Gaussian & 1.00 & 0.83933 & 0.97464 & no \\
+    Resized LR flow & 0.25 & 0.81467 & 0.95862 & no \\
+    Resized LR flow & 0.50 & 0.81488 & 0.95853 & no \\
+    Resized LR flow & 0.75 & 0.81526 & 0.95860 & no \\
+    Resized LR flow & 1.00 & 0.81486 & 0.95859 & no \\
+    \bottomrule
+  \end{tabular}
+  \caption{Eight-prompt development study.  Scheduler-consistent
+  target-resolution noise improves both summary quality and temporal
+  consistency across all tested TTD strengths.}
+  \label{tab:state-reconstruction}
+\end{table*}
+\FloatBarrier
+
+\section{Reproducibility Checklist Notes}
+
+The standalone checklist uses conservative answers.  This section records the
+evidence boundary behind every \emph{partial} or \emph{no} response.
+
+\paragraph{Theoretical contributions (2.1--2.8).}
+The paper makes empirical and methodological contributions, not theorem-level
+theoretical contributions.  The conditional items 2.2--2.8 are therefore left
+blank in the standalone checklist, as directed by the ``If yes'' condition.
+
+\paragraph{Dataset usage (3.2--3.7).}
+All training and evaluation samples are generated or constructed within the
+experiments using the frozen base generator and author-defined prompt--seed
+protocols; the paper does not draw a dataset from the existing literature.
+Model-endogenous supervision is selected because ITU must learn the
+VAE-specific cross-resolution correspondence and TTD requires matched states
+from the same generated trajectory, supporting \emph{yes} for item 3.2.
+These intermediate training and evaluation collections are not introduced as
+a new dataset contribution, so items 3.3--3.6 are \emph{NA}.  Their
+construction is described and the code-and-data supplement includes the exact
+test and development prompt lists, dataset builders, sanitized metric exports,
+and 50-sample \(368p\) operator records.  The generated-data appendix now gives
+the construction targets, schemas, deterministic split algorithm, and the
+scientific reason conventional public video collections are not substitutes;
+item 3.7 is therefore \emph{yes}.  Large generated videos and latent LMDB
+tensors remain excluded because detailed description, rather than inclusion,
+is what item 3.7 requests.
+
+\paragraph{Computational experiments (4.2--4.13).}
+The supplement and machine-readable development record enumerate every
+parameter varied for final selection, the number and values tried, the
+selection rule, and which settings were fixed without a test-set search (4.2:
+\emph{yes}).  All paper-specific preprocessing, training, inference,
+evaluation, and analysis sources are supplied and pass the included
+internal-import closure check (4.3--4.4: \emph{yes}).  A public-release license
+has not been selected (4.5: \emph{no}).  Core implementation comments and the
+code-to-paper map cover each introduced method operation (4.6: \emph{yes}).
+Seeds and sample counts are explicit;
+paired bootstrap confidence intervals and two-sided sign tests use
+prompt--seed pairs as units (4.7 and 4.10--4.12: \emph{yes}).  The recovered
+environment identifies Linux, Python 3.11.13, NVIDIA H100 training resources,
+and the archived project revision, but lacks the exact GPU SKU and memory,
+CPU, driver, CUDA, PyTorch, and external-framework revisions (4.8:
+\emph{partial}).  Formal definitions and motivations cover every reported
+metric, and the supplied final-parameter inventory covers architecture, loss,
+training, generation, scheduler, attention, randomness, resolution, and timing
+settings for both suites (4.9 and 4.13: \emph{yes}).
+
+\end{document}

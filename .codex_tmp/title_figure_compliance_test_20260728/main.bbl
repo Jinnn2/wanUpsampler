@@ -1,0 +1,160 @@
+\begin{thebibliography}{31}
+\providecommand{\natexlab}[1]{#1}
+
+\bibitem[{Anagnostidis et~al.(2025)Anagnostidis, Bachmann, Kim, Kohler, Georgopoulos, Sanakoyeu, Du, Pumarola, Thabet, and Sch{\"o}nfeld}]{anagnostidis2025flexidit}
+Anagnostidis, S.; Bachmann, G.; Kim, Y.; Kohler, J.; Georgopoulos, M.; Sanakoyeu, A.; Du, Y.; Pumarola, A.; Thabet, A.; and Sch{\"o}nfeld, E. 2025.
+\newblock {FlexiDiT}: Your Diffusion Transformer Can Easily Generate High-Quality Samples with Less Compute.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, 28316--28326.
+
+\bibitem[{Blattmann et~al.(2023)Blattmann, Rombach, Ling, Dockhorn, Kim, Fidler, and Kreis}]{blattmann2023videoldm}
+Blattmann, A.; Rombach, R.; Ling, H.; Dockhorn, T.; Kim, S.~W.; Fidler, S.; and Kreis, K. 2023.
+\newblock Align Your Latents: High-Resolution Video Synthesis with Latent Diffusion Models.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}.
+
+\bibitem[{Ding et~al.(2025)Ding, Jin, Liu, Zheng, Singh, Zhang, Kang, Lin, and Liu}]{ding2025dollar}
+Ding, Z.; Jin, C.; Liu, D.; Zheng, H.; Singh, K.~K.; Zhang, Q.; Kang, Y.; Lin, Z.; and Liu, Y. 2025.
+\newblock {DOLLAR}: Few-Step Video Generation via Distillation and Latent Reward Optimization.
+\newblock In \emph{Proceedings of the IEEE/CVF International Conference on Computer Vision}, 17961--17971.
+
+\bibitem[{Gu et~al.(2024)Gu, Zhai, Zhang, Susskind, and Jaitly}]{gu2024matryoshka}
+Gu, J.; Zhai, S.; Zhang, Y.; Susskind, J.; and Jaitly, N. 2024.
+\newblock Matryoshka Diffusion Models.
+\newblock In \emph{International Conference on Learning Representations}, 30234--30262.
+
+\bibitem[{He et~al.(2024)He, Xue, Liu, Lin, Gao, Lin, Qiao, Ouyang, and Liu}]{he2024venhancer}
+He, J.; Xue, T.; Liu, D.; Lin, X.; Gao, P.; Lin, D.; Qiao, Y.; Ouyang, W.; and Liu, Z. 2024.
+\newblock {VEnhancer}: Generative Space-Time Enhancement for Video Generation.
+\newblock arXiv:2407.07667.
+
+\bibitem[{Ho et~al.(2022)Ho, Chan, Saharia, Whang, Gao, Gritsenko, Kingma, Poole, Norouzi, Fleet, and Salimans}]{ho2022imagenvideo}
+Ho, J.; Chan, W.; Saharia, C.; Whang, J.; Gao, R.; Gritsenko, A.; Kingma, D.~P.; Poole, B.; Norouzi, M.; Fleet, D.~J.; and Salimans, T. 2022.
+\newblock Imagen Video: High Definition Video Generation with Diffusion Models.
+\newblock arXiv:2210.02303.
+
+\bibitem[{Huang et~al.(2024)Huang, He, Yu, Zhang, Si, Jiang, Zhang, Wu, Jin, Chanpaisit, Wang, Chen, Wang, Lin, Qiao, and Liu}]{huang2024vbench}
+Huang, Z.; He, Y.; Yu, J.; Zhang, F.; Si, C.; Jiang, Y.; Zhang, Y.; Wu, T.; Jin, Q.; Chanpaisit, N.; Wang, Y.; Chen, X.; Wang, L.; Lin, D.; Qiao, Y.; and Liu, Z. 2024.
+\newblock {VBench}: Comprehensive Benchmark Suite for Video Generative Models.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, 21807--21818.
+
+\bibitem[{Jeong et~al.(2025)Jeong, Lee, Seo, and Chun}]{jeong2025ralu}
+Jeong, W.; Lee, K.; Seo, H.; and Chun, S.~Y. 2025.
+\newblock Training-Free Mixed-Resolution Latent Upsampling for Spatially Accelerated Diffusion Transformers.
+\newblock arXiv:2507.08422.
+
+\bibitem[{Jin et~al.(2025)Jin, Sun, Li, Xu, Xu, Jiang, Zhuang, Huang, Song, Mu, and Lin}]{jin2025pyramidalflow}
+Jin, Y.; Sun, Z.; Li, N.; Xu, K.; Xu, K.; Jiang, H.; Zhuang, N.; Huang, Q.; Song, Y.; Mu, Y.; and Lin, Z. 2025.
+\newblock Pyramidal Flow Matching for Efficient Video Generative Modeling.
+\newblock arXiv:2410.05954.
+
+\bibitem[{Kim, Ghadiyaram, and Gadde(2026)}]{kim2026ddit}
+Kim, D.; Ghadiyaram, D.; and Gadde, R. 2026.
+\newblock {DDiT}: Dynamic Patch Scheduling for Efficient Diffusion Transformers.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, 11459--11471.
+
+\bibitem[{Li et~al.(2024)Li, Feng, Fu, Wang, Basu, Chen, and Wang}]{li2024t2vturbo}
+Li, J.; Feng, W.; Fu, T.-J.; Wang, X.; Basu, S.; Chen, W.; and Wang, W.~Y. 2024.
+\newblock {T2V-Turbo}: Breaking the Quality Bottleneck of Video Consistency Model with Mixed Reward Feedback.
+\newblock arXiv:2405.18750.
+
+\bibitem[{Li et~al.(2026)Li, Barnes, Rizve, Peng, Li, Dibua, Ganjdanesh, Tang, Kang, and Gong}]{li2026dynapatch}
+Li, S.; Barnes, C.; Rizve, M.~N.; Peng, H.; Li, Z.; Dibua, O.; Ganjdanesh, A.; Tang, X.; Kang, Y.; and Gong, Y. 2026.
+\newblock Content-Aware Dynamic Patchification for Efficient Video Diffusion.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, 35936--35945.
+
+\bibitem[{Liu et~al.(2025)Liu, Zhang, Wang, Wei, Qiu, Zhao, Zhang, Ye, and Wan}]{liu2025teacache}
+Liu, F.; Zhang, S.; Wang, X.; Wei, Y.; Qiu, H.; Zhao, Y.; Zhang, Y.; Ye, Q.; and Wan, F. 2025.
+\newblock Timestep Embedding Tells: It's Time to Cache for Video Diffusion Model.
+\newblock arXiv:2411.19108.
+
+\bibitem[{{ModelTC}(2026)}]{lightx2v2026}
+{ModelTC}. 2026.
+\newblock {LightX2V}: Variable Resolution Inference and Step Distillation Documentation.
+\newblock \url{https://github.com/ModelTC/LightX2V}.
+\newblock Accessed: 2026-07-15.
+
+\bibitem[{Nie et~al.(2026)Nie, Berner, Ma, Liu, Xie, and Vahdat}]{nie2026tmd}
+Nie, W.; Berner, J.; Ma, N.; Liu, C.; Xie, S.; and Vahdat, A. 2026.
+\newblock Transition Matching Distillation for Fast Video Generation.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, 4645--4655.
+
+\bibitem[{Wan et~al.(2025)Wan, Wang, Ai, Wen, Mao, Xie, Chen, Yu, Zhao, Yang, Zeng, Wang, Zhang, Zhou, Wang, Chen, Zhu, Zhao, Yan, Huang, Feng, Zhang, Li, Wu, Chu, Feng, Zhang, Sun, Fang, Wang, Gui, Weng, Shen, Lin, Wang, Wang, Zhou, Wang, Shen, Yu, Shi, Huang, Xu, Kou, Lv, Li, Liu, Wang, Zhang, Huang, Li, Wu, Liu, Pan, Zheng, Hong, Shi, Feng, Jiang, Han, Wu, and Liu}]{wan2025}
+Wan, T.; Wang, A.; Ai, B.; Wen, B.; Mao, C.; Xie, C.-W.; Chen, D.; Yu, F.; Zhao, H.; Yang, J.; Zeng, J.; Wang, J.; Zhang, J.; Zhou, J.; Wang, J.; Chen, J.; Zhu, K.; Zhao, K.; Yan, K.; Huang, L.; Feng, M.; Zhang, N.; Li, P.; Wu, P.; Chu, R.; Feng, R.; Zhang, S.; Sun, S.; Fang, T.; Wang, T.; Gui, T.; Weng, T.; Shen, T.; Lin, W.; Wang, W.; Wang, W.; Zhou, W.; Wang, W.; Shen, W.; Yu, W.; Shi, X.; Huang, X.; Xu, X.; Kou, Y.; Lv, Y.; Li, Y.; Liu, Y.; Wang, Y.; Zhang, Y.; Huang, Y.; Li, Y.; Wu, Y.; Liu, Y.; Pan, Y.; Zheng, Y.; Hong, Y.; Shi, Y.; Feng, Y.; Jiang, Z.; Han, Z.; Wu, Z.-F.; and Liu, Z. 2025.
+\newblock Wan: Open and Advanced Large-Scale Video Generative Models.
+\newblock arXiv:2503.20314.
+
+\bibitem[{Wang et~al.(2023{\natexlab{a}})Wang, Zhang, Zhang, Liu, Zhang, Gao, and Sang}]{wang2023videolcm}
+Wang, X.; Zhang, S.; Zhang, H.; Liu, Y.; Zhang, Y.; Gao, C.; and Sang, N. 2023{\natexlab{a}}.
+\newblock {VideoLCM}: Video Latent Consistency Model.
+\newblock arXiv:2312.09109.
+
+\bibitem[{Wang et~al.(2023{\natexlab{b}})Wang, Chen, Ma, Zhou, Huang, Wang, Yang, He, Yu, Yang, Guo, Wu, Si, Jiang, Chen, Loy, Dai, Lin, Qiao, and Liu}]{wang2023lavie}
+Wang, Y.; Chen, X.; Ma, X.; Zhou, S.; Huang, Z.; Wang, Y.; Yang, C.; He, Y.; Yu, J.; Yang, P.; Guo, Y.; Wu, T.; Si, C.; Jiang, Y.; Chen, C.; Loy, C.~C.; Dai, B.; Lin, D.; Qiao, Y.; and Liu, Z. 2023{\natexlab{b}}.
+\newblock {LaVie}: High-Quality Video Generation with Cascaded Latent Diffusion Models.
+\newblock arXiv:2309.15103.
+
+\bibitem[{Xi et~al.(2025)Xi, Yang, Zhao, Xu, Li, Li, Lin, Cai, Zhang, Li, Chen, Stoica, Keutzer, and Han}]{xi2025sparsevideogen}
+Xi, H.; Yang, S.; Zhao, Y.; Xu, C.; Li, M.; Li, X.; Lin, Y.; Cai, H.; Zhang, J.; Li, D.; Chen, J.; Stoica, I.; Keutzer, K.; and Han, S. 2025.
+\newblock Sparse Video-Gen: Accelerating Video Diffusion Transformers with Spatial-Temporal Sparsity.
+\newblock In \emph{Proceedings of the 42nd International Conference on Machine Learning}, volume 267 of \emph{Proceedings of Machine Learning Research}, 68208--68224.
+
+\bibitem[{Xiao et~al.(2026)Xiao, Chao, Yariv, and Wetzstein}]{xiao2026spectral}
+Xiao, H.; Chao, B.; Yariv, L.; and Wetzstein, G. 2026.
+\newblock Spectral Progressive Diffusion for Efficient Image and Video Generation.
+\newblock arXiv:2605.18736.
+
+\bibitem[{Xie et~al.(2025)Xie, Li, Du, Xia, Wang, Yu, Chen, Wan, Zhou, and Dong}]{xie2025simplegvr}
+Xie, L.; Li, Y.; Du, S.; Xia, M.; Wang, X.; Yu, F.; Chen, Z.; Wan, P.; Zhou, J.; and Dong, C. 2025.
+\newblock {SimpleGVR}: A Simple Baseline for Latent-Cascaded Video Super-Resolution.
+\newblock arXiv:2506.19838.
+
+\bibitem[{Xu et~al.(2024)Xu, Park, Zhang, Zhou, Shechtman, Liu, Huang, and Liu}]{xu2024videogigagan}
+Xu, Y.; Park, T.; Zhang, R.; Zhou, Y.; Shechtman, E.; Liu, F.; Huang, J.-B.; and Liu, D. 2024.
+\newblock {VideoGigaGAN}: Towards Detail-Rich Video Super-Resolution.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}.
+
+\bibitem[{Zhang et~al.(2018)Zhang, Isola, Efros, Shechtman, and Wang}]{zhang2018lpips}
+Zhang, R.; Isola, P.; Efros, A.~A.; Shechtman, E.; and Wang, O. 2018.
+\newblock The Unreasonable Effectiveness of Deep Features as a Perceptual Metric.
+\newblock In \emph{Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition}, 586--595.
+
+\bibitem[{Zhao et~al.(2026)Zhao, Chen, Li, Kang, Lu, Wei, Zhang, Yang, and Tai}]{zhao2026luve}
+Zhao, C.; Chen, J.; Li, H.; Kang, Z.; Lu, S.; Wei, X.; Zhang, K.; Yang, J.; and Tai, Y. 2026.
+\newblock {LUVE}: Latent-Cascaded Ultra-High-Resolution Video Generation with Dual Frequency Experts.
+\newblock arXiv:2602.11564.
+
+\bibitem[{Zhao et~al.(2025{\natexlab{a}})Zhao, Fang, Huang, Wan, Soedarmadji, Liu, Li, Lin, Dai, Yan, Yang, Ning, and Wang}]{zhao2025viditq}
+Zhao, T.; Fang, T.; Huang, H.; Wan, R.; Soedarmadji, W.; Liu, E.; Li, S.; Lin, Z.; Dai, G.; Yan, S.; Yang, H.; Ning, X.; and Wang, Y. 2025{\natexlab{a}}.
+\newblock {ViDiT-Q}: Efficient and Accurate Quantization of Diffusion Transformers for Image and Video Generation.
+\newblock In \emph{International Conference on Learning Representations}.
+
+\bibitem[{Zhao et~al.(2025{\natexlab{b}})Zhao, Jin, Wang, and You}]{zhao2025pab}
+Zhao, X.; Jin, X.; Wang, K.; and You, Y. 2025{\natexlab{b}}.
+\newblock Real-Time Video Generation with Pyramid Attention Broadcast.
+\newblock arXiv:2408.12588.
+
+\bibitem[{Zheng et~al.(2026{\natexlab{a}})Zheng, Chen, He, Liu, Lin, Zou, and Zhang}]{zheng2026fresco}
+Zheng, S.; Chen, G.; He, L.; Liu, J.; Lin, Y.; Zou, C.; and Zhang, L. 2026{\natexlab{a}}.
+\newblock From Sketch to Fresco: Efficient Diffusion Transformer with Progressive Resolution.
+\newblock arXiv:2601.07462.
+
+\bibitem[{Zheng et~al.(2026{\natexlab{b}})Zheng, Liu, Ding, Feng, Lin, Guo, and Qin}]{zheng2026mrflow}
+Zheng, X.; Liu, X.; Ding, Y.; Feng, W.; Lin, J.; Guo, J.; and Qin, H. 2026{\natexlab{b}}.
+\newblock Multi-Resolution Flow Matching: Training-Free Diffusion Acceleration via Staged Sampling.
+\newblock arXiv:2607.01642.
+
+\bibitem[{Zhou et~al.(2024)Zhou, Yang, Wang, Luo, and Loy}]{zhou2024upscale}
+Zhou, S.; Yang, P.; Wang, J.; Luo, Y.; and Loy, C.~C. 2024.
+\newblock Upscale-A-Video: Temporal-Consistent Diffusion Model for Real-World Video Super-Resolution.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}.
+
+\bibitem[{Zhuang et~al.(2026)Zhuang, Guo, Cai, Li, Liu, Yuan, and Xue}]{zhuang2026flashvsr}
+Zhuang, J.; Guo, S.; Cai, X.; Li, X.; Liu, Y.; Yuan, C.; and Xue, T. 2026.
+\newblock {FlashVSR}: Towards Real-time Diffusion-Based Streaming Video Super Resolution.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, 43482--43493.
+
+\bibitem[{Zou et~al.(2026)Zou, Li, Liu, Zhong, Huang, and Zhang}]{zou2026disca}
+Zou, C.; Li, C.; Liu, S.; Zhong, Z.; Huang, K.; and Zhang, L. 2026.
+\newblock {DisCa}: Accelerating Video Diffusion Transformers with Distillation-Compatible Learnable Feature Caching.
+\newblock In \emph{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, 4590--4601.
+
+\end{thebibliography}

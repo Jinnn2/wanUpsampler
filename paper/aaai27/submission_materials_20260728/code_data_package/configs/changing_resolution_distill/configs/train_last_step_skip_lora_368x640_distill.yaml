@@ -1,0 +1,70 @@
+task:
+  name: last_step_skip_lora_368x640
+  recipe: distill_4step_cached_x_pre_step3_to_teacher4_clean_368x640
+  input_key: x_pre_step3_lr
+  target_key: z4_lr_teacher
+  train_step_index: 2
+  train_step_name: step3
+  input_semantic_name: x_pre_step3_lr
+  input_alias: x2_lr
+  target_step_name: teacher_step4_clean
+
+data:
+  lmdb_dir: data/changing_resolution_distill/lmdb_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3
+  max_samples: null
+  val_ratio: 0.02
+  val_max_samples: 64
+  expected_keys: [x_pre_step3_lr, z4_lr_teacher, z0_hr, prompt, seed, meta]
+
+model:
+  framework: diffsynth-studio
+  base_model_id: lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill
+  model_paths: null
+  model_id_with_origin_paths: null
+  tokenizer_path: null
+  model_cls: wan2.1_distill
+  lora_base_model: dit
+  lora_target_modules: q,k,v,o,ffn.0,ffn.2
+  lora_rank: 32
+  lora_alpha: 32
+  lora_checkpoint: null
+  preset_lora_path: null
+  preset_lora_model: null
+  remove_prefix_in_ckpt: pipe.dit.
+  freeze_base_model: true
+
+distill:
+  infer_steps: 4
+  denoising_step_list: [1000, 750, 500, 250]
+  sample_shift: 5
+  sample_guide_scale: 6
+
+train:
+  precision: bf16
+  batch_size: 1
+  grad_accum: 2
+  lr: 5.0e-5
+  weight_decay: 0.01
+  max_steps: 10000
+  num_workers: 2
+  log_every: 10
+  save_every: 500
+  eval_every: 500
+  val_batches: 0
+  grad_clip_norm: 1.0
+  gradient_checkpointing: true
+  gradient_checkpointing_offload: false
+  ema_decay: null
+  seed: 1234
+  training_mode: cached_x_pre_step3
+
+loss:
+  l1_weight: 1.0
+  mse_weight: 0.1
+  velocity_mse_weight: 0.0
+  velocity_l1_weight: 0.0
+
+output:
+  out_dir: outputs/changing_resolution_distill_last_step_skip_lora_368x640_14b_cfgdistill_5k_step3
+  checkpoint_format: lora_only
+  remove_prefix_in_ckpt: pipe.dit.

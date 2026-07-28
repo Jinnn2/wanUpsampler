@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "scope": "Exact inference reproduction for the Wan50 and Distill4 InTraScale suites",
+  "public_models": {
+    "wan_t2v_1p3b": {
+      "repo_id": "Wan-AI/Wan2.1-T2V-1.3B",
+      "revision": "37ec512624d61f7aa208f7ea8140a131f93afc9a",
+      "required_files": {
+        "Wan2.1_VAE.pth": {
+          "size_bytes": 507609880,
+          "sha256": "38071ab59bd94681c686fa51d75a1968f64e470262043be31f7a094e442fd981"
+        },
+        "diffusion_pytorch_model.safetensors": {
+          "size_bytes": 5676070424,
+          "sha256": "96b6b242ca1c2f24e9d02cd6596066fab6d310e2d7538f33ae267cb18d957e8f"
+        },
+        "models_t5_umt5-xxl-enc-bf16.pth": {
+          "size_bytes": 11361920418,
+          "sha256": "7cace0da2b446bbbbc57d031ab6cf163a3d59b366da94e5afe36745b746fd81d"
+        }
+      }
+    },
+    "wan_t2v_14b_stepdistill_cfgdistill": {
+      "repo_id": "lightx2v/Wan2.1-T2V-14B-StepDistill-CfgDistill",
+      "revision": "b9baaa9a0c29226dea39043db647d1ced950bbea",
+      "required_files": {
+        "Wan2.1_VAE.pth": {
+          "size_bytes": 507609880,
+          "sha256": "38071ab59bd94681c686fa51d75a1968f64e470262043be31f7a094e442fd981"
+        },
+        "distill_model.pt": {
+          "size_bytes": 28577333801,
+          "sha256": "13fec11400e094785dd9dae25a928a3acfb3cfc61168ab1f388344f06bef4db7"
+        },
+        "models_t5_umt5-xxl-enc-bf16.pth": {
+          "size_bytes": 11361920418,
+          "sha256": "7cace0da2b446bbbbc57d031ab6cf163a3d59b366da94e5afe36745b746fd81d"
+        }
+      }
+    }
+  },
+  "custom_checkpoints": {
+    "wan50_itu": {
+      "source_relative_to_project": "outputs/changing_resolution_clean_368x640_720x1248_stage2_lmdb/latest.pt",
+      "bundle_name": "wan50_itu_latest.pt",
+      "size_bytes": 570100161,
+      "sha256": "f6525b753931698015b3bd04a5dd314efaa1cb04858a71f9fa7bef0babaa7d54"
+    },
+    "wan50_ttd_step40": {
+      "source_relative_to_project": "outputs/changing_resolution_tail_skip_lora_step40_to_step50_temporal/latest.safetensors",
+      "bundle_name": "wan50_ttd_step40.safetensors",
+      "size_bytes": 87559648,
+      "sha256": "bfbcc4998be1fa166e3438b91d9b0bc40aced21a71ba2d15c15079cafd9358e8"
+    },
+    "wan50_ttd_step45": {
+      "source_relative_to_project": "outputs/changing_resolution_tail_skip_lora_step45_to_step50/latest.safetensors",
+      "bundle_name": "wan50_ttd_step45.safetensors",
+      "size_bytes": 87559616,
+      "sha256": "73f9d38287386dd547aff84ad7a1c7c74d9640033dfe82b94b706c4e7a9bb79f"
+    },
+    "distill4_itu": {
+      "source_relative_to_project": "outputs/changing_resolution_distill_clean_368x640_720x1248_stage2_14b_cfgdistill_5k_lmdb/latest.pt",
+      "bundle_name": "distill4_itu_latest.pt",
+      "size_bytes": 570100417,
+      "sha256": "96c9980834823088506f0033d8423f69a66bc6ecfe1608e5c22a2319776e859e"
+    },
+    "distill4_ttd_step3": {
+      "source_relative_to_project": "outputs/changing_resolution_distill_last_step_skip_lora_14b_cfgdistill_5k_step3/step_0010000.safetensors",
+      "bundle_name": "distill4_ttd_step3.safetensors",
+      "size_bytes": 306801824,
+      "sha256": "439851cf5c5ae48f85663cb6f8e3b705ee139f289a66e7cfe3a8a8572702d06c"
+    }
+  },
+  "optional_baseline_assets": {
+    "realesrgan_x2plus": {
+      "bundle_name": "RealESRGAN_x2plus.pth",
+      "size_bytes": 67061725,
+      "sha256": "49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb",
+      "purpose": "MrFlow-style RGB endpoint baseline only"
+    }
+  },
+  "raw_evidence": {
+    "operator_368p_jsonl": {
+      "samples": 50,
+      "sha256": "e9dccf84dc386b91616e3151d43d5ef19c29f5e4bf8dcb33eb4b862eceaf2c85"
+    }
+  }
+}

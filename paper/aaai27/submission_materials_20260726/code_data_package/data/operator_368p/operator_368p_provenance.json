@@ -1,0 +1,21 @@
+{
+  "aggregation": {
+    "delta": "trained minus interpolation",
+    "delta_std": "population standard deviation (ddof=0)",
+    "means": "arithmetic mean over 50 samples",
+    "wins": "strict per-sample comparison in the metric-preferred direction"
+  },
+  "expected_input_sha256": "e9dccf84dc386b91616e3151d43d5ef19c29f5e4bf8dcb33eb4b862eceaf2c85",
+  "input_sha256": "e9dccf84dc386b91616e3151d43d5ef19c29f5e4bf8dcb33eb4b862eceaf2c85",
+  "input_sha256_verified": true,
+  "outputs": {
+    "raw_jsonl": "operator_368p_raw_sanitized.jsonl",
+    "samples_csv": "operator_368p_samples.csv",
+    "summary_csv": "operator_368p_summary.csv"
+  },
+  "paths": "machine-specific paths replaced by <GENERATED_OUTPUT_ROOT>/basename",
+  "samples": 50,
+  "schema_version": 1,
+  "source_role": "canonical per-sample operator evaluation",
+  "unique_sample_ids": 50
+}

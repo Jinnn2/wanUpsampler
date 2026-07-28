@@ -1,0 +1,445 @@
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import lmdb
+import numpy as np
+import torch
+from tqdm import tqdm
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from changing_resolution.scripts.data.build_x0pred_480p720p_stage3_lmdb import merge_meta  # noqa: E402
+from wan_sr.data import CleanLatentLMDBDataset  # noqa: E402
+
+
+def main() -> None:
+    args = parse_args()
+    prepare_output_dir(Path(args.out_dir), overwrite=args.overwrite)
+
+    source = CleanLatentLMDBDataset(args.source_lmdb, strict_channels=True)
+    start_index = int(args.offset)
+    if start_index < 0 or start_index >= len(source):
+        raise ValueError(f"offset must be in [0, {len(source) - 1}], got {start_index}")
+    end_index = min(len(source), start_index + int(args.max_samples)) if args.max_samples is not None else len(source)
+    if end_index <= start_index:
+        raise RuntimeError("No source samples selected.")
+
+    device = torch.device(args.device)
+    dtype = torch.bfloat16 if args.precision == "bf16" else torch.float16 if args.precision == "fp16" else torch.float32
+    generator = None
+    if args.mode == "lightx2v":
+        generator = LightX2VTailSkipLoRAGenerator(args, device=device, dtype=dtype)
+    elif args.mode != "clean_copy":
+        raise ValueError(f"Unsupported mode={args.mode!r}")
+
+    writer = ShardedTailSkipLoRALMDBWriter(
+        out_dir=Path(args.out_dir),
+        shard_size=args.shard_size,
+        map_size_gb=args.map_size_gb,
+        compression_dtype=np.float16,
+    )
+
+    saved = 0
+    try:
+        for source_index in tqdm(range(start_index, end_index), desc=f"tail-skip lora step{args.train_step}", dynamic_ncols=True):
+            row = source[source_index]
+            prompt = row["prompt"]
+            z0_lr_ref = row["z0_lr"].float()
+            z0_hr = row["z0_hr"].float()
+            source_meta = merge_meta(row.get("meta_json", "{}"))
+            seed, seed_source = resolve_source_seed(source_meta, fallback=int(args.base_seed) + source_index)
+
+            if generator is None:
+                x_pre_step_lr = z0_lr_ref
+                z_final_lr_teacher = z0_lr_ref
+                recipe = {
+                    "mode": "clean_copy",
+                    "recipe": "tail_skip_lora_v1",
+                    "semantic_input_name": "x_pre_step_lr",
+                    "actual_input_step": "debug_clean_copy",
+                    "train_step": int(args.train_step),
+                    "target_step": int(args.infer_steps),
+                    "note": "debug path only; input and target are copied from clean LR reference",
+                }
+            else:
+                x_pre_step_lr, z_final_lr_teacher, recipe = generator.make_pair(z0_lr_ref, prompt=prompt, seed=seed)
+
+            meta = dict(source_meta)
+            meta.update(
+                {
+                    "task": "wan_tail_skip_lora",
+                    "schema": "wan_tail_skip_lora_lmdb_v1",
+                    "source_lmdb": str(args.source_lmdb),
+                    "source_index": source_index,
+                    "source_sample_id": row["sample_id"],
+                    "prompt": prompt,
+                    "seed": seed,
+                    "seed_source": seed_source,
+                    "semantic_input_name": "x_pre_step_lr",
+                    "target_name": "z_final_lr_teacher",
+                    "x_pre_step_lr_shape": list(x_pre_step_lr.shape),
+                    "z_final_lr_teacher_shape": list(z_final_lr_teacher.shape),
+                    "z0_lr_ref_shape": list(z0_lr_ref.shape),
+                    "z0_hr_shape": list(z0_hr.shape),
+                    "tail_skip_recipe": recipe,
+                }
+            )
+            writer.write(x_pre_step_lr, z_final_lr_teacher, z0_hr, prompt=prompt, seed=seed, meta=meta)
+            saved += 1
+    finally:
+        writer.close()
+        if generator is not None:
+            generator.close()
+
+    if args.require_samples is not None and saved < args.require_samples:
+        raise RuntimeError(f"Tail-skip LoRA LMDB build only saved {saved} samples, required {args.require_samples}")
+    print(f"Tail-skip LoRA LMDB ready: {args.out_dir} ({saved} samples)")
+
+
+class LightX2VTailSkipLoRAGenerator:
+    """Cache a 50-step Wan handoff state and its matched full-schedule teacher target."""
+
+    def __init__(self, args: argparse.Namespace, *, device: torch.device, dtype: torch.dtype) -> None:
+        lightx2v_repo = args.lightx2v_repo or os.environ.get("LIGHTX2V_REPO")
+        if lightx2v_repo and lightx2v_repo not in sys.path:
+            sys.path.insert(0, lightx2v_repo)
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.insert(0, str(REPO_ROOT))
+
+        import importlib
+
+        importlib.import_module("lightx2v.common.ops")
+        from lightx2v.utils.input_info import init_empty_input_info, update_input_info_from_dict
+        from lightx2v.utils.registry_factory import RUNNER_REGISTER
+        from lightx2v.utils.set_config import set_config, set_parallel_config
+        from lightx2v.utils.utils import seed_all, validate_config_paths
+        from lightx2v_platform.registry_factory import PLATFORM_DEVICE_REGISTER
+
+        import changing_resolution.lightx2v_clean_bridge  # noqa: F401
+
+        self.args = args
+        self.device = device
+        self.dtype = dtype
+        self.init_empty_input_info = init_empty_input_info
+        self.update_input_info_from_dict = update_input_info_from_dict
+        seed_all(args.base_seed)
+
+        config_args = self._make_lightx2v_args(args)
+        config = set_config(config_args)
+        with config.temporarily_unlocked():
+            config.update(
+                {
+                    "infer_steps": int(args.infer_steps),
+                    "target_video_length": int(args.num_frames),
+                    "sample_shift": float(args.sample_shift),
+                    "sample_guide_scale": float(args.sample_guide_scale),
+                    "enable_cfg": bool(args.enable_cfg),
+                }
+            )
+        if config["parallel"]:
+            platform_device = PLATFORM_DEVICE_REGISTER.get(os.getenv("PLATFORM", "cuda"), None)
+            platform_device.init_parallel_env()
+            set_parallel_config(config)
+        validate_config_paths(config)
+
+        torch.set_grad_enabled(False)
+        self.config = config
+        self.runner = RUNNER_REGISTER[config["model_cls"]](config)
+        self.runner.init_modules()
+
+    @torch.no_grad()
+    def make_pair(self, z0_lr_ref: torch.Tensor, *, prompt: str, seed: int) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+        input_info = self.init_empty_input_info(self.args.task, [])
+        self.update_input_info_from_dict(
+            input_info,
+            {
+                "seed": seed,
+                "prompt": prompt,
+                "negative_prompt": self.args.negative_prompt,
+                "save_result_path": None,
+                "return_result_tensor": True,
+            },
+        )
+
+        self.runner.input_info = input_info
+        self.runner.inputs = self.runner.run_input_encoder()
+        self.runner.init_run()
+
+        scheduler = self.runner.model.scheduler
+        infer_steps = int(scheduler.infer_steps)
+        train_step = int(self.args.train_step)
+        if train_step < 1 or train_step >= infer_steps:
+            raise ValueError(f"train_step must be in [1, {infer_steps - 1}], got {train_step}")
+        train_step_index = train_step - 1
+
+        z0_device = z0_lr_ref.to(device=self.device, dtype=torch.float32)
+        noise = torch.randn(
+            z0_device.shape,
+            generator=torch.Generator(device=self.device).manual_seed(seed),
+            device=self.device,
+            dtype=torch.float32,
+        )
+        sigma0 = scheduler.sigmas[0].to(device=self.device, dtype=torch.float32)
+        scheduler.latents = (1.0 - sigma0) * z0_device + sigma0 * noise
+
+        executed_steps: list[dict[str, Any]] = []
+        for step_index in range(train_step_index):
+            scheduler.step_pre(step_index=step_index)
+            self.runner.model.infer(self.runner.inputs)
+            sigma = scheduler.sigmas[step_index].to(device=self.device, dtype=torch.float32)
+            clean_pred = scheduler.latents.to(torch.float32) - sigma * scheduler.noise_pred.to(torch.float32)
+            scheduler.step_post()
+            executed_steps.append(
+                {
+                    "step": step_index + 1,
+                    "step_index": step_index,
+                    "sigma": float(sigma.detach().cpu()),
+                    "clean_pred_shape": list(clean_pred.shape),
+                }
+            )
+
+        x_pre_step_lr = scheduler.latents.detach().to(torch.float32).cpu()
+        train_sigma = scheduler.sigmas[train_step_index].to(device=self.device, dtype=torch.float32)
+        train_timestep = scheduler.timesteps[train_step_index].detach().to(torch.float32)
+
+        target_steps: list[dict[str, Any]] = []
+        for step_index in range(train_step_index, infer_steps):
+            scheduler.step_pre(step_index=step_index)
+            self.runner.model.infer(self.runner.inputs)
+            sigma = scheduler.sigmas[step_index].to(device=self.device, dtype=torch.float32)
+            clean_pred = scheduler.latents.to(torch.float32) - sigma * scheduler.noise_pred.to(torch.float32)
+            scheduler.step_post()
+            target_steps.append(
+                {
+                    "step": step_index + 1,
+                    "step_index": step_index,
+                    "sigma": float(sigma.detach().cpu()),
+                    "clean_pred_shape": list(clean_pred.shape),
+                }
+            )
+
+        z_final_lr_teacher = scheduler.latents.detach().to(torch.float32).cpu()
+
+        self.runner.end_run()
+        recipe = {
+            "mode": "lightx2v",
+            "recipe": "tail_skip_lora_v1",
+            "semantic_input_name": "x_pre_step_lr",
+            "target_name": "z_final_lr_teacher",
+            "model_path": str(self.args.model_path),
+            "config_json": str(self.args.config_json),
+            "model_cls": str(self.config["model_cls"]),
+            "infer_steps": infer_steps,
+            "train_step": train_step,
+            "train_step_index": train_step_index,
+            "target_step": infer_steps,
+            "train_sigma": float(train_sigma.detach().cpu()),
+            "train_timestep": float(train_timestep.detach().cpu()),
+            "sample_shift": float(self.args.sample_shift),
+            "sample_guide_scale": float(self.args.sample_guide_scale),
+            "enable_cfg": bool(self.args.enable_cfg),
+            "negative_prompt": str(self.args.negative_prompt),
+            "executed_teacher_steps": executed_steps,
+            "target_teacher_steps": target_steps,
+            "seed": seed,
+        }
+        return x_pre_step_lr, z_final_lr_teacher, recipe
+
+    def close(self) -> None:
+        if hasattr(self.runner, "end_run"):
+            try:
+                self.runner.end_run()
+            except Exception:
+                pass
+
+    def _make_lightx2v_args(self, args: argparse.Namespace) -> argparse.Namespace:
+        return argparse.Namespace(
+            seed=args.base_seed,
+            model_cls=args.model_cls,
+            task=args.task,
+            support_tasks=[],
+            model_path=args.model_path,
+            sf_model_path=None,
+            config_json=args.config_json,
+            use_prompt_enhancer=False,
+            prompt="",
+            negative_prompt=args.negative_prompt,
+            image_path="",
+            last_frame_path="",
+            audio_path="",
+            image_strength="1.0",
+            image_frame_idx="",
+            src_ref_images=None,
+            src_video=None,
+            src_mask=None,
+            src_pose_path=None,
+            src_face_path=None,
+            src_bg_path=None,
+            src_mask_path=None,
+            pose=None,
+            action_path=None,
+            save_result_path=None,
+            return_result_tensor=True,
+            target_shape=[],
+            target_video_length=args.num_frames,
+            aspect_ratio="",
+            video_path=None,
+            sr_ratio=2.0,
+        )
+
+
+@dataclass
+class ShardedTailSkipLoRALMDBWriter:
+    out_dir: Path
+    shard_size: int
+    map_size_gb: int
+    compression_dtype: np.dtype
+
+    def __post_init__(self) -> None:
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        self.env: lmdb.Environment | None = None
+        self.shard_index = -1
+        self.row_index = 0
+        self.current_meta: dict[str, Any] | None = None
+
+    def write(
+        self,
+        x_pre_step_lr: torch.Tensor,
+        z_final_lr_teacher: torch.Tensor,
+        z0_hr: torch.Tensor,
+        *,
+        prompt: str,
+        seed: int,
+        meta: dict[str, Any],
+    ) -> None:
+        if self.env is None or self.row_index >= self.shard_size:
+            self._open_next_shard(x_pre_step_lr, z_final_lr_teacher, z0_hr)
+
+        assert self.env is not None
+        row = self.row_index
+        x_pre_step_np = _to_numpy_fp(x_pre_step_lr, self.compression_dtype)
+        target_np = _to_numpy_fp(z_final_lr_teacher, self.compression_dtype)
+        z0_hr_np = _to_numpy_fp(z0_hr, self.compression_dtype)
+        meta_json = json.dumps(meta, ensure_ascii=False)
+
+        with self.env.begin(write=True) as txn:
+            txn.put(_key("x_pre_step_lr", row), x_pre_step_np.tobytes())
+            txn.put(_key("z_final_lr_teacher", row), target_np.tobytes())
+            txn.put(_key("z0_hr", row), z0_hr_np.tobytes())
+            txn.put(_key("prompt", row), prompt.encode("utf-8"))
+            txn.put(_key("seed", row), str(seed).encode("utf-8"))
+            txn.put(_key("meta", row), meta_json.encode("utf-8"))
+
+        self.row_index += 1
+        self._write_metadata()
+
+    def close(self) -> None:
+        if self.env is not None:
+            self._write_metadata()
+            self.env.sync()
+            self.env.close()
+            self.env = None
+
+    def _open_next_shard(self, x_pre_step_lr: torch.Tensor, z_final_lr_teacher: torch.Tensor, z0_hr: torch.Tensor) -> None:
+        self.close()
+        self.shard_index += 1
+        self.row_index = 0
+        shard_dir = self.out_dir / f"shard_{self.shard_index:05d}"
+        shard_dir.mkdir(parents=True, exist_ok=False)
+        self.env = lmdb.open(str(shard_dir), map_size=self.map_size_gb * 1024**3, subdir=True, meminit=False)
+        self.current_meta = {
+            "num_samples": 0,
+            "dtype": "float16",
+            "x_pre_step_lr_shape": list(x_pre_step_lr.shape),
+            "z_final_lr_teacher_shape": list(z_final_lr_teacher.shape),
+            "z0_hr_shape": list(z0_hr.shape),
+            "schema": "wan_tail_skip_lora_lmdb_v1",
+            "semantic_input_name": "x_pre_step_lr",
+            "target_name": "z_final_lr_teacher",
+        }
+        self._write_metadata()
+
+    def _write_metadata(self) -> None:
+        if self.env is None or self.current_meta is None:
+            return
+        meta = dict(self.current_meta)
+        meta["num_samples"] = self.row_index
+        with self.env.begin(write=True) as txn:
+            txn.put(b"metadata", json.dumps(meta, ensure_ascii=False, indent=2).encode("utf-8"))
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--source_lmdb", default="data/changing_resolution/lmdb_480p720p_1k")
+    parser.add_argument("--out_dir", default="data/changing_resolution/lmdb_tail_skip_lora_step45_to_step50")
+    parser.add_argument("--mode", choices=["lightx2v", "clean_copy"], default="lightx2v")
+    parser.add_argument("--lightx2v_repo", default=os.environ.get("LIGHTX2V_REPO"))
+    parser.add_argument("--model_path", default="Wan-AI/Wan2.1-T2V-1.3B")
+    parser.add_argument("--config_json", default="changing_resolution/configs/wan_t2v_stage3_x0pred_480p.json")
+    parser.add_argument("--model_cls", default="wan2.1")
+    parser.add_argument("--task", default="t2v")
+    parser.add_argument("--negative_prompt", default="")
+    parser.add_argument("--infer_steps", type=int, default=50)
+    parser.add_argument("--train_step", type=int, default=45, help="1-based handoff step; LoRA replaces this LR step before HR tail.")
+    parser.add_argument("--sample_shift", type=float, default=8.0)
+    parser.add_argument("--sample_guide_scale", type=float, default=6.0)
+    parser.add_argument("--enable_cfg", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--num_frames", type=int, default=81)
+    parser.add_argument("--max_samples", type=int)
+    parser.add_argument("--offset", type=int, default=0)
+    parser.add_argument("--require_samples", type=int)
+    parser.add_argument("--shard_size", type=int, default=100)
+    parser.add_argument("--map_size_gb", type=int, default=256)
+    parser.add_argument("--base_seed", type=int, default=9400)
+    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--precision", choices=["fp32", "bf16", "fp16"], default="bf16")
+    parser.add_argument("--overwrite", action="store_true")
+    return parser.parse_args()
+
+
+def prepare_output_dir(out_dir: Path, overwrite: bool) -> None:
+    if out_dir.exists() and any(out_dir.iterdir()):
+        if not overwrite:
+            raise FileExistsError(f"Output LMDB dir is not empty: {out_dir}. Pass --overwrite to rebuild.")
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+
+def resolve_source_seed(source_meta: dict[str, Any], *, fallback: int) -> tuple[int, str]:
+    for key in ("seed", "generation_seed", "base_seed", "video_seed"):
+        value = source_meta.get(key)
+        if value is not None and str(value).strip() != "":
+            return int(value), f"source_meta.{key}"
+    nested = source_meta.get("source_meta")
+    if isinstance(nested, str):
+        try:
+            nested = json.loads(nested)
+        except json.JSONDecodeError:
+            nested = None
+    if isinstance(nested, dict):
+        nested_seed, nested_source = resolve_source_seed(nested, fallback=fallback)
+        if nested_source != "base_seed_plus_index":
+            return nested_seed, f"source_meta.{nested_source}"
+    return int(fallback), "base_seed_plus_index"
+
+
+def _to_numpy_fp(tensor: torch.Tensor, dtype: np.dtype) -> np.ndarray:
+    return tensor.detach().cpu().to(torch.float16).numpy().astype(dtype, copy=False)
+
+
+def _key(name: str, row_id: int) -> bytes:
+    return f"{name}_{row_id:08d}_data".encode("utf-8")
+
+
+if __name__ == "__main__":
+    main()

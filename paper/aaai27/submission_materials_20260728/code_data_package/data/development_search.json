@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "scope": "Development-time parameters varied for model/protocol selection; parameters absent here were fixed before the final sweeps",
+  "searches": [
+    {
+      "family": "Wan50",
+      "parameter": "transition_step",
+      "values_tried": [30, 35, 40, 45, 50],
+      "number_tried": 5,
+      "criterion": "quality-efficiency and component behavior on matched prompt-seed outputs",
+      "final_reported": [40, 45]
+    },
+    {
+      "family": "Wan50 step 40",
+      "parameter": "TTD inference strength",
+      "values_tried": [0.5, 0.75, 1.0],
+      "number_tried": 3,
+      "criterion": "paired VBench-5 and endpoint-alignment statistics",
+      "final": 0.75
+    },
+    {
+      "family": "Distill4",
+      "parameter": "TTD inference strength",
+      "values_tried": [0.25, 0.5, 0.75, 1.0],
+      "number_tried": 4,
+      "criterion": "maximize VBench-5 on eight validation-only prompts; exact ties prefer lower strength",
+      "final": 0.75
+    },
+    {
+      "family": "Distill4",
+      "parameter": "scheduler-state reconstruction noise",
+      "values_tried": ["random", "resize_flow"],
+      "number_tried": 2,
+      "criterion": "maximize VBench-5 on the same validation-only prompt set; exact ties use lexicographic mode order",
+      "final": "random"
+    },
+    {
+      "family": "Distill4 endpoint baseline analysis",
+      "parameter": "target-resolution refinement evaluations",
+      "values_tried": [0, 1, 2, 4],
+      "number_tried": 4,
+      "criterion": "report the full quality-efficiency curve; no single value selected",
+      "final_reported": [0, 1, 2, 4]
+    },
+    {
+      "family": "Distill4 endpoint baseline analysis",
+      "parameter": "endpoint resizing operator",
+      "values_tried": ["latent interpolation", "ITU", "RGB Real-ESRGAN"],
+      "number_tried": 3,
+      "criterion": "controlled comparison under matched prompt, seed, schedule, frames, and resolution",
+      "final_reported": ["latent interpolation", "ITU", "RGB Real-ESRGAN"]
+    }
+  ],
+  "fixed_without_search": {
+    "reason": "Architecture, optimizer, loss weights, LoRA rank/alpha, guidance, and scheduler settings were fixed before the recorded final development sweeps rather than selected by test-set performance.",
+    "reference": "data/final_parameters.json"
+  },
+  "distill4_selection_result": {
+    "selected_case": "strength=0.75, renoise=random",
+    "validation_vbench5": 0.8400870504556698,
+    "test_prompts_used_for_selection": false
+  }
+}

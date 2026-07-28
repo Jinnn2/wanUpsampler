@@ -1,0 +1,8 @@
+group,prompt_index,seed,method,file,width,height,frames,fps,duration_s
+spatial_detail,00,9700,Trilinear,Trilinear_at_40.mp4,1248,720,81,16,5.0625
+spatial_detail,00,9700,ITU-only,ITU_only_at_40.mp4,1248,720,81,16,5.0625
+spatial_detail,00,9700,InTraScale,InTraScale_at_40.mp4,1248,720,81,16,5.0625
+motion,07,9707,Trilinear,Trilinear_at_45.mp4,1248,720,81,16,5.0625
+motion,07,9707,ITU-only,ITU_only_at_45.mp4,1248,720,81,16,5.0625
+motion,07,9707,InTraScale,InTraScale_at_45.mp4,1248,720,81,16,5.0625
+

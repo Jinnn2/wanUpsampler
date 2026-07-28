@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "snapshots": [
+    {
+      "generated_at_utc": "2026-07-17T09:26:48.514215+00:00",
+      "python": "3.11.13 | packaged by conda-forge | (main, Jun 4 2025, 14:48:23) [GCC 13.3.0]",
+      "platform": "Linux-5.14.0-284.25.1.el9_2.x86_64-x86_64-with-glibc2.35",
+      "wanupsampler_git_commit": "0d1dfb5e34b0a740e2e13971f9fedc4964ac886f"
+    },
+    {
+      "generated_at_utc": "2026-07-18T03:51:37.631902+00:00",
+      "python": "3.11.13 | packaged by conda-forge | (main, Jun 4 2025, 14:48:23) [GCC 13.3.0]",
+      "platform": "Linux-5.14.0-284.25.1.el9_2.x86_64-x86_64-with-glibc2.35",
+      "wanupsampler_git_commit": "48e9e0af9df1125c5ea3a231e4e0834e1b8d6bf6"
+    }
+  ],
+  "author_reported_training_resources": {
+    "gpu_model": "NVIDIA H100",
+    "gpu_count": 4,
+    "itu_wall_clock_hours": 8,
+    "ttd_wall_clock_hours": 33
+  },
+  "still_missing": [
+    "GPU memory and exact GPU SKU",
+    "NVIDIA driver",
+    "CUDA, cuDNN, and NCCL versions",
+    "exact PyTorch and package freeze",
+    "LightX2V revision and dirty patch",
+    "DiffSynth-Studio revision and dirty patch",
+    "separate VBench environment freeze"
+  ],
+  "sanitization": "Machine-specific absolute paths and user identifiers are omitted."
+}

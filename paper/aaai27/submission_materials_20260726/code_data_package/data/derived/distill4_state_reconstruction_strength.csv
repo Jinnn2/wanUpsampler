@@ -1,0 +1,9 @@
+rank,case,lora_strength,renoise_mode,vbench5,temporal_consistency,selected
+1,talh3_s0p75_random,0.75,random,0.840087050,0.974649025,true
+2,talh3_s1_random,1.00,random,0.839332067,0.974635447,false
+3,talh3_s0p5_random,0.50,random,0.838930201,0.974676818,false
+4,talh3_s0p25_random,0.25,random,0.838161039,0.974762577,false
+5,talh3_s0p75_resize_flow,0.75,resize_flow,0.815259071,0.958598314,false
+6,talh3_s0p5_resize_flow,0.50,resize_flow,0.814884556,0.958534903,false
+7,talh3_s1_resize_flow,1.00,resize_flow,0.814860558,0.958590285,false
+8,talh3_s0p25_resize_flow,0.25,resize_flow,0.814670626,0.958620315,false

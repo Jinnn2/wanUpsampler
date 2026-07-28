@@ -1,0 +1,19 @@
+internal_case_id,paper_name,notes
+full_hr50,Native-HR,50 target-resolution evaluations
+lightx2v_cr40,Trilinear@40,40 LR plus 10 HR evaluations
+lightx2v_cr45,Trilinear@45,45 LR plus 5 HR evaluations
+lightx2v_cr48,Trilinear@48,48 LR plus 2 HR evaluations
+talh40,InTraScale@40,legacy internal ID retained for provenance
+talh45,InTraScale@45,legacy internal ID retained for provenance
+ralu_nt45,RALU-style@45,Wan adaptation
+full_lr50_stage2_0hr,ITU-0HR,endpoint-first ITU baseline
+full_lr50_stage2_1hr,ITU-1HR,endpoint-first ITU baseline
+full_lr50_stage2_2hr,ITU-2HR,endpoint-first ITU baseline
+full_lr50_stage2_5hr,ITU-5HR (LUVE-style),endpoint-first ITU baseline
+native_hr4,Native-HR4,4 target-resolution evaluations
+interp3,Trilinear@3,3 LR plus 1 HR evaluation
+cll3,ITU-only-D4@3,legacy internal ID retained for provenance
+talh3,InTraScale-D4@3,legacy internal ID retained for provenance
+endpoint_stage2_2hr,ITU-2HR (LUVE-style),4 LR plus 2 HR refinements
+endpoint_rgb_1hr,MrFlow-style,endpoint-first RGB round trip plus 1 HR refinement
+

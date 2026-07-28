@@ -19,3 +19,19 @@ for future structural redesigns.
 `challenge_alignment/fig_challenge_alignment_template.png` is a label-free
 template derived from the canonical 300-DPI comparison figure. It avoids the
 original generator's dependency on external source videos.
+
+Run the LR-endpoint label revisions for Figures 1 and 3 from `rewrite` with:
+
+```powershell
+python figure_sources/edit_fig_teaser.py
+python figure_sources/edit_fig_challenge_interpolation.py
+```
+
+These scripts regenerate:
+
+- `figures/fig_teaser.pdf`
+- `figures/fig_challenge_interpolation.pdf`
+
+The corresponding `*_source.pdf` files preserve the original raster pixels.
+The scripts replace only the legacy first-row/first-column labels with
+`LR endpoint`; decoded frames and crop regions are unchanged.
