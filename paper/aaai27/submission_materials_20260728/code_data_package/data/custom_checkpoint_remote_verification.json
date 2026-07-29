@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "verified_at_utc": "2026-07-28T17:08:31Z",
+  "verification": "Full-file SHA-256 on the original experiment machine",
+  "all_exist": true,
+  "all_sizes_match": true,
+  "all_sha256_match": true,
+  "checkpoints": {
+    "wan50_itu": {
+      "size_bytes": 570100161,
+      "sha256": "f6525b753931698015b3bd04a5dd314efaa1cb04858a71f9fa7bef0babaa7d54"
+    },
+    "wan50_ttd_step40": {
+      "size_bytes": 87559648,
+      "sha256": "bfbcc4998be1fa166e3438b91d9b0bc40aced21a71ba2d15c15079cafd9358e8"
+    },
+    "wan50_ttd_step45": {
+      "size_bytes": 87559616,
+      "sha256": "73f9d38287386dd547aff84ad7a1c7c74d9640033dfe82b94b706c4e7a9bb79f"
+    },
+    "distill4_itu": {
+      "size_bytes": 570100417,
+      "sha256": "96c9980834823088506f0033d8423f69a66bc6ecfe1608e5c22a2319776e859e"
+    },
+    "distill4_ttd_step3": {
+      "size_bytes": 306801824,
+      "sha256": "439851cf5c5ae48f85663cb6f8e3b705ee139f289a66e7cfe3a8a8572702d06c"
+    }
+  },
+  "source_evidence": {
+    "followup_archive_sha256": "85017701b83f172890d683605f81b0715a51129ada85df9a0cc949f59d02f10d",
+    "checkpoint_verification_json_sha256": "f072901f2fb80e6445221a809722301f7fa5a55ffa9d16b645c39dfa76ef4cd5",
+    "followup_root_sha256sums_sha256": "130b03180bc4a9fb8bb9d307036aa441c4ee7ca1e6096ec2596ce2093574f92e"
+  },
+  "upload_boundary": "Checkpoint bytes total about 1.62 GB and are not included in the 50 MB AAAI Code and Data Supplement."
+}

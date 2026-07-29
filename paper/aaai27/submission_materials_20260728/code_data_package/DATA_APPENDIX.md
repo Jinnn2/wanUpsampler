@@ -78,8 +78,8 @@ Distill4 ITU collection contains 5,000. The source-video inventories contain
 (6,866,319,417 bytes); the realized Wan50 LMDB uses 1,000 records.
 
 The first export followed a canonical Distill4 TTD3 directory that existed but
-contained no LMDB shards. A complete legacy-path training-output inventory
-exists through step 10,000, but that does not prove the latent-pair count.
-Accordingly, `data/generated_dataset_realized_manifest.json` marks this one
-collection as pending until the corrected candidate-path exporter is run; it
-does not promote the empty directory to dataset evidence.
+contained no LMDB shards. The corrected exporter located the realized legacy
+collection and verified 5,000 records in 52 shards using schema
+`wan_last_step_skip_lora_lmdb_v2`, with 5,000 distinct prompt hashes and seeds
+9500--14499. The deterministic TTD split contains 4,936 training and 64
+validation records. The empty canonical directory is not counted.

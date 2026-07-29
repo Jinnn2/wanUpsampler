@@ -26,16 +26,16 @@
   视频或 latent tensor，只导出环境、Git revision、LMDB shard/sample/
   schema/shape/seed 与确定性 split 证据。远程入口和确切目录见
   `REMOTE_EVIDENCE_LOCATIONS_ZH.md`。2026-07-28 的首轮导出已执行并通过
-  27 项 metadata 内部 SHA-256 校验；四个 realized LMDB 集合已核实。
-- [ ] 运行 `remote_export/export_temp_followup.sh`，补查 Distill4 TTD3
-  legacy LMDB 的实际 shards/samples，并尝试从 conda 环境清单定位已经
-  迁移的 VBench Python。首轮固定路径 `/opt/conda/envs/vbench/bin/python`
-  已不存在，不能伪造其 freeze。
-- [ ] 在原实验机运行 `tools/export_full_repro_bundle.sh`，取回 5 个最终
-  checkpoint：Wan50 ITU、Wan50 TTD step40/45、Distill4 ITU、Distill4
-  TTD step3。脚本已经写入每个文件的精确大小和 SHA-256，缺失、截断或
-  错误权重都会拒绝导出。
-- [ ] 不要使用旧下载目录中两个约 1.5 MiB 的 Distill 权重。它们与
+  27 项 metadata 内部 SHA-256 校验；五个 realized LMDB 集合均已核实。
+- [x] `export_temp_followup.sh` 已完成。Distill4 TTD3 的实际 legacy
+  LMDB 为 52 shards、5,000 samples、5,000 unique prompt hashes、
+  seeds 9500--14499、split 4936/64。VBench 独立旧路径已不存在，但 base
+  conda Python 3.11.13 对固定 VBench checkout 的导入测试通过，其
+  `pip freeze` 已取证并哈希。
+- [x] 五个最终 checkpoint 已在原实验机逐文件完成大小和完整 SHA-256
+  校验，全部与 `reproduction_assets.json` 一致。总计 1,622,121,666 B，
+  超过 Code/Data 50 MB 上限，因此投稿 ZIP 只包含校验清单，不复制权重。
+- [x] 不使用旧下载目录中两个约 1.5 MiB 的 Distill 权重。它们与
   run manifest 记录的 570,100,417 B 和 306,801,824 B 不符，SHA-256
   也不匹配，已判定为截断文件。
 
@@ -43,8 +43,9 @@
 
 - [ ] 确认公开发布计划和许可证。当前不能承诺所有自研代码、权重和生成数据
   在录用后使用何种许可证。
-- [ ] 把 `requirements.txt` 的最低版本约束补充为导出脚本生成的
-  `pip freeze --all`、conda environment 和 explicit package list。
+- [x] 原实验机 `pip freeze --all`、conda environment、explicit package
+  list 已导出并通过内部哈希；匿名 ZIP 记录核心精确版本和原始 freeze
+  SHA-256，避免把环境构建绝对路径写入投稿包。
 - [x] 已按 Submission 21838 上传字段校验：Technical 10 MB、Media
   50 MB、Code and Data 50 MB。
 - [ ] 对补充 PDF 和 ZIP 做人工匿名检查：PDF properties、注释、绝对路径、

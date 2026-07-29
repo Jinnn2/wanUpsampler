@@ -17,13 +17,14 @@ The package intentionally does not contain:
 - machine-specific absolute paths.
 
 The five exact custom-checkpoint sizes and SHA-256 values are recorded in
-`reproduction_assets.json`. The `tools/` directory provides pinned public-model
+`reproduction_assets.json`, and full-file hashing on the original experiment
+machine verified all five. The `tools/` directory provides pinned public-model
 download, experiment-machine export, raw-evidence recovery, and bundle
 verification scripts. Consequently, the package supports code and result
 auditing and provides a deterministic path to an end-to-end reproduction
-bundle.  The original-machine environment export has been recovered and
-summarized in this ZIP; the five final custom weights still need to be added
-for complete regeneration.
+bundle. The original-machine environment has also been recovered and
+summarized here. The 1,622,121,666 checkpoint bytes are not copied into this
+review ZIP because the AAAI Code and Data Supplement is limited to 50 MB.
 
 ## Layout
 
@@ -39,10 +40,13 @@ for complete regeneration.
 - `data/archived_environment_summary.json`: sanitized original-machine
   hardware, software, and pinned framework revisions with source-record hashes.
 - `data/generated_dataset_realized_manifest.json`: realized LMDB counts,
-  deterministic splits, raw-video inventory totals, and the explicit remaining
-  Distill4 TTD3 legacy-path follow-up.
+  deterministic splits, raw-video inventory totals, and all five realized
+  ITU/TTD collections.
+- `data/custom_checkpoint_remote_verification.json`: original-machine
+  existence, size, and full SHA-256 verification for all five custom weights.
 - `tools/`: public-asset downloader, remote export, and integrity validation.
-- `reproduction_assets.json`: pinned public revisions and exact custom weights.
+- `reproduction_assets.json`: pinned public revisions and exact custom-weight
+  identities.
 - `CASE_NAME_MAP.csv`: immutable internal case IDs mapped to paper terminology.
 - `REPRODUCTION.md`: protocol and dependency instructions.
 - `DATA_APPENDIX.md`: generated-data construction, counts, schemas, and splits.

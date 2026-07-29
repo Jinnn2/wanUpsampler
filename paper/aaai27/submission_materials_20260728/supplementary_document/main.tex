@@ -51,10 +51,10 @@ archived results remain traceable.
 The package includes validated Wan50 and Distill4 quality, timing, component,
 and paired-statistics exports.  It also includes the checksum-verified
 50-sample raw \(368{\times}640\rightarrow720{\times}1248\) ITU operator
-evaluation and a deterministic aggregation script.  The local archive does not
-contain the complete custom ITU/TTD checkpoints or exact hardware/software
-version metadata.  These missing items are not reconstructed from filenames or
-earlier prose.
+evaluation and a deterministic aggregation script.  Original-machine exports
+record the exact hardware/software environment and verify every final custom
+ITU/TTD checkpoint by full-file SHA-256.  The five hashes and sizes match the
+supplied manifest; no value is reconstructed from filenames or earlier prose.
 
 \section{Implementation and Training Details}
 
@@ -234,12 +234,12 @@ training, inference, and analysis modules together with a static internal-import
 closure check.  A code-to-paper map and core-file comments point to the
 corresponding method subsections.  The generated-data appendix records both
 construction targets and recovered realized manifests: Wan50 ITU and
-step-40/45 TTD each contain 1,000 records, and Distill4 ITU contains 5,000
-records.  It also records LMDB schemas, deterministic splits, prompt-hash
-counts, raw-video inventory sizes, and why ordinary public RGB video datasets
-cannot replace matched generator-internal states.  The Distill4 step-3 TTD LMDB
-is explicitly marked for a corrected legacy-path follow-up rather than being
-inferred from its training output.
+step-40/45 TTD each contain 1,000 records, while Distill4 ITU and step-3 TTD
+each contain 5,000 records.  The latter was recovered from its realized legacy
+path as 52 shards, 5,000 unique prompt hashes, seeds 9500--14499, and a
+4,936/64 training/validation split.  The appendix also records LMDB schemas,
+deterministic splits, raw-video inventory sizes, and why ordinary public RGB
+video datasets cannot replace matched generator-internal states.
 The media ZIP contains two matched prompt--seed groups.  Each group compares
 Trilinear, ITU-only, and InTraScale at 1248-by-720 resolution, 81 frames, and
 16 frames per second.  Legacy 640-by-368 files misleadingly named
@@ -247,10 +247,13 @@ Trilinear, ITU-only, and InTraScale at 1248-by-720 resolution, 81 frames, and
 
 \paragraph{Reproducibility boundary.}
 Public base-model weights, large latent LMDBs, and generated-video test sets are
-not duplicated.  More importantly, the current local archive does not contain
-the final custom ITU/TTD weights.  The package therefore supports independent
-audit of implementation, protocols, raw metric exports, and statistical
-claims, but full regeneration requires adding the final custom checkpoints.
+not duplicated.  The five custom ITU/TTD checkpoints total 1,622,121,666 bytes
+and therefore cannot be placed in the 50-MB review ZIP.  Full-file hashing on
+the original machine confirms that every checkpoint exists and matches the
+size and SHA-256 recorded in the package.  The review ZIP supports independent
+audit of implementation, protocols, raw metric exports, statistical claims,
+data construction, and checkpoint identity; regeneration requires supplying
+the verified checkpoint bytes outside this upload-size boundary.
 
 \section{Additional Wan50 Results}
 

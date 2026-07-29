@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex main"] 1785242426.36163 "main.aux" "main.bbl" "main" 1785242556.26695 0
+["bibtex main"] 1785314462.34297 "main.aux" "main.bbl" "main" 1785314463.52348 0
   "./aaai2027.bst" 1784905138 31700 bd248dfe461b9b2fc7481a44feafe197 ""
-  "./references.bib" 1785234746 13039 f136b73e69d3cd4efb26b023b378a16b ""
-  "main.aux" 1785242555 5175 065efbff6745bdef1df08f0d3ebea6f4 "pdflatex"
+  "./references.bib" 1785314450 13074 623eda869598f6b3f33a792ccbee4c1a ""
+  "main.aux" 1785314463 5647 cfbaf3efbddd1ab6ceecfdf543eb1fc9 "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1785242555.16512 "main.tex" "main.pdf" "main" 1785242556.26783 0
+["pdflatex"] 1785314462.42233 "main.tex" "main.pdf" "main" 1785314463.52446 0
   "aaai2027.sty" 1779092464 16915 1b1c792e2acfbbd8b672259e267b95d8 ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/enc/dvips/newtx/ntx-ec-tlf.enc" 1784399516 2914 fdbc4a54b9bc76f4551b5303f2737d33 ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/enc/dvips/tex-gyre/q-ts1.enc" 1784399636 3124 3813fd4c981d99822890a2861b0d274c ""
@@ -115,9 +115,9 @@
   "figures/fig_quality_efficiency_distill4_pareto_outlined.pdf" 1785234680 37338 19d30167f3e72fb9f34cbd289f9fa2af ""
   "figures/fig_quality_efficiency_pareto_v2_outlined.pdf" 1785234680 45612 83e1365802d8f7e10c0f1ec2bfac1624 ""
   "figures/fig_teaser.pdf" 1785231369 461604 a26feb905673160b293eb439e92ad30d ""
-  "main.aux" 1785242555 5175 065efbff6745bdef1df08f0d3ebea6f4 "pdflatex"
-  "main.bbl" 1785242426 11005 a07b41c68a2833c62af11a8c3ca5abbe "bibtex main"
-  "main.tex" 1785242551 39716 f50be774659f4782d4c9b4338a51923b ""
+  "main.aux" 1785314463 5647 cfbaf3efbddd1ab6ceecfdf543eb1fc9 "pdflatex"
+  "main.bbl" 1785314462 12420 7c4fbd514609c155ef89271be61c7f97 "bibtex main"
+  "main.tex" 1785314450 40004 4fe8768b40c353cb5a2ede6003f3efb6 ""
   (generated)
   "main.aux"
   "main.log"

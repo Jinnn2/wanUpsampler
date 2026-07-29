@@ -83,3 +83,17 @@ bash paper/aaai27/submission_materials_20260728/remote_export/export_temp_follow
 `metrics.jsonl`/`train_config.yaml`，并校验五个自研 checkpoint 的大小
 和 SHA-256。输出仍在
 `/mnt/afs_2/houze/wanUpsampler/outputs/aaai27_repro_exports/`。
+
+## Follow-up 验收结果
+
+`intrascale_temp_followup_20260728T170831Z.tar.gz` 已在本地完成安全成员
+检查和根 `SHA256SUMS` 的 10 项逐文件校验。归档 SHA-256 为
+`85017701b83f172890d683605f81b0715a51129ada85df9a0cc949f59d02f10d`。
+
+- Distill4 TTD3：legacy 路径，52 shards、5,000 samples、5,000 unique
+  prompt hashes、seeds 9500--14499、schema
+  `wan_last_step_skip_lora_lmdb_v2`、split 4936/64。
+- VBench：旧独立环境路径缺失；base conda Python 3.11.13 对固定 VBench
+  checkout 的 `import vbench` 测试通过，freeze 已导出。
+- 五个自研 checkpoint：全部存在，实际大小和完整 SHA-256 均与
+  `reproduction_assets.json` 一致。

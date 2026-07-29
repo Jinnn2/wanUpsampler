@@ -68,13 +68,26 @@
         "training_samples": 4900,
         "validation_samples": 100
       }
+    },
+    {
+      "name": "distill4_ttd_step3",
+      "schema": "wan_last_step_skip_lora_lmdb_v2",
+      "shards": 52,
+      "samples": 5000,
+      "unique_prompt_hashes": 5000,
+      "seed_min": 9500,
+      "seed_max": 14499,
+      "split": {
+        "algorithm": "random.Random(1234).shuffle(indices)",
+        "training_samples": 4936,
+        "validation_samples": 64
+      }
     }
   ],
-  "pending_followup": {
-    "distill4_ttd_step3": "The first export inspected an empty canonical directory. A legacy candidate is evidenced by its complete step-10000 training-output inventory and is handled by the corrected exporter, but its LMDB sample manifest still requires the small follow-up export."
-  },
+  "pending_followup": {},
   "source_evidence_sha256": {
     "full_lmdb_manifest": "d578bf3780475eb4da5741b8ac51e38c06cc6cc6160320e303e513936fa77cb6",
+    "distill4_ttd3_followup_manifest": "7eb533c7cfa0e1a0712a7184ef8a364a49f3411c2ac69bf8b939d62190f0a915",
     "wan50_itu_output_inventory": "4783515736999b73202a03dce8a6d037b2a458cc68cc4cc9c3873bfec257e04b",
     "wan50_ttd40_output_inventory": "5a5aed6b6bc0d5e711ae8bf183e04fef0b621c13d7af9f442da469e4004b6fc5",
     "wan50_ttd45_output_inventory": "958689583d927b4143dd48d4191532ae9dc8f5da6fb1c69e11906e4912f64d2c",

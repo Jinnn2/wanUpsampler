@@ -55,7 +55,8 @@ into the target-resolution latent space. A scheduler-consistent state
 reconstruction then returns the prediction to the remaining
 target-resolution trajectory.
 On the 50-step Wan2.1 model, InTraScale achieves a \(4.44\times\)
-speedup while retaining \(97.53\%\) of the Native-HR VBench-5 score.
+speedup while retaining \(97.53\%\) of the VBench-5 score of native
+high-resolution (Native-HR) sampling.
 On the distilled 4-step Wan2.1 model, it achieves a \(2.13\times\)
 speedup over Native-HR while retaining \(99.58\%\) of the native
 distilled score. These results establish in-trajectory resolution
@@ -79,18 +80,17 @@ target-resolution computation for local structure and high-frequency details.
 
 Such low-to-high-resolution pipelines can follow two schedules, depending on whether
 resolution is increased after low-resolution generation or before its
-trajectory is complete. Most existing pipelines follow the former, completing
-a low-resolution trajectory before applying an RGB-space or latent-space
+trajectory is complete. Representative pipelines follow the former, completing
+a low-resolution trajectory before applying a decoded-video or latent-space
 upsampling stage~\citep{ho2022imagenvideo,blattmann2023videoldm,
-  wang2023lavie}. RGB-space cascades incur decode--encode and scheduler-state
-  reconstruction overhead, whereas latent cascades directly upsample the completed
-representation~\citep{xie2025simplegvr,zhao2026luve}. Both, however, perform
-resolution enhancement only after low-resolution generation has completed. In-trajectory
-resolution scaling follows the latter: it transitions earlier and uses the
-remaining denoising steps as the target-resolution
-continuation~\citep{jeong2025ralu,lightx2v2026}, avoiding a separate
-super-resolution diffusion process or an increase in the original step
-budget.
+  wang2023lavie}. Decoded-video cascades first materialize a completed
+low-resolution video before enhancement, whereas latent cascades directly process
+the completed latent representation~\citep{xie2026simplegvr,zhao2026luve}.
+Related image- and video-generation systems instead transition resolution
+before the trajectory finishes and use the remaining denoising steps as the
+target-resolution continuation~\citep{jeong2026ralu,lightx2v2025}, avoiding a
+separate super-resolution diffusion process or an increase in the original
+step budget.
 
 \begin{figure*}[t]
   \centering
@@ -152,9 +152,7 @@ sequence of trajectory-state calibration, VAE-specific latent lifting,
 and scheduler-consistent state reconstruction, with all learned
 components supervised by the frozen base generator.
 
-  \item We evaluate InTraScale on conventional 50-step and distilled
-  4-step Wan2.1 samplers, demonstrating substantial spatial
-  acceleration both before and after timestep distillation.
+  \item We evaluate InTraScale on conventional 50-step and distilled 4-step Wan2.1 samplers, achieving \(4.44\times\) and \(2.13\times\) speedups over native high-resolution sampling, respectively.
 \end{itemize}
 
 \section{Related Work}
@@ -171,7 +169,7 @@ Existing acceleration methods target several complementary dimensions.
 Timestep and consistency distillation shorten the sampling
 trajectory~\citep{wang2023videolcm,li2024t2vturbo,ding2025dollar,nie2026tmd}.
 Sparse attention reduces token interactions~\citep{xi2025sparsevideogen},
-while caching reuses attention maps or intermediate
+while caching reuses attention outputs or intermediate model
 features~\citep{zhao2025pab,liu2025teacache,zou2026disca}. Quantization lowers
 the arithmetic and memory cost of DiT inference~\citep{zhao2025viditq}, and
 dynamic-computation methods vary model capacity or patch size across steps and
@@ -181,15 +179,16 @@ be layered with spatial acceleration; our experiments verify this
 compatibility for timestep distillation.
 
 \paragraph{Resolution-Scaling Video Generation.}
-\emph{Post-generation methods} enhance a completed low-resolution result in
-RGB space~\citep{zhou2024upscale,xu2024videogigagan,he2024venhancer} or latent
-space~\citep{xie2025simplegvr,zhao2026luve}; related systems append
-high-resolution refinement or distill restoration into a separate
-stage~\citep{zheng2026mrflow,zhuang2026flashvsr}. \emph{In-trajectory methods}
-instead vary resolution within the generative process. Some train the generator
-around multiscale trajectories~\citep{gu2024matryoshka,jin2025pyramidalflow},
-whereas methods for pretrained models prescribe variable-resolution schedules
-or expand noisy states during sampling~\citep{jeong2025ralu,lightx2v2026,
+\emph{Post-generation methods} enhance a completed decoded
+video~\citep{zhou2024upscale,xu2025videogigagan,he2024venhancer} or operate through
+latent cascades~\citep{xie2026simplegvr,zhao2026luve}. Related image- and
+video-generation systems append high-resolution refinement or distill
+restoration into a separate stage~\citep{zheng2026mrflow,zhuang2026flashvsr}.
+\emph{In-trajectory methods} instead vary resolution within the generative
+process. Some train the generator around multiscale
+trajectories~\citep{gu2024matryoshka,jin2025pyramidalflow}, whereas approaches for
+pretrained image and video models prescribe variable-resolution schedules or
+expand noisy states during sampling~\citep{jeong2026ralu,lightx2v2025,
 zheng2026fresco,xiao2026spectral}. InTraScale belongs to the latter category
 but keeps the generator frozen, learns the VAE-specific correspondence between
 clean low- and target-resolution latents, and separately corrects the
@@ -203,11 +202,11 @@ target-resolution continuation.
   {figures/fig_overall_framework_outlined.pdf}
   \caption{\textbf{Sampling budget and overall framework of InTraScale.}
   (a) Native-HR executes all \(T\) steps at target resolution, whereas
-  a post-generation cascade appends \(K\) super-resolution steps after
-  completing low-resolution generation. (b) At step \(s\), TTD distills the omitted
+  a post-generation cascade appends additional \(K\) steps. (b) At step \(s\), TTD distills the omitted
   low-resolution trajectory tail into an endpoint-calibrated clean prediction.
   ITU, trained on low- and target-resolution clean-latent pairs, lifts this prediction to
-  the target-resolution latent space.}
+  the target-resolution latent space. HR and LR denote target-
+  (\(720\mathrm{p}\)) and low-resolution (\(368\mathrm{p}\)) sampling.}
   \label{fig:overall_framework}
 \end{figure*}
 
@@ -232,7 +231,7 @@ induced by the pretrained VAE. Consequently, interpolated latents may exhibit
 distorted structures and inaccurate high-frequency statistics on the
 target-resolution grid. RALU reported that late latent upsampling introduces
 aliasing artifacts, particularly in high-frequency regions around object
-boundaries~\citep{jeong2025ralu}. This
+boundaries~\citep{jeong2026ralu}. This
 exposes a fundamental quality–efficiency trade-off: a later resolution
 transition provides greater acceleration but leaves fewer target-resolution
   steps to correct the errors introduced during resolution conversion.
@@ -535,7 +534,8 @@ design analyses.
 \label{sec:experimental_setup}
 
 We evaluate InTraScale on both the standard 50-step Wan2.1 T2V-1.3B
-sampler and a 4-step Wan2.1 T2V-14B StepDistill-CfgDistill sampler.
+sampler~\citep{wan2025} and a 4-step Wan2.1 T2V-14B
+StepDistill-CfgDistill sampler~\citep{lightx2v2025}.
 This section first examines the 50-step setting, where steps 40
 and 45 serve as transition steps. We additionally evaluate trilinear
 interpolation with transition steps 40, 45, and 48 to characterize the
@@ -543,10 +543,11 @@ effect of increasingly delayed transitions. All configurations generate
 81-frame videos at \(720\times1248\) resolution from matched text prompts,
 random seeds, initial noise, schedulers, and guidance settings.
 
-We evaluate ten matched prompt--seed pairs using VBench. We report subject
-consistency, background consistency, motion smoothness, aesthetic quality, and
-imaging quality; Overall (VBench-5) is their unweighted mean, not an official
-VBench aggregate. Paired analyses use prompt--seed pairs as units.
+We evaluate ten matched prompt--seed pairs using VBench~\citep{huang2024vbench}.
+We report subject consistency, background consistency, motion smoothness,
+aesthetic quality, and imaging quality; Overall (VBench-5) is their unweighted
+mean, not an official VBench aggregate. Paired analyses use prompt--seed pairs
+as units.
 
 We measure single-video end-to-end latency after one untimed warm-up,
 using five matched prompt--seed generations per resident process. CUDA-synchronized
@@ -629,7 +630,8 @@ becomes shorter, trilinear interpolation leaves insufficient steps to repair
 the induced latent distortion.
 
 At step 45, InTraScale also improves VBench-5 over RALU-style
-rescheduling by 0.00352 with a 0.61\% latency increase. This comparison
+rescheduling~\citep{jeong2026ralu} by 0.00352 with a 0.61\% latency increase.
+This comparison
 suggests that RALU-style rescheduling combined with trilinear transition does
 not fully address the VAE-induced cross-resolution correspondence modeled by
 ITU.
@@ -657,7 +659,7 @@ video generators increasingly rely on timestep-distilled models to reduce the
 trajectory length. We therefore ask whether in-trajectory resolution scaling
 can provide additional gains after the step count has already been
 compressed. To this end, we apply InTraScale to a 4-step Wan2.1
-T2V-14B StepDistill-CfgDistill model. Step 3 is the transition step
+T2V-14B StepDistill-CfgDistill model~\citep{lightx2v2025}. Step 3 is the transition step
 and the last step executed at low resolution, leaving one
 target-resolution step for generative refinement.
 
@@ -667,8 +669,9 @@ target resolution, and Trilinear@3, which uses the same
 trilinear interpolation and disables TTD. We further construct two controlled
 post-generation baselines on the same distilled backbone. Both complete all
 four low-resolution steps before increasing the spatial resolution.
-LUVE-style then applies learned latent upsampling followed by two
-target-resolution refinements, whereas MrFlow-style uses a
+LUVE-style~\citep{zhao2026luve} then applies learned latent upsampling followed
+by two target-resolution refinements, whereas
+MrFlow-style~\citep{zheng2026mrflow} uses a
 decode--RGB-upsample--re-encode path followed by one target-resolution
 correction. These configurations reproduce the corresponding computational
 patterns rather than the complete original systems.
@@ -747,9 +750,9 @@ VBench-5 score.
 
 We next examine whether ITU and TTD address the two transition-specific
 challenges identified in Section~3.1. On 50 completed clean-latent pairs per scale, ITU consistently improves
-cross-resolution reconstruction over trilinear interpolation. We compute latent
-\(L_1\) in latent space and LPIPS/temporal \(L_1\) on decoded RGB frames, with
-the latter comparing first-order frame differences. For
+cross-resolution reconstruction over trilinear interpolation. We compute
+latent \(L_1\) in latent space, LPIPS~\citep{zhang2018lpips} on decoded RGB
+frames, and temporal \(L_1\) between first-order frame differences. For
 \(480\mathrm{p}\rightarrow720\mathrm{p}\), ITU reduces these three metrics by
 48.6\%, 73.3\%, and 30.8\%, respectively. Under the more aggressive
 \(368\mathrm{p}\rightarrow720\mathrm{p}\) conversion, the corresponding

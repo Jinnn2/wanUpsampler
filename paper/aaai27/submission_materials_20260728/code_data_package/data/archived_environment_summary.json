@@ -78,7 +78,11 @@
     "itu_wall_clock_hours": 8,
     "ttd_wall_clock_hours": 33
   },
-  "remaining_environment_gap": {
-    "separate_vbench_python_freeze": "The recorded executable path no longer existed at audit time; the exact VBench framework revision is nevertheless pinned above."
+  "vbench_runtime_followup": {
+    "historical_separate_environment_path_status": "missing at audit time",
+    "resolved_runtime": "base conda Python 3.11.13",
+    "vbench_import_with_pinned_source_checkout": "ok",
+    "pip_freeze_sha256": "de7c48236e7420095033cea5916e547bb2ab506225d90f12ba7a2b15124b2b52",
+    "candidate_audit_sha256": "ebac1b08d18e07c41bf861068063d0b510f1adfda3994a73396a4892650dab4c"
   }
 }
