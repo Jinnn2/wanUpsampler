@@ -245,7 +245,7 @@ synthesize details absent from the low-resolution representation.
   {figures/fig_challenge_interpolation.pdf}
   \caption{Trilinear interpolation under a late resolution transition. The
   columns show the completed LR endpoint after 50 low-resolution
-  steps, Trilinear@45, and InTraScale@45; the bottom row shows
+  steps, Trilinear@40, and InTraScale@40; the bottom row shows
   the corresponding \(3\times\) crops.}
   \label{fig:challenge_interpolation}
 \end{figure}
@@ -739,12 +739,6 @@ LUVE-style advantage is small but detectable. InTraScale additionally obtains
 higher motion smoothness than both post-generation baselines shown in
 Table~\ref{tab:distilled_acceleration}.
 
-These results demonstrate that in-trajectory resolution scaling is
-complementary to timestep distillation. Even after the denoising trajectory
-has been compressed to four steps, InTraScale reduces
-end-to-end latency by 53.1\% while retaining 99.58\% of the Native-HR4
-VBench-5 score.
-
 \subsection{Component and Design Analysis}
 \label{sec:component_analysis}
 
@@ -770,6 +764,11 @@ replacing trilinear interpolation with ITU improves VBench-5 by
 0.03085--0.04066, whereas enabling TTD changes the aggregate score by only
 \(-0.00050\) to \(+0.00087\). ITU therefore provides the dominant perceptual
 gain, while TTD primarily reduces the transition-specific endpoint mismatch.
+
+A randomized method-blind study with three raters on the same ten pairs favors
+InTraScale@45 over Trilinear@45 in prompt-majority detail and overall quality
+(both \(10/0/0\)) and temporal stability (\(9/0/1\); all
+\(p\leq0.0039\)); full statistics are supplementary.
 
 Finally, we validate the target-resolution state reconstruction on an
 independent eight-prompt set. Using seed-derived target-resolution noise

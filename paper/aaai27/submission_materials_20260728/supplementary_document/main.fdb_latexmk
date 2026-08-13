@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1785258874.47673 "main.tex" "main.pdf" "main" 1785258875.29258 0
+["pdflatex"] 1785324299.80312 "main.tex" "main.pdf" "main" 1785324300.62829 0
   "aaai2027.sty" 1779092464 16915 1b1c792e2acfbbd8b672259e267b95d8 ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/enc/dvips/base/8r.enc" 1777610000 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/enc/dvips/newtx/ntx-ec-tlf.enc" 1784399516 2914 fdbc4a54b9bc76f4551b5303f2737d33 ""
@@ -18,6 +18,7 @@
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/tfm/public/newtx/ntx-Italic-tlf-t1.tfm" 1784399517 11524 8ba2f557ba7dc63d1e9e4c8cc65c9b60 ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/tfm/public/newtx/ntx-Regular-tlf-t1.tfm" 1784399517 11580 86fb9f1fbe830bcc3e5ca9d9fb704e6b ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb" 1777609995 36299 5f9df58c2139e7edcf37c8fca4bd384d ""
+  "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi6.pfb" 1777609995 37166 8ab3487cbe3ab49ebce74c29ea2418db ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb" 1777609995 36281 c355509802a035cadc5f15869451dcee ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi9.pfb" 1777609995 36094 798f80770b3b148ceedd006d487db67c ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb" 1777609995 35752 024fb6c41858982481f6968b5fc26508 ""
@@ -86,8 +87,8 @@
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1784399674 176285 e68d14301976c9be24b7e4c2db0f15c2 ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-var/web2c/pdftex/pdflatex.fmt" 1777610046 2242008 123ec13fe6cfb84c98f573694213d5bb ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf.cnf" 1777609962 903 164c5b127cd0d6dc91abad2f62421ea2 ""
-  "main.aux" 1785258875 510 5e97bf62434d1e56424ab492fc82dfd1 "pdflatex"
-  "main.tex" 1785258815 23016 e6f74696b5c8a880b7c29b40142a4be1 ""
+  "main.aux" 1785324300 616 5fa34cd1745503de996cd940f4ee5866 "pdflatex"
+  "main.tex" 1785324295 28023 6c3a092b181c27d2613c94cd1d65e2fe ""
   (generated)
   "main.aux"
   "main.log"

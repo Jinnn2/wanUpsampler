@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex main"] 1785314462.34297 "main.aux" "main.bbl" "main" 1785314463.52348 0
+["bibtex main"] 1785323529.75806 "main.aux" "main.bbl" "main" 1785323530.96312 0
   "./aaai2027.bst" 1784905138 31700 bd248dfe461b9b2fc7481a44feafe197 ""
   "./references.bib" 1785314450 13074 623eda869598f6b3f33a792ccbee4c1a ""
-  "main.aux" 1785314463 5647 cfbaf3efbddd1ab6ceecfdf543eb1fc9 "pdflatex"
+  "main.aux" 1785323530 5647 9814d3299ee2e27016d247f8912c3a9d "pdflatex"
   (generated)
   "main.bbl"
   "main.blg"
   (rewritten before read)
-["pdflatex"] 1785314462.42233 "main.tex" "main.pdf" "main" 1785314463.52446 0
+["pdflatex"] 1785323529.85061 "main.tex" "main.pdf" "main" 1785323530.96403 0
   "aaai2027.sty" 1779092464 16915 1b1c792e2acfbbd8b672259e267b95d8 ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/enc/dvips/newtx/ntx-ec-tlf.enc" 1784399516 2914 fdbc4a54b9bc76f4551b5303f2737d33 ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-dist/fonts/enc/dvips/tex-gyre/q-ts1.enc" 1784399636 3124 3813fd4c981d99822890a2861b0d274c ""
@@ -110,14 +110,14 @@
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf-var/web2c/pdftex/pdflatex.fmt" 1777610046 2242008 123ec13fe6cfb84c98f573694213d5bb ""
   "c:/Users/jinho/AppData/Local/TinyTeX/texmf.cnf" 1777609962 903 164c5b127cd0d6dc91abad2f62421ea2 ""
   "figures/fig_challenge_alignment.pdf" 1784957345 93343 43b7f9be6acc81177d1d4e763b35e59a ""
-  "figures/fig_challenge_interpolation.pdf" 1785231369 63522 64d68d0fb54a66a23caa855351d5ec4d ""
+  "figures/fig_challenge_interpolation.pdf" 1785320168 821841 f796bc685d3139bc4c6865ffc233efee ""
   "figures/fig_overall_framework_outlined.pdf" 1785234636 3196627 62da7595d170a6304a95f6940ad8411b ""
   "figures/fig_quality_efficiency_distill4_pareto_outlined.pdf" 1785234680 37338 19d30167f3e72fb9f34cbd289f9fa2af ""
   "figures/fig_quality_efficiency_pareto_v2_outlined.pdf" 1785234680 45612 83e1365802d8f7e10c0f1ec2bfac1624 ""
   "figures/fig_teaser.pdf" 1785231369 461604 a26feb905673160b293eb439e92ad30d ""
-  "main.aux" 1785314463 5647 cfbaf3efbddd1ab6ceecfdf543eb1fc9 "pdflatex"
-  "main.bbl" 1785314462 12420 7c4fbd514609c155ef89271be61c7f97 "bibtex main"
-  "main.tex" 1785314450 40004 4fe8768b40c353cb5a2ede6003f3efb6 ""
+  "main.aux" 1785323530 5647 9814d3299ee2e27016d247f8912c3a9d "pdflatex"
+  "main.bbl" 1785323529 12420 7c4fbd514609c155ef89271be61c7f97 "bibtex main"
+  "main.tex" 1785323523 39946 eab58b094680b4921a110ac50ccacf2e ""
   (generated)
   "main.aux"
   "main.log"

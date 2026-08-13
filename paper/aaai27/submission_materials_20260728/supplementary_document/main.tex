@@ -365,6 +365,121 @@ the verified checkpoint bytes outside this upload-size boundary.
   \label{tab:factorial}
 \end{table*}
 
+\FloatBarrier
+\subsection{Human Evaluation}
+
+At the Wan50 step-45 transition, three raters evaluated randomized,
+method-hidden A/B pairs for the same ten prompt--seed cases used by the
+automatic evaluation.  A/B order was randomized independently for each
+comparison.  Raters judged detail, artifact cleanliness, temporal stability,
+structure/identity preservation, and overall quality.  We aggregate the three
+ratings into one prompt-level majority outcome, retain ties, and apply a
+two-sided exact sign test to non-tied prompts.  Table~\ref{tab:human-majority}
+reports every evaluated comparison and dimension; W/L/T is from the
+perspective of the first method named.
+
+\begin{table*}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{llrr}
+    \toprule
+    Comparison & Dimension & W/L/T & Sign-test \(p\) \\
+    \midrule
+    TTD+Trilinear vs. Trilinear
+      & Detail & 1/5/4 & 0.2188 \\
+      & Artifact cleanliness & 1/2/7 & 1.0000 \\
+      & Temporal stability & 0/4/6 & 0.1250 \\
+      & Structure/identity & 0/0/10 & 1.0000 \\
+      & Overall quality & 1/3/6 & 0.6250 \\
+    \addlinespace
+    InTraScale vs. ITU-only
+      & Detail & \textbf{9/0/1} & \textbf{0.0039} \\
+      & Artifact cleanliness & 1/5/4 & 0.2188 \\
+      & Temporal stability & \textbf{0/8/2} & \textbf{0.0078} \\
+      & Structure/identity & 1/0/9 & 1.0000 \\
+      & Overall quality & \textbf{6/0/4} & \textbf{0.0313} \\
+    \addlinespace
+    ITU-only vs. Trilinear
+      & Detail & \textbf{10/0/0} & \textbf{0.0020} \\
+      & Artifact cleanliness & \textbf{10/0/0} & \textbf{0.0020} \\
+      & Temporal stability & \textbf{8/0/2} & \textbf{0.0078} \\
+      & Structure/identity & \textbf{10/0/0} & \textbf{0.0020} \\
+      & Overall quality & \textbf{10/0/0} & \textbf{0.0020} \\
+    \addlinespace
+    InTraScale vs. Trilinear
+      & Detail & \textbf{10/0/0} & \textbf{0.0020} \\
+      & Artifact cleanliness & \textbf{10/0/0} & \textbf{0.0020} \\
+      & Temporal stability & \textbf{9/0/1} & \textbf{0.0039} \\
+      & Structure/identity & \textbf{10/0/0} & \textbf{0.0020} \\
+      & Overall quality & \textbf{10/0/0} & \textbf{0.0020} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Complete prompt-majority human evaluation at Wan50 step 45
+  (\(n=10\), three raters per prompt).  Bold entries have two-sided exact
+  sign-test \(p<0.05\); tied prompts are excluded from the test.}
+  \label{tab:human-majority}
+\end{table*}
+
+Table~\ref{tab:human-agreement} reports observed agreement \(P_o\), agreement
+expected from the marginal label frequencies \(P_e\), and Fleiss'
+\(\kappa\).  Low or negative \(\kappa\) can coexist with strongly one-sided
+majority outcomes when \(P_e\) is high; we therefore report both majority
+counts and agreement rather than interpreting \(\kappa\) alone.
+
+\begin{table*}[t]
+  \centering
+  \footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \renewcommand{\arraystretch}{0.94}
+  \begin{tabular}{llrrr}
+    \toprule
+    Comparison & Dimension & \(P_o\) & \(P_e\) & Fleiss' \(\kappa\) \\
+    \midrule
+    TTD+Trilinear vs. Trilinear
+      & Detail & 0.400 & 0.389 & 0.018 \\
+      & Artifact cleanliness & 0.267 & 0.389 & \(-0.200\) \\
+      & Temporal stability & 0.200 & 0.376 & \(-0.281\) \\
+      & Structure/identity & 0.733 & 0.762 & \(-0.121\) \\
+      & Overall quality & 0.300 & 0.389 & \(-0.145\) \\
+    \addlinespace
+    InTraScale vs. ITU-only
+      & Detail & 0.733 & 0.713 & 0.070 \\
+      & Artifact cleanliness & 0.267 & 0.369 & \(-0.162\) \\
+      & Temporal stability & 0.300 & 0.496 & \(-0.388\) \\
+      & Structure/identity & 0.433 & 0.520 & \(-0.181\) \\
+      & Overall quality & 0.567 & 0.520 & 0.097 \\
+    \addlinespace
+    ITU-only vs. Trilinear
+      & Detail & 0.933 & 0.936 & \(-0.034\) \\
+      & Artifact cleanliness & 0.933 & 0.936 & \(-0.034\) \\
+      & Temporal stability & 0.567 & 0.593 & \(-0.066\) \\
+      & Structure/identity & 0.933 & 0.936 & \(-0.034\) \\
+      & Overall quality & 0.933 & 0.936 & \(-0.034\) \\
+    \addlinespace
+    InTraScale vs. Trilinear
+      & Detail & 0.933 & 0.936 & \(-0.034\) \\
+      & Artifact cleanliness & 0.933 & 0.936 & \(-0.034\) \\
+      & Temporal stability & 0.567 & 0.629 & \(-0.168\) \\
+      & Structure/identity & 0.933 & 0.936 & \(-0.034\) \\
+      & Overall quality & 0.933 & 0.936 & \(-0.034\) \\
+    \bottomrule
+  \end{tabular}
+  \caption{Complete inter-rater agreement for the step-45 study.}
+  \label{tab:human-agreement}
+\end{table*}
+
+\paragraph{Ethics and privacy.}
+The rating task only compares machine-generated videos.  The ballot solicits
+no demographic or sensitive attributes; it records categorical preferences,
+confidence, a severe-failure flag, and optional notes.  All raters provided
+informed consent and received no compensation.  The released material reports
+aggregate statistics and excludes pseudonymous rater identifiers and free-text
+notes.
+% AUTHOR CHECK: add the factual rater relationship and institutional-review or
+% exemption status, if applicable.
+
+\FloatBarrier
 \section{Additional Distill4 Results}
 
 \begin{table*}[t]

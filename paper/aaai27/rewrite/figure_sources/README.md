@@ -20,18 +20,33 @@ for future structural redesigns.
 template derived from the canonical 300-DPI comparison figure. It avoids the
 original generator's dependency on external source videos.
 
-Run the LR-endpoint label revisions for Figures 1 and 3 from `rewrite` with:
+Render Figure 3 from the matched prompt-08/seed-9708 video group with:
+
+```powershell
+python figure_sources/render_fig_challenge_interpolation.py
+```
+
+The script deterministically extracts the midpoint frame, applies the canonical
+centered `3x` crop, and regenerates:
+
+- `figure_sources/fig_challenge_interpolation_source.png`
+- `figure_sources/fig_challenge_interpolation_source.pdf`
+- `figure_sources/fig_challenge_interpolation_source_manifest.json`
+- `figures/fig_challenge_interpolation.png`
+- `figures/fig_challenge_interpolation.pdf`
+
+Run the LR-endpoint label revision for Figure 1 from `rewrite` with:
 
 ```powershell
 python figure_sources/edit_fig_teaser.py
-python figure_sources/edit_fig_challenge_interpolation.py
 ```
 
-These scripts regenerate:
+This script regenerates:
 
 - `figures/fig_teaser.pdf`
-- `figures/fig_challenge_interpolation.pdf`
 
-The corresponding `*_source.pdf` files preserve the original raster pixels.
-The scripts replace only the legacy first-row/first-column labels with
-`LR endpoint`; decoded frames and crop regions are unchanged.
+The corresponding `fig_teaser_source.pdf` preserves the original raster pixels.
+The script replaces only the legacy first-row label with `LR endpoint`; decoded
+frames and crop regions are unchanged. The older
+`edit_fig_challenge_interpolation.py` remains available for label-only edits to
+legacy Figure 3 sources.

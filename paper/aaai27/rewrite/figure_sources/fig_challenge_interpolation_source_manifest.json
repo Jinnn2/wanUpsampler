@@ -1,0 +1,84 @@
+{
+  "group": "interpolation_prompt08_seed9708",
+  "fraction": 0.5,
+  "frame_selection": "fraction",
+  "crop_position": "center",
+  "linear_magnification": 3,
+  "canvas_pixels": [
+    990,
+    462
+  ],
+  "png": "C:\\Codes\\wanUpsampler\\paper\\aaai27\\rewrite\\figure_sources\\fig_challenge_interpolation_source.png",
+  "pdf": "C:\\Codes\\wanUpsampler\\paper\\aaai27\\rewrite\\figure_sources\\fig_challenge_interpolation_source.pdf",
+  "videos": [
+    {
+      "key": "lr_endpoint",
+      "label": "LR endpoint",
+      "video": "C:\\Codes\\wanUpsampler\\outputs\\aaai27_figure_work\\talh_figure_video_candidates\\TALH-Q_spatial_detail\\prompt_08_seed9708\\01_Native-HR.mp4",
+      "frame": "C:\\Users\\jinho\\AppData\\Local\\Temp\\wanupsampler_fig3_render\\prompt08_seed9708\\frames\\interpolation_prompt08_seed9708\\lr_endpoint_0p5000.png",
+      "source_size": [
+        640,
+        360
+      ],
+      "crop_box": [
+        213,
+        120,
+        426,
+        240
+      ]
+    },
+    {
+      "key": "trilinear",
+      "label": "Trilinear",
+      "video": "C:\\Codes\\wanUpsampler\\outputs\\aaai27_figure_work\\talh_figure_video_candidates\\TALH-Q_spatial_detail\\prompt_08_seed9708\\02_Trilinear-at-40.mp4",
+      "frame": "C:\\Users\\jinho\\AppData\\Local\\Temp\\wanupsampler_fig3_render\\prompt08_seed9708\\frames\\interpolation_prompt08_seed9708\\trilinear_0p5000.png",
+      "source_size": [
+        1248,
+        702
+      ],
+      "crop_box": [
+        416,
+        234,
+        832,
+        468
+      ]
+    },
+    {
+      "key": "intrascale",
+      "label": "InTraScale",
+      "video": "C:\\Codes\\wanUpsampler\\outputs\\aaai27_figure_work\\talh_figure_video_candidates\\TALH-Q_spatial_detail\\prompt_08_seed9708\\04_TALH-Q-at-40.mp4",
+      "frame": "C:\\Users\\jinho\\AppData\\Local\\Temp\\wanupsampler_fig3_render\\prompt08_seed9708\\frames\\interpolation_prompt08_seed9708\\intrascale_0p5000.png",
+      "source_size": [
+        1248,
+        702
+      ],
+      "crop_box": [
+        416,
+        234,
+        832,
+        468
+      ]
+    }
+  ],
+  "prompt_index": "08",
+  "seed": 9708,
+  "prompt": "A glass greenhouse filled with tropical flowers, sunlight beams through mist, slow dolly movement, rich color detail.",
+  "transition_step": 40,
+  "frame_index_zero_based": 40,
+  "frame_timestamp_seconds": 2.5,
+  "protocol": {
+    "inference_steps": 50,
+    "sample_shift": 8,
+    "cfg": 6,
+    "frames": 81,
+    "fps": 16,
+    "method_output_resolution": [
+      1248,
+      720
+    ],
+    "lr_endpoint_resolution": [
+      640,
+      368
+    ]
+  }
+}
