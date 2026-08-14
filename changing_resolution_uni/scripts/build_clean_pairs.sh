@@ -22,6 +22,9 @@ PRECISION="${PRECISION:-bf16}"
 VAE_BACKEND="${VAE_BACKEND:-auto}"
 RESIZE_MODE="${RESIZE_MODE:-bicubic}"
 MAP_SIZE_GB="${MAP_SIZE_GB:-256}"
+MAX_SAMPLES="${MAX_SAMPLES:-}"
+MAX_CLIPS_PER_VIDEO="${MAX_CLIPS_PER_VIDEO:-}"
+MAX_VIDEO_FRAMES="${MAX_VIDEO_FRAMES:-}"
 
 for path in "${VIDEO_DIR}" "${MODEL_ROOT}" "${WAN_REPO}"; do
   [[ -d "${path}" ]] || { echo "Required directory not found: ${path}" >&2; exit 2; }
@@ -48,4 +51,7 @@ args=(
 )
 if [[ -n "${LR_SIZES}" ]]; then args+=(--lr_sizes ${LR_SIZES}); fi
 if [[ -n "${WAN_REPO}" ]]; then args+=(--wan_repo "${WAN_REPO}"); fi
+if [[ -n "${MAX_SAMPLES}" ]]; then args+=(--max_samples "${MAX_SAMPLES}"); fi
+if [[ -n "${MAX_CLIPS_PER_VIDEO}" ]]; then args+=(--max_clips_per_video "${MAX_CLIPS_PER_VIDEO}"); fi
+if [[ -n "${MAX_VIDEO_FRAMES}" ]]; then args+=(--max_video_frames "${MAX_VIDEO_FRAMES}"); fi
 python "${args[@]}"
