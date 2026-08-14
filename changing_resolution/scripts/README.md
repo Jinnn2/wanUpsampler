@@ -79,6 +79,46 @@ bash changing_resolution/scripts/eval/run_clean_360p_stage2_three_way_step_sweep
 Use `CHANGE_STEPS="30 35 40 45 50"` for a sparse sweep, or override
 `STAGE2_CHECKPOINT` to select a non-default new 360p Stage2 checkpoint.
 
+Collect the formal TAA-free adaptive-handoff oracle at candidates
+`30, 35, 40, 41, ..., 50`. Unlike the three-way sweep above, `branch` runs
+the frozen LR prefix only once per prompt/seed, caches the current noisy latent
+and clean prediction at every candidate, then forks the Stage2 + HR suffixes
+from those states. It also generates one matched Native-HR reference by
+default:
+
+```bash
+bash changing_resolution/scripts/eval/run_clean_360p_stage2_oracle_branch_sweep.sh check
+bash changing_resolution/scripts/eval/run_clean_360p_stage2_oracle_branch_sweep.sh branch
+```
+
+The formal protocol is locked by default. For a two-candidate smoke run only:
+
+```bash
+STRICT_PROTOCOL=0 CHANGE_STEPS="40 50" LIMIT=1 \
+  bash changing_resolution/scripts/eval/run_clean_360p_stage2_oracle_branch_sweep.sh branch
+```
+
+`branch` timings reconstruct the expected warm single-branch sampling cost but
+exclude offline CPU/disk cache overhead. Confirm final latency with the
+independent mode, which reruns every candidate as its own warm pipeline while
+keeping model weights resident. It performs one excluded step-30 warm-up by
+default (`INDEPENDENT_WARMUP=0` disables it):
+
+```bash
+SAVE_LATENTS=0 \
+  bash changing_resolution/scripts/eval/run_clean_360p_stage2_oracle_branch_sweep.sh independent
+```
+
+Outputs are isolated under
+`outputs/changing_resolution_taa_free_oracle_branch_360p/`: candidate videos,
+optional `x_t_lr`/`x0_pred_lr` tensors, per-sample JSON manifests, a protocol
+record, prompt maps, and independent timing results. The runner rejects LoRA,
+feature caching, parallel execution, and non-`368x640 -> 720x1248` geometry so
+the oracle cannot accidentally include TAA or cross-branch cache state.
+Resume also refuses to mix outputs when the selected prompts, resolved config,
+Stage2 checkpoint metadata, or protocol fields differ; use a new `OUT_ROOT` (or
+set `SKIP_EXISTING=0` for an intentional replacement).
+
 Run the step sweep on four GPUs:
 
 ```bash
