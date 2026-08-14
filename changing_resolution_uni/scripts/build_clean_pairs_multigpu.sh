@@ -3,17 +3,21 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
-VIDEO_DIR="${VIDEO_DIR:?Set VIDEO_DIR to generated HR videos}"
+DEFAULT_LIGHTX2V_REPO="/mnt/afs_2/houze/LightX2V"
+if [[ -d "${PROJECT_ROOT}/../LightX2V" ]]; then
+  DEFAULT_LIGHTX2V_REPO="$(cd "${PROJECT_ROOT}/../LightX2V" && pwd)"
+fi
+VIDEO_DIR="${VIDEO_DIR:-${CR_RAW_VIDEO_DIR_1K:-${PROJECT_ROOT}/data/changing_resolution/raw_wan21_720p_1k}}"
 OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/data/changing_resolution_uni/lmdb_clean}"
 PARTS_DIR="${OUT_DIR}/_parts"
 GPU_IDS="${GPU_IDS:-0,1,2,3}"
 TOTAL_SAMPLES="${TOTAL_SAMPLES:-0}"
-MODEL_ROOT="${MODEL_ROOT:-${PROJECT_ROOT}}"
+MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 VAE_PATH="${VAE_PATH:-${MODEL_ROOT}/Wan2.1_VAE.pth}"
-WAN_REPO="${WAN_REPO:-${LIGHTX2V_REPO:-}}"
+WAN_REPO="${WAN_REPO:-${LIGHTX2V_REPO:-${DEFAULT_LIGHTX2V_REPO}}}"
 HR_H="${HR_H:-720}"; HR_W="${HR_W:-1248}"
 SCALES="${SCALES:-1.5 2.0 3.0}"
-LR_SIZES="${LR_SIZES:-}"
+LR_SIZES="${LR_SIZES:-480x832 368x640 240x416}"
 NUM_FRAMES="${NUM_FRAMES:-81}"
 PRECISION="${PRECISION:-bf16}"
 VAE_BACKEND="${VAE_BACKEND:-auto}"
@@ -21,6 +25,13 @@ RESIZE_MODE="${RESIZE_MODE:-bicubic}"
 MAP_SIZE_GB="${MAP_SIZE_GB:-128}"
 LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/changing_resolution_uni_build}"
 
+for path in "${VIDEO_DIR}" "${MODEL_ROOT}" "${WAN_REPO}"; do
+  [[ -d "${path}" ]] || { echo "Required directory not found: ${path}" >&2; exit 2; }
+done
+[[ -f "${VAE_PATH}" ]] || { echo "Wan VAE weights not found: ${VAE_PATH}" >&2; exit 2; }
+
+export LIGHTX2V_REPO="${WAN_REPO}"
+export PYTHONPATH="${WAN_REPO}:${PROJECT_ROOT}:${PYTHONPATH:-}"
 IFS=',' read -r -a GPUS <<< "${GPU_IDS}"
 NUM_GPUS="${#GPUS[@]}"
 if (( TOTAL_SAMPLES < 1 )); then
