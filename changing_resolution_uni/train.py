@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import random
 import shutil
@@ -70,8 +71,13 @@ def main() -> None:
     iterator = iter(loader)
     step = start_step
     while step < max_steps:
+        current_lr = learning_rate_for_update(config["train"], completed_steps=step)
+        for group in optimizer.param_groups:
+            group["lr"] = current_lr
         optimizer.zero_grad(set_to_none=True)
         metric_sum: dict[str, float] = {}
+        scale_metric_sums: dict[str, dict[str, float]] = {}
+        scale_metric_counts: dict[str, int] = {}
         for _ in range(grad_accum):
             try:
                 batch = next(iterator)
@@ -89,16 +95,38 @@ def main() -> None:
                 prediction = model(lr, output_size=target_size)
                 loss, items = criterion(prediction.float(), hr.float(), lr.float())
             (loss / grad_accum).backward()
+            scale_key = batch_scale_key(batch)
+            scale_items = scale_metric_sums.setdefault(scale_key, {})
+            scale_metric_counts[scale_key] = scale_metric_counts.get(scale_key, 0) + 1
             for name, value in items.items():
-                metric_sum[name] = metric_sum.get(name, 0.0) + float(value) / grad_accum
+                scalar = float(value)
+                metric_sum[name] = metric_sum.get(name, 0.0) + scalar / grad_accum
+                scale_items[name] = scale_items.get(name, 0.0) + scalar
         torch.nn.utils.clip_grad_norm_(raw_model.parameters(), float(config["train"].get("grad_clip_norm", 1.0)))
         optimizer.step()
         ema.update(raw_model)
         step += 1
-        if rank == 0 and (step % int(config["train"].get("log_every", 20)) == 0 or step == 1):
-            payload = {"step": step, "split": "train", **metric_sum}
-            print(f"step={step} " + " ".join(f"{k}={v:.6f}" for k, v in metric_sum.items()), flush=True)
-            append_metrics(out_dir / "metrics.jsonl", payload)
+        should_log = step % int(config["train"].get("log_every", 20)) == 0 or step == 1
+        if should_log:
+            reduced_metrics = reduce_train_metrics(
+                metric_sum,
+                scale_metric_sums,
+                scale_metric_counts,
+                dataset.scales,
+                device=device,
+                world_size=world_size,
+            )
+            if rank == 0:
+                payload = {"step": step, "split": "train", "lr": current_lr, **reduced_metrics}
+                global_names = ("loss", "latent_loss", "content_loss", "temporal_loss")
+                display = " ".join(f"{name}={reduced_metrics[name]:.6f}" for name in global_names)
+                scale_display = " ".join(
+                    f"{scale}x={reduced_metrics[f'{scale_metric_prefix(scale)}/loss']:.6f}"
+                    for scale in dataset.scales
+                    if f"{scale_metric_prefix(scale)}/loss" in reduced_metrics
+                )
+                print(f"step={step} lr={current_lr:.8f} {display} {scale_display}", flush=True)
+                append_metrics(out_dir / "metrics.jsonl", payload)
         eval_every = int(config["train"].get("eval_every", 0))
         if len(val_set) > 0 and eval_every > 0 and step % eval_every == 0:
             barrier(world_size)
@@ -132,6 +160,87 @@ class IndexedDataset:
         return self.dataset.bucket_key(self.subset.indices[index])
 
 
+def learning_rate_for_update(train_config, *, completed_steps: int) -> float:
+    """Return the stateless LR for the next optimizer update.
+
+    Computing LR from the global completed-step count makes old checkpoints
+    resumable without introducing scheduler state into the checkpoint format.
+    """
+
+    base_lr = float(train_config["lr"])
+    schedule = str(train_config.get("lr_scheduler", "constant")).lower()
+    if schedule in {"constant", "none"}:
+        return base_lr
+    if schedule != "cosine":
+        raise ValueError(f"Unsupported lr_scheduler: {schedule!r}")
+    max_steps = int(train_config["max_steps"])
+    warmup_steps = min(max_steps, max(0, int(train_config.get("warmup_steps", 0))))
+    min_lr = float(train_config.get("min_lr", 0.0))
+    if not 0 <= min_lr <= base_lr:
+        raise ValueError("min_lr must be between zero and lr")
+    update_number = completed_steps + 1
+    if warmup_steps > 0 and update_number <= warmup_steps:
+        return base_lr * update_number / warmup_steps
+    decay_steps = max(1, max_steps - warmup_steps)
+    progress = min(1.0, max(0.0, (update_number - warmup_steps) / decay_steps))
+    cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
+    return min_lr + (base_lr - min_lr) * cosine
+
+
+def batch_scale_key(batch) -> str:
+    values = batch.get("scale_key")
+    if isinstance(values, str):
+        return values
+    if isinstance(values, (list, tuple)) and values:
+        normalized = {str(value) for value in values}
+        if len(normalized) != 1:
+            raise ValueError(f"A shape bucket batch mixed scale keys: {sorted(normalized)}")
+        return normalized.pop()
+    scale = batch.get("scale")
+    if torch.is_tensor(scale) and scale.numel() > 0:
+        return f"{float(scale.flatten()[0]):g}"
+    raise ValueError("Batch does not contain a scale key")
+
+
+def scale_metric_prefix(scale: str) -> str:
+    return f"scale_{str(scale).replace('.', 'p')}x"
+
+
+def reduce_train_metrics(
+    metric_sum,
+    scale_metric_sums,
+    scale_metric_counts,
+    scales,
+    *,
+    device,
+    world_size,
+):
+    metric_names = sorted(metric_sum)
+    packed = torch.tensor([metric_sum[name] for name in metric_names], device=device, dtype=torch.float64)
+    if world_size > 1:
+        dist.all_reduce(packed, op=dist.ReduceOp.SUM)
+        packed /= world_size
+    reduced = {name: float(value) for name, value in zip(metric_names, packed.tolist())}
+
+    for scale in scales:
+        local = scale_metric_sums.get(scale, {})
+        count = float(scale_metric_counts.get(scale, 0))
+        scale_packed = torch.tensor(
+            [local.get(name, 0.0) for name in metric_names] + [count],
+            device=device,
+            dtype=torch.float64,
+        )
+        if world_size > 1:
+            dist.all_reduce(scale_packed, op=dist.ReduceOp.SUM)
+        total_count = float(scale_packed[-1])
+        if total_count <= 0:
+            continue
+        prefix = scale_metric_prefix(scale)
+        for name, value in zip(metric_names, scale_packed[:-1].tolist()):
+            reduced[f"{prefix}/{name}"] = float(value) / total_count
+    return reduced
+
+
 def split_dataset(dataset, config):
     ratio = float(config["train"].get("val_ratio", 0.0))
     if ratio <= 0 or len(dataset) < 2:
@@ -156,21 +265,37 @@ def evaluate(model, ema, dataset, criterion, device, config):
     ema.copy_to(model)
     model.eval()
     totals = {}; count = 0
+    scale_totals = {}; scale_counts = {}
     try:
         for batch_index, batch in enumerate(loader):
             if int(config["train"].get("val_batches", 0)) > 0 and batch_index >= int(config["train"]["val_batches"]):
                 break
             lr = batch["z0_lr"].to(device, non_blocking=True); hr = batch["z0_hr"].to(device, non_blocking=True)
-            prediction = model(lr, output_size=hr.shape[-2:])
-            _, items = criterion(prediction.float(), hr.float(), lr.float())
+            autocast = device.type == "cuda" and config["train"].get("precision") in {"bf16", "fp16"}
+            dtype = torch.bfloat16 if config["train"].get("precision") == "bf16" else torch.float16
+            with torch.autocast(device_type=device.type, dtype=dtype, enabled=autocast):
+                prediction = model(lr, output_size=hr.shape[-2:])
+                _, items = criterion(prediction.float(), hr.float(), lr.float())
             batch_n = int(lr.shape[0]); count += batch_n
-            for name, value in items.items(): totals[name] = totals.get(name, 0.0) + float(value) * batch_n
+            scale_key = batch_scale_key(batch)
+            scale_counts[scale_key] = scale_counts.get(scale_key, 0) + batch_n
+            scale_values = scale_totals.setdefault(scale_key, {})
+            for name, value in items.items():
+                scalar = float(value) * batch_n
+                totals[name] = totals.get(name, 0.0) + scalar
+                scale_values[name] = scale_values.get(name, 0.0) + scalar
     finally:
         with torch.no_grad():
             params = dict(model.named_parameters())
             for name, value in backup.items(): params[name].copy_(value)
         model.train()
-    return {name: value / max(count, 1) for name, value in totals.items()}
+    result = {name: value / max(count, 1) for name, value in totals.items()}
+    for scale, values in scale_totals.items():
+        prefix = scale_metric_prefix(scale)
+        scale_count = max(scale_counts[scale], 1)
+        for name, value in values.items():
+            result[f"{prefix}/{name}"] = value / scale_count
+    return result
 
 
 def append_metrics(path, payload):

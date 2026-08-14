@@ -16,19 +16,22 @@ model:
   resampler_chunk_size: 2048
 
 train:
-  max_steps: 50000
+  max_steps: 10000
   batch_size: 1
   num_workers: 4
   lr: 0.0001
+  lr_scheduler: cosine
+  warmup_steps: 500
+  min_lr: 0.000001
   weight_decay: 0.01
   precision: bf16
   grad_accum: 8
   grad_clip_norm: 1.0
   ema_decay: 0.9999
-  val_ratio: 0.05
-  val_max_samples: 128
+  val_ratio: 0.10
+  val_max_samples: 100
   val_batches: 0
-  eval_every: 1000
+  eval_every: 500
   save_every: 1000
   log_every: 20
   seed: 1234

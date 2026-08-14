@@ -74,6 +74,13 @@ DDP and a separate tmux wrapper for long jobs. Checkpoint files contain the
 model configuration, optimizer, and EMA state. Use
 `changing_resolution_uni.checkpoint.load_universal_upsampler` for inference.
 
+The default 1K-video pilot schedule is 10K optimizer updates with 500 updates
+of linear warmup followed by cosine decay from `1e-4` to `1e-6`. Validation is
+run every 500 updates on a source-level split. `metrics.jsonl` contains both
+global metrics and separate `scale_1p5x/*`, `scale_2x/*`, and `scale_3x/*`
+metrics. A longer run should be selected from held-out validation rather than
+precommitting the 1K-video dataset to 50K updates.
+
 For a direct latent check on the remote machine:
 
 ```bash

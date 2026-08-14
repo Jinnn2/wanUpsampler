@@ -11,7 +11,7 @@ DATA_DIR="${DATA_DIR:-${PROJECT_ROOT}/data/changing_resolution_uni/lmdb_clean}"
 OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_uni_clean}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 NUM_GPUS="${NUM_GPUS:-1}"
-MAX_STEPS="${MAX_STEPS:-50000}"
+MAX_STEPS="${MAX_STEPS:-10000}"
 RESUME="${RESUME:-}"
 
 command -v tmux >/dev/null 2>&1 || { echo "tmux not found" >&2; exit 1; }
