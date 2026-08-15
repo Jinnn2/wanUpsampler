@@ -91,6 +91,78 @@ python -m changing_resolution_uni.infer \
   --output /path/to/hr_prediction.npy
 ```
 
+## Validate a completed run
+
+The evaluator freezes the exact source-level validation split into a manifest,
+compares raw and EMA weights on identical source/scale pairs, and writes
+per-video metrics plus source-clustered 95% bootstrap confidence intervals.
+Interpolation exists only as an external baseline; it is never inserted into
+the U-ITU forward path.
+
+Run the complete latent benchmark on four GPUs:
+
+```bash
+GPU_IDS=0,1,2,3 \
+TRAIN_OUT_DIR="$PWD/outputs/changing_resolution_uni_clean_v1_1k_fresh_ema0999" \
+DATA_DIR="$PWD/data/changing_resolution_uni/lmdb_clean_v1_1k" \
+MODE=latent \
+bash changing_resolution_uni/scripts/run_evaluate_multigpu.sh
+```
+
+Sweep all saved optimizer-step checkpoints using raw and EMA weights:
+
+```bash
+GPU_IDS=0,1,2,3 \
+TRAIN_OUT_DIR="$PWD/outputs/changing_resolution_uni_clean_v1_1k_fresh_ema0999" \
+MODE=sweep \
+bash changing_resolution_uni/scripts/run_evaluate_multigpu.sh
+```
+
+Run decoded RGB metrics, comparison videos, and a separate single-GPU timing
+pass. RGB evaluation defaults to 20 validation sources because Wan VAE decode
+is substantially more expensive than latent metrics:
+
+```bash
+GPU_IDS=0,1,2,3 \
+MODE=all \
+SAVE_VISUALS=1 \
+DECODE_MAX_SOURCES=20 \
+bash changing_resolution_uni/scripts/run_evaluate_multigpu.sh
+```
+
+Common environment overrides are:
+
+```text
+CHECKPOINT / CHECKPOINT_DIR / CHECKPOINT_GLOB
+DATA_DIR / OUT_DIR / METHODS / PRECISION
+SPLIT / MANIFEST / MAX_SOURCES / DECODE_MAX_SOURCES / BOOTSTRAP_SAMPLES
+MODEL_ROOT / VAE_PATH / LIGHTX2V_REPO / VAE_BACKEND
+SPECIALIST_CHECKPOINT / SPECIALIST_CONFIG / SPECIALIST_USE_EMA
+```
+
+The output directory contains:
+
+```text
+manifest_val.json            frozen source-level validation split
+environment*.json            command, Git, CUDA, dataset and checkpoint hashes
+latent_coverage.json         expected/observed/status count integrity gate
+latent_samples.jsonl         one row per checkpoint/method/source/scale
+latent_summary.{json,csv}    mean/std/source-bootstrap CI
+latent_paired.csv             paired improvements and win rates
+checkpoint_sweep.csv          raw/EMA checkpoint-selection table
+best_checkpoint.json          best raw, EMA and overall macro-Charbonnier row
+rgb_samples.jsonl
+rgb_summary.{json,csv}
+rgb_paired.csv
+rgb_coverage.json
+timing.{json,csv}             isolated batch-1 latency and peak memory
+visuals/                      optional MP4 panels and keyframe PNGs
+```
+
+`RESUME=1` resumes per-rank JSONL evaluation. The merged results are
+deduplicated by checkpoint, method, source, and scale, so a changed GPU count
+does not bias the aggregate.
+
 ## First acceptance matrix
 
 Compare one shared checkpoint against trilinear interpolation and the existing
@@ -98,8 +170,8 @@ fixed Stage2 specialists on the same clean pairs and target grids:
 
 ```text
 1.5x: 60x104 -> 90x156
-2.0x: 46x80  -> 92x160 or a declared crop target
-3.0x: declared source/target latent grid from the same VAE geometry
+2.0x: 46x80  -> 90x156 (actual anisotropic ratio is recorded)
+3.0x: 30x52  -> 90x156
 ```
 
 Report latent L1/MAE/MSE, temporal-difference error, decoded RGB metrics when
