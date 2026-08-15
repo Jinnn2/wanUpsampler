@@ -94,7 +94,8 @@ bash changing_resolution/scripts/eval/run_clean_360p_stage2_oracle_branch_sweep.
 The formal protocol is locked by default. For a two-candidate smoke run only:
 
 ```bash
-STRICT_PROTOCOL=0 CHANGE_STEPS="40 50" LIMIT=1 \
+OUT_ROOT="outputs/changing_resolution_taa_free_oracle_smoke_360p" \
+  STRICT_PROTOCOL=0 CHANGE_STEPS="40 50" LIMIT=1 \
   bash changing_resolution/scripts/eval/run_clean_360p_stage2_oracle_branch_sweep.sh branch
 ```
 
@@ -118,6 +119,41 @@ the oracle cannot accidentally include TAA or cross-branch cache state.
 Resume also refuses to mix outputs when the selected prompts, resolved config,
 Stage2 checkpoint metadata, or protocol fields differ; use a new `OUT_ROOT` (or
 set `SKIP_EXISTING=0` for an intentional replacement).
+
+After all 130 candidate videos and 10 Native-HR videos are complete, validate
+the inventory and run the official custom-input VBench-5 evaluation. VBench-5
+here is the unweighted mean of Subject Consistency, Background Consistency,
+Motion Smoothness, Aesthetic Quality, and Imaging Quality; it intentionally
+excludes Dynamic Degree. `all` evaluates all 14 cases and then creates the
+sample-level oracle labels:
+
+```bash
+bash changing_resolution/scripts/eval/run_clean_360p_stage2_oracle_metrics.sh check
+NGPUS=4 \
+  bash changing_resolution/scripts/eval/run_clean_360p_stage2_oracle_metrics.sh all
+```
+
+The default label chooses the measured-fastest candidate whose VBench-5 is no
+more than `0.02` below its matched Native-HR sample. If none qualifies, it falls
+back to the candidate with the highest VBench-5. For confirmatory latency, set
+`TIMING_SOURCE=independent` after completing the independent sweep. Optional
+prompt alignment remains separate from VBench-5:
+
+```bash
+INCLUDE_OVERALL=1 OVERALL_WEIGHT=0.1 TIMING_SOURCE=independent NGPUS=4 \
+  bash changing_resolution/scripts/eval/run_clean_360p_stage2_oracle_metrics.sh all
+```
+
+To resume only selected VBench cases, use `run` with case names such as
+`CASES="step40 step41 native_hr"`, then use `collect` without `CASES` after all
+cases are complete. Final files are written under the oracle root's `metrics/`
+directory:
+
+- `oracle_labels.csv`: one training target row per prompt/seed.
+- `oracle_candidate_per_sample.csv`: all 130 candidate quality/timing rows.
+- `oracle_native_per_sample.csv`: matched Native-HR quality and latency.
+- `oracle_candidate_summary.csv`: per-timestep aggregate diagnostics.
+- `oracle_metrics.json`: canonical metrics, policies, sources, and labels.
 
 Run the step sweep on four GPUs:
 
