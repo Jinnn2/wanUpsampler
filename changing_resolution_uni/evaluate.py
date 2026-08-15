@@ -411,7 +411,15 @@ def evaluate_rgb(
         dtype=dtype,
     )
     rgb_variant = f"{args.precision}:{vae.backend_kind}"
-    similarity = VideoRGBMetrics(args.rgb_metrics, device=device)
+    # Rank 0 initialises first so that any remote model-weight downloads
+    # (e.g. the LPIPS VGG/AlexNet checkpoint ~233 MB) happen exactly once.
+    # The other ranks wait at the barrier and then load from the local cache,
+    # avoiding a multi-rank download race that causes NCCL watchdog timeouts.
+    if rank == 0:
+        similarity = VideoRGBMetrics(args.rgb_metrics, device=device)
+    barrier(world_size)
+    if rank != 0:
+        similarity = VideoRGBMetrics(args.rgb_metrics, device=device)
     rank_path = out_dir / f"rgb_samples.rank{rank:03d}.jsonl"
     completed = load_completed_keys(rank_path) if args.resume else set()
     mode = "a" if args.resume and rank_path.exists() else "w"
