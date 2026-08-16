@@ -12,9 +12,8 @@ if [[ -f "${PATH_CONFIG}" ]]; then
 fi
 
 TOTAL_PROMPTS="${TOTAL_PROMPTS:-2000}"
-GPU_IDS="${GPU_IDS:-0,1,2,3}"
-SEEDS="${SEEDS:-42 100 2024}"
-PROMPTS_FILE="${PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_generate_720p_prompts.txt}"
+PROMPTS_DIR="${PROMPTS_DIR:-${PROJECT_ROOT}/prompts}"
+PROMPTS_FILE="${PROMPTS_FILE:-${CR_HF_PROMPTS_FILE:-${PROMPTS_DIR}/vidprom_filtered_extended.txt}}"
 OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_2k}"
 LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs/oracle_dataset_4gpu}"
 MONITOR_INTERVAL="${MONITOR_INTERVAL:-30}"
@@ -31,8 +30,19 @@ if (( NUM_GPUS < 1 )); then
   exit 2
 fi
 
+# Auto-download VidProm extended prompts if not present
 if [[ ! -f "${PROMPTS_FILE}" ]]; then
-  echo "Prompts file not found: ${PROMPTS_FILE}" >&2
+  echo "Prompts file not found at ${PROMPTS_FILE}, downloading from HuggingFace (gdhe17/Self-Forcing)..."
+  mkdir -p "${PROMPTS_DIR}"
+  if command -v huggingface-cli >/dev/null 2>&1; then
+    huggingface-cli download gdhe17/Self-Forcing vidprom_filtered_extended.txt --local-dir "${PROMPTS_DIR}"
+  else
+    python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='gdhe17/Self-Forcing', filename='vidprom_filtered_extended.txt', local_dir='${PROMPTS_DIR}')"
+  fi
+fi
+
+if [[ ! -f "${PROMPTS_FILE}" ]]; then
+  echo "Failed to locate or download prompts file: ${PROMPTS_FILE}" >&2
   exit 1
 fi
 
