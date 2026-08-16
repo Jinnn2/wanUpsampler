@@ -6,8 +6,11 @@ PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 
 SESSION_NAME="${SESSION_NAME:-oracle_dataset_2k_4gpu}"
 TOTAL_PROMPTS="${TOTAL_PROMPTS:-2000}"
+PROMPT_OFFSET="${PROMPT_OFFSET:-0}"
 GPU_IDS="${GPU_IDS:-0,1,2,3}"
 SEEDS="${SEEDS:-42 100 2024}"
+OUT_ROOT="${OUT_ROOT:-}"
+CLEAN_VIDEOS="${CLEAN_VIDEOS:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 
 if ! command -v tmux >/dev/null 2>&1; then
@@ -21,17 +24,18 @@ if tmux has-session -t "${SESSION_NAME}" 2>/dev/null; then
   exit 1
 fi
 
-LOG_FILE="${PROJECT_ROOT}/logs/oracle_dataset_4gpu/tmux_master.log"
+LOG_FILE="${PROJECT_ROOT}/logs/oracle_dataset_4gpu/${SESSION_NAME}.log"
 mkdir -p "$(dirname "${LOG_FILE}")"
 
 echo "Creating detached tmux session: ${SESSION_NAME}"
+echo "  Prompt Offset: ${PROMPT_OFFSET}"
 echo "  Total Prompts: ${TOTAL_PROMPTS}"
 echo "  GPU Devices  : ${GPU_IDS}"
 echo "  Seeds        : ${SEEDS}"
 echo "  Log File     : ${LOG_FILE}"
 
 tmux new-session -d -s "${SESSION_NAME}" \
-  "bash -c 'TOTAL_PROMPTS=\"${TOTAL_PROMPTS}\" GPU_IDS=\"${GPU_IDS}\" SEEDS=\"${SEEDS}\" DRY_RUN=\"${DRY_RUN}\" bash \"${SCRIPT_DIR}/build_oracle_dataset_4gpu.sh\" 2>&1 | tee -a \"${LOG_FILE}\"'"
+  "bash -c 'TOTAL_PROMPTS=\"${TOTAL_PROMPTS}\" PROMPT_OFFSET=\"${PROMPT_OFFSET}\" GPU_IDS=\"${GPU_IDS}\" SEEDS=\"${SEEDS}\" OUT_ROOT=\"${OUT_ROOT}\" CLEAN_VIDEOS=\"${CLEAN_VIDEOS}\" DRY_RUN=\"${DRY_RUN}\" bash \"${SCRIPT_DIR}/build_oracle_dataset_4gpu.sh\" 2>&1 | tee -a \"${LOG_FILE}\"'"
 
 echo "Started successfully!"
 echo "To attach to monitor progress:"
