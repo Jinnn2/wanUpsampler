@@ -14,6 +14,11 @@ from pathlib import Path
 from typing import Any
 
 import logging
+import numpy as np
+try:
+    import torch
+except ImportError:
+    torch = None
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,7 +90,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--device",
         type=str,
-        default="cuda" if torch.cuda.is_available() else "cpu",
+        default="cuda" if (torch is not None and torch.cuda.is_available()) else "cpu",
         help="Device to run text encoder (cuda / cpu).",
     )
     parser.add_argument(
@@ -180,7 +185,13 @@ def init_tokenizer_and_encoder(
         raise RuntimeError(f"Could not initialize T5 encoder/tokenizer: {exc}") from exc
 
 
-@torch.no_grad()
+def no_grad(fn):
+    if torch is not None:
+        return torch.no_grad()(fn)
+    return fn
+
+
+@no_grad
 def encode_prompt_tokens(
     tokenizer: Any,
     encoder: Any,

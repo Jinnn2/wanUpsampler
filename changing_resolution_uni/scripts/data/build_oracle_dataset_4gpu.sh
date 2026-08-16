@@ -60,6 +60,10 @@ echo "  Extract T5 First  : ${EXTRACT_T5}"
 echo "  Dry Run Mode      : ${DRY_RUN}"
 echo "================================================================================"
 
+LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
+export LIGHTX2V_REPO PROJECT_ROOT
+export PYTHONPATH="${LIGHTX2V_REPO}:${PROJECT_ROOT}:${PYTHONPATH:-}"
+
 # ── Step 1: Precompute Frozen T5 Embeddings ──────────────────────────────────
 if [[ "${EXTRACT_T5}" == "1" ]]; then
   echo "[Step 1/3] Extracting frozen T5 embeddings & token sequences for ${TOTAL_PROMPTS} prompts..."
@@ -68,7 +72,12 @@ if [[ "${EXTRACT_T5}" == "1" ]]; then
     --out_dir "${T5_DIR}" \
     --limit "${TOTAL_PROMPTS}" \
     --device "cuda:${GPUS[0]}" || {
-      echo "T5 extraction on GPU failed, falling back to CPU or checking error..." >&2
+      echo "T5 extraction on GPU failed, falling back to CPU..." >&2
+      python "${SCRIPT_DIR}/extract_prompt_t5_embeddings.py" \
+        --prompts_file "${PROMPTS_FILE}" \
+        --out_dir "${T5_DIR}" \
+        --limit "${TOTAL_PROMPTS}" \
+        --device "cpu"
   }
 fi
 
