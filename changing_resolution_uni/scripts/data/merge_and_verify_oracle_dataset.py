@@ -38,6 +38,40 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def extract_candidates_from_record(
+    s_data: dict[str, Any], u_key: str, default_lambda: float = 0.05
+) -> tuple[list[int], np.ndarray, np.ndarray]:
+    """Extract candidate steps, utilities, and vbench5 scores from a trajectory record."""
+    if "candidates" in s_data and s_data["candidates"]:
+        cands = s_data["candidates"]
+        cand_steps = [int(c["step"]) for c in cands]
+        utilities = np.array(
+            [float(c.get("utilities", {}).get(u_key, c.get("vbench5", 0.0))) for c in cands],
+            dtype=np.float64,
+        )
+        vbench5 = np.array([float(c.get("vbench5", 0.0)) for c in cands], dtype=np.float64)
+        return cand_steps, utilities, vbench5
+
+    manifest = s_data.get("manifest", {})
+    branches = manifest.get("branches", [])
+    if branches:
+        cand_steps = [int(b.get("candidate_step", 0)) for b in branches]
+        vbench5 = np.array([float(b.get("vbench5", b.get("quality", 0.0))) for b in branches], dtype=np.float64)
+        latencies = np.array(
+            [float(b.get("latency_seconds", b.get("estimated_warm_pipeline_seconds", 100.0))) for b in branches],
+            dtype=np.float64,
+        )
+        native_lat = (
+            float(manifest.get("native_hr", {}).get("estimated_warm_pipeline_seconds", 180.0))
+            if isinstance(manifest.get("native_hr"), dict)
+            else 180.0
+        )
+        utilities = vbench5 - default_lambda * (latencies / max(native_lat, 1e-5))
+        return cand_steps, utilities, vbench5
+
+    return [], np.array([], dtype=np.float64), np.array([], dtype=np.float64)
+
+
 def main() -> None:
     args = parse_args()
     parts_dir = Path(args.parts_dir).resolve()
@@ -64,12 +98,12 @@ def main() -> None:
                 p_id = int(data["prompt_id"])
                 seed = int(data["seed"])
                 sample_key = f"p{p_id:06d}_s{seed}"
-                
+
                 # Copy/move to final records dir
                 dest_file = final_records_dir / f"{sample_key}.json"
                 if not dest_file.exists():
                     shutil.copy2(rec_file, dest_file)
-                
+
                 all_records[sample_key] = data
                 if p_id not in prompts_map:
                     prompts_map[p_id] = {
@@ -87,42 +121,66 @@ def main() -> None:
 
     # ── Scientific Metric Computation: R_prompt & Variance ─────────────────────
     u_key = f"u_{args.primary_lambda:.2f}"
-    
+
     prompt_stats: list[dict[str, Any]] = []
     total_regret_prompt = 0.0
     total_oracle_utilities = 0.0
     total_prompt_utilities = 0.0
     intra_prompt_step_stds: list[float] = []
     all_oracle_optimal_steps: list[int] = []
+    evaluated_prompts_count = 0
 
     for p_id, p_info in sorted(prompts_map.items()):
         seeds_data = p_info["seeds"]
         if not seeds_data:
             continue
 
-        # Get list of candidate steps from first seed
-        first_seed_data = next(iter(seeds_data.values()))
-        cands = first_seed_data.get("candidates", [])
-        cand_steps = [c["step"] for c in cands]
-        K = len(cand_steps)
+        # Get list of candidate steps across seeds
+        cand_steps = []
+        for s_data in seeds_data.values():
+            c_steps, _, _ = extract_candidates_from_record(s_data, u_key, args.primary_lambda)
+            if c_steps:
+                cand_steps = c_steps
+                break
 
-        # Average utility per step across seeds for this prompt: E_eps[U(k)]
+        if not cand_steps:
+            prompt_stats.append({
+                "prompt_id": p_id,
+                "prompt_text": p_info["prompt_text"],
+                "seed_count": len(seeds_data),
+                "seed_optimal_steps": [],
+                "optimal_step_std": 0.0,
+                "prompt_optimal_step": None,
+                "mean_oracle_utility": 0.0,
+                "prompt_policy_utility": 0.0,
+                "prompt_explainable_regret": 0.0,
+                "status": "pending_vbench_or_manifest_only",
+            })
+            continue
+
+        K = len(cand_steps)
         mean_utility_per_step = np.zeros(K, dtype=np.float64)
         seed_optimal_steps = []
         seed_max_utilities = []
+        valid_seed_count = 0
 
         for s_idx, (seed_val, s_data) in enumerate(seeds_data.items()):
-            s_cands = s_data.get("candidates", [])
-            s_u = np.array([c.get("utilities", {}).get(u_key, c.get("vbench5", 0.0)) for c in s_cands])
+            _, s_u, _ = extract_candidates_from_record(s_data, u_key, args.primary_lambda)
+            if len(s_u) != K:
+                continue
+
             mean_utility_per_step += s_u
-            
             opt_idx = int(np.argmax(s_u))
             seed_optimal_steps.append(cand_steps[opt_idx])
             seed_max_utilities.append(float(s_u[opt_idx]))
             all_oracle_optimal_steps.append(cand_steps[opt_idx])
+            valid_seed_count += 1
 
-        mean_utility_per_step /= len(seeds_data)
-        
+        if valid_seed_count == 0:
+            continue
+
+        mean_utility_per_step /= valid_seed_count
+
         # Best static choice for this prompt (Prompt-only theory ceiling)
         best_prompt_cand_idx = int(np.argmax(mean_utility_per_step))
         k_prompt = cand_steps[best_prompt_cand_idx]
@@ -130,8 +188,9 @@ def main() -> None:
         # Calculate prompt-explainable regret for this prompt
         prompt_regret_sum = 0.0
         for s_data in seeds_data.values():
-            s_cands = s_data.get("candidates", [])
-            s_u = np.array([c.get("utilities", {}).get(u_key, c.get("vbench5", 0.0)) for c in s_cands])
+            _, s_u, _ = extract_candidates_from_record(s_data, u_key, args.primary_lambda)
+            if len(s_u) != K:
+                continue
             u_oracle = np.max(s_u)
             u_prompt_choice = s_u[best_prompt_cand_idx]
             regret = u_oracle - u_prompt_choice
@@ -140,20 +199,22 @@ def main() -> None:
             total_oracle_utilities += u_oracle
             total_prompt_utilities += u_prompt_choice
 
-        avg_prompt_regret = prompt_regret_sum / len(seeds_data)
+        avg_prompt_regret = prompt_regret_sum / valid_seed_count
         step_std = float(np.std(seed_optimal_steps)) if len(seed_optimal_steps) > 1 else 0.0
         intra_prompt_step_stds.append(step_std)
+        evaluated_prompts_count += 1
 
         prompt_stats.append({
             "prompt_id": p_id,
             "prompt_text": p_info["prompt_text"],
-            "seed_count": len(seeds_data),
+            "seed_count": valid_seed_count,
             "seed_optimal_steps": seed_optimal_steps,
             "optimal_step_std": round(step_std, 3),
             "prompt_optimal_step": k_prompt,
             "mean_oracle_utility": round(float(np.mean(seed_max_utilities)), 5),
             "prompt_policy_utility": round(float(mean_utility_per_step[best_prompt_cand_idx]), 5),
             "prompt_explainable_regret": round(avg_prompt_regret, 6),
+            "status": "evaluated",
         })
 
     # Global summary statistics
@@ -175,6 +236,7 @@ def main() -> None:
                 "mean_oracle_utility",
                 "prompt_policy_utility",
                 "prompt_explainable_regret",
+                "status",
             ]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
