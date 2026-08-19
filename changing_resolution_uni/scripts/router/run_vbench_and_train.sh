@@ -12,6 +12,9 @@ OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/router_benchmarks_1k}"
 
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
 
+# Clean potential corrupted torch hub cache from previous multi-process race
+rm -rf "${HOME}/.cache/torch/hub/main.zip"* "${HOME}/.cache/torch/hub/facebookresearch-dino"* "${HOME}/.cache/torch/hub/facebookresearch_dino"* 2>/dev/null || true
+
 echo "================================================================================"
 echo " [Step 1/3] Running Distributed VBench-5 Quality Scoring on Generated Videos..."
 echo "================================================================================"

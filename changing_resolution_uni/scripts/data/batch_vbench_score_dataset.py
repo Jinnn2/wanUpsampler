@@ -82,6 +82,32 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def warmup_vbench_cache(python_bin: str, vbench_root: Path) -> None:
+    """Pre-downloads torch.hub dependencies (DINO, etc.) in a single process to prevent multi-GPU race condition."""
+    hub_dir = Path.home() / ".cache" / "torch" / "hub"
+    dino_dir = hub_dir / "facebookresearch_dino_main"
+
+    # If corrupted, clean it
+    if dino_dir.is_dir() and not (dino_dir / "vision_transformer.py").is_file():
+        logger.warning(f"Cleaning corrupted DINO torch.hub directory at {dino_dir}")
+        shutil.rmtree(dino_dir, ignore_errors=True)
+    if hub_dir.is_dir():
+        for p in hub_dir.glob("facebookresearch-dino-*"):
+            shutil.rmtree(p, ignore_errors=True)
+        for z in hub_dir.glob("main.zip*"):
+            z.unlink(missing_ok=True)
+
+    logger.info("Pre-warming VBench dependencies (single-process)...")
+    try:
+        subprocess.run(
+            [python_bin, "-c", "import torch; torch.hub.load('facebookresearch/dino:main', 'dino_vits16')"],
+            check=False,
+            cwd=vbench_root,
+        )
+    except Exception as e:
+        logger.warning(f"Prewarm warning: {e}")
+
+
 def discover_seed_dirs(source_dirs: list[Path]) -> list[Path]:
     """Find all seed directories across dataset root and worker parts."""
     seed_dirs = []
@@ -345,6 +371,9 @@ def main() -> None:
 
     if not vbench_root.is_dir():
         raise FileNotFoundError(f"VBench repository not found at {vbench_root}")
+
+    # Pre-warm dependencies to prevent multi-GPU torch.hub race conditions
+    warmup_vbench_cache(args.python, vbench_root)
 
     source_dirs = (
         [Path(d).resolve() for d in args.input_dirs if Path(d).is_dir()]
