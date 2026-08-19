@@ -127,7 +127,7 @@ class RouterDataset(Dataset):
             "prompt_id": pid,
             "seed": item.get("seed", 42),
             "prompt_text": item.get("prompt_text", ""),
-            "pooled_t5": torch.from_numpy(pooled),  # [4096]
+            "pooled_t5": torch.from_numpy(pooled).float(),  # [4096]
             "target_step_idx": torch.tensor(opt_idx, dtype=torch.long),
             "target_step": torch.tensor(opt_step, dtype=torch.long),
             "soft_utility_target": torch.from_numpy(soft_target.astype(np.float32)),  # [K]

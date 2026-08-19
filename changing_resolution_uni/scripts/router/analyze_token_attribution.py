@@ -96,18 +96,18 @@ def main() -> None:
     for npz_file in npz_files:
         try:
             data = np.load(npz_file, allow_pickle=True)
-            seq_emb = data["seq_embedding"]  # [L, 4096]
+            seq_emb = data["seq_embedding"].astype(np.float32)  # [L, 4096]
             tokens = data.get("tokens", [])
             prompt_text = str(data.get("prompt_text", ""))
             pid = int(npz_file.stem.split("_")[1])
 
             # Exact token attribution r_i = w^T h_i
-            r_scores = np.dot(seq_emb, w)  # [L]
+            r_scores = np.dot(seq_emb, w.astype(np.float32))  # [L]
 
             # Model prediction on this prompt
-            pooled = data["pooled_embedding"]
+            pooled = data["pooled_embedding"].astype(np.float32)
             with torch.no_grad():
-                out = model(torch.from_numpy(pooled).unsqueeze(0))
+                out = model(torch.from_numpy(pooled).float().unsqueeze(0))
                 pred_idx = out["pred_step_idx"].item()
                 pred_step = cand_steps[pred_idx]
                 switch_score = out["switch_score"].item()
