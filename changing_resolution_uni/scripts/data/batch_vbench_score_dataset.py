@@ -83,11 +83,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def warmup_vbench_cache(python_bin: str, vbench_root: Path) -> None:
-    """Pre-downloads torch.hub dependencies (DINO, etc.) in a single process to prevent multi-GPU race condition."""
+    """Pre-downloads torch.hub dependencies (DINO) and OpenAI CLIP models in a single process to prevent multi-GPU race condition and network timeout."""
     hub_dir = Path.home() / ".cache" / "torch" / "hub"
+    clip_dir = Path.home() / ".cache" / "clip"
     dino_dir = hub_dir / "facebookresearch_dino_main"
 
-    # If corrupted, clean it
+    # If DINO is corrupted, clean it
     if dino_dir.is_dir() and not (dino_dir / "vision_transformer.py").is_file():
         logger.warning(f"Cleaning corrupted DINO torch.hub directory at {dino_dir}")
         shutil.rmtree(dino_dir, ignore_errors=True)
@@ -97,10 +98,38 @@ def warmup_vbench_cache(python_bin: str, vbench_root: Path) -> None:
         for z in hub_dir.glob("main.zip*"):
             z.unlink(missing_ok=True)
 
-    logger.info("Pre-warming VBench dependencies (single-process)...")
+    logger.info("Pre-warming VBench dependencies (DINO & CLIP) in single-process mode...")
+    prewarm_script = """
+import time
+import torch
+import clip
+
+# 1. Warm up DINO
+for attempt in range(5):
+    try:
+        print("[Warmup] Loading DINO...")
+        torch.hub.load('facebookresearch/dino:main', 'dino_vits16')
+        print("[Warmup] DINO loaded successfully.")
+        break
+    except Exception as e:
+        print(f"[Warmup] DINO load attempt {attempt+1} failed: {e}. Retrying in 3s...")
+        time.sleep(3)
+
+# 2. Warm up CLIP models (ViT-B/32 and ViT-L/14 used by VBench)
+for m_name in ['ViT-B/32', 'ViT-L/14']:
+    for attempt in range(5):
+        try:
+            print(f"[Warmup] Pre-downloading CLIP {m_name}...")
+            clip.load(m_name, device='cpu')
+            print(f"[Warmup] CLIP {m_name} ready.")
+            break
+        except Exception as e:
+            print(f"[Warmup] CLIP {m_name} attempt {attempt+1} failed: {e}. Retrying in 3s...")
+            time.sleep(3)
+"""
     try:
         subprocess.run(
-            [python_bin, "-c", "import torch; torch.hub.load('facebookresearch/dino:main', 'dino_vits16')"],
+            [python_bin, "-c", prewarm_script],
             check=False,
             cwd=vbench_root,
         )
