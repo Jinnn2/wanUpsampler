@@ -176,9 +176,10 @@ def score_case_directory(
 
     # Check if complete results already exist
     existing_result_file = None
-    for f in out_dir.glob("*_eval_results.json"):
-        existing_result_file = f
-        break
+    for f in out_dir.glob("*.json"):
+        if f.name != "prompt_map.json" and ("eval_results" in f.name or "full_info" in f.name) and f.stat().st_size > 0:
+            existing_result_file = f
+            break
 
     if not (skip_existing and existing_result_file and existing_result_file.stat().st_size > 0):
         cmd = [

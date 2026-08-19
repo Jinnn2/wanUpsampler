@@ -12,6 +12,12 @@ OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/router_benchmarks_1k}"
 
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
 
+# Check and auto-install all dependencies and pre-warm models if needed
+if ! python -c "import clip, pyiqa; assert hasattr(clip, 'load')" 2>/dev/null; then
+  echo "Setting up missing environment dependencies & pre-warming models..."
+  bash "${SCRIPT_DIR}/setup_environment.sh"
+fi
+
 # Clean potential corrupted torch hub cache from previous multi-process race
 rm -rf "${HOME}/.cache/torch/hub/main.zip"* "${HOME}/.cache/torch/hub/facebookresearch-dino"* "${HOME}/.cache/torch/hub/facebookresearch_dino"* 2>/dev/null || true
 
