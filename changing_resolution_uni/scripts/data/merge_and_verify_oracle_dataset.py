@@ -30,9 +30,21 @@ logger = logging.getLogger("merge_verify")
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Merge and verify oracle trajectory dataset parts.")
-    parser.add_argument("--parts_dir", type=str, required=True, help="Directory containing worker parts (_parts/part_00...).")
+    parser.add_argument(
+        "--input_dirs",
+        type=str,
+        nargs="*",
+        default=None,
+        help="One or more dataset directories to merge (e.g. oracle_dataset_2k oracle_dataset_500_1000).",
+    )
+    parser.add_argument(
+        "--parts_dir",
+        type=str,
+        default=None,
+        help="Legacy option: Directory containing worker parts (_parts/part_00...).",
+    )
     parser.add_argument("--out_root", type=str, required=True, help="Final master output root directory.")
-    parser.add_argument("--total_prompts", type=int, default=2000, help="Expected total unique prompts.")
+    parser.add_argument("--total_prompts", type=int, default=1000, help="Expected total unique prompts.")
     parser.add_argument("--seeds", type=int, nargs="+", default=[42, 100, 2024], help="Expected seed list per prompt.")
     parser.add_argument("--primary_lambda", type=float, default=0.05, help="Lambda for regret and utility calculation.")
     return parser.parse_args()
@@ -74,50 +86,87 @@ def extract_candidates_from_record(
 
 def main() -> None:
     args = parse_args()
-    parts_dir = Path(args.parts_dir).resolve()
     out_root = Path(args.out_root).resolve()
     final_records_dir = out_root / "records"
+    final_t5_dir = out_root / "t5_embeddings"
     final_records_dir.mkdir(parents=True, exist_ok=True)
+    final_t5_dir.mkdir(parents=True, exist_ok=True)
 
     expected_seeds = set(args.seeds)
     expected_total_trajectories = args.total_prompts * len(expected_seeds)
 
-    part_dirs = sorted([d for d in parts_dir.glob("part_*") if d.is_dir()])
-    logger.info(f"Merging {len(part_dirs)} part directories from {parts_dir}")
+    # Collect source json record files from input_dirs or parts_dir
+    source_record_files: list[Path] = []
+    source_dirs: list[Path] = []
+    if args.input_dirs:
+        for d in args.input_dirs:
+            p = Path(d).resolve()
+            if p.is_dir():
+                source_dirs.append(p)
+    elif args.parts_dir:
+        p = Path(args.parts_dir).resolve()
+        if p.is_dir():
+            source_dirs.append(p)
+
+    logger.info(f"Scanning {len(source_dirs)} source dataset directories: {[str(d) for d in source_dirs]}")
+
+    for s_dir in source_dirs:
+        # Check records/
+        rec_dir = s_dir / "records"
+        if rec_dir.is_dir():
+            source_record_files.extend(rec_dir.glob("*.json"))
+        # Check _parts/*/records/
+        parts_dir = s_dir / "_parts"
+        if parts_dir.is_dir():
+            for p in parts_dir.glob("part_*"):
+                if (p / "records").is_dir():
+                    source_record_files.extend((p / "records").glob("*.json"))
+        # If s_dir itself is _parts or part_*
+        if s_dir.name.startswith("part_") and (s_dir / "records").is_dir():
+            source_record_files.extend((s_dir / "records").glob("*.json"))
+        for p in s_dir.glob("part_*"):
+            if (p / "records").is_dir():
+                source_record_files.extend((p / "records").glob("*.json"))
+
+        # Copy T5 embeddings if present
+        t5_src = s_dir / "t5_embeddings"
+        if t5_src.is_dir():
+            for npz in t5_src.glob("*.npz"):
+                dest = final_t5_dir / npz.name
+                if not dest.exists():
+                    shutil.copy2(npz, dest)
+
+    logger.info(f"Found {len(source_record_files)} raw record files across sources.")
 
     all_records: dict[str, dict[str, Any]] = {}
     prompts_map: dict[int, dict[str, Any]] = {}
 
-    for p_dir in part_dirs:
-        rec_dir = p_dir / "records"
-        if not rec_dir.is_dir():
-            continue
-        for rec_file in rec_dir.glob("*.json"):
-            try:
-                data = json.loads(rec_file.read_text(encoding="utf-8"))
-                p_id = int(data["prompt_id"])
-                seed = int(data["seed"])
-                sample_key = f"p{p_id:06d}_s{seed}"
+    for rec_file in source_record_files:
+        try:
+            data = json.loads(rec_file.read_text(encoding="utf-8"))
+            p_id = int(data["prompt_id"])
+            seed = int(data["seed"])
+            sample_key = f"p{p_id:06d}_s{seed}"
 
-                # Copy/move to final records dir
-                dest_file = final_records_dir / f"{sample_key}.json"
-                if not dest_file.exists():
-                    shutil.copy2(rec_file, dest_file)
+            # Copy to final unified records directory
+            dest_file = final_records_dir / f"{sample_key}.json"
+            if not dest_file.exists():
+                shutil.copy2(rec_file, dest_file)
 
-                all_records[sample_key] = data
-                if p_id not in prompts_map:
-                    prompts_map[p_id] = {
-                        "prompt_id": p_id,
-                        "prompt_text": data.get("prompt_text", ""),
-                        "t5_embedding_path": data.get("t5_embedding_path"),
-                        "seeds": {},
-                    }
-                prompts_map[p_id]["seeds"][seed] = data
-            except Exception as e:
-                logger.error(f"Error reading record {rec_file}: {e}")
+            all_records[sample_key] = data
+            if p_id not in prompts_map:
+                prompts_map[p_id] = {
+                    "prompt_id": p_id,
+                    "prompt_text": data.get("prompt_text", ""),
+                    "t5_embedding_path": data.get("t5_embedding_path"),
+                    "seeds": {},
+                }
+            prompts_map[p_id]["seeds"][seed] = data
+        except Exception as e:
+            logger.error(f"Error reading record {rec_file}: {e}")
 
     num_found = len(all_records)
-    logger.info(f"Loaded {num_found} total trajectory records across {len(prompts_map)} prompts.")
+    logger.info(f"Successfully indexed {num_found} unique trajectory records across {len(prompts_map)} prompts.")
 
     # ── Scientific Metric Computation: R_prompt & Variance ─────────────────────
     u_key = f"u_{args.primary_lambda:.2f}"
