@@ -41,10 +41,17 @@ FORMAL_STEPS = [30, 35, *range(40, 51)]
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Batch score oracle dataset with VBench-5.")
     parser.add_argument(
+        "--input_dirs",
+        type=str,
+        nargs="*",
+        default=None,
+        help="One or more dataset directories containing raw_samples or _parts (e.g. oracle_dataset_2k oracle_dataset_500_1000).",
+    )
+    parser.add_argument(
         "--dataset_dir",
         type=str,
         default=str(REPO_ROOT / "data" / "changing_resolution_uni" / "oracle_dataset_1k"),
-        help="Root dataset directory to score and backfill.",
+        help="Root dataset directory to save final records.",
     )
     parser.add_argument(
         "--vbench_root",
@@ -75,21 +82,22 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def discover_seed_dirs(dataset_dir: Path) -> list[Path]:
+def discover_seed_dirs(source_dirs: list[Path]) -> list[Path]:
     """Find all seed directories across dataset root and worker parts."""
     seed_dirs = []
-    # Check dataset_dir/raw_samples/seed_*
-    raw_root = dataset_dir / "raw_samples"
-    if raw_root.is_dir():
-        seed_dirs.extend([d for d in raw_root.glob("seed_*") if d.is_dir()])
+    for d_dir in source_dirs:
+        # Check d_dir/raw_samples/seed_*
+        raw_root = d_dir / "raw_samples"
+        if raw_root.is_dir():
+            seed_dirs.extend([d for d in raw_root.glob("seed_*") if d.is_dir()])
 
-    # Check dataset_dir/_parts/*/raw_samples/seed_*
-    parts_root = dataset_dir / "_parts"
-    if parts_root.is_dir():
-        for p in sorted(parts_root.glob("part_*")):
-            p_raw = p / "raw_samples"
-            if p_raw.is_dir():
-                seed_dirs.extend([d for d in p_raw.glob("seed_*") if d.is_dir()])
+        # Check d_dir/_parts/*/raw_samples/seed_*
+        parts_root = d_dir / "_parts"
+        if parts_root.is_dir():
+            for p in sorted(parts_root.glob("part_*")):
+                p_raw = p / "raw_samples"
+                if p_raw.is_dir():
+                    seed_dirs.extend([d for d in p_raw.glob("seed_*") if d.is_dir()])
 
     return sorted(list(set(seed_dirs)))
 
@@ -249,6 +257,10 @@ def backfill_seed_records(
             if vpath.is_file():
                 pmap[str(vpath)] = prompt
 
+        if not pmap:
+            logger.info(f"Skipping {case_name}: 0 valid video files found in {vdir}.")
+            continue
+
         prompt_map_file.write_text(json.dumps(pmap, indent=2, ensure_ascii=False), encoding="utf-8")
 
         # Run VBench on this case
@@ -334,8 +346,13 @@ def main() -> None:
     if not vbench_root.is_dir():
         raise FileNotFoundError(f"VBench repository not found at {vbench_root}")
 
-    seed_dirs = discover_seed_dirs(dataset_dir)
-    logger.info(f"Discovered {len(seed_dirs)} seed raw sample directories to score:")
+    source_dirs = (
+        [Path(d).resolve() for d in args.input_dirs if Path(d).is_dir()]
+        if args.input_dirs
+        else [dataset_dir]
+    )
+    seed_dirs = discover_seed_dirs(source_dirs)
+    logger.info(f"Discovered {len(seed_dirs)} seed raw sample directories to score from {[str(d) for d in source_dirs]}:")
     for s in seed_dirs:
         logger.info(f"  - {s}")
 

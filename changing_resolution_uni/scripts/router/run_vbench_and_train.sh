@@ -16,6 +16,10 @@ echo "==========================================================================
 echo " [Step 1/3] Running Distributed VBench-5 Quality Scoring on Generated Videos..."
 echo "================================================================================"
 python "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/batch_vbench_score_dataset.py" \
+  --input_dirs \
+    "${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_2k" \
+    "${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_500_1000" \
+    "${DATASET_DIR}" \
   --dataset_dir "${DATASET_DIR}" \
   --vbench_root "${VBENCH_ROOT}" \
   --ngpus "${NGPUS}" \
