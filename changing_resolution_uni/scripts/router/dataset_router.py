@@ -157,15 +157,31 @@ def create_prompt_disjoint_splits(
     if not records_dir.is_dir():
         raise FileNotFoundError(f"Records directory not found at {records_dir}")
 
-    # Gather all trajectory records
-    records_by_prompt: dict[int, list[dict[str, Any]]] = {}
+    # Gather all trajectory records, deduplicating by (prompt_id, seed)
+    records_by_prompt_seed: dict[int, dict[int, dict[str, Any]]] = {}
     for r_file in sorted(records_dir.glob("*.json")):
         try:
             data = json.loads(r_file.read_text(encoding="utf-8"))
             pid = int(data["prompt_id"])
-            records_by_prompt.setdefault(pid, []).append(data)
+            seed_val = int(data.get("seed", 42))
+
+            # Check if this record has genuine non-zero VBench scores
+            cands = data.get("candidates", [])
+            has_scores = any(float(c.get("vbench5", 0.0)) > 0.1 for c in cands)
+
+            if pid not in records_by_prompt_seed:
+                records_by_prompt_seed[pid] = {}
+
+            # Prioritize records with valid scores over empty/legacy records
+            if seed_val not in records_by_prompt_seed[pid] or has_scores:
+                records_by_prompt_seed[pid][seed_val] = data
         except Exception:
             pass
+
+    # Flatten to list of clean records per prompt
+    records_by_prompt: dict[int, list[dict[str, Any]]] = {
+        pid: list(seeds.values()) for pid, seeds in records_by_prompt_seed.items()
+    }
 
     all_pids = sorted(list(records_by_prompt.keys()))
     if not all_pids:
