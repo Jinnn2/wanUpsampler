@@ -226,34 +226,60 @@ def score_case_directory(
             continue
         try:
             data = json.loads(res_file.read_text(encoding="utf-8"))
-            # VBench format: list of dicts with video_path / video_name and dimension scores
-            if isinstance(data, list):
+            if isinstance(data, dict):
+                # Format A: Official VBench output {dimension: [overall_score, [{video_path: ..., video_results: ...}]]}
+                for dim in dimensions:
+                    if dim in data:
+                        payload = data[dim]
+                        if isinstance(payload, list) and len(payload) >= 2 and isinstance(payload[1], list):
+                            for row in payload[1]:
+                                if isinstance(row, dict):
+                                    v_path = row.get("video_path") or row.get("video_name") or ""
+                                    v_stem = Path(v_path).stem
+                                    score = row.get("video_results")
+                                    if score is not None and v_stem:
+                                        val = float(score)
+                                        if dim == "imaging_quality" and val > 1.0:
+                                            val /= 100.0
+                                        video_scores.setdefault(v_stem, {})[dim] = val
+                        elif isinstance(payload, dict):
+                            for v_path, score in payload.items():
+                                v_stem = Path(v_path).stem
+                                if score is not None and v_stem:
+                                    val = float(score)
+                                    if dim == "imaging_quality" and val > 1.0:
+                                        val /= 100.0
+                                    video_scores.setdefault(v_stem, {})[dim] = val
+
+                # Format B: Dimension-specific evaluation file with video_results dict
+                for dim in dimensions:
+                    if dim in res_file.name and "video_results" in data:
+                        for v_path, score in data["video_results"].items():
+                            v_stem = Path(v_path).stem
+                            if score is not None and v_stem:
+                                val = float(score)
+                                if dim == "imaging_quality" and val > 1.0:
+                                    val /= 100.0
+                                video_scores.setdefault(v_stem, {})[dim] = val
+
+            elif isinstance(data, list):
+                # Format C: Flat list of records [{video_path: ..., subject_consistency: ...}]
                 for row in data:
-                    v_path = row.get("video_path") or row.get("video_name") or ""
-                    v_stem = Path(v_path).stem
-                    if not v_stem:
-                        continue
-                    if v_stem not in video_scores:
-                        video_scores[v_stem] = {}
-                    for dim in dimensions:
-                        if dim in row and row[dim] is not None:
-                            video_scores[v_stem][dim] = float(row[dim])
-            elif isinstance(data, dict):
-                # Dimension-specific evaluation file
-                dim_name = None
-                for d in dimensions:
-                    if d in res_file.name:
-                        dim_name = d
-                        break
-                if dim_name and "video_results" in data:
-                    for v_path, score in data["video_results"].items():
+                    if isinstance(row, dict):
+                        v_path = row.get("video_path") or row.get("video_name") or ""
                         v_stem = Path(v_path).stem
-                        if v_stem not in video_scores:
-                            video_scores[v_stem] = {}
-                        video_scores[v_stem][dim_name] = float(score)
+                        if not v_stem:
+                            continue
+                        for dim in dimensions:
+                            if dim in row and row[dim] is not None:
+                                val = float(row[dim])
+                                if dim == "imaging_quality" and val > 1.0:
+                                    val /= 100.0
+                                video_scores.setdefault(v_stem, {})[dim] = val
         except Exception as e:
             logger.warning(f"Error parsing VBench result {res_file}: {e}")
 
+    logger.info(f"Successfully parsed VBench-5 metrics for {len(video_scores)} videos in {out_dir.name}")
     return video_scores
 
 
