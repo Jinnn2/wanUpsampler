@@ -102,9 +102,29 @@ def main() -> None:
         try:
             data = np.load(npz_file, allow_pickle=True)
             seq_emb = data["seq_embedding"].astype(np.float32)  # [L, 4096]
-            tokens = data.get("tokens", [])
-            prompt_text = str(data.get("prompt_text", ""))
             pid = int(npz_file.stem.split("_")[1])
+
+            # Load tokens and prompt_text from corresponding JSON metadata file
+            meta_json = t5_dir / f"{npz_file.stem}.json"
+            tokens = []
+            prompt_text = ""
+            if meta_json.is_file():
+                try:
+                    m_data = json.loads(meta_json.read_text(encoding="utf-8"))
+                    tokens = m_data.get("tokens", [])
+                    prompt_text = m_data.get("prompt_text", "")
+                except Exception:
+                    pass
+            if not tokens and "tokens" in data:
+                tokens = list(data["tokens"])
+            if not prompt_text and "prompt_text" in data:
+                prompt_text = str(data["prompt_text"])
+
+            # If token count doesn't match seq_len, pad or slice
+            if len(tokens) < len(seq_emb):
+                tokens = tokens + [f"tok_{i}" for i in range(len(tokens), len(seq_emb))]
+            elif len(tokens) > len(seq_emb):
+                tokens = tokens[: len(seq_emb)]
 
             # Exact token attribution r_i = w^T h_i
             r_scores = np.dot(seq_emb, w.astype(np.float32))  # [L]

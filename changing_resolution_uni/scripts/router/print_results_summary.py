@@ -5,24 +5,55 @@ Reads outputs/router_benchmarks_1k/ and prints clean markdown tables and scienti
 """
 from __future__ import annotations
 
+import argparse
 import csv
 import json
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-out_dir = REPO_ROOT / "outputs" / "router_benchmarks_1k"
-dataset_dir = REPO_ROOT / "data" / "changing_resolution_uni" / "oracle_dataset_1k"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Print summary report of router benchmarks.")
+    parser.add_argument(
+        "--out_dir",
+        type=str,
+        default=None,
+        help="Path to output directory (e.g. outputs/router_benchmarks_1k_lambda001).",
+    )
+    parser.add_argument(
+        "--dataset_dir",
+        type=str,
+        default=str(REPO_ROOT / "data" / "changing_resolution_uni" / "oracle_dataset_1k"),
+        help="Path to dataset directory.",
+    )
+    return parser.parse_args()
 
 
 def main() -> None:
+    args = parse_args()
+
+    # Determine out_dir: explicit or auto-detect most recently modified
+    if args.out_dir:
+        out_dir = Path(args.out_dir).resolve()
+    else:
+        candidates = list((REPO_ROOT / "outputs").glob("router_benchmarks_*"))
+        if candidates:
+            out_dir = max(candidates, key=lambda p: p.stat().st_mtime)
+        else:
+            out_dir = REPO_ROOT / "outputs" / "router_benchmarks_1k"
+
+    dataset_dir = Path(args.dataset_dir).resolve()
+
     print("\n" + "=" * 95)
-    print("           OPTIMAL TIMESTEP ROUTER & TOKEN ATTRIBUTION BENCHMARK REPORT")
+    print(f"   OPTIMAL TIMESTEP ROUTER BENCHMARK & TOKEN ATTRIBUTION REPORT ({out_dir.name})")
     print("=" * 95)
 
     # 1. Master Benchmark Results Table
     csv_path = out_dir / "router_benchmark_results.csv"
     if csv_path.is_file():
-        print("\n[1] Main Test Set Evaluation (100 Test Prompts, 300 Trajectories, Prompt-Disjoint):")
+        print(f"\n[1] Main Test Set Evaluation (from {csv_path.name}):")
         print("-" * 95)
         print(f"{'Method':<38} | {'Policy Regret':<14} | {'VBench-5':<9} | {'Latency':<9} | {'Speedup':<8} | {'MAE':<6} | {'Top-1'}")
         print("-" * 95)
