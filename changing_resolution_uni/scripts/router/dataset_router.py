@@ -123,6 +123,8 @@ class RouterDataset(Dataset):
         # 5. Ordinal binary targets: y_k = 1 if opt_idx > k else 0 for k in [0, K-2]
         ordinal_targets = (opt_idx > np.arange(self.K - 1)).astype(np.float32)
 
+        native_lat = float(item.get("native_latency_seconds", item.get("native", {}).get("latency_seconds", 189.0)))
+
         return {
             "prompt_id": pid,
             "seed": item.get("seed", 42),
@@ -134,6 +136,7 @@ class RouterDataset(Dataset):
             "utilities": torch.from_numpy(u_arr),  # [K]
             "vbench5": torch.from_numpy(vbench_arr),  # [K]
             "latencies": torch.from_numpy(latency_arr),  # [K]
+            "native_latency": torch.tensor(native_lat, dtype=torch.float32),
             "ordinal_targets": torch.from_numpy(ordinal_targets),  # [K-1]
         }
 

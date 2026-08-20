@@ -79,19 +79,26 @@ def main() -> None:
     else:
         print(f"\n[!] Benchmark CSV not found at {csv_path}")
 
-    # 2. Optimal Step Histogram
-    manifest_path = dataset_dir / "dataset_manifest.json"
-    if manifest_path.is_file():
-        try:
-            m_data = json.loads(manifest_path.read_text(encoding="utf-8"))
-            metrics = m_data.get("scientific_metrics", {})
-            hist = metrics.get("oracle_optimal_step_distribution", {})
-            print("\n[2] Global Oracle Optimal Step Distribution (1000 Prompts × 3 Seeds):")
-            print(f"    - Theoretical Upper Bound Prompt Regret (R_prompt) : {metrics.get('prompt_explainable_regret_upper_bound_r_prompt', 'N/A')}")
-            print(f"    - Mean Intra-Prompt Seed Std                     : {metrics.get('mean_intra_prompt_seed_step_std', 'N/A')} steps")
-            print(f"    - Step Histogram: {hist}")
-        except Exception:
-            pass
+    # 2. Optimal Step Histogram (computed directly from records)
+    records_dir = dataset_dir / "records"
+    hist: dict[int, int] = {}
+    if records_dir.is_dir():
+        for r_file in records_dir.glob("*.json"):
+            try:
+                data = json.loads(r_file.read_text(encoding="utf-8"))
+                cands = data.get("candidates", [])
+                if cands:
+                    # Find optimal step according to primary lambda or default
+                    opt_s = data.get("optimal_step_lambda_001") or data.get("optimal_step_lambda_005") or data.get("optimal_step")
+                    if opt_s is None:
+                        opt_s = max(cands, key=lambda c: float(c.get("utilities", {}).get("u_0.01", c.get("vbench5", 0.0))))["step"]
+                    hist[int(opt_s)] = hist.get(int(opt_s), 0) + 1
+            except Exception:
+                pass
+
+    if hist:
+        print("\n[2] Global Oracle Optimal Step Distribution (across dataset trajectories):")
+        print(f"    - Step Histogram: {dict(sorted(hist.items()))}")
 
     # 3. Token Attribution Discovery (Top Late vs Early Switch Words)
     late_csv = out_dir / "token_attribution" / "top_late_switch_words.csv"

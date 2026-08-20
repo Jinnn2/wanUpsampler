@@ -52,6 +52,14 @@ python "${SCRIPT_DIR}/analyze_token_attribution.py" \
 
 echo ""
 echo "================================================================================"
+echo " [Step 4/4] Printing Publication-Ready Master Benchmark Report..."
+echo "================================================================================"
+python "${SCRIPT_DIR}/print_results_summary.py" \
+  --out_dir "${OUT_DIR}" \
+  --dataset_dir "${DATASET_DIR}"
+
+echo ""
+echo "================================================================================"
 echo " All Router Benchmarks and Interpretability Analyses Completed Successfully!"
 echo " Check outputs in: ${OUT_DIR}"
 echo "================================================================================"

@@ -137,7 +137,7 @@ def evaluate_policy_on_loader(
         oracle_u = utilities[batch_indices, target_idx]
         realized_vb = vbench[batch_indices, chosen_idx]
         realized_lat = latencies[batch_indices, chosen_idx]
-        native_lat = latencies[batch_indices, -1]  # Step 50 or native
+        native_lat = batch.get("native_latency", torch.full((B,), 189.0, dtype=torch.float32))
 
         regret = (oracle_u - realized_u).clamp(min=0.0)
         step_mae = (chosen_step - target_step).abs().float()
@@ -299,17 +299,23 @@ def main() -> None:
     oracle_test = evaluate_policy_on_loader(None, test_loader, cand_steps, device, is_oracle=True)
     results.append({"Method": "Oracle (Upper Bound)", **oracle_test})
 
-    # 2. Fixed Step 47 Baseline (Global empirical mode)
-    step47_test = evaluate_policy_on_loader(None, test_loader, cand_steps, device, fixed_step=47)
-    results.append({"Method": "Fixed Step 47 (Global Best)", **step47_test})
+    # Evaluate all fixed steps on training set to find the empirical best fixed policy
+    train_fixed_regrets = {}
+    for s in cand_steps:
+        s_eval = evaluate_policy_on_loader(None, train_loader, cand_steps, device, fixed_step=s)
+        train_fixed_regrets[s] = s_eval["policy_regret"]
+    best_fixed_step = min(train_fixed_regrets, key=train_fixed_regrets.get)
 
-    # 3. Fixed Step 45 Baseline
-    step45_test = evaluate_policy_on_loader(None, test_loader, cand_steps, device, fixed_step=45)
-    results.append({"Method": "Fixed Step 45", **step45_test})
+    # 2. Best Empirical Fixed Step Baseline
+    best_fixed_test = evaluate_policy_on_loader(None, test_loader, cand_steps, device, fixed_step=best_fixed_step)
+    results.append({"Method": f"Fixed Step {best_fixed_step} (Best Fixed)", **best_fixed_test})
 
-    # 4. Native-HR (50 Steps Full HR Baseline)
-    native_test = evaluate_policy_on_loader(None, test_loader, cand_steps, device, fixed_step=50)
-    results.append({"Method": "Fixed Step 50 (Pure LR)", **native_test})
+    # 3. Other representative fixed baselines (Step 47, Step 45, Step 50)
+    for s in [47, 45, 50]:
+        if s != best_fixed_step:
+            s_test = evaluate_policy_on_loader(None, test_loader, cand_steps, device, fixed_step=s)
+            s_label = f"Fixed Step {s}" + (" (Pure LR)" if s == 50 else "")
+            results.append({"Method": s_label, **s_test})
 
     # ── Train Learned Router Models ──────────────────────────────────────────────
     models_to_train = [args.model_type] if args.model_type != "all" else ["linear_probe", "linear_ordinal", "mlp_distill"]
