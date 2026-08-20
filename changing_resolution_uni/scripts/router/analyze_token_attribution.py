@@ -25,8 +25,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("token_attribution")
 
+import sys
+
 # Add repo root to path
 REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from changing_resolution_uni.scripts.router.model_router import LinearOrdinalRouter
 
 

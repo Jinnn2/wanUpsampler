@@ -59,5 +59,11 @@ python "${SCRIPT_DIR}/analyze_token_attribution.py" \
 
 echo ""
 echo "================================================================================"
+echo " [Step 4/4] Printing Comprehensive Publication-Ready Report..."
+echo "================================================================================"
+python "${SCRIPT_DIR}/print_results_summary.py"
+
+echo ""
+echo "================================================================================"
 echo " Pipeline Complete! Results saved to: ${OUT_DIR}"
 echo "================================================================================"
