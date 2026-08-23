@@ -177,3 +177,46 @@ fixed Stage2 specialists on the same clean pairs and target grids:
 Report latent L1/MAE/MSE, temporal-difference error, decoded RGB metrics when
 VAE decoding is available, and latency. Unseen ratios such as 1.75x and 2.5x
 are validation-only until they are included in a controlled scale-jitter run.
+
+## Generate the 1,500-prompt timestep-router videos on eight GPUs
+
+The formal launcher keeps all eight GPUs occupied and uses two physical runs
+to avoid unnecessary model reloads:
+
+- train: 1,000 prompts, one seed;
+- evaluation: 500 prompts, three seeds, with prompt IDs splitting into 200
+  validation prompts and 300 test prompts.
+
+Native-HR is enabled by default for every trajectory so the generated videos
+remain compatible with the current strict VBench scorer. The default plan
+therefore generates 35,000 videos instead of the old 84,000-video layout.
+All 13 candidate videos are retained, and every candidate switch point also
+stores a `wan_taa_free_oracle_latent_v1` archive containing `x_t_lr` and
+`x0_pred_lr`. With fp16 storage the 32,500 latent files require approximately
+150 GiB before filesystem overhead; fp32 roughly doubles that budget.
+
+Inspect the exact offsets, seeds, and counts without starting any work:
+
+```bash
+PLAN_ONLY=1 \
+bash changing_resolution_uni/scripts/data/build_oracle_dataset_1500_8gpu.sh
+```
+
+Start the resumable run in tmux:
+
+```bash
+GPU_IDS=0,1,2,3,4,5,6,7 \
+bash changing_resolution_uni/scripts/data/tmux_build_oracle_dataset_1500_8gpu.sh
+```
+
+The default logical split is `1000/200/300`. Validation and test share the
+physical `eval` directory to load each seed's resident model only once; their
+non-overlapping prompt-ID ranges are recorded in `generation_plan.json`.
+`SKIP_EXISTING=1` makes restarts idempotent.
+`CLEAN_VIDEOS=1` and `SAVE_LATENTS=0` are rejected by this formal launcher so
+an accidental restart cannot remove or omit the requested intermediate data.
+
+`TRAIN_INCLUDE_NATIVE_HR=0` reduces the plan to 34,000 videos, but this is an
+explicit generation-only mode: the current strict VBench scorer requires a
+matched Native-HR video for every train trajectory. Keep the default value of
+`1` unless a calibrated native-latency training profile is used downstream.

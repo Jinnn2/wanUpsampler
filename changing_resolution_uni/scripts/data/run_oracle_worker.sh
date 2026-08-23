@@ -37,6 +37,22 @@ PRIMARY_LAMBDA="${PRIMARY_LAMBDA:-0.01}"
 SKIP_EXISTING="${SKIP_EXISTING:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 CLEAN_VIDEOS="${CLEAN_VIDEOS:-0}"
+INCLUDE_NATIVE_HR="${INCLUDE_NATIVE_HR:-1}"
+SAVE_LATENTS="${SAVE_LATENTS:-0}"
+LATENT_SAVE_DTYPE="${LATENT_SAVE_DTYPE:-fp16}"
+
+if [[ "${INCLUDE_NATIVE_HR}" != "0" && "${INCLUDE_NATIVE_HR}" != "1" ]]; then
+  echo "INCLUDE_NATIVE_HR must be 0 or 1, got: ${INCLUDE_NATIVE_HR}" >&2
+  exit 2
+fi
+if [[ "${SAVE_LATENTS}" != "0" && "${SAVE_LATENTS}" != "1" ]]; then
+  echo "SAVE_LATENTS must be 0 or 1, got: ${SAVE_LATENTS}" >&2
+  exit 2
+fi
+if [[ "${LATENT_SAVE_DTYPE}" != "fp16" && "${LATENT_SAVE_DTYPE}" != "bf16" && "${LATENT_SAVE_DTYPE}" != "fp32" ]]; then
+  echo "LATENT_SAVE_DTYPE must be fp16, bf16, or fp32, got: ${LATENT_SAVE_DTYPE}" >&2
+  exit 2
+fi
 
 export LIGHTX2V_REPO MODEL_ROOT PROJECT_ROOT
 export INFER_STEPS NUM_FRAMES HR_H HR_W LR_H LR_W STAGE2_CHECKPOINT STAGE2_TRAIN_CONFIG
@@ -46,6 +62,8 @@ echo "[Worker GPU=${GPU_ID}] offset=${PROMPT_OFFSET}, limit=${LIMIT}, seeds='${S
 echo "  Prompts: ${PROMPTS_FILE}"
 echo "  Output : ${OUT_ROOT}"
 echo "  DryRun : ${DRY_RUN}"
+echo "  Native : ${INCLUDE_NATIVE_HR}"
+echo "  Latents: ${SAVE_LATENTS} (${LATENT_SAVE_DTYPE})"
 
 mkdir -p "${OUT_ROOT}"
 
@@ -111,8 +129,13 @@ PY
       --target_video_length "${NUM_FRAMES}"
       --out-root "${seed_out}"
       --execution-mode "branch"
-      --include-native-hr
     )
+    if [[ "${INCLUDE_NATIVE_HR}" == "1" ]]; then
+      infer_args+=(--include-native-hr)
+    fi
+    if [[ "${SAVE_LATENTS}" == "1" ]]; then
+      infer_args+=(--save-latents --latent-save-dtype "${LATENT_SAVE_DTYPE}")
+    fi
     if [[ "${SKIP_EXISTING}" == "1" ]]; then
       infer_args+=(--skip-existing)
     fi

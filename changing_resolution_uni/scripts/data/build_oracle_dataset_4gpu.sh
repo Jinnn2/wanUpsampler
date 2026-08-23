@@ -13,6 +13,7 @@ fi
 
 TOTAL_PROMPTS="${TOTAL_PROMPTS:-2000}"
 EXPECTED_TOTAL_PROMPTS="${EXPECTED_TOTAL_PROMPTS:-${TOTAL_PROMPTS}}"
+GPU_IDS="${GPU_IDS:-0,1,2,3}"
 PROMPTS_DIR="${PROMPTS_DIR:-${PROJECT_ROOT}/prompts}"
 PROMPTS_FILE="${PROMPTS_FILE:-${CR_HF_PROMPTS_FILE:-${PROMPTS_DIR}/vidprom_filtered_extended.txt}}"
 OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_2k}"
@@ -23,7 +24,19 @@ EXTRACT_T5="${EXTRACT_T5:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 SKIP_EXISTING="${SKIP_EXISTING:-1}"
 CLEAN_VIDEOS="${CLEAN_VIDEOS:-0}"
+INCLUDE_NATIVE_HR="${INCLUDE_NATIVE_HR:-1}"
+SAVE_LATENTS="${SAVE_LATENTS:-0}"
+LATENT_SAVE_DTYPE="${LATENT_SAVE_DTYPE:-fp16}"
 PRIMARY_LAMBDA="${PRIMARY_LAMBDA:-0.01}"
+
+if [[ "${INCLUDE_NATIVE_HR}" != "0" && "${INCLUDE_NATIVE_HR}" != "1" ]]; then
+  echo "INCLUDE_NATIVE_HR must be 0 or 1, got: ${INCLUDE_NATIVE_HR}" >&2
+  exit 2
+fi
+if [[ "${SAVE_LATENTS}" != "0" && "${SAVE_LATENTS}" != "1" ]]; then
+  echo "SAVE_LATENTS must be 0 or 1, got: ${SAVE_LATENTS}" >&2
+  exit 2
+fi
 
 IFS=',' read -r -a GPUS <<< "${GPU_IDS}"
 NUM_GPUS="${#GPUS[@]}"
@@ -31,6 +44,18 @@ if (( NUM_GPUS < 1 )); then
   echo "GPU_IDS is empty" >&2
   exit 2
 fi
+declare -A SEEN_GPUS=()
+for gpu in "${GPUS[@]}"; do
+  if [[ -z "${gpu}" ]]; then
+    echo "GPU_IDS contains an empty device id: ${GPU_IDS}" >&2
+    exit 2
+  fi
+  if [[ -n "${SEEN_GPUS[${gpu}]:-}" ]]; then
+    echo "GPU_IDS contains a duplicate device id: ${gpu}" >&2
+    exit 2
+  fi
+  SEEN_GPUS["${gpu}"]=1
+done
 
 # Auto-download VidProm extended prompts if not present
 if [[ ! -f "${PROMPTS_FILE}" ]]; then
@@ -58,7 +83,7 @@ NUM_SEEDS="${#SEED_ARRAY[@]}"
 TOTAL_TRAJECTORIES=$((TOTAL_PROMPTS * NUM_SEEDS))
 
 echo "================================================================================"
-echo " 4-GPU Oracle Trajectory Dataset Build"
+echo " Multi-GPU Oracle Trajectory Dataset Build"
 echo "================================================================================"
 echo "  Project Root      : ${PROJECT_ROOT}"
 echo "  Prompts File      : ${PROMPTS_FILE}"
@@ -66,6 +91,8 @@ echo "  Total Prompts     : ${TOTAL_PROMPTS}"
 echo "  Final Dataset Size: ${EXPECTED_TOTAL_PROMPTS}"
 echo "  Seeds per Prompt  : ${SEEDS} (${NUM_SEEDS} seeds)"
 echo "  Total Trajectories: ${TOTAL_TRAJECTORIES}"
+echo "  Native-HR/Trajectory: ${INCLUDE_NATIVE_HR}"
+echo "  Save switch latents: ${SAVE_LATENTS} (${LATENT_SAVE_DTYPE})"
 echo "  GPU Devices       : ${GPU_IDS} (${NUM_GPUS} cards)"
 echo "  Output Directory  : ${OUT_ROOT}"
 echo "  Log Directory     : ${LOG_DIR}"
@@ -143,6 +170,9 @@ for rank in "${!GPUS[@]}"; do
     SKIP_EXISTING="${SKIP_EXISTING}" \
     DRY_RUN="${DRY_RUN}" \
     CLEAN_VIDEOS="${CLEAN_VIDEOS}" \
+    INCLUDE_NATIVE_HR="${INCLUDE_NATIVE_HR}" \
+    SAVE_LATENTS="${SAVE_LATENTS}" \
+    LATENT_SAVE_DTYPE="${LATENT_SAVE_DTYPE}" \
     PRIMARY_LAMBDA="${PRIMARY_LAMBDA}" \
     bash "${SCRIPT_DIR}/run_oracle_worker.sh"
   ) >"${log_path}" 2>&1 &
