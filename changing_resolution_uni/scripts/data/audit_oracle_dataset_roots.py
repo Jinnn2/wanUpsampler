@@ -13,6 +13,7 @@ from typing import Iterable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+AUDIT_VERSION = 2
 DEFAULT_DATASETS = [
     "oracle_dataset_1k",
     "oracle_dataset_2k",
@@ -276,6 +277,7 @@ def main() -> None:
         print(
             json.dumps(
                 {
+                    "audit_version": AUDIT_VERSION,
                     "data_root": str(data_root),
                     "datasets": {name: json_safe(report) for name, report in reports.items()},
                     "overlaps": overlaps,
@@ -287,6 +289,7 @@ def main() -> None:
         )
         return
 
+    print(f"audit_version={AUDIT_VERSION}")
     print(f"data_root={data_root}")
     for name, report in reports.items():
         print(f"\n[{name}]")
