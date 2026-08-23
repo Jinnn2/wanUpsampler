@@ -26,6 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", required=True)
     parser.add_argument("--out-dir", required=True)
+    parser.add_argument("--t5-dir", default=None)
     parser.add_argument("--min-word-count", type=int, default=3)
     parser.add_argument("--strict", action="store_true")
     return parser.parse_args()
@@ -51,7 +52,11 @@ def main() -> None:
         raise ValueError("min-word-count must be positive")
     dataset_dir = Path(args.dataset_dir).resolve()
     out_dir = Path(args.out_dir).resolve()
-    t5_dir = dataset_dir / "t5_embeddings"
+    t5_dir = (
+        Path(args.t5_dir).resolve()
+        if args.t5_dir
+        else dataset_dir / "t5_embeddings"
+    )
     if not t5_dir.is_dir():
         raise FileNotFoundError(f"T5 directory not found: {t5_dir}")
     prompt_ids = selected_prompt_ids(dataset_dir)

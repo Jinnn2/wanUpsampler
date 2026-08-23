@@ -61,6 +61,15 @@ def parse_args() -> argparse.Namespace:
         default=str(REPO_ROOT / "outputs" / "router_benchmarks_1k" / "token_attribution"),
         help="Output directory for attribution reports and tables.",
     )
+    parser.add_argument(
+        "--t5_dir",
+        type=str,
+        default=None,
+        help=(
+            "Optional directory containing seq_embedding NPZ files and token "
+            "metadata JSON; defaults to <dataset_dir>/t5_embeddings."
+        ),
+    )
     parser.add_argument("--top_k", type=int, default=30, help="Top K words to export.")
     parser.add_argument(
         "--min_word_count",
@@ -100,7 +109,11 @@ def main() -> None:
     logger.info(f"Loaded LinearOrdinalRouter (Weight norm: {np.linalg.norm(w):.4f}, Thresholds: {np.round(thresholds, 2)})")
 
     dataset_root = Path(args.dataset_dir).resolve()
-    t5_dir = dataset_root / "t5_embeddings"
+    t5_dir = (
+        Path(args.t5_dir).resolve()
+        if args.t5_dir
+        else dataset_root / "t5_embeddings"
+    )
     records_dir = dataset_root / "records"
 
     # Gather token statistics across dataset
