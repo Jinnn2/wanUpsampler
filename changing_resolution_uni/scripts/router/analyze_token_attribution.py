@@ -107,6 +107,7 @@ def main() -> None:
     token_scores: dict[str, list[float]] = defaultdict(list)
     natural_word_scores: dict[str, list[dict[str, float]]] = defaultdict(list)
     sample_attributions: list[dict[str, Any]] = []
+    processing_errors: list[str] = []
 
     npz_files = sorted(t5_dir.glob("prompt_*.npz"))
     manifest_path = dataset_root / "dataset_manifest.json"
@@ -124,10 +125,20 @@ def main() -> None:
                 if int(path.stem.split("_")[1]) in selected_prompt_ids
             ]
     logger.info(f"Analyzing {len(npz_files)} prompt T5 token sequences...")
+    if not npz_files:
+        raise RuntimeError(
+            f"No selected prompt embeddings found under {t5_dir}. "
+            "Run the token-attribution input audit before retrying."
+        )
 
     for npz_file in npz_files:
         try:
             data = np.load(npz_file, allow_pickle=True)
+            if "seq_embedding" not in data.files:
+                raise ValueError(
+                    "missing seq_embedding; pooled-only T5 features support training "
+                    "but cannot support token attribution"
+                )
             seq_emb = data["seq_embedding"].astype(np.float32)  # [L, 4096]
             pid = int(npz_file.stem.split("_")[1])
 
@@ -147,11 +158,16 @@ def main() -> None:
             if not prompt_text and "prompt_text" in data:
                 prompt_text = str(data["prompt_text"])
 
-            # If token count doesn't match seq_len, pad or slice
-            if len(tokens) < len(seq_emb):
-                tokens = tokens + [f"tok_{i}" for i in range(len(tokens), len(seq_emb))]
-            elif len(tokens) > len(seq_emb):
-                tokens = tokens[: len(seq_emb)]
+            if not tokens:
+                raise ValueError(
+                    "missing human-readable token metadata; expected prompt_*.json "
+                    "with a tokens list"
+                )
+            if len(tokens) != len(seq_emb):
+                raise ValueError(
+                    f"token/sequence length mismatch: tokens={len(tokens)}, "
+                    f"seq_embedding={len(seq_emb)}"
+                )
 
             # Exact token attribution r_i = w^T h_i
             r_scores = np.dot(seq_emb, w.astype(np.float32))  # [L]
@@ -196,6 +212,19 @@ def main() -> None:
             })
         except Exception as e:
             logger.warning(f"Error processing {npz_file}: {e}")
+            processing_errors.append(f"{npz_file.name}: {e}")
+
+    if processing_errors:
+        preview = "\n".join(f"  - {item}" for item in processing_errors[:20])
+        suffix = (
+            ""
+            if len(processing_errors) <= 20
+            else f"\n  ... and {len(processing_errors) - 20} more"
+        )
+        raise RuntimeError(
+            "Token attribution input validation failed; refusing to emit partial or "
+            f"empty Top Words:\n{preview}{suffix}"
+        )
 
     # Preserve subtoken-level results for traceability.
     token_summary = []
@@ -215,6 +244,11 @@ def main() -> None:
     natural_summary = summarize_attributions(
         natural_word_scores, minimum_count=args.min_word_count
     )
+    if not natural_summary:
+        raise RuntimeError(
+            "No natural words survived subtoken merging and occurrence filtering. "
+            "Inspect token metadata with audit_token_attribution_inputs.py."
+        )
     natural_summary.sort(key=lambda row: row["mean_attribution"], reverse=True)
     ranking_candidates = [
         row
