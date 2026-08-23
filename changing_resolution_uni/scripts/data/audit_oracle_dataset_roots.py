@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from collections import defaultdict
@@ -18,6 +19,14 @@ DEFAULT_DATASETS = [
     "oracle_dataset_500_1000",
 ]
 RECORD_NAME = re.compile(r"^p(?P<prompt>\d+)_s(?P<seed>-?\d+)\.json$")
+FORMAL_STEPS = {30, 35, *range(40, 51)}
+QUALITY5_DIMENSIONS = {
+    "subject_consistency",
+    "background_consistency",
+    "motion_smoothness",
+    "aesthetic_quality",
+    "imaging_quality",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -55,7 +64,14 @@ def inspect_dataset(root: Path, expected_seeds: set[int]) -> dict:
     record_files = sorted(root.rglob("records/p*_s*.json")) if root.is_dir() else []
     prompt_seeds: dict[int, set[int]] = defaultdict(set)
     keys: set[tuple[int, int]] = set()
+    paths_by_key: dict[tuple[int, int], list[Path]] = defaultdict(list)
     invalid_record_names = []
+    parse_errors = []
+    scored_keys: set[tuple[int, int]] = set()
+    dimension_complete_keys: set[tuple[int, int]] = set()
+    strict_trainable_keys: set[tuple[int, int]] = set()
+    fixed_seed_keys: set[tuple[int, int]] = set()
+    offset_seed_keys: set[tuple[int, int]] = set()
 
     for path in record_files:
         match = RECORD_NAME.fullmatch(path.name)
@@ -65,7 +81,48 @@ def inspect_dataset(root: Path, expected_seeds: set[int]) -> dict:
         prompt_id = int(match.group("prompt"))
         seed = int(match.group("seed"))
         prompt_seeds[prompt_id].add(seed)
-        keys.add((prompt_id, seed))
+        key = (prompt_id, seed)
+        keys.add(key)
+        paths_by_key[key].append(path)
+        if seed in expected_seeds:
+            fixed_seed_keys.add(key)
+        if seed - prompt_id in expected_seeds:
+            offset_seed_keys.add(key)
+
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+            candidates = record.get("candidates", [])
+            by_step = {
+                int(candidate["step"]): candidate
+                for candidate in candidates
+                if isinstance(candidate, dict) and "step" in candidate
+            }
+            candidate_scored = (
+                set(by_step) == FORMAL_STEPS
+                and all(float(by_step[step].get("vbench5", 0.0)) > 0.1 for step in FORMAL_STEPS)
+                and all(float(by_step[step].get("latency_seconds", 0.0)) > 0.0 for step in FORMAL_STEPS)
+            )
+            dimension_complete = candidate_scored and all(
+                QUALITY5_DIMENSIONS.issubset(
+                    set(by_step[step].get("dimensions", {}))
+                )
+                for step in FORMAL_STEPS
+            )
+            native_complete = (
+                float(record.get("native_vbench5", 0.0)) > 0.1
+                and float(record.get("native_latency_seconds", 0.0)) > 0.0
+                and QUALITY5_DIMENSIONS.issubset(
+                    set(record.get("native_dimensions", {}))
+                )
+            )
+            if candidate_scored:
+                scored_keys.add(key)
+            if dimension_complete:
+                dimension_complete_keys.add(key)
+            if dimension_complete and native_complete:
+                strict_trainable_keys.add(key)
+        except Exception as exc:
+            parse_errors.append(f"{path}: {exc}")
 
     prompts = set(prompt_seeds)
     incomplete = {
@@ -73,6 +130,25 @@ def inspect_dataset(root: Path, expected_seeds: set[int]) -> dict:
         for prompt_id, seeds in prompt_seeds.items()
         if seeds != expected_seeds
     }
+
+    def complete_prompt_count(candidate_keys: set[tuple[int, int]]) -> int:
+        return sum(
+            all((prompt_id, seed) in candidate_keys for seed in expected_seeds)
+            for prompt_id in prompts
+        )
+
+    duplicate_keys = {key: paths for key, paths in paths_by_key.items() if len(paths) > 1}
+    identical_duplicate_keys = 0
+    conflicting_duplicate_keys = 0
+    for paths in duplicate_keys.values():
+        hashes = {
+            hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in paths
+        }
+        if len(hashes) == 1:
+            identical_duplicate_keys += 1
+        else:
+            conflicting_duplicate_keys += 1
 
     step_videos = 0
     native_videos = 0
@@ -110,8 +186,17 @@ def inspect_dataset(root: Path, expected_seeds: set[int]) -> dict:
         "path": str(root),
         "exists": root.is_dir(),
         "record_files": len(record_files),
+        "root_record_files": sum(
+            1 for path in record_files if path.parent == root / "records"
+        ),
+        "part_record_files": sum(
+            1 for path in record_files if path.parent != root / "records"
+        ),
         "unique_keys": len(keys),
         "duplicate_key_files": len(record_files) - len(keys),
+        "duplicate_keys": len(duplicate_keys),
+        "identical_duplicate_keys": identical_duplicate_keys,
+        "conflicting_duplicate_keys": conflicting_duplicate_keys,
         "unique_prompts": len(prompts),
         "prompt_range": compress_ranges(prompts),
         "prompts": prompts,
@@ -119,6 +204,23 @@ def inspect_dataset(root: Path, expected_seeds: set[int]) -> dict:
         "incomplete_seed_prompts": len(incomplete),
         "incomplete_seed_examples": list(sorted(incomplete.items()))[:10],
         "invalid_record_names": invalid_record_names[:10],
+        "parse_errors": parse_errors[:10],
+        "fixed_seed_keys": len(fixed_seed_keys),
+        "offset_seed_keys": len(offset_seed_keys),
+        "fixed_seed_complete_prompts": complete_prompt_count(fixed_seed_keys),
+        "offset_seed_complete_prompts": complete_prompt_count(offset_seed_keys),
+        "scored_keys": len(scored_keys),
+        "dimension_complete_keys": len(dimension_complete_keys),
+        "strict_trainable_keys": len(strict_trainable_keys),
+        "scored_fixed_seed_complete_prompts": complete_prompt_count(
+            scored_keys & fixed_seed_keys
+        ),
+        "dimension_fixed_seed_complete_prompts": complete_prompt_count(
+            dimension_complete_keys & fixed_seed_keys
+        ),
+        "strict_fixed_seed_complete_prompts": complete_prompt_count(
+            strict_trainable_keys & fixed_seed_keys
+        ),
         "t5_embeddings": (
             sum(1 for _ in (root / "t5_embeddings").glob("prompt_*.npz"))
             if root.is_dir()
@@ -196,7 +298,30 @@ def main() -> None:
                     f"range={report['prompt_range']}",
                     f"keys={report['unique_keys']}",
                     f"record_files={report['record_files']}",
-                    f"duplicate_key_files={report['duplicate_key_files']}",
+                    f"root_records={report['root_record_files']}",
+                    f"part_records={report['part_record_files']}",
+                ]
+            )
+        )
+        print(
+            " ".join(
+                [
+                    f"fixed_seed_keys={report['fixed_seed_keys']}",
+                    f"offset_seed_keys={report['offset_seed_keys']}",
+                    f"fixed_complete_prompts={report['fixed_seed_complete_prompts']}",
+                    f"offset_complete_prompts={report['offset_seed_complete_prompts']}",
+                ]
+            )
+        )
+        print(
+            " ".join(
+                [
+                    f"scored_keys={report['scored_keys']}",
+                    f"dimension_keys={report['dimension_complete_keys']}",
+                    f"strict_keys={report['strict_trainable_keys']}",
+                    f"scored_fixed_prompts={report['scored_fixed_seed_complete_prompts']}",
+                    f"dimension_fixed_prompts={report['dimension_fixed_seed_complete_prompts']}",
+                    f"strict_fixed_prompts={report['strict_fixed_seed_complete_prompts']}",
                 ]
             )
         )
@@ -212,10 +337,17 @@ def main() -> None:
             )
         )
         print(f"root_manifest={report['root_manifest']}")
+        print(
+            f"duplicate_keys={report['duplicate_keys']} "
+            f"identical={report['identical_duplicate_keys']} "
+            f"conflicting={report['conflicting_duplicate_keys']}"
+        )
         if report["incomplete_seed_examples"]:
             print(f"seed_mismatch_examples={report['incomplete_seed_examples']}")
         if report["invalid_record_names"]:
             print(f"invalid_record_names={report['invalid_record_names']}")
+        if report["parse_errors"]:
+            print(f"parse_errors={report['parse_errors']}")
 
     print("\n[overlaps]")
     for row in overlaps:
