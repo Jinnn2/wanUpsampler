@@ -7,8 +7,16 @@ SOURCE_DIR="${SOURCE_DIR:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_da
 DATASET_DIR="${DATASET_DIR:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_500_quality_valid}"
 PRIMARY_LAMBDA="${PRIMARY_LAMBDA:-0.01}"
 ANALYSIS_DIR="${ANALYSIS_DIR:-${PROJECT_ROOT}/outputs/oracle_500_quality_valid_sweep}"
-OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/router_500_quality_valid_lambda${PRIMARY_LAMBDA//./}}"
+TRAIN_ROOT="${TRAIN_ROOT:-${PROJECT_ROOT}/outputs/router_500_quality_valid_lambda_sweep}"
+TRAIN_LAMBDAS="${TRAIN_LAMBDAS:-0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10}"
 RUN_TRAINING="${RUN_TRAINING:-1}"
+SKIP_COMPLETED="${SKIP_COMPLETED:-1}"
+MODEL_TYPE="${MODEL_TYPE:-linear_ordinal}"
+
+if [[ "${MODEL_TYPE}" != "all" && "${MODEL_TYPE}" != "linear_ordinal" ]]; then
+  echo "Natural-word attribution requires MODEL_TYPE=all or linear_ordinal." >&2
+  exit 2
+fi
 
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
 
@@ -39,15 +47,32 @@ python "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/sweep_oracle_lambda
   --allow-estimated-latency
 
 if [[ "${RUN_TRAINING}" == "1" ]]; then
-  DATASET_DIR="${DATASET_DIR}" \
-  OUT_DIR="${OUT_DIR}" \
-  PRIMARY_LAMBDA="${PRIMARY_LAMBDA}" \
-  ALLOW_ESTIMATED_LATENCY=1 \
-  bash "${SCRIPT_DIR}/run_train_and_benchmark.sh"
+  read -r -a lambda_array <<< "${TRAIN_LAMBDAS}"
+  for lambda_value in "${lambda_array[@]}"; do
+    lambda_slug="${lambda_value//./}"
+    lambda_out="${TRAIN_ROOT}/lambda_${lambda_slug}"
+    if [[ "${SKIP_COMPLETED}" == "1" \
+      && -f "${lambda_out}/router_benchmark_results.csv" \
+      && -f "${lambda_out}/router_benchmark_summary.json" \
+      && -f "${lambda_out}/token_attribution/top_late_switch_words.csv" \
+      && -f "${lambda_out}/token_attribution/attribution_metadata.json" ]]; then
+      echo "Skipping completed lambda=${lambda_value}: ${lambda_out}"
+      continue
+    fi
+    echo "Training development routers at lambda=${lambda_value}"
+    DATASET_DIR="${DATASET_DIR}" \
+    OUT_DIR="${lambda_out}" \
+    PRIMARY_LAMBDA="${lambda_value}" \
+    MODEL_TYPE="${MODEL_TYPE}" \
+    ALLOW_ESTIMATED_LATENCY=1 \
+    bash "${SCRIPT_DIR}/run_train_and_benchmark.sh"
+  done
+  python "${SCRIPT_DIR}/summarize_lambda_router_runs.py" \
+    --runs-root "${TRAIN_ROOT}"
 else
   echo "Training skipped. Set RUN_TRAINING=1 to enable the development run."
 fi
 
 echo "Development dataset: ${DATASET_DIR}"
 echo "Lambda sweep      : ${ANALYSIS_DIR}"
-echo "Router outputs    : ${OUT_DIR}"
+echo "Router outputs    : ${TRAIN_ROOT}/lambda_*"

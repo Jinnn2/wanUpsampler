@@ -11,6 +11,7 @@ EPOCHS="${EPOCHS:-40}"
 BATCH_SIZE="${BATCH_SIZE:-32}"
 LR="${LR:-0.001}"
 SEED="${SEED:-42}"
+MODEL_TYPE="${MODEL_TYPE:-all}"
 ALLOW_ESTIMATED_LATENCY="${ALLOW_ESTIMATED_LATENCY:-0}"
 
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
@@ -22,6 +23,7 @@ echo "  Dataset Directory : ${DATASET_DIR}"
 echo "  Output Directory  : ${OUT_DIR}"
 echo "  Primary Lambda    : ${PRIMARY_LAMBDA}"
 echo "  Epochs / BatchSize: ${EPOCHS} / ${BATCH_SIZE}"
+echo "  Model Type         : ${MODEL_TYPE}"
 echo "  Estimated Latency  : ${ALLOW_ESTIMATED_LATENCY}"
 echo "================================================================================"
 
@@ -45,7 +47,7 @@ echo "[Step 2/4] Training & Benchmarking Router Models (Prompt-Disjoint Split)..
 train_args=(
   --dataset_dir "${DATASET_DIR}"
   --out_dir "${OUT_DIR}"
-  --model_type all
+  --model_type "${MODEL_TYPE}"
   --epochs "${EPOCHS}"
   --batch_size "${BATCH_SIZE}"
   --lr "${LR}"

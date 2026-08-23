@@ -33,6 +33,12 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from changing_resolution_uni.scripts.router.model_router import LinearOrdinalRouter
+from changing_resolution_uni.scripts.router.token_word_utils import (
+    ENGLISH_STOPWORDS,
+    clean_token,
+    merge_subtokens_to_words,
+    summarize_attributions,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -56,12 +62,18 @@ def parse_args() -> argparse.Namespace:
         help="Output directory for attribution reports and tables.",
     )
     parser.add_argument("--top_k", type=int, default=30, help="Top K words to export.")
+    parser.add_argument(
+        "--min_word_count",
+        type=int,
+        default=3,
+        help="Minimum number of natural-word occurrences used in Top Words.",
+    )
+    parser.add_argument(
+        "--include_stopwords",
+        action="store_true",
+        help="Include common English function words in natural-language Top Words.",
+    )
     return parser.parse_args()
-
-
-def clean_token(tok: str) -> str:
-    """Clean token string from T5 sentencepiece artifact."""
-    return tok.replace(" ", "").replace(" ", "").strip()
 
 
 def main() -> None:
@@ -93,6 +105,7 @@ def main() -> None:
 
     # Gather token statistics across dataset
     token_scores: dict[str, list[float]] = defaultdict(list)
+    natural_word_scores: dict[str, list[dict[str, float]]] = defaultdict(list)
     sample_attributions: list[dict[str, Any]] = []
 
     npz_files = sorted(t5_dir.glob("prompt_*.npz"))
@@ -157,6 +170,21 @@ def main() -> None:
                 if len(c_tok) >= 2 and not c_tok.startswith("<") and not c_tok.endswith(">"):
                     token_scores[c_tok.lower()].append(float(score))
                     token_list.append({"token": c_tok, "attribution": round(float(score), 4)})
+            natural_words = merge_subtokens_to_words(
+                [str(token) for token in tokens], r_scores
+            )
+            for occurrence in natural_words:
+                natural_word_scores[occurrence["word"]].append(
+                    {
+                        "mean_piece_attribution": float(
+                            occurrence["mean_piece_attribution"]
+                        ),
+                        "additive_contribution": float(
+                            occurrence["additive_contribution"]
+                        ),
+                        "subtoken_count": float(occurrence["subtoken_count"]),
+                    }
+                )
 
             sample_attributions.append({
                 "prompt_id": pid,
@@ -164,60 +192,125 @@ def main() -> None:
                 "switch_score": round(switch_score, 4),
                 "predicted_step": pred_step,
                 "tokens": token_list,
+                "natural_words": natural_words,
             })
         except Exception as e:
             logger.warning(f"Error processing {npz_file}: {e}")
 
-    # Aggregate vocabulary-level attribution
-    vocab_summary = []
-    for word, scores in token_scores.items():
-        if len(scores) >= 3:  # Appears at least 3 times
-            vocab_summary.append({
-                "word": word,
-                "count": len(scores),
-                "mean_attribution": float(np.mean(scores)),
-                "std_attribution": float(np.std(scores)),
-            })
+    # Preserve subtoken-level results for traceability.
+    token_summary = []
+    for token, scores in token_scores.items():
+        if len(scores) >= args.min_word_count:
+            token_summary.append(
+                {
+                    "word": token,
+                    "count": len(scores),
+                    "mean_attribution": float(np.mean(scores)),
+                    "std_attribution": float(np.std(scores)),
+                }
+            )
+    token_summary.sort(key=lambda row: row["mean_attribution"], reverse=True)
 
-    # Sort: Higher positive attribution -> Late Switch (higher switch score)
-    # Lower negative attribution -> Early Switch
-    vocab_summary.sort(key=lambda x: x["mean_attribution"], reverse=True)
-    top_late = vocab_summary[: args.top_k]
-    top_early = sorted(vocab_summary, key=lambda x: x["mean_attribution"])[: args.top_k]
+    # Natural words merge all SentencePiece pieces belonging to one occurrence.
+    natural_summary = summarize_attributions(
+        natural_word_scores, minimum_count=args.min_word_count
+    )
+    natural_summary.sort(key=lambda row: row["mean_attribution"], reverse=True)
+    ranking_candidates = [
+        row
+        for row in natural_summary
+        if args.include_stopwords or row["word"] not in ENGLISH_STOPWORDS
+    ]
+    top_late = ranking_candidates[: args.top_k]
+    top_early = sorted(
+        ranking_candidates, key=lambda row: row["mean_attribution"]
+    )[: args.top_k]
 
-    # Export Top Late-Switch CSV
-    late_csv = out_dir / "top_late_switch_words.csv"
-    with open(late_csv, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["rank", "word", "mean_attribution", "count"])
-        writer.writeheader()
-        for idx, row in enumerate(top_late, 1):
-            writer.writerow({
-                "rank": idx,
-                "word": row["word"],
-                "mean_attribution": f"{row['mean_attribution']:+.4f}",
-                "count": row["count"],
-            })
+    word_fields = [
+        "rank",
+        "word",
+        "mean_attribution",
+        "std_attribution",
+        "mean_additive_contribution",
+        "mean_subtokens",
+        "count",
+    ]
 
-    # Export Top Early-Switch CSV
-    early_csv = out_dir / "top_early_switch_words.csv"
-    with open(early_csv, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["rank", "word", "mean_attribution", "count"])
-        writer.writeheader()
-        for idx, row in enumerate(top_early, 1):
-            writer.writerow({
-                "rank": idx,
-                "word": row["word"],
-                "mean_attribution": f"{row['mean_attribution']:+.4f}",
-                "count": row["count"],
-            })
+    def write_word_ranking(path: Path, rows: list[dict[str, Any]]) -> None:
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=word_fields)
+            writer.writeheader()
+            for rank, row in enumerate(rows, 1):
+                writer.writerow(
+                    {
+                        "rank": rank,
+                        "word": row["word"],
+                        "mean_attribution": f"{row['mean_attribution']:+.6f}",
+                        "std_attribution": f"{row['std_attribution']:.6f}",
+                        "mean_additive_contribution": (
+                            f"{row['mean_additive_contribution']:+.8f}"
+                        ),
+                        "mean_subtokens": f"{row['mean_subtokens']:.3f}",
+                        "count": row["count"],
+                    }
+                )
+
+    write_word_ranking(out_dir / "top_late_switch_words.csv", top_late)
+    write_word_ranking(out_dir / "top_early_switch_words.csv", top_early)
+    write_word_ranking(out_dir / "natural_word_attributions.csv", natural_summary)
+
+    token_fields = ["rank", "token", "mean_attribution", "std_attribution", "count"]
+    for filename, rows in (
+        ("top_late_switch_tokens.csv", token_summary[: args.top_k]),
+        (
+            "top_early_switch_tokens.csv",
+            sorted(token_summary, key=lambda row: row["mean_attribution"])[
+                : args.top_k
+            ],
+        ),
+    ):
+        with (out_dir / filename).open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=token_fields)
+            writer.writeheader()
+            for rank, row in enumerate(rows, 1):
+                writer.writerow(
+                    {
+                        "rank": rank,
+                        "token": row["word"],
+                        "mean_attribution": f"{row['mean_attribution']:+.6f}",
+                        "std_attribution": f"{row['std_attribution']:.6f}",
+                        "count": row["count"],
+                    }
+                )
 
     # Export Sample Attributions JSON
     sample_json = out_dir / "sample_token_attributions.json"
     sample_json.write_text(json.dumps(sample_attributions[:100], indent=2, ensure_ascii=False), encoding="utf-8")
+    (out_dir / "attribution_metadata.json").write_text(
+        json.dumps(
+            {
+                "schema": "natural_word_token_attribution_v1",
+                "prompt_count": len(sample_attributions),
+                "natural_vocabulary_size": len(natural_summary),
+                "subtoken_vocabulary_size": len(token_summary),
+                "minimum_occurrence_count": args.min_word_count,
+                "stopwords_in_top_rankings": args.include_stopwords,
+                "word_aggregation": (
+                    "SentencePiece or WordPiece pieces are merged per occurrence; "
+                    "mean_attribution averages piece scores and "
+                    "mean_additive_contribution sums piece scores divided by prompt "
+                    "token count."
+                ),
+            },
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
 
     # Print Summary Markdown Table
     print("\n" + "=" * 90)
-    print(" TOKEN ATTRIBUTION ANALYSIS: SEMANTIC DISCOVERY OF TIMESTEP SWITCHING")
+    print(" NATURAL-WORD ATTRIBUTION: SEMANTIC DISCOVERY OF TIMESTEP SWITCHING")
     print("=" * 90)
     print(f"{'Top Words Pushing LATER Switch (Stay LR)':<42} | {'Top Words Pushing EARLIER Switch (Go HR)':<42}")
     print("-" * 90)

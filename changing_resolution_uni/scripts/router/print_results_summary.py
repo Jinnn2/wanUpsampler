@@ -130,7 +130,7 @@ def main() -> None:
     early_csv = out_dir / "token_attribution" / "top_early_switch_words.csv"
 
     if late_csv.is_file() and early_csv.is_file():
-        print("\n[3] Reverse Token Attribution: Discovered Semantic Keywords Driving Timestep Choice:")
+        print("\n[3] Natural-Word Attribution: Semantic Keywords Driving Timestep Choice:")
         print("-" * 95)
         print(f"{'Rank':<5} | {'Top Late-Switch Words (Stay in LR Longer)':<40} | {'Top Early-Switch Words (Switch to HR Earlier)':<40}")
         print("-" * 95)

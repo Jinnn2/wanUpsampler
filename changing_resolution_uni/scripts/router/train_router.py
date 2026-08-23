@@ -12,6 +12,7 @@ import datetime as dt
 import json
 import logging
 import os
+import random
 import sys
 from pathlib import Path
 from typing import Any
@@ -287,6 +288,14 @@ def train_single_model(
 
 def main() -> None:
     args = parse_args()
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
+    if hasattr(torch.backends, "cudnn"):
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
     out_dir = Path(args.out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     device = torch.device(args.device)
