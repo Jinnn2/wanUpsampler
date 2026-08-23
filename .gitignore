@@ -9,6 +9,7 @@ venv/
 
 # Training data and generated outputs
 /data/
+/exports/
 /datasets/
 /checkpoints/
 /outputs/

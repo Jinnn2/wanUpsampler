@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 
 OLD_OUT_DIR="${OLD_OUT_DIR:-${PROJECT_ROOT}/outputs/changing_resolution_uni_clean_v1_1k}"
-STEP_CHECKPOINT="${STEP_CHECKPOINT:-${OLD_OUT_DIR}/step_00010000.pt}"
+STEP_CHECKPOINT="${STEP_CHECKPOINT:-${OLD_OUT_DIR}/step_0010000.pt}"
 LAST_CHECKPOINT="${LAST_CHECKPOINT:-${OLD_OUT_DIR}/last.pt}"
 ARCHIVE_DIR="${ARCHIVE_DIR:-${PROJECT_ROOT}/outputs/checkpoint_archives/u_itu_clean_v1_1k_step10000}"
 
