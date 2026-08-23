@@ -29,6 +29,15 @@ def make_record(
     qualities: list[float],
     latencies: list[float],
 ) -> dict:
+    cases = {
+        case: {
+            "request_sha256": "a" * 64,
+            "result_sha256": "b" * 64,
+            "full_info_sha256": "c" * 64,
+            "run_manifest_path": "/strict/run/score_run_manifest.json",
+        }
+        for case in ["native_hr", *(f"step{step}" for step in STEPS)]
+    }
     return {
         "prompt_id": prompt_id,
         "seed": seed,
@@ -47,6 +56,18 @@ def make_record(
             }
             for step, quality, latency in zip(STEPS, qualities, latencies)
         ],
+        "scoring_provenance": {
+            "schema": "strict_vbench5_record_provenance_v1",
+            "quality_dimensions": QUALITY5_DIMENSIONS,
+            "diagnostic_dimensions": [],
+            "quality_aggregation": "arithmetic_mean_raw_vbench5_float64",
+            "vbench": {
+                "git_commit": "1" * 40,
+                "tracked_dirty": False,
+                "evaluate_py_sha256": "2" * 64,
+            },
+            "cases": cases,
+        },
     }
 
 
@@ -78,6 +99,28 @@ class RouterDatasetTest(unittest.TestCase):
         del record["candidates"][0]["dimensions"][QUALITY5_DIMENSIONS[-1]]
         with self.assertRaisesRegex(OracleRecordError, "imaging_quality"):
             validate_scored_record(record, candidate_steps=STEPS)
+
+    def test_formal_record_rejects_unknown_latency_provenance(self) -> None:
+        record = make_record(1, 42, [0.90, 0.91, 0.92], [100.0, 90.0, 80.0])
+        record["candidates"][0]["latency_source"] = "unknown"
+        with self.assertRaisesRegex(OracleRecordError, "not traceable"):
+            validate_scored_record(
+                record,
+                candidate_steps=STEPS,
+                require_dimensions=True,
+                require_provenance=True,
+            )
+
+    def test_formal_record_recomputes_quality_mean(self) -> None:
+        record = make_record(1, 42, [0.90, 0.91, 0.92], [100.0, 90.0, 80.0])
+        record["candidates"][0]["vbench5"] = 0.95
+        with self.assertRaisesRegex(OracleRecordError, "float64 mean"):
+            validate_scored_record(
+                record,
+                candidate_steps=STEPS,
+                require_dimensions=True,
+                require_provenance=True,
+            )
 
     def test_prompt_offset_seed_policy(self) -> None:
         records = {

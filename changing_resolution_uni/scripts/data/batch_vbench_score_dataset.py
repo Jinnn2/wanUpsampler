@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import logging
+import math
 import os
 import shutil
 import subprocess
 import sys
-import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +41,20 @@ QUALITY5_DIMENSIONS = [
 
 FORMAL_STEPS = [30, 35, *range(40, 51)]
 UTILITY_LAMBDAS = [0.01, 0.02, 0.05, 0.10, 0.20]
+SAFE_DIAGNOSTIC_DIMENSIONS = [
+    "overall_consistency",
+    "dynamic_degree",
+    "temporal_flickering",
+]
+CASE_REQUEST_SCHEMA = "strict_vbench_case_request_v1"
+CASE_RESULT_SCHEMA = "strict_vbench_case_result_v1"
+RECORD_PROVENANCE_SCHEMA = "strict_vbench5_record_provenance_v1"
+
+
+@dataclass(frozen=True)
+class CaseScoreBundle:
+    scores: dict[str, dict[str, float]]
+    provenance: dict[str, Any]
 
 
 def parse_args() -> argparse.Namespace:
@@ -98,9 +114,28 @@ def parse_args() -> argparse.Namespace:
         "--dimensions",
         nargs="+",
         default=QUALITY5_DIMENSIONS,
-        help="VBench dimensions to evaluate.",
+        help="Five quality dimensions used for oracle utility; must match VBench-5.",
     )
-    parser.add_argument("--skip_existing", action="store_true", default=True, help="Skip already evaluated cases.")
+    parser.add_argument(
+        "--diagnostic_dimensions",
+        nargs="*",
+        choices=SAFE_DIAGNOSTIC_DIMENSIONS,
+        default=[],
+        help=(
+            "Optional custom-input diagnostics stored separately and never averaged "
+            "into oracle utility."
+        ),
+    )
+    parser.add_argument(
+        "--force_rescore",
+        action="store_true",
+        help="Run a new isolated VBench evaluation even when an exactly matching run exists.",
+    )
+    parser.add_argument(
+        "--expected_vbench_commit",
+        default=None,
+        help="Optional exact Git commit required for the VBench repository.",
+    )
     return parser.parse_args()
 
 
@@ -159,6 +194,253 @@ for m_name in ['ViT-B/32', 'ViT-L/14']:
         logger.warning(f"Prewarm warning: {e}")
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def canonical_json_sha256(payload: Any) -> str:
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def inspect_vbench_checkout(
+    vbench_root: Path,
+    *,
+    expected_commit: str | None,
+) -> dict[str, Any]:
+    evaluate_py = vbench_root / "evaluate.py"
+    if not evaluate_py.is_file():
+        raise FileNotFoundError(f"VBench evaluate.py not found: {evaluate_py}")
+
+    def git_output(*args: str) -> str:
+        completed = subprocess.run(
+            ["git", "-C", str(vbench_root), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return completed.stdout.strip()
+
+    try:
+        commit = git_output("rev-parse", "HEAD")
+        dirty_paths = git_output("status", "--porcelain", "--untracked-files=no")
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError(
+            f"Strict scoring requires a Git-backed VBench checkout: {vbench_root}"
+        ) from exc
+    if expected_commit and commit != expected_commit:
+        raise RuntimeError(
+            f"VBench commit mismatch: expected {expected_commit}, observed {commit}"
+        )
+    if dirty_paths:
+        raise RuntimeError(
+            "VBench checkout has tracked modifications; commit or stash them before "
+            "formal scoring"
+        )
+    return {
+        "git_commit": commit,
+        "tracked_dirty": bool(dirty_paths),
+        "tracked_dirty_paths": dirty_paths.splitlines(),
+        "evaluate_py_sha256": sha256_file(evaluate_py),
+    }
+
+
+def build_case_request(
+    *,
+    video_dir: Path,
+    prompt_map: Path,
+    dimensions: list[str],
+    quality_dimensions: list[str],
+    diagnostic_dimensions: list[str],
+    python_bin: str,
+    vbench_identity: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, str]]:
+    try:
+        prompt_payload = json.loads(prompt_map.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Invalid prompt map {prompt_map}: {exc}") from exc
+    if not isinstance(prompt_payload, dict) or not prompt_payload:
+        raise RuntimeError(f"Prompt map must be a non-empty mapping: {prompt_map}")
+
+    resolved_video_dir = video_dir.resolve()
+    mapped_videos: dict[str, str] = {}
+    inventory = []
+    for raw_path, raw_prompt in sorted(prompt_payload.items()):
+        path = Path(str(raw_path)).resolve()
+        if path.parent != resolved_video_dir:
+            raise RuntimeError(f"Prompt map video is outside case directory: {path}")
+        if not path.is_file() or path.suffix.lower() != ".mp4":
+            raise RuntimeError(f"Prompt map video is missing or not MP4: {path}")
+        if path.stem in mapped_videos:
+            raise RuntimeError(f"Duplicate video stem in prompt map: {path.stem}")
+        mapped_videos[path.stem] = str(raw_prompt)
+        inventory.append(
+            {
+                "name": path.name,
+                "size_bytes": path.stat().st_size,
+                "sha256": sha256_file(path),
+            }
+        )
+
+    actual_names = {path.name for path in resolved_video_dir.glob("*.mp4")}
+    mapped_names = {item["name"] for item in inventory}
+    if actual_names != mapped_names:
+        raise RuntimeError(
+            f"Prompt/video coverage mismatch in {video_dir}: "
+            f"missing_from_prompt_map={sorted(actual_names - mapped_names)[:20]}, "
+            f"missing_from_directory={sorted(mapped_names - actual_names)[:20]}"
+        )
+
+    request = {
+        "schema": CASE_REQUEST_SCHEMA,
+        "mode": "custom_input",
+        "imaging_quality_preprocessing_mode": "longer",
+        "quality_dimensions": quality_dimensions,
+        "diagnostic_dimensions": diagnostic_dimensions,
+        "dimensions": dimensions,
+        "prompt_map_sha256": sha256_file(prompt_map),
+        "videos": inventory,
+        "python_bin": python_bin,
+        "python_version": sys.version,
+        "scorer_sha256": sha256_file(Path(__file__).resolve()),
+        "vbench": vbench_identity,
+    }
+    request["request_sha256"] = canonical_json_sha256(request)
+    return request, mapped_videos
+
+
+def parse_vbench_eval_result(
+    result_file: Path,
+    *,
+    dimensions: list[str],
+    expected_stems: set[str],
+) -> dict[str, dict[str, float]]:
+    try:
+        data = json.loads(result_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Invalid VBench result {result_file}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise RuntimeError(f"VBench result must be a mapping: {result_file}")
+    if set(data) != set(dimensions):
+        raise RuntimeError(
+            f"VBench result dimension mismatch in {result_file}: "
+            f"expected={dimensions}, observed={sorted(data)}"
+        )
+
+    scores: dict[str, dict[str, float]] = {}
+    for dimension in dimensions:
+        payload = data[dimension]
+        if not (
+            isinstance(payload, list)
+            and len(payload) >= 2
+            and isinstance(payload[1], list)
+        ):
+            raise RuntimeError(
+                f"Unsupported official VBench payload for {dimension} in {result_file}"
+            )
+        for row in payload[1]:
+            if not isinstance(row, dict):
+                raise RuntimeError(
+                    f"Non-mapping per-video result for {dimension} in {result_file}"
+                )
+            video_path = row.get("video_path") or row.get("video_name")
+            if not video_path or "video_results" not in row:
+                raise RuntimeError(
+                    f"Incomplete per-video result for {dimension} in {result_file}"
+                )
+            stem = Path(str(video_path)).stem
+            if stem not in expected_stems:
+                raise RuntimeError(
+                    f"Unexpected video stem {stem!r} for {dimension} in {result_file}"
+                )
+            try:
+                value = float(row["video_results"])
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError(
+                    f"Non-numeric score for {stem}.{dimension}: {row['video_results']!r}"
+                ) from exc
+            if dimension == "imaging_quality" and value > 1.0:
+                value /= 100.0
+            lower_bound = -1.0 if dimension == "overall_consistency" else 0.0
+            if not math.isfinite(value) or not lower_bound <= value <= 1.0:
+                raise RuntimeError(
+                    f"Out-of-range score for {stem}.{dimension}: {value}"
+                )
+            previous = scores.setdefault(stem, {}).get(dimension)
+            if previous is not None:
+                raise RuntimeError(
+                    f"Duplicate score for {stem}.{dimension} in {result_file}"
+                )
+            scores[stem][dimension] = value
+
+    if set(scores) != expected_stems:
+        raise RuntimeError(
+            f"VBench video coverage mismatch in {result_file}: "
+            f"missing={sorted(expected_stems - set(scores))[:20]}, "
+            f"extra={sorted(set(scores) - expected_stems)[:20]}"
+        )
+    for stem, by_dimension in scores.items():
+        if set(by_dimension) != set(dimensions):
+            raise RuntimeError(
+                f"VBench dimension coverage mismatch for {stem}: "
+                f"observed={sorted(by_dimension)}"
+            )
+    return scores
+
+
+def load_matching_cached_run(
+    out_dir: Path,
+    *,
+    request_sha256: str,
+    dimensions: list[str],
+    expected_stems: set[str],
+) -> CaseScoreBundle | None:
+    runs_dir = out_dir / "runs"
+    if not runs_dir.is_dir():
+        return None
+    for manifest_path in sorted(
+        runs_dir.glob("*/score_run_manifest.json"), reverse=True
+    ):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if (
+                manifest.get("schema") != CASE_RESULT_SCHEMA
+                or manifest.get("request_sha256") != request_sha256
+            ):
+                continue
+            result_path = manifest_path.parent / str(manifest["result_file"])
+            if result_path.parent.resolve() != manifest_path.parent.resolve():
+                raise RuntimeError("Cached result path escapes its run directory")
+            if sha256_file(result_path) != manifest.get("result_sha256"):
+                raise RuntimeError("Cached result SHA256 mismatch")
+            scores = parse_vbench_eval_result(
+                result_path,
+                dimensions=dimensions,
+                expected_stems=expected_stems,
+            )
+            logger.info(f"Reusing verified VBench run: {manifest_path.parent}")
+            return CaseScoreBundle(
+                scores=scores,
+                provenance={
+                    **manifest,
+                    "run_manifest_path": str(manifest_path.resolve()),
+                },
+            )
+        except Exception as exc:
+            logger.warning(f"Ignoring invalid cached VBench run {manifest_path}: {exc}")
+    return None
+
+
 def discover_seed_dirs(source_dirs: list[Path]) -> list[Path]:
     """Find all seed directories across dataset root and worker parts."""
     seed_dirs = []
@@ -186,135 +468,143 @@ def score_case_directory(
     prompt_map: Path,
     out_dir: Path,
     dimensions: list[str],
+    quality_dimensions: list[str],
+    diagnostic_dimensions: list[str],
     ngpus: int,
-    skip_existing: bool,
-) -> dict[str, dict[str, float]]:
+    force_rescore: bool,
+    vbench_identity: dict[str, Any],
+) -> CaseScoreBundle:
     """
-    Runs VBench on a case directory containing video files.
-    Returns mapping: {video_name: {dim_name: score, ...}}
+    Run one isolated, content-bound VBench case or reuse an exactly matching run.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     evaluate_py = vbench_root / "evaluate.py"
+    request, mapped_videos = build_case_request(
+        video_dir=video_dir,
+        prompt_map=prompt_map,
+        dimensions=dimensions,
+        quality_dimensions=quality_dimensions,
+        diagnostic_dimensions=diagnostic_dimensions,
+        python_bin=python_bin,
+        vbench_identity=vbench_identity,
+    )
+    expected_stems = set(mapped_videos)
+    if not force_rescore:
+        cached = load_matching_cached_run(
+            out_dir,
+            request_sha256=str(request["request_sha256"]),
+            dimensions=dimensions,
+            expected_stems=expected_stems,
+        )
+        if cached is not None:
+            return cached
 
-    # Check if complete results already exist
-    existing_result_file = None
-    for f in out_dir.glob("*.json"):
-        if f.name != "prompt_map.json" and ("eval_results" in f.name or "full_info" in f.name) and f.stat().st_size > 0:
-            existing_result_file = f
-            break
+    timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    run_dir = (
+        out_dir
+        / "runs"
+        / f"run_{timestamp}_{str(request['request_sha256'])[:12]}_{os.getpid()}"
+    )
+    run_dir.mkdir(parents=True, exist_ok=False)
+    run_prompt_map = run_dir / "prompt_map.json"
+    shutil.copy2(prompt_map, run_prompt_map)
+    (run_dir / "score_request.json").write_text(
+        json.dumps(request, indent=2, ensure_ascii=False, allow_nan=False),
+        encoding="utf-8",
+    )
 
-    if not (skip_existing and existing_result_file and existing_result_file.stat().st_size > 0):
+    command_tail = [
+        str(evaluate_py),
+        "--videos_path",
+        str(video_dir),
+        "--dimension",
+        *dimensions,
+        "--mode",
+        "custom_input",
+        "--prompt_file",
+        str(run_prompt_map),
+        "--output_path",
+        str(run_dir),
+        "--imaging_quality_preprocessing_mode",
+        "longer",
+    ]
+    cmd = [python_bin, *command_tail]
+    if ngpus > 1:
         cmd = [
             python_bin,
-            str(evaluate_py),
-            "--videos_path",
-            str(video_dir),
-            "--dimension",
-            *dimensions,
-            "--mode",
-            "custom_input",
-            "--prompt_file",
-            str(prompt_map),
-            "--output_path",
-            str(out_dir),
+            "-m",
+            "torch.distributed.run",
+            f"--nproc_per_node={ngpus}",
+            "--standalone",
+            *command_tail,
         ]
-        if ngpus > 1:
-            cmd = [
-                python_bin,
-                "-m",
-                "torch.distributed.run",
-                f"--nproc_per_node={ngpus}",
-                "--standalone",
-                str(evaluate_py),
-                "--videos_path",
-                str(video_dir),
-                "--dimension",
-                *dimensions,
-                "--mode",
-                "custom_input",
-                "--prompt_file",
-                str(prompt_map),
-                "--output_path",
-                str(out_dir),
-            ]
 
-        logger.info(f"Running VBench on {video_dir.name} ({len(list(video_dir.glob('*.mp4')))} videos)...")
-        subprocess.run(cmd, cwd=vbench_root, check=True)
+    logger.info(
+        f"Running strict VBench on {video_dir.name} "
+        f"({len(expected_stems)} videos, request={request['request_sha256'][:12]})..."
+    )
+    subprocess.run(cmd, cwd=vbench_root, check=True)
 
-    # Parse results from output directory
-    video_scores: dict[str, dict[str, float]] = {}
-    for res_file in sorted(out_dir.glob("*.json")):
-        if res_file.name == "prompt_map.json":
-            continue
-        try:
-            data = json.loads(res_file.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                # Format A: Official VBench output {dimension: [overall_score, [{video_path: ..., video_results: ...}]]}
-                for dim in dimensions:
-                    if dim in data:
-                        payload = data[dim]
-                        if isinstance(payload, list) and len(payload) >= 2 and isinstance(payload[1], list):
-                            for row in payload[1]:
-                                if isinstance(row, dict):
-                                    v_path = row.get("video_path") or row.get("video_name") or ""
-                                    v_stem = Path(v_path).stem
-                                    score = row.get("video_results")
-                                    if score is not None and v_stem:
-                                        val = float(score)
-                                        if dim == "imaging_quality" and val > 1.0:
-                                            val /= 100.0
-                                        video_scores.setdefault(v_stem, {})[dim] = val
-                        elif isinstance(payload, dict):
-                            for v_path, score in payload.items():
-                                v_stem = Path(v_path).stem
-                                if score is not None and v_stem:
-                                    val = float(score)
-                                    if dim == "imaging_quality" and val > 1.0:
-                                        val /= 100.0
-                                    video_scores.setdefault(v_stem, {})[dim] = val
-
-                # Format B: Dimension-specific evaluation file with video_results dict
-                for dim in dimensions:
-                    if dim in res_file.name and "video_results" in data:
-                        for v_path, score in data["video_results"].items():
-                            v_stem = Path(v_path).stem
-                            if score is not None and v_stem:
-                                val = float(score)
-                                if dim == "imaging_quality" and val > 1.0:
-                                    val /= 100.0
-                                video_scores.setdefault(v_stem, {})[dim] = val
-
-            elif isinstance(data, list):
-                # Format C: Flat list of records [{video_path: ..., subject_consistency: ...}]
-                for row in data:
-                    if isinstance(row, dict):
-                        v_path = row.get("video_path") or row.get("video_name") or ""
-                        v_stem = Path(v_path).stem
-                        if not v_stem:
-                            continue
-                        for dim in dimensions:
-                            if dim in row and row[dim] is not None:
-                                val = float(row[dim])
-                                if dim == "imaging_quality" and val > 1.0:
-                                    val /= 100.0
-                                video_scores.setdefault(v_stem, {})[dim] = val
-        except Exception as e:
-            logger.warning(f"Error parsing VBench result {res_file}: {e}")
-
-    logger.info(f"Successfully parsed VBench-5 metrics for {len(video_scores)} videos in {out_dir.name}")
-    return video_scores
+    result_files = sorted(run_dir.glob("*_eval_results.json"))
+    full_info_files = sorted(run_dir.glob("*_full_info.json"))
+    if len(result_files) != 1 or len(full_info_files) != 1:
+        raise RuntimeError(
+            f"Strict VBench run must produce exactly one eval result and one full-info "
+            f"JSON in {run_dir}; got results={len(result_files)}, "
+            f"full_info={len(full_info_files)}"
+        )
+    result_file = result_files[0]
+    full_info_file = full_info_files[0]
+    scores = parse_vbench_eval_result(
+        result_file,
+        dimensions=dimensions,
+        expected_stems=expected_stems,
+    )
+    manifest = {
+        "schema": CASE_RESULT_SCHEMA,
+        "completed_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "request_sha256": request["request_sha256"],
+        "request_file": "score_request.json",
+        "result_file": result_file.name,
+        "result_sha256": sha256_file(result_file),
+        "full_info_file": full_info_file.name,
+        "full_info_sha256": sha256_file(full_info_file),
+        "video_count": len(expected_stems),
+        "dimensions": dimensions,
+        "quality_dimensions": quality_dimensions,
+        "diagnostic_dimensions": diagnostic_dimensions,
+        "vbench": vbench_identity,
+    }
+    manifest_path = run_dir / "score_run_manifest.json"
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False, allow_nan=False),
+        encoding="utf-8",
+    )
+    logger.info(
+        f"Verified {len(scores)} videos x {len(dimensions)} dimensions in {run_dir}"
+    )
+    return CaseScoreBundle(
+        scores=scores,
+        provenance={
+            **manifest,
+            "run_manifest_path": str(manifest_path.resolve()),
+        },
+    )
 
 
 def backfill_seed_records(
     seed_dir: Path,
     vbench_root: Path,
     python_bin: str,
-    dimensions: list[str],
+    quality_dimensions: list[str],
+    diagnostic_dimensions: list[str],
     ngpus: int,
     primary_lambda: float,
-    skip_existing: bool,
+    force_rescore: bool,
+    vbench_identity: dict[str, Any],
 ) -> dict[str, Any]:
     """Runs VBench on all step directories of a seed, compiles scores, and backfills manifests."""
+    dimensions = [*quality_dimensions, *diagnostic_dimensions]
     utility_lambdas = sorted(set([*UTILITY_LAMBDAS, float(primary_lambda)]))
     manifest_dir = seed_dir / "manifests"
     videos_root = seed_dir / "videos"
@@ -341,6 +631,8 @@ def backfill_seed_records(
 
     # All video scores: {case_name: {video_stem: {dim: score}}}
     case_scores: dict[str, dict[str, dict[str, float]]] = {}
+    case_provenance: dict[str, dict[str, Any]] = {}
+    diagnostic_case_provenance: dict[str, dict[str, Any]] = {}
 
     for case_name, vdir in cases.items():
         case_out = metrics_root / case_name
@@ -369,22 +661,56 @@ def backfill_seed_records(
         prompt_map_file.write_text(json.dumps(pmap, indent=2, ensure_ascii=False), encoding="utf-8")
 
         # Run VBench on this case
-        scores = score_case_directory(
+        quality_bundle = score_case_directory(
             vbench_root=vbench_root,
             python_bin=python_bin,
             video_dir=vdir,
             prompt_map=prompt_map_file,
             out_dir=case_out,
-            dimensions=dimensions,
+            dimensions=quality_dimensions,
+            quality_dimensions=quality_dimensions,
+            diagnostic_dimensions=[],
             ngpus=ngpus,
-            skip_existing=skip_existing,
+            force_rescore=force_rescore,
+            vbench_identity=vbench_identity,
         )
-        case_scores[case_name] = scores
+        combined_scores = {
+            stem: dict(by_dimension)
+            for stem, by_dimension in quality_bundle.scores.items()
+        }
+        case_provenance[case_name] = quality_bundle.provenance
+        if diagnostic_dimensions:
+            diagnostic_bundle = score_case_directory(
+                vbench_root=vbench_root,
+                python_bin=python_bin,
+                video_dir=vdir,
+                prompt_map=prompt_map_file,
+                out_dir=case_out,
+                dimensions=diagnostic_dimensions,
+                quality_dimensions=[],
+                diagnostic_dimensions=diagnostic_dimensions,
+                ngpus=ngpus,
+                force_rescore=force_rescore,
+                vbench_identity=vbench_identity,
+            )
+            if set(diagnostic_bundle.scores) != set(combined_scores):
+                raise RuntimeError(
+                    f"Quality/diagnostic video coverage differs for {case_name}"
+                )
+            for stem, by_dimension in diagnostic_bundle.scores.items():
+                overlap = set(combined_scores[stem]) & set(by_dimension)
+                if overlap:
+                    raise RuntimeError(
+                        f"Quality/diagnostic dimensions overlap for {stem}: {sorted(overlap)}"
+                    )
+                combined_scores[stem].update(by_dimension)
+            diagnostic_case_provenance[case_name] = diagnostic_bundle.provenance
+        case_scores[case_name] = combined_scores
 
     # 2. Backfill scores into sample records
     compiled_records = []
     validation_errors: list[str] = []
-    for m_file, m in zip(manifest_files, sample_manifests):
+    for m in sample_manifests:
         p_idx = int(m["prompt_index"])
         seed = int(m["seed"])
         sample_id = f"{p_idx:04d}_seed{seed}"
@@ -405,7 +731,12 @@ def backfill_seed_records(
             )
         if missing_native_dims or not np.isfinite(native_lat) or native_lat <= 0.0:
             continue
-        native_vbench5 = float(np.mean([native_dims[dim] for dim in dimensions]))
+        native_vbench5 = float(
+            np.mean([native_dims[dim] for dim in quality_dimensions], dtype=np.float64)
+        )
+        native_diagnostics = {
+            dim: float(native_dims[dim]) for dim in diagnostic_dimensions
+        }
 
         candidates_list = []
         branches = m.get("branches", [])
@@ -421,7 +752,9 @@ def backfill_seed_records(
                     f"{sample_id}: step {s} missing VBench dimensions {missing_dims}"
                 )
                 continue
-            s_vb = float(np.mean([s_dims[dim] for dim in dimensions]))
+            s_vb = float(
+                np.mean([s_dims[dim] for dim in quality_dimensions], dtype=np.float64)
+            )
 
             b_info = branch_dict.get(s, {})
             if "warm_pipeline_seconds" in b_info:
@@ -447,12 +780,17 @@ def backfill_seed_records(
 
             candidates_list.append({
                 "step": s,
-                "vbench5": round(s_vb, 5),
-                "dimensions": {k: round(v, 5) for k, v in s_dims.items()},
-                "latency_seconds": round(lat, 2),
+                "vbench5": s_vb,
+                "dimensions": {
+                    key: float(s_dims[key]) for key in quality_dimensions
+                },
+                "diagnostics": {
+                    key: float(s_dims[key]) for key in diagnostic_dimensions
+                },
+                "latency_seconds": lat,
                 "latency_source": latency_source,
-                "speedup_vs_native": round(native_lat / max(lat, 1e-5), 2),
-                "utilities": {k: round(v, 6) for k, v in u_dict.items()},
+                "speedup_vs_native": native_lat / max(lat, 1e-5),
+                "utilities": u_dict,
             })
 
         if len(candidates_list) != len(FORMAL_STEPS):
@@ -466,11 +804,41 @@ def backfill_seed_records(
             "prompt_id": p_idx,
             "seed": seed,
             "prompt_text": m.get("prompt", ""),
-            "native_vbench5": round(native_vbench5, 5),
-            "native_latency_seconds": round(native_lat, 2),
-            "native_dimensions": {k: round(native_dims[k], 5) for k in dimensions},
+            "native_vbench5": native_vbench5,
+            "native_latency_seconds": native_lat,
+            "native_dimensions": {
+                key: float(native_dims[key]) for key in quality_dimensions
+            },
+            "native_diagnostics": native_diagnostics,
             "native_latency_source": "warm_pipeline_seconds",
             "candidates": candidates_list,
+            "scoring_provenance": {
+                "schema": RECORD_PROVENANCE_SCHEMA,
+                "quality_dimensions": quality_dimensions,
+                "diagnostic_dimensions": diagnostic_dimensions,
+                "quality_aggregation": "arithmetic_mean_raw_vbench5_float64",
+                "vbench": vbench_identity,
+                "cases": {
+                    case_name: {
+                        "request_sha256": provenance["request_sha256"],
+                        "result_sha256": provenance["result_sha256"],
+                        "full_info_sha256": provenance["full_info_sha256"],
+                        "run_manifest_path": provenance["run_manifest_path"],
+                    }
+                    for case_name, provenance in sorted(case_provenance.items())
+                },
+                "diagnostic_cases": {
+                    case_name: {
+                        "request_sha256": provenance["request_sha256"],
+                        "result_sha256": provenance["result_sha256"],
+                        "full_info_sha256": provenance["full_info_sha256"],
+                        "run_manifest_path": provenance["run_manifest_path"],
+                    }
+                    for case_name, provenance in sorted(
+                        diagnostic_case_provenance.items()
+                    )
+                },
+            },
             f"optimal_step_lambda_{int(primary_lambda*100):03d}": opt_cand["step"],
         }
         for lam in utility_lambdas:
@@ -503,6 +871,25 @@ def main() -> None:
 
     if not vbench_root.is_dir():
         raise FileNotFoundError(f"VBench repository not found at {vbench_root}")
+    if list(args.dimensions) != QUALITY5_DIMENSIONS:
+        raise ValueError(
+            f"Strict oracle utility requires exactly {QUALITY5_DIMENSIONS}; "
+            f"got {list(args.dimensions)}"
+        )
+    diagnostic_dimensions = list(dict.fromkeys(args.diagnostic_dimensions))
+    overlap = sorted(set(args.dimensions) & set(diagnostic_dimensions))
+    if overlap:
+        raise ValueError(f"Quality and diagnostic dimensions overlap: {overlap}")
+    vbench_identity = inspect_vbench_checkout(
+        vbench_root,
+        expected_commit=args.expected_vbench_commit,
+    )
+    logger.info(
+        "VBench identity: commit=%s evaluate.py=%s dirty=%s",
+        vbench_identity["git_commit"],
+        vbench_identity["evaluate_py_sha256"],
+        vbench_identity["tracked_dirty"],
+    )
 
     # Pre-warm dependencies to prevent multi-GPU torch.hub race conditions
     warmup_vbench_cache(args.python, vbench_root)
@@ -530,10 +917,12 @@ def main() -> None:
             seed_dir=s_dir,
             vbench_root=vbench_root,
             python_bin=args.python,
-            dimensions=args.dimensions,
+            quality_dimensions=list(args.dimensions),
+            diagnostic_dimensions=diagnostic_dimensions,
             ngpus=args.ngpus,
             primary_lambda=args.primary_lambda,
-            skip_existing=args.skip_existing,
+            force_rescore=args.force_rescore,
+            vbench_identity=vbench_identity,
         )
 
         records = result.get("records", [])
@@ -585,6 +974,7 @@ def main() -> None:
         )
 
     record_files = []
+    record_sha256: dict[str, str] = {}
     opt_key = f"optimal_step_lambda_{int(args.primary_lambda * 100):03d}"
     for (prompt_id, seed), (record, _) in sorted(compiled_by_key.items()):
         opt_s = record[opt_key]
@@ -592,10 +982,16 @@ def main() -> None:
         rec_path = final_records_dir / f"p{prompt_id:06d}_s{seed}.json"
         rec_path.write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding="utf-8")
         record_files.append(rec_path.name)
+        record_sha256[rec_path.name] = sha256_file(rec_path)
 
     manifest = {
-        "schema": "prompt_conditioned_scored_oracle_dataset_v2",
+        "schema": "prompt_conditioned_scored_oracle_dataset_v3",
         "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "quality_profile": "strict_vbench5_v1",
+        "quality_dimensions": list(args.dimensions),
+        "diagnostic_dimensions": diagnostic_dimensions,
+        "quality_aggregation": "arithmetic_mean_raw_vbench5_float64",
+        "vbench": vbench_identity,
         "total_prompts_found": len(records_by_prompt),
         "expected_prompts": args.expected_prompts or len(records_by_prompt),
         "total_trajectories": len(compiled_by_key),
@@ -606,6 +1002,7 @@ def main() -> None:
         "candidate_steps": FORMAL_STEPS,
         "primary_lambda": args.primary_lambda,
         "record_files": record_files,
+        "record_sha256": record_sha256,
         "is_complete": True,
     }
     (dataset_dir / "dataset_manifest.json").write_text(

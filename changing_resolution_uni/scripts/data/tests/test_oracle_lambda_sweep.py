@@ -10,6 +10,7 @@ import numpy as np
 from changing_resolution_uni.scripts.data.sweep_oracle_lambda import (
     inclusive_decimal_grid,
     load_prompt_arrays,
+    sha256,
     sweep_distributions,
 )
 from changing_resolution_uni.scripts.data.oracle_record_schema import (
@@ -58,6 +59,7 @@ class OracleLambdaSweepTest(unittest.TestCase):
             records_dir = root / "records"
             records_dir.mkdir()
             record_files = []
+            record_hashes = {}
             for seed in (49, 107):
                 name = f"p000007_s{seed}.json"
                 record_files.append(name)
@@ -70,6 +72,7 @@ class OracleLambdaSweepTest(unittest.TestCase):
                     "native_dimensions": {
                         dimension: 0.92 for dimension in QUALITY5_DIMENSIONS
                     },
+                    "native_latency_source": "warm_pipeline_seconds",
                     "candidates": [
                         {
                             "step": step,
@@ -83,17 +86,44 @@ class OracleLambdaSweepTest(unittest.TestCase):
                         }
                         for index, step in enumerate(FORMAL_STEPS)
                     ],
+                    "scoring_provenance": {
+                        "schema": "strict_vbench5_record_provenance_v1",
+                        "quality_dimensions": QUALITY5_DIMENSIONS,
+                        "diagnostic_dimensions": [],
+                        "quality_aggregation": "arithmetic_mean_raw_vbench5_float64",
+                        "vbench": {
+                            "git_commit": "1" * 40,
+                            "tracked_dirty": False,
+                            "evaluate_py_sha256": "2" * 64,
+                        },
+                        "cases": {
+                            case: {
+                                "request_sha256": "a" * 64,
+                                "result_sha256": "b" * 64,
+                                "full_info_sha256": "c" * 64,
+                                "run_manifest_path": "/strict/run/score_run_manifest.json",
+                            }
+                            for case in [
+                                "native_hr",
+                                *(f"step{step}" for step in FORMAL_STEPS),
+                            ]
+                        },
+                    },
                 }
-                (records_dir / name).write_text(json.dumps(record), encoding="utf-8")
+                record_path = records_dir / name
+                record_path.write_text(json.dumps(record), encoding="utf-8")
+                record_hashes[name] = sha256(record_path)
             (root / "dataset_manifest.json").write_text(
                 json.dumps(
                     {
                         "is_complete": True,
+                        "quality_profile": "strict_vbench5_v1",
                         "expected_prompts": 1,
                         "expected_base_seeds": [42, 100],
                         "seed_policy": "prompt_offset",
                         "candidate_steps": FORMAL_STEPS,
                         "record_files": record_files,
+                        "record_sha256": record_hashes,
                     }
                 ),
                 encoding="utf-8",

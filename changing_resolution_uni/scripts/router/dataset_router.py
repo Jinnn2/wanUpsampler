@@ -5,6 +5,7 @@ Loads precomputed T5 embeddings and oracle utility records.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -21,8 +22,17 @@ if str(REPO_ROOT) not in sys.path:
 
 from changing_resolution_uni.scripts.data.oracle_record_schema import (
     FORMAL_STEPS,
+    QUALITY5_DIMENSIONS,
     aggregate_prompt_records,
 )
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 class RouterDataset(Dataset):
@@ -152,7 +162,7 @@ def create_prompt_disjoint_splits(
     Partition prompts strictly by Prompt ID into Train, Val, and Test sets.
     """
     root = Path(dataset_dir)
-    records_dir = root / "records"
+    records_dir = (root / "records").resolve()
     t5_dir = root / "t5_embeddings"
 
     if not records_dir.is_dir():
@@ -165,16 +175,35 @@ def create_prompt_disjoint_splits(
         manifest_data = json.loads(dataset_manifest.read_text(encoding="utf-8"))
         if manifest_data.get("is_complete") is False:
             raise ValueError(f"Dataset manifest is incomplete: {dataset_manifest}")
+    if manifest_data.get("quality_profile") != "strict_vbench5_v1":
+        raise ValueError(
+            "Router training requires quality_profile='strict_vbench5_v1'; "
+            "legacy scalar or unprovenanced records must be rescored first"
+        )
+    if manifest_data.get("quality_dimensions") != QUALITY5_DIMENSIONS:
+        raise ValueError("Dataset manifest does not declare canonical VBench-5 dimensions")
     if manifest_data.get("record_files"):
-        record_files = [records_dir / str(name) for name in manifest_data["record_files"]]
+        record_files = [
+            (records_dir / str(name)).resolve()
+            for name in manifest_data["record_files"]
+        ]
     else:
         record_files = sorted(records_dir.glob("*.json"))
+    record_hashes = manifest_data.get("record_sha256")
+    if not isinstance(record_hashes, dict) or set(record_hashes) != {
+        path.name for path in record_files
+    }:
+        raise ValueError("Dataset manifest record_sha256 does not cover record_files")
 
     records_by_prompt_seed: dict[int, dict[int, dict[str, Any]]] = {}
     record_sources: dict[tuple[int, int], Path] = {}
     read_errors: list[str] = []
     for r_file in record_files:
         try:
+            if r_file.parent != records_dir:
+                raise ValueError("record path escapes records directory")
+            if sha256_file(r_file) != record_hashes[r_file.name]:
+                raise ValueError("record SHA256 differs from dataset manifest")
             data = json.loads(r_file.read_text(encoding="utf-8"))
             pid = int(data["prompt_id"])
             seed_val = int(data.get("seed", 42))
@@ -211,7 +240,8 @@ def create_prompt_disjoint_splits(
         primary_lambda=primary_lambda,
         expected_seeds=manifest_expected_seeds,
         seed_policy=seed_policy,
-        require_dimensions=False,
+        require_dimensions=True,
+        require_provenance=True,
     )
     expected_prompts = manifest_data.get("expected_prompts")
     if expected_prompts is not None and len(prompt_samples) != int(expected_prompts):

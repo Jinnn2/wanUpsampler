@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -22,6 +23,14 @@ from changing_resolution_uni.scripts.data.oracle_record_schema import (
 
 
 CANONICAL_NAME = re.compile(r"^p(?P<prompt>\d{6})_s(?P<seed>-?\d+)\.json$")
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def parse_args() -> argparse.Namespace:
@@ -47,13 +56,16 @@ def parse_args() -> argparse.Namespace:
         "--profile",
         choices=["router", "formal"],
         default="router",
-        help="router accepts scalar VBench-5; formal also requires all five dimensions.",
+        help=(
+            "router accepts legacy scalar VBench-5; formal requires five dimensions, "
+            "verified aggregation, scoring provenance, and traceable latency sources."
+        ),
     )
     return parser.parse_args()
 
 
 def audit_record(
-    path: Path, *, require_dimensions: bool
+    path: Path, *, require_dimensions: bool, require_provenance: bool = False
 ) -> tuple[tuple[int, int] | None, str | None]:
     match = CANONICAL_NAME.fullmatch(path.name)
     if match is None:
@@ -64,6 +76,7 @@ def audit_record(
             data,
             candidate_steps=FORMAL_STEPS,
             require_dimensions=require_dimensions,
+            require_provenance=require_provenance,
         )
     except (OSError, json.JSONDecodeError, OracleRecordError) as exc:
         return None, str(exc)
@@ -81,12 +94,44 @@ def main() -> None:
     if not records_dir.is_dir():
         raise FileNotFoundError(f"Records directory not found: {records_dir}")
 
+    manifest_errors: list[str] = []
+    if args.profile == "formal":
+        manifest_path = dataset_dir / "dataset_manifest.json"
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if manifest.get("quality_profile") != "strict_vbench5_v1":
+                manifest_errors.append("quality_profile is not strict_vbench5_v1")
+            record_files = manifest.get("record_files")
+            record_hashes = manifest.get("record_sha256")
+            if not isinstance(record_files, list) or not isinstance(record_hashes, dict):
+                manifest_errors.append("record_files or record_sha256 is missing")
+            else:
+                actual_names = {path.name for path in records_dir.glob("*.json")}
+                declared_names = {str(name) for name in record_files}
+                if actual_names != declared_names:
+                    manifest_errors.append(
+                        "record file coverage mismatch; "
+                        f"undeclared={sorted(actual_names - declared_names)[:20]}, "
+                        f"missing={sorted(declared_names - actual_names)[:20]}"
+                    )
+                if set(record_hashes) != declared_names:
+                    manifest_errors.append("record_sha256 keys do not match record_files")
+                for name in sorted(actual_names & declared_names):
+                    if sha256_file(records_dir / name) != record_hashes.get(name):
+                        manifest_errors.append(f"record SHA256 mismatch: {name}")
+                        if len(manifest_errors) >= 50:
+                            break
+        except (OSError, json.JSONDecodeError) as exc:
+            manifest_errors.append(f"invalid dataset manifest: {exc}")
+
     invalid: list[tuple[Path, str]] = []
     seen: dict[tuple[int, int], Path] = {}
     valid = 0
     for path in sorted(records_dir.glob("*.json")):
         key, reason = audit_record(
-            path, require_dimensions=args.profile == "formal"
+            path,
+            require_dimensions=args.profile == "formal",
+            require_provenance=args.profile == "formal",
         )
         if reason is None and key is not None and key in seen:
             reason = f"duplicate prompt/seed also present in {seen[key].name}"
@@ -99,6 +144,9 @@ def main() -> None:
     print(f"Dataset: {dataset_dir}")
     print(f"Valid scored records: {valid}")
     print(f"Invalid or legacy records: {len(invalid)}")
+    print(f"Manifest errors: {len(manifest_errors)}")
+    for reason in manifest_errors[:50]:
+        print(f"  - dataset_manifest.json: {reason}")
     for path, reason in invalid[:50]:
         print(f"  - {path.name}: {reason}")
     if len(invalid) > 50:
@@ -117,7 +165,7 @@ def main() -> None:
         print(f"Quarantined {len(invalid)} files to: {quarantine_dir}")
         invalid = []
 
-    if args.strict and invalid:
+    if args.strict and (invalid or manifest_errors):
         raise SystemExit(2)
 
 

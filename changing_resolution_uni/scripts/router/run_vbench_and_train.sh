@@ -11,6 +11,9 @@ NGPUS="${NGPUS:-4}"
 EXPECTED_PROMPTS="${EXPECTED_PROMPTS:-1000}"
 EXPECTED_SEEDS="${EXPECTED_SEEDS:-42 100 2024}"
 PRIMARY_LAMBDA="${PRIMARY_LAMBDA:-0.01}"
+DIAGNOSTIC_DIMENSIONS="${DIAGNOSTIC_DIMENSIONS:-}"
+FORCE_RESCORE="${FORCE_RESCORE:-0}"
+EXPECTED_VBENCH_COMMIT="${EXPECTED_VBENCH_COMMIT:-}"
 OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/router_benchmarks_1k_lambda$(echo "${PRIMARY_LAMBDA}" | tr -d '.')}"
 
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
@@ -20,6 +23,7 @@ echo "Dataset target : ${DATASET_DIR}"
 echo "Dataset sources: ${SOURCE_DATASET_DIRS}"
 echo "Expected data  : ${EXPECTED_PROMPTS} prompts x seeds [${EXPECTED_SEEDS}]"
 echo "Primary lambda : ${PRIMARY_LAMBDA}"
+echo "Diagnostics    : ${DIAGNOSTIC_DIMENSIONS:-none}"
 echo "Router outputs : ${OUT_DIR}"
 
 # Check and auto-install all dependencies and pre-warm models if needed
@@ -31,14 +35,26 @@ fi
 echo "================================================================================"
 echo " [Step 1/5] Running Distributed VBench-5 Quality Scoring on Generated Videos..."
 echo "================================================================================"
-python "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/batch_vbench_score_dataset.py" \
-  --input_dirs "${SOURCE_DATASET_ARRAY[@]}" \
-  --dataset_dir "${DATASET_DIR}" \
-  --vbench_root "${VBENCH_ROOT}" \
-  --ngpus "${NGPUS}" \
-  --expected_prompts "${EXPECTED_PROMPTS}" \
-  --expected_seeds ${EXPECTED_SEEDS} \
+score_args=(
+  --input_dirs "${SOURCE_DATASET_ARRAY[@]}"
+  --dataset_dir "${DATASET_DIR}"
+  --vbench_root "${VBENCH_ROOT}"
+  --ngpus "${NGPUS}"
+  --expected_prompts "${EXPECTED_PROMPTS}"
+  --expected_seeds ${EXPECTED_SEEDS}
   --primary_lambda "${PRIMARY_LAMBDA}"
+)
+if [[ -n "${DIAGNOSTIC_DIMENSIONS}" ]]; then
+  read -r -a diagnostic_dimension_array <<< "${DIAGNOSTIC_DIMENSIONS}"
+  score_args+=(--diagnostic_dimensions "${diagnostic_dimension_array[@]}")
+fi
+if [[ "${FORCE_RESCORE}" == "1" ]]; then
+  score_args+=(--force_rescore)
+fi
+if [[ -n "${EXPECTED_VBENCH_COMMIT}" ]]; then
+  score_args+=(--expected_vbench_commit "${EXPECTED_VBENCH_COMMIT}")
+fi
+python "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/batch_vbench_score_dataset.py" "${score_args[@]}"
 
 echo ""
 echo "================================================================================"
@@ -46,6 +62,7 @@ echo " [Step 2/5] Strictly auditing scored oracle records..."
 echo "================================================================================"
 python "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/cleanup_legacy_records.py" \
   --dataset_dir "${DATASET_DIR}" \
+  --profile formal \
   --strict
 
 echo ""

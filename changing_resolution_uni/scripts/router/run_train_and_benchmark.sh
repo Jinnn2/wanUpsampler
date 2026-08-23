@@ -29,6 +29,7 @@ echo "[Step 1/4] Strictly auditing trajectory records in ${DATASET_DIR}..."
 if [[ -f "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/cleanup_legacy_records.py" ]]; then
   python "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/cleanup_legacy_records.py" \
     --dataset_dir "${DATASET_DIR}" \
+    --profile formal \
     --strict
 fi
 

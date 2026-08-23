@@ -93,6 +93,11 @@ def load_prompt_arrays(dataset_dir: Path) -> tuple[dict[int, dict[str, Any]], di
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("is_complete") is not True:
         raise ValueError(f"Dataset manifest is not complete: {manifest_path}")
+    if manifest.get("quality_profile") != "strict_vbench5_v1":
+        raise ValueError(
+            "Lambda sweep requires quality_profile='strict_vbench5_v1'; "
+            "legacy scalar records must be rescored first"
+        )
 
     candidate_steps = [int(step) for step in manifest.get("candidate_steps", FORMAL_STEPS)]
     if candidate_steps != FORMAL_STEPS:
@@ -109,23 +114,33 @@ def load_prompt_arrays(dataset_dir: Path) -> tuple[dict[int, dict[str, Any]], di
         raise ValueError("Dataset manifest must declare expected_base_seeds or expected_seeds")
     seed_policy = str(manifest.get("seed_policy", "fixed"))
 
-    records_dir = dataset_dir / "records"
+    records_dir = (dataset_dir / "records").resolve()
     record_names = manifest.get("record_files")
     if not isinstance(record_names, list) or not record_names:
         raise ValueError("Dataset manifest must contain a non-empty record_files list")
+    record_hashes = manifest.get("record_sha256")
+    if not isinstance(record_hashes, dict) or set(record_hashes) != {
+        str(name) for name in record_names
+    }:
+        raise ValueError("Dataset manifest record_sha256 does not cover record_files")
 
     records_by_prompt: dict[int, list[dict[str, Any]]] = defaultdict(list)
     latency_source_counts: Counter[str] = Counter()
     errors: list[str] = []
     seen_keys: set[tuple[int, int]] = set()
     for name in record_names:
-        path = records_dir / str(name)
+        path = (records_dir / str(name)).resolve()
         try:
+            if path.parent != records_dir:
+                raise ValueError("record path escapes records directory")
+            if sha256(path) != record_hashes[str(name)]:
+                raise ValueError("record SHA256 differs from dataset manifest")
             raw = json.loads(path.read_text(encoding="utf-8"))
             normalized = validate_scored_record(
                 raw,
                 candidate_steps=candidate_steps,
-                require_dimensions=False,
+                require_dimensions=True,
+                require_provenance=True,
             )
             key = (int(normalized["prompt_id"]), int(normalized["seed"]))
             if key in seen_keys:

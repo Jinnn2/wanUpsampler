@@ -18,6 +18,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from changing_resolution_uni.scripts.data.oracle_record_schema import (
     FORMAL_STEPS,
+    QUALITY5_DIMENSIONS,
     OracleRecordError,
     validate_scored_record,
 )
@@ -52,11 +53,35 @@ def main() -> None:
         raise FileNotFoundError(f"Source dataset not found: {source_dir}")
     if output_dir == source_dir:
         raise ValueError("output-dir must differ from source-dir")
+    source_manifest_path = source_dir / "dataset_manifest.json"
+    if not source_manifest_path.is_file():
+        raise FileNotFoundError(
+            f"Strict source dataset manifest not found: {source_manifest_path}"
+        )
+    source_manifest = json.loads(source_manifest_path.read_text(encoding="utf-8"))
+    if source_manifest.get("quality_profile") != "strict_vbench5_v1":
+        raise ValueError("Source dataset is not strict_vbench5_v1")
+    if source_manifest.get("quality_dimensions") != QUALITY5_DIMENSIONS:
+        raise ValueError("Source manifest does not declare canonical VBench-5 dimensions")
+    source_record_names = source_manifest.get("record_files")
+    source_record_hashes = source_manifest.get("record_sha256")
+    if not isinstance(source_record_names, list) or not isinstance(
+        source_record_hashes, dict
+    ):
+        raise ValueError("Source manifest must contain record_files and record_sha256")
+    if set(source_record_hashes) != {str(name) for name in source_record_names}:
+        raise ValueError("Source manifest record_sha256 does not cover record_files")
 
     paths_by_key: dict[tuple[int, int], list[Path]] = defaultdict(list)
     parse_errors = []
-    for path in sorted(source_dir.rglob("records/p*_s*.json")):
+    source_records_dir = (source_dir / "records").resolve()
+    for raw_name in source_record_names:
+        path = (source_records_dir / str(raw_name)).resolve()
         try:
+            if path.parent != source_records_dir:
+                raise ValueError("record path escapes source records directory")
+            if sha256(path) != source_record_hashes[str(raw_name)]:
+                raise ValueError("record SHA256 differs from source manifest")
             record = json.loads(path.read_text(encoding="utf-8"))
             key = (int(record["prompt_id"]), int(record["seed"]))
             paths_by_key[key].append(path)
@@ -96,7 +121,8 @@ def main() -> None:
                 normalized = validate_scored_record(
                     record,
                     candidate_steps=FORMAL_STEPS,
-                    require_dimensions=False,
+                    require_dimensions=True,
+                    require_provenance=True,
                 )
                 if (normalized["prompt_id"], normalized["seed"]) != key:
                     raise OracleRecordError(
@@ -140,10 +166,12 @@ def main() -> None:
     t5_output.mkdir(parents=True, exist_ok=True)
 
     record_files = []
+    record_sha256: dict[str, str] = {}
     for (prompt_id, seed), (source_path, _) in sorted(selected.items()):
         destination = records_dir / f"p{prompt_id:06d}_s{seed}.json"
         shutil.copy2(source_path, destination)
         record_files.append(destination.name)
+        record_sha256[destination.name] = sha256(destination)
     for prompt_id in range(args.expected_prompts):
         source_path = t5_source / f"prompt_{prompt_id:06d}.npz"
         shutil.copy2(source_path, t5_output / source_path.name)
@@ -155,7 +183,11 @@ def main() -> None:
         "schema": "prompt_conditioned_router_dataset_v1",
         "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "source_dir": str(source_dir),
-        "quality_profile": "vbench5_scalar",
+        "quality_profile": "strict_vbench5_v1",
+        "quality_dimensions": source_manifest["quality_dimensions"],
+        "diagnostic_dimensions": source_manifest.get("diagnostic_dimensions", []),
+        "quality_aggregation": source_manifest.get("quality_aggregation"),
+        "vbench": source_manifest.get("vbench"),
         "total_prompts_found": args.expected_prompts,
         "expected_prompts": args.expected_prompts,
         "total_trajectories": expected_records,
@@ -165,6 +197,7 @@ def main() -> None:
         "candidate_steps": FORMAL_STEPS,
         "primary_lambda": args.primary_lambda,
         "record_files": record_files,
+        "record_sha256": record_sha256,
         "is_complete": True,
     }
     output_dir.mkdir(parents=True, exist_ok=True)

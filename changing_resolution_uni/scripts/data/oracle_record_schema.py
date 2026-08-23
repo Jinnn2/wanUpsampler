@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from typing import Any, Iterable
 
 import numpy as np
@@ -16,6 +17,8 @@ QUALITY5_DIMENSIONS = [
     "aesthetic_quality",
     "imaging_quality",
 ]
+RECORD_PROVENANCE_SCHEMA = "strict_vbench5_record_provenance_v1"
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class OracleRecordError(ValueError):
@@ -39,12 +42,30 @@ def _quality(value: Any, field: str) -> float:
     return number
 
 
+def _sha256(value: Any, field: str) -> str:
+    normalized = str(value).lower()
+    if SHA256_RE.fullmatch(normalized) is None:
+        raise OracleRecordError(f"{field} must be a lowercase SHA256 digest")
+    return normalized
+
+
+def _diagnostic(value: Any, field: str, name: str) -> float:
+    number = _finite_float(value, field)
+    lower_bound = -1.0 if name == "overall_consistency" else 0.0
+    if not lower_bound <= number <= 1.0:
+        raise OracleRecordError(
+            f"{field} must be in [{lower_bound}, 1]; got {number}"
+        )
+    return number
+
+
 def validate_scored_record(
     record: dict[str, Any],
     *,
     candidate_steps: Iterable[int] = FORMAL_STEPS,
     quality_dimensions: Iterable[str] = QUALITY5_DIMENSIONS,
     require_dimensions: bool = True,
+    require_provenance: bool = False,
 ) -> dict[str, Any]:
     """Validate and normalize one fully scored prompt/seed trajectory record."""
     expected_steps = [int(step) for step in candidate_steps]
@@ -75,6 +96,14 @@ def validate_scored_record(
             name: _quality(native_dimensions.get(name), f"native_dimensions.{name}")
             for name in expected_dimensions
         }
+        native_mean = math.fsum(normalized_native_dimensions.values()) / len(
+            expected_dimensions
+        )
+        if not math.isclose(native_vbench5, native_mean, rel_tol=0.0, abs_tol=1e-12):
+            raise OracleRecordError(
+                "native_vbench5 does not equal the float64 mean of native_dimensions; "
+                f"scalar={native_vbench5}, recomputed={native_mean}"
+            )
     else:
         normalized_native_dimensions = (
             {
@@ -130,6 +159,14 @@ def validate_scored_record(
                 name: _quality(dimensions.get(name), f"step {step}.dimensions.{name}")
                 for name in expected_dimensions
             }
+            dimension_mean = math.fsum(normalized_dimensions.values()) / len(
+                expected_dimensions
+            )
+            if not math.isclose(vbench5, dimension_mean, rel_tol=0.0, abs_tol=1e-12):
+                raise OracleRecordError(
+                    f"step {step}.vbench5 does not equal the float64 mean of dimensions; "
+                    f"scalar={vbench5}, recomputed={dimension_mean}"
+                )
         else:
             normalized_dimensions = {
                 name: _quality(dimensions[name], f"step {step}.dimensions.{name}")
@@ -143,8 +180,144 @@ def validate_scored_record(
                 "latency_seconds": latency,
                 "dimensions": normalized_dimensions,
                 "latency_source": str(candidate.get("latency_source", "unknown")),
+                "diagnostics": candidate.get("diagnostics", {}),
             }
         )
+
+    scoring_provenance = record.get("scoring_provenance")
+    if require_provenance:
+        if not isinstance(scoring_provenance, dict):
+            raise OracleRecordError("scoring_provenance must be a mapping")
+        if scoring_provenance.get("schema") != RECORD_PROVENANCE_SCHEMA:
+            raise OracleRecordError(
+                f"scoring_provenance.schema must be {RECORD_PROVENANCE_SCHEMA!r}"
+            )
+        if scoring_provenance.get("quality_dimensions") != expected_dimensions:
+            raise OracleRecordError(
+                "scoring_provenance.quality_dimensions does not match formal VBench-5"
+            )
+        diagnostic_dimensions = scoring_provenance.get("diagnostic_dimensions", [])
+        if not isinstance(diagnostic_dimensions, list) or len(
+            set(diagnostic_dimensions)
+        ) != len(diagnostic_dimensions):
+            raise OracleRecordError(
+                "scoring_provenance.diagnostic_dimensions must be a unique list"
+            )
+        if (
+            scoring_provenance.get("quality_aggregation")
+            != "arithmetic_mean_raw_vbench5_float64"
+        ):
+            raise OracleRecordError("unsupported scoring_provenance quality aggregation")
+        vbench = scoring_provenance.get("vbench")
+        if not isinstance(vbench, dict):
+            raise OracleRecordError("scoring_provenance.vbench must be a mapping")
+        commit = str(vbench.get("git_commit", "")).lower()
+        if re.fullmatch(r"^[0-9a-f]{40}$", commit) is None:
+            raise OracleRecordError("scoring_provenance.vbench.git_commit is invalid")
+        _sha256(
+            vbench.get("evaluate_py_sha256"),
+            "scoring_provenance.vbench.evaluate_py_sha256",
+        )
+        if bool(vbench.get("tracked_dirty")):
+            raise OracleRecordError("formal scoring provenance must use a clean VBench checkout")
+
+        cases = scoring_provenance.get("cases")
+        if not isinstance(cases, dict):
+            raise OracleRecordError("scoring_provenance.cases must be a mapping")
+        expected_cases = {"native_hr", *(f"step{step}" for step in expected_steps)}
+        if set(cases) != expected_cases:
+            raise OracleRecordError(
+                "scoring_provenance case coverage mismatch; "
+                f"missing={sorted(expected_cases - set(cases))}, "
+                f"extra={sorted(set(cases) - expected_cases)}"
+            )
+        for case_name, case in cases.items():
+            if not isinstance(case, dict):
+                raise OracleRecordError(
+                    f"scoring_provenance.cases.{case_name} must be a mapping"
+                )
+            for field in ("request_sha256", "result_sha256", "full_info_sha256"):
+                _sha256(
+                    case.get(field),
+                    f"scoring_provenance.cases.{case_name}.{field}",
+                )
+            if not str(case.get("run_manifest_path", "")).strip():
+                raise OracleRecordError(
+                    f"scoring_provenance.cases.{case_name}.run_manifest_path is empty"
+                )
+
+        diagnostic_cases = scoring_provenance.get("diagnostic_cases", {})
+        expected_diagnostic_cases = expected_cases if diagnostic_dimensions else set()
+        if not isinstance(diagnostic_cases, dict) or set(
+            diagnostic_cases
+        ) != expected_diagnostic_cases:
+            raise OracleRecordError(
+                "scoring_provenance diagnostic case coverage mismatch; "
+                f"missing={sorted(expected_diagnostic_cases - set(diagnostic_cases or {}))}, "
+                f"extra={sorted(set(diagnostic_cases or {}) - expected_diagnostic_cases)}"
+            )
+        for case_name, case in diagnostic_cases.items():
+            if not isinstance(case, dict):
+                raise OracleRecordError(
+                    f"scoring_provenance.diagnostic_cases.{case_name} must be a mapping"
+                )
+            for field in ("request_sha256", "result_sha256", "full_info_sha256"):
+                _sha256(
+                    case.get(field),
+                    f"scoring_provenance.diagnostic_cases.{case_name}.{field}",
+                )
+            if not str(case.get("run_manifest_path", "")).strip():
+                raise OracleRecordError(
+                    f"scoring_provenance.diagnostic_cases.{case_name}.run_manifest_path "
+                    "is empty"
+                )
+
+        if str(record.get("native_latency_source")) != "warm_pipeline_seconds":
+            raise OracleRecordError(
+                "native_latency_source must be warm_pipeline_seconds for formal data"
+            )
+        allowed_candidate_latency_sources = {
+            "warm_pipeline_seconds",
+            "estimated_warm_pipeline_seconds",
+        }
+        for candidate in normalized_candidates:
+            if candidate["latency_source"] not in allowed_candidate_latency_sources:
+                raise OracleRecordError(
+                    f"step {candidate['step']}.latency_source is not traceable: "
+                    f"{candidate['latency_source']!r}"
+                )
+        native_diagnostics = record.get("native_diagnostics", {})
+        if not isinstance(native_diagnostics, dict) or set(native_diagnostics) != set(
+            diagnostic_dimensions
+        ):
+            raise OracleRecordError(
+                "native_diagnostics does not match provenance diagnostic dimensions"
+            )
+        normalized_native_diagnostics = {
+            name: _diagnostic(
+                native_diagnostics[name], f"native_diagnostics.{name}", name
+            )
+            for name in diagnostic_dimensions
+        }
+        for candidate in normalized_candidates:
+            raw_diagnostics = candidate["diagnostics"]
+            if not isinstance(raw_diagnostics, dict) or set(raw_diagnostics) != set(
+                diagnostic_dimensions
+            ):
+                raise OracleRecordError(
+                    f"step {candidate['step']}.diagnostics does not match provenance "
+                    "diagnostic dimensions"
+                )
+            candidate["diagnostics"] = {
+                name: _diagnostic(
+                    raw_diagnostics[name],
+                    f"step {candidate['step']}.diagnostics.{name}",
+                    name,
+                )
+                for name in diagnostic_dimensions
+            }
+    else:
+        normalized_native_diagnostics = record.get("native_diagnostics", {})
 
     return {
         "prompt_id": prompt_id,
@@ -153,8 +326,10 @@ def validate_scored_record(
         "native_vbench5": native_vbench5,
         "native_latency_seconds": native_latency,
         "native_dimensions": normalized_native_dimensions,
+        "native_diagnostics": normalized_native_diagnostics,
         "native_latency_source": str(record.get("native_latency_source", "unknown")),
         "candidates": normalized_candidates,
+        "scoring_provenance": scoring_provenance,
     }
 
 
@@ -182,6 +357,7 @@ def aggregate_prompt_records(
     expected_seeds: Iterable[int] | None = None,
     seed_policy: str = "fixed",
     require_dimensions: bool = False,
+    require_provenance: bool = False,
 ) -> tuple[dict[int, dict[str, Any]], list[int]]:
     """Build one prompt-level sample by averaging utility across seeds."""
     if not records_by_prompt:
@@ -207,6 +383,7 @@ def aggregate_prompt_records(
                         raw_record,
                         candidate_steps=candidate_steps,
                         require_dimensions=require_dimensions,
+                        require_provenance=require_provenance,
                     )
                 )
             except OracleRecordError as exc:
