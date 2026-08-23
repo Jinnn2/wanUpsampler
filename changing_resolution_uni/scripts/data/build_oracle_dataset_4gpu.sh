@@ -12,6 +12,7 @@ if [[ -f "${PATH_CONFIG}" ]]; then
 fi
 
 TOTAL_PROMPTS="${TOTAL_PROMPTS:-2000}"
+EXPECTED_TOTAL_PROMPTS="${EXPECTED_TOTAL_PROMPTS:-${TOTAL_PROMPTS}}"
 PROMPTS_DIR="${PROMPTS_DIR:-${PROJECT_ROOT}/prompts}"
 PROMPTS_FILE="${PROMPTS_FILE:-${CR_HF_PROMPTS_FILE:-${PROMPTS_DIR}/vidprom_filtered_extended.txt}}"
 OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_2k}"
@@ -62,6 +63,7 @@ echo "==========================================================================
 echo "  Project Root      : ${PROJECT_ROOT}"
 echo "  Prompts File      : ${PROMPTS_FILE}"
 echo "  Total Prompts     : ${TOTAL_PROMPTS}"
+echo "  Final Dataset Size: ${EXPECTED_TOTAL_PROMPTS}"
 echo "  Seeds per Prompt  : ${SEEDS} (${NUM_SEEDS} seeds)"
 echo "  Total Trajectories: ${TOTAL_TRAJECTORIES}"
 echo "  GPU Devices       : ${GPU_IDS} (${NUM_GPUS} cards)"
@@ -204,7 +206,7 @@ echo "[Step 3/3] Merging worker shard parts and computing variance / regret metr
 python "${SCRIPT_DIR}/merge_and_verify_oracle_dataset.py" \
   --parts_dir "${PARTS_DIR}" \
   --out_root "${OUT_ROOT}" \
-  --total_prompts "${TOTAL_PROMPTS}" \
+  --total_prompts "${EXPECTED_TOTAL_PROMPTS}" \
   --seeds ${SEEDS} \
   --primary_lambda "${PRIMARY_LAMBDA}"
 

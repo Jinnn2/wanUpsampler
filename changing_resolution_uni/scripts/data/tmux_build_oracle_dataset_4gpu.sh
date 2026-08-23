@@ -6,6 +6,7 @@ PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 
 SESSION_NAME="${SESSION_NAME:-oracle_dataset_2k_4gpu}"
 TOTAL_PROMPTS="${TOTAL_PROMPTS:-2000}"
+EXPECTED_TOTAL_PROMPTS="${EXPECTED_TOTAL_PROMPTS:-${TOTAL_PROMPTS}}"
 PROMPT_OFFSET="${PROMPT_OFFSET:-0}"
 GPU_IDS="${GPU_IDS:-0,1,2,3}"
 SEEDS="${SEEDS:-42 100 2024}"
@@ -31,14 +32,15 @@ mkdir -p "$(dirname "${LOG_FILE}")"
 echo "Creating detached tmux session: ${SESSION_NAME}"
 echo "  Prompt Offset: ${PROMPT_OFFSET}"
 echo "  Total Prompts: ${TOTAL_PROMPTS}"
+echo "  Final Dataset: ${EXPECTED_TOTAL_PROMPTS}"
 echo "  GPU Devices  : ${GPU_IDS}"
 echo "  Seeds        : ${SEEDS}"
 echo "  Primary Lambda: ${PRIMARY_LAMBDA}"
 echo "  Log File     : ${LOG_FILE}"
 
 printf -v RUN_COMMAND \
-  'env PROJECT_ROOT=%q TOTAL_PROMPTS=%q PROMPT_OFFSET=%q GPU_IDS=%q SEEDS=%q OUT_ROOT=%q CLEAN_VIDEOS=%q DRY_RUN=%q PRIMARY_LAMBDA=%q bash %q 2>&1 | tee -a %q' \
-  "${PROJECT_ROOT}" "${TOTAL_PROMPTS}" "${PROMPT_OFFSET}" "${GPU_IDS}" \
+  'env PROJECT_ROOT=%q TOTAL_PROMPTS=%q EXPECTED_TOTAL_PROMPTS=%q PROMPT_OFFSET=%q GPU_IDS=%q SEEDS=%q OUT_ROOT=%q CLEAN_VIDEOS=%q DRY_RUN=%q PRIMARY_LAMBDA=%q bash %q 2>&1 | tee -a %q' \
+  "${PROJECT_ROOT}" "${TOTAL_PROMPTS}" "${EXPECTED_TOTAL_PROMPTS}" "${PROMPT_OFFSET}" "${GPU_IDS}" \
   "${SEEDS}" "${OUT_ROOT}" "${CLEAN_VIDEOS}" "${DRY_RUN}" \
   "${PRIMARY_LAMBDA}" "${SCRIPT_DIR}/build_oracle_dataset_4gpu.sh" "${LOG_FILE}"
 
