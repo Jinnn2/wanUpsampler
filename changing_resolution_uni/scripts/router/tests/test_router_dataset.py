@@ -79,6 +79,23 @@ class RouterDatasetTest(unittest.TestCase):
         with self.assertRaisesRegex(OracleRecordError, "imaging_quality"):
             validate_scored_record(record, candidate_steps=STEPS)
 
+    def test_prompt_offset_seed_policy(self) -> None:
+        records = {
+            7: [
+                make_record(7, 49, [0.90, 0.91, 0.92], [100.0, 90.0, 80.0]),
+                make_record(7, 107, [0.91, 0.92, 0.93], [100.0, 90.0, 80.0]),
+            ]
+        }
+        samples, seeds = aggregate_prompt_records(
+            records,
+            candidate_steps=STEPS,
+            primary_lambda=0.01,
+            expected_seeds=[42, 100],
+            seed_policy="prompt_offset",
+        )
+        self.assertEqual(seeds, [42, 100])
+        self.assertEqual(samples[7]["seeds"], [49, 107])
+
     @unittest.skipUnless(HAS_TORCH, "torch is not installed")
     def test_router_dataset_rejects_missing_t5_embedding(self) -> None:
         records = {

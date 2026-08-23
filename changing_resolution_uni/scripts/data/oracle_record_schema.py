@@ -44,6 +44,7 @@ def validate_scored_record(
     *,
     candidate_steps: Iterable[int] = FORMAL_STEPS,
     quality_dimensions: Iterable[str] = QUALITY5_DIMENSIONS,
+    require_dimensions: bool = True,
 ) -> dict[str, Any]:
     """Validate and normalize one fully scored prompt/seed trajectory record."""
     expected_steps = [int(step) for step in candidate_steps]
@@ -67,12 +68,21 @@ def validate_scored_record(
     native_vbench5 = _quality(record.get("native_vbench5"), "native_vbench5")
 
     native_dimensions = record.get("native_dimensions")
-    if not isinstance(native_dimensions, dict):
-        raise OracleRecordError("native_dimensions must be a mapping")
-    normalized_native_dimensions = {
-        name: _quality(native_dimensions.get(name), f"native_dimensions.{name}")
-        for name in expected_dimensions
-    }
+    if require_dimensions:
+        if not isinstance(native_dimensions, dict):
+            raise OracleRecordError("native_dimensions must be a mapping")
+        normalized_native_dimensions = {
+            name: _quality(native_dimensions.get(name), f"native_dimensions.{name}")
+            for name in expected_dimensions
+        }
+    else:
+        normalized_native_dimensions = (
+            {
+                name: _quality(native_dimensions[name], f"native_dimensions.{name}")
+                for name in expected_dimensions
+                if isinstance(native_dimensions, dict) and name in native_dimensions
+            }
+        )
 
     candidates = record.get("candidates")
     if not isinstance(candidates, list):
@@ -113,12 +123,19 @@ def validate_scored_record(
             raise OracleRecordError(f"step {step}.latency_seconds must be positive")
 
         dimensions = candidate.get("dimensions")
-        if not isinstance(dimensions, dict):
-            raise OracleRecordError(f"step {step}.dimensions must be a mapping")
-        normalized_dimensions = {
-            name: _quality(dimensions.get(name), f"step {step}.dimensions.{name}")
-            for name in expected_dimensions
-        }
+        if require_dimensions:
+            if not isinstance(dimensions, dict):
+                raise OracleRecordError(f"step {step}.dimensions must be a mapping")
+            normalized_dimensions = {
+                name: _quality(dimensions.get(name), f"step {step}.dimensions.{name}")
+                for name in expected_dimensions
+            }
+        else:
+            normalized_dimensions = {
+                name: _quality(dimensions[name], f"step {step}.dimensions.{name}")
+                for name in expected_dimensions
+                if isinstance(dimensions, dict) and name in dimensions
+            }
         normalized_candidates.append(
             {
                 "step": step,
@@ -163,16 +180,21 @@ def aggregate_prompt_records(
     candidate_steps: list[int],
     primary_lambda: float,
     expected_seeds: Iterable[int] | None = None,
+    seed_policy: str = "fixed",
+    require_dimensions: bool = False,
 ) -> tuple[dict[int, dict[str, Any]], list[int]]:
     """Build one prompt-level sample by averaging utility across seeds."""
     if not records_by_prompt:
         raise ValueError("No oracle records were provided")
 
-    expected_seed_set = (
+    expected_base_seeds = (
         {int(seed) for seed in expected_seeds} if expected_seeds is not None else None
     )
-    if expected_seed_set is not None and not expected_seed_set:
+    if expected_base_seeds is not None and not expected_base_seeds:
         raise ValueError("expected_seeds cannot be empty")
+    if seed_policy not in {"fixed", "prompt_offset", "count_only"}:
+        raise ValueError(f"Unsupported seed_policy: {seed_policy}")
+    observed_seed_count: int | None = None
     prompt_samples: dict[int, dict[str, Any]] = {}
     errors: list[str] = []
 
@@ -181,7 +203,11 @@ def aggregate_prompt_records(
         for raw_record in raw_records:
             try:
                 normalized_records.append(
-                    validate_scored_record(raw_record, candidate_steps=candidate_steps)
+                    validate_scored_record(
+                        raw_record,
+                        candidate_steps=candidate_steps,
+                        require_dimensions=require_dimensions,
+                    )
                 )
             except OracleRecordError as exc:
                 errors.append(
@@ -195,12 +221,30 @@ def aggregate_prompt_records(
         if len(seed_set) != len(seeds):
             errors.append(f"prompt {prompt_id}: duplicate seed records {seeds}")
             continue
-        if expected_seed_set is None:
-            expected_seed_set = seed_set
-        elif seed_set != expected_seed_set:
+        if expected_base_seeds is None:
+            if observed_seed_count is None:
+                observed_seed_count = len(seed_set)
+            expected_for_prompt = None
+        elif seed_policy == "prompt_offset":
+            expected_for_prompt = {base_seed + prompt_id for base_seed in expected_base_seeds}
+        elif seed_policy == "fixed":
+            expected_for_prompt = expected_base_seeds
+        else:
+            expected_for_prompt = None
+            observed_seed_count = len(expected_base_seeds)
+
+        required_count = observed_seed_count or (
+            len(expected_base_seeds) if expected_base_seeds is not None else len(seed_set)
+        )
+        if expected_for_prompt is not None and seed_set != expected_for_prompt:
             errors.append(
                 f"prompt {prompt_id}: seed coverage {sorted(seed_set)} does not match "
-                f"expected {sorted(expected_seed_set)}"
+                f"expected {sorted(expected_for_prompt)} under {seed_policy} policy"
+            )
+            continue
+        if expected_for_prompt is None and len(seed_set) != required_count:
+            errors.append(
+                f"prompt {prompt_id}: expected {required_count} unique seeds, got {sorted(seed_set)}"
             )
             continue
 
@@ -246,6 +290,6 @@ def aggregate_prompt_records(
         preview = "\n".join(f"  - {item}" for item in errors[:30])
         suffix = "" if len(errors) <= 30 else f"\n  ... and {len(errors) - 30} more"
         raise ValueError(f"Oracle record coverage check failed:\n{preview}{suffix}")
-    if not prompt_samples or expected_seed_set is None:
+    if not prompt_samples:
         raise ValueError("No valid prompt-level oracle samples were produced")
-    return prompt_samples, sorted(expected_seed_set)
+    return prompt_samples, sorted(expected_base_seeds or [])

@@ -43,16 +43,28 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Exit non-zero when any invalid record remains in records/.",
     )
+    parser.add_argument(
+        "--profile",
+        choices=["router", "formal"],
+        default="router",
+        help="router accepts scalar VBench-5; formal also requires all five dimensions.",
+    )
     return parser.parse_args()
 
 
-def audit_record(path: Path) -> tuple[tuple[int, int] | None, str | None]:
+def audit_record(
+    path: Path, *, require_dimensions: bool
+) -> tuple[tuple[int, int] | None, str | None]:
     match = CANONICAL_NAME.fullmatch(path.name)
     if match is None:
         return None, "filename is not canonical p{prompt_id:06d}_s{seed}.json"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        normalized = validate_scored_record(data, candidate_steps=FORMAL_STEPS)
+        normalized = validate_scored_record(
+            data,
+            candidate_steps=FORMAL_STEPS,
+            require_dimensions=require_dimensions,
+        )
     except (OSError, json.JSONDecodeError, OracleRecordError) as exc:
         return None, str(exc)
     key = (int(normalized["prompt_id"]), int(normalized["seed"]))
@@ -73,7 +85,9 @@ def main() -> None:
     seen: dict[tuple[int, int], Path] = {}
     valid = 0
     for path in sorted(records_dir.glob("*.json")):
-        key, reason = audit_record(path)
+        key, reason = audit_record(
+            path, require_dimensions=args.profile == "formal"
+        )
         if reason is None and key is not None and key in seen:
             reason = f"duplicate prompt/seed also present in {seen[key].name}"
         if reason is not None:

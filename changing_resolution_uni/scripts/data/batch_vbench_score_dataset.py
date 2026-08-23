@@ -80,7 +80,13 @@ def parse_args() -> argparse.Namespace:
         type=int,
         nargs="+",
         default=[42, 100, 2024],
-        help="Require every prompt to contain exactly these seeds.",
+        help="Base seeds used by the generator.",
+    )
+    parser.add_argument(
+        "--seed_policy",
+        choices=["fixed", "prompt_offset"],
+        default="prompt_offset",
+        help="Expected stored seed rule; generation uses base_seed + prompt_id.",
     )
     parser.add_argument(
         "--primary_lambda",
@@ -550,19 +556,26 @@ def main() -> None:
     if not compiled_by_key:
         raise RuntimeError("No oracle records were backfilled; refusing to continue")
 
-    expected_seed_set = {int(seed) for seed in args.expected_seeds}
+    expected_base_seeds = {int(seed) for seed in args.expected_seeds}
     records_by_prompt: dict[int, set[int]] = {}
     for prompt_id, seed in compiled_by_key:
         records_by_prompt.setdefault(prompt_id, set()).add(seed)
-    seed_errors = {
-        prompt_id: sorted(seeds)
-        for prompt_id, seeds in records_by_prompt.items()
-        if seeds != expected_seed_set
-    }
+    seed_errors = {}
+    for prompt_id, seeds in records_by_prompt.items():
+        expected_for_prompt = (
+            {seed + prompt_id for seed in expected_base_seeds}
+            if args.seed_policy == "prompt_offset"
+            else expected_base_seeds
+        )
+        if seeds != expected_for_prompt:
+            seed_errors[prompt_id] = {
+                "observed": sorted(seeds),
+                "expected": sorted(expected_for_prompt),
+            }
     if seed_errors:
         preview = list(sorted(seed_errors.items()))[:30]
         raise RuntimeError(
-            f"Seed coverage mismatch; expected {sorted(expected_seed_set)}, "
+            f"Seed coverage mismatch under {args.seed_policy} policy, "
             f"examples={preview}"
         )
     if args.expected_prompts is not None and len(records_by_prompt) != args.expected_prompts:
@@ -587,8 +600,9 @@ def main() -> None:
         "expected_prompts": args.expected_prompts or len(records_by_prompt),
         "total_trajectories": len(compiled_by_key),
         "expected_trajectories": (args.expected_prompts or len(records_by_prompt))
-        * len(expected_seed_set),
-        "expected_seeds": sorted(expected_seed_set),
+        * len(expected_base_seeds),
+        "expected_base_seeds": sorted(expected_base_seeds),
+        "seed_policy": args.seed_policy,
         "candidate_steps": FORMAL_STEPS,
         "primary_lambda": args.primary_lambda,
         "record_files": record_files,

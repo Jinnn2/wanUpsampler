@@ -71,6 +71,7 @@ def inspect_dataset(root: Path, expected_seeds: set[int]) -> dict:
     scored_keys: set[tuple[int, int]] = set()
     dimension_complete_keys: set[tuple[int, int]] = set()
     strict_trainable_keys: set[tuple[int, int]] = set()
+    router_ready_keys: set[tuple[int, int]] = set()
     fixed_seed_keys: set[tuple[int, int]] = set()
     offset_seed_keys: set[tuple[int, int]] = set()
 
@@ -116,12 +117,18 @@ def inspect_dataset(root: Path, expected_seeds: set[int]) -> dict:
                     set(record.get("native_dimensions", {}))
                 )
             )
+            native_scalar_complete = (
+                float(record.get("native_vbench5", 0.0)) > 0.1
+                and float(record.get("native_latency_seconds", 0.0)) > 0.0
+            )
             if candidate_scored:
                 scored_keys.add(key)
             if dimension_complete:
                 dimension_complete_keys.add(key)
             if dimension_complete and native_complete:
                 strict_trainable_keys.add(key)
+            if candidate_scored and native_scalar_complete:
+                router_ready_keys.add(key)
         except Exception as exc:
             parse_errors.append(f"{path}: {exc}")
 
@@ -132,9 +139,18 @@ def inspect_dataset(root: Path, expected_seeds: set[int]) -> dict:
         if seeds != expected_seeds
     }
 
-    def complete_prompt_count(candidate_keys: set[tuple[int, int]]) -> int:
+    def fixed_complete_prompt_count(candidate_keys: set[tuple[int, int]]) -> int:
         return sum(
             all((prompt_id, seed) in candidate_keys for seed in expected_seeds)
+            for prompt_id in prompts
+        )
+
+    def offset_complete_prompt_count(candidate_keys: set[tuple[int, int]]) -> int:
+        return sum(
+            all(
+                (prompt_id, base_seed + prompt_id) in candidate_keys
+                for base_seed in expected_seeds
+            )
             for prompt_id in prompts
         )
 
@@ -208,19 +224,32 @@ def inspect_dataset(root: Path, expected_seeds: set[int]) -> dict:
         "parse_errors": parse_errors[:10],
         "fixed_seed_keys": len(fixed_seed_keys),
         "offset_seed_keys": len(offset_seed_keys),
-        "fixed_seed_complete_prompts": complete_prompt_count(fixed_seed_keys),
-        "offset_seed_complete_prompts": complete_prompt_count(offset_seed_keys),
+        "fixed_seed_complete_prompts": fixed_complete_prompt_count(fixed_seed_keys),
+        "offset_seed_complete_prompts": offset_complete_prompt_count(offset_seed_keys),
         "scored_keys": len(scored_keys),
         "dimension_complete_keys": len(dimension_complete_keys),
         "strict_trainable_keys": len(strict_trainable_keys),
-        "scored_fixed_seed_complete_prompts": complete_prompt_count(
+        "router_ready_keys": len(router_ready_keys),
+        "scored_fixed_seed_complete_prompts": fixed_complete_prompt_count(
             scored_keys & fixed_seed_keys
         ),
-        "dimension_fixed_seed_complete_prompts": complete_prompt_count(
+        "scored_offset_seed_complete_prompts": offset_complete_prompt_count(
+            scored_keys & offset_seed_keys
+        ),
+        "router_ready_offset_prompts": offset_complete_prompt_count(
+            router_ready_keys & offset_seed_keys
+        ),
+        "dimension_fixed_seed_complete_prompts": fixed_complete_prompt_count(
             dimension_complete_keys & fixed_seed_keys
         ),
-        "strict_fixed_seed_complete_prompts": complete_prompt_count(
+        "dimension_offset_seed_complete_prompts": offset_complete_prompt_count(
+            dimension_complete_keys & offset_seed_keys
+        ),
+        "strict_fixed_seed_complete_prompts": fixed_complete_prompt_count(
             strict_trainable_keys & fixed_seed_keys
+        ),
+        "strict_offset_seed_complete_prompts": offset_complete_prompt_count(
+            strict_trainable_keys & offset_seed_keys
         ),
         "t5_embeddings": (
             sum(1 for _ in (root / "t5_embeddings").glob("prompt_*.npz"))
@@ -320,11 +349,16 @@ def main() -> None:
             " ".join(
                 [
                     f"scored_keys={report['scored_keys']}",
+                    f"router_ready_keys={report['router_ready_keys']}",
                     f"dimension_keys={report['dimension_complete_keys']}",
                     f"strict_keys={report['strict_trainable_keys']}",
                     f"scored_fixed_prompts={report['scored_fixed_seed_complete_prompts']}",
+                    f"scored_offset_prompts={report['scored_offset_seed_complete_prompts']}",
+                    f"router_ready_offset_prompts={report['router_ready_offset_prompts']}",
                     f"dimension_fixed_prompts={report['dimension_fixed_seed_complete_prompts']}",
+                    f"dimension_offset_prompts={report['dimension_offset_seed_complete_prompts']}",
                     f"strict_fixed_prompts={report['strict_fixed_seed_complete_prompts']}",
+                    f"strict_offset_prompts={report['strict_offset_seed_complete_prompts']}",
                 ]
             )
         )

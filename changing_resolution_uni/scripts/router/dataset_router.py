@@ -196,15 +196,22 @@ def create_prompt_disjoint_splits(
         for pid, seed_records in records_by_prompt_seed.items()
     }
     manifest_expected_seeds = None
-    if "expected_seeds" in manifest_data:
+    if "expected_base_seeds" in manifest_data:
+        manifest_expected_seeds = [
+            int(seed) for seed in manifest_data["expected_base_seeds"]
+        ]
+    elif "expected_seeds" in manifest_data:
         manifest_expected_seeds = [int(seed) for seed in manifest_data["expected_seeds"]]
     if manifest_expected_seeds is None:
         manifest_expected_seeds = [42, 100, 2024]
+    seed_policy = str(manifest_data.get("seed_policy", "prompt_offset"))
     prompt_samples, expected_seeds = aggregate_prompt_records(
         records_by_prompt,
         candidate_steps=expected_steps,
         primary_lambda=primary_lambda,
         expected_seeds=manifest_expected_seeds,
+        seed_policy=seed_policy,
+        require_dimensions=False,
     )
     expected_prompts = manifest_data.get("expected_prompts")
     if expected_prompts is not None and len(prompt_samples) != int(expected_prompts):
@@ -255,7 +262,8 @@ def create_prompt_disjoint_splits(
         "train_trajectories": len(train_samples) * len(expected_seeds),
         "val_trajectories": len(val_samples) * len(expected_seeds),
         "test_trajectories": len(test_samples) * len(expected_seeds),
-        "seeds_per_prompt": expected_seeds,
+        "base_seeds": expected_seeds,
+        "seed_policy": seed_policy,
         "label_granularity": "prompt_mean_utility_across_seeds",
         "candidate_steps": expected_steps,
         "primary_lambda": primary_lambda,
