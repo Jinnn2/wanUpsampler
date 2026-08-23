@@ -71,6 +71,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--weight_decay", type=float, default=1e-4, help="L2 regularization.")
     parser.add_argument("--primary_lambda", type=float, default=0.01, help="Utility tradeoff lambda.")
     parser.add_argument("--seed", type=int, default=42, help="Random split and init seed.")
+    parser.add_argument(
+        "--allow_estimated_latency",
+        action="store_true",
+        help=(
+            "Explicitly allow the isolated quality-valid legacy development "
+            "profile with estimated, non-formal latency."
+        ),
+    )
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     return parser.parse_args()
 
@@ -289,6 +297,7 @@ def main() -> None:
         batch_size=args.batch_size,
         seed=args.seed,
         primary_lambda=args.primary_lambda,
+        allow_estimated_latency=args.allow_estimated_latency,
     )
     cand_steps = meta["candidate_steps"]
 
@@ -298,6 +307,17 @@ def main() -> None:
         f"{meta['test_prompts']} Test ({meta['test_trajectories']} trajs)"
     )
     logger.info(f"Candidate switch steps: {cand_steps}")
+    logger.info(
+        "Evidence profile: quality=%s latency=%s formal=%s",
+        meta.get("quality_profile"),
+        meta.get("latency_profile"),
+        meta.get("formal_evidence"),
+    )
+    if not meta.get("formal_evidence", False):
+        logger.warning(
+            "DEVELOPMENT-ONLY RUN: quality dimensions passed legacy validation, "
+            "but latency/provenance are not formal evidence."
+        )
 
     # ── Evaluate Standard Baselines First ─────────────────────────────────────────
     results: list[dict[str, Any]] = []

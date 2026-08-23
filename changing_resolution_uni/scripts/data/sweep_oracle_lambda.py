@@ -46,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         default=0.001,
         help="Count labels whose best-vs-second-best mean-utility margin is at most this value.",
     )
+    parser.add_argument(
+        "--allow-estimated-latency",
+        action="store_true",
+        help="Allow the isolated quality-valid legacy development profile.",
+    )
     return parser.parse_args()
 
 
@@ -84,7 +89,9 @@ def _expected_seed_set(
     raise ValueError(f"Unsupported seed_policy: {seed_policy}")
 
 
-def load_prompt_arrays(dataset_dir: Path) -> tuple[dict[int, dict[str, Any]], dict[str, Any]]:
+def load_prompt_arrays(
+    dataset_dir: Path, *, allow_estimated_latency: bool = False
+) -> tuple[dict[int, dict[str, Any]], dict[str, Any]]:
     manifest_path = dataset_dir / "dataset_manifest.json"
     if not manifest_path.is_file():
         raise FileNotFoundError(
@@ -93,10 +100,14 @@ def load_prompt_arrays(dataset_dir: Path) -> tuple[dict[int, dict[str, Any]], di
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("is_complete") is not True:
         raise ValueError(f"Dataset manifest is not complete: {manifest_path}")
-    if manifest.get("quality_profile") != "strict_vbench5_v1":
+    quality_profile = str(manifest.get("quality_profile", ""))
+    strict_profile = quality_profile == "strict_vbench5_v1"
+    legacy_profile = quality_profile == "quality_valid_legacy_vbench5_v1"
+    if not strict_profile and not (legacy_profile and allow_estimated_latency):
         raise ValueError(
-            "Lambda sweep requires quality_profile='strict_vbench5_v1'; "
-            "legacy scalar records must be rescored first"
+            "Lambda sweep requires strict_vbench5_v1. The isolated "
+            "quality_valid_legacy_vbench5_v1 profile requires "
+            "--allow-estimated-latency."
         )
 
     candidate_steps = [int(step) for step in manifest.get("candidate_steps", FORMAL_STEPS)]
@@ -140,7 +151,8 @@ def load_prompt_arrays(dataset_dir: Path) -> tuple[dict[int, dict[str, Any]], di
                 raw,
                 candidate_steps=candidate_steps,
                 require_dimensions=True,
-                require_provenance=True,
+                require_native_dimensions=strict_profile,
+                require_provenance=strict_profile,
             )
             key = (int(normalized["prompt_id"]), int(normalized["seed"]))
             if key in seen_keys:
@@ -210,6 +222,8 @@ def load_prompt_arrays(dataset_dir: Path) -> tuple[dict[int, dict[str, Any]], di
         "base_seeds": sorted(base_seeds),
         "seed_policy": seed_policy,
         "latency_source_counts": dict(sorted(latency_source_counts.items())),
+        "quality_profile": quality_profile,
+        "latency_profile": manifest.get("latency_profile"),
     }
     return prompt_arrays, metadata
 
@@ -318,7 +332,10 @@ def main() -> None:
     out_dir = Path(args.out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    prompt_arrays, metadata = load_prompt_arrays(dataset_dir)
+    prompt_arrays, metadata = load_prompt_arrays(
+        dataset_dir,
+        allow_estimated_latency=args.allow_estimated_latency,
+    )
     summary_rows, distribution_rows = sweep_distributions(
         prompt_arrays,
         candidate_steps=metadata["candidate_steps"],

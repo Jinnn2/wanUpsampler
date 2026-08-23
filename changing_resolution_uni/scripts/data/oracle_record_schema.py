@@ -65,11 +65,14 @@ def validate_scored_record(
     candidate_steps: Iterable[int] = FORMAL_STEPS,
     quality_dimensions: Iterable[str] = QUALITY5_DIMENSIONS,
     require_dimensions: bool = True,
+    require_native_dimensions: bool | None = None,
     require_provenance: bool = False,
 ) -> dict[str, Any]:
     """Validate and normalize one fully scored prompt/seed trajectory record."""
     expected_steps = [int(step) for step in candidate_steps]
     expected_dimensions = [str(name) for name in quality_dimensions]
+    if require_native_dimensions is None:
+        require_native_dimensions = require_dimensions
 
     try:
         prompt_id = int(record["prompt_id"])
@@ -89,7 +92,7 @@ def validate_scored_record(
     native_vbench5 = _quality(record.get("native_vbench5"), "native_vbench5")
 
     native_dimensions = record.get("native_dimensions")
-    if require_dimensions:
+    if require_native_dimensions:
         if not isinstance(native_dimensions, dict):
             raise OracleRecordError("native_dimensions must be a mapping")
         normalized_native_dimensions = {
@@ -357,6 +360,7 @@ def aggregate_prompt_records(
     expected_seeds: Iterable[int] | None = None,
     seed_policy: str = "fixed",
     require_dimensions: bool = False,
+    require_native_dimensions: bool | None = None,
     require_provenance: bool = False,
 ) -> tuple[dict[int, dict[str, Any]], list[int]]:
     """Build one prompt-level sample by averaging utility across seeds."""
@@ -383,6 +387,7 @@ def aggregate_prompt_records(
                         raw_record,
                         candidate_steps=candidate_steps,
                         require_dimensions=require_dimensions,
+                        require_native_dimensions=require_native_dimensions,
                         require_provenance=require_provenance,
                     )
                 )

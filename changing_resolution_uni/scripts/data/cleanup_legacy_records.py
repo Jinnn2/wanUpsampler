@@ -54,18 +54,23 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--profile",
-        choices=["router", "formal"],
+        choices=["router", "formal", "quality_valid_legacy"],
         default="router",
         help=(
             "router accepts legacy scalar VBench-5; formal requires five dimensions, "
-            "verified aggregation, scoring provenance, and traceable latency sources."
+            "verified aggregation, scoring provenance, and traceable latency sources; "
+            "quality_valid_legacy audits the isolated development profile."
         ),
     )
     return parser.parse_args()
 
 
 def audit_record(
-    path: Path, *, require_dimensions: bool, require_provenance: bool = False
+    path: Path,
+    *,
+    require_dimensions: bool,
+    require_native_dimensions: bool | None = None,
+    require_provenance: bool = False,
 ) -> tuple[tuple[int, int] | None, str | None]:
     match = CANONICAL_NAME.fullmatch(path.name)
     if match is None:
@@ -76,6 +81,7 @@ def audit_record(
             data,
             candidate_steps=FORMAL_STEPS,
             require_dimensions=require_dimensions,
+            require_native_dimensions=require_native_dimensions,
             require_provenance=require_provenance,
         )
     except (OSError, json.JSONDecodeError, OracleRecordError) as exc:
@@ -95,12 +101,19 @@ def main() -> None:
         raise FileNotFoundError(f"Records directory not found: {records_dir}")
 
     manifest_errors: list[str] = []
-    if args.profile == "formal":
+    if args.profile in {"formal", "quality_valid_legacy"}:
         manifest_path = dataset_dir / "dataset_manifest.json"
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            if manifest.get("quality_profile") != "strict_vbench5_v1":
-                manifest_errors.append("quality_profile is not strict_vbench5_v1")
+            expected_quality_profile = (
+                "strict_vbench5_v1"
+                if args.profile == "formal"
+                else "quality_valid_legacy_vbench5_v1"
+            )
+            if manifest.get("quality_profile") != expected_quality_profile:
+                manifest_errors.append(
+                    f"quality_profile is not {expected_quality_profile}"
+                )
             record_files = manifest.get("record_files")
             record_hashes = manifest.get("record_sha256")
             if not isinstance(record_files, list) or not isinstance(record_hashes, dict):
@@ -130,7 +143,8 @@ def main() -> None:
     for path in sorted(records_dir.glob("*.json")):
         key, reason = audit_record(
             path,
-            require_dimensions=args.profile == "formal",
+            require_dimensions=args.profile in {"formal", "quality_valid_legacy"},
+            require_native_dimensions=args.profile == "formal",
             require_provenance=args.profile == "formal",
         )
         if reason is None and key is not None and key in seen:

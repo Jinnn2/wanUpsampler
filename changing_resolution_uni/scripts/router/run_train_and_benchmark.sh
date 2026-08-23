@@ -11,6 +11,7 @@ EPOCHS="${EPOCHS:-40}"
 BATCH_SIZE="${BATCH_SIZE:-32}"
 LR="${LR:-0.001}"
 SEED="${SEED:-42}"
+ALLOW_ESTIMATED_LATENCY="${ALLOW_ESTIMATED_LATENCY:-0}"
 
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
 
@@ -21,30 +22,40 @@ echo "  Dataset Directory : ${DATASET_DIR}"
 echo "  Output Directory  : ${OUT_DIR}"
 echo "  Primary Lambda    : ${PRIMARY_LAMBDA}"
 echo "  Epochs / BatchSize: ${EPOCHS} / ${BATCH_SIZE}"
+echo "  Estimated Latency  : ${ALLOW_ESTIMATED_LATENCY}"
 echo "================================================================================"
 
 # ── Step 1: Clean & Prepare Dataset Records ────────────────────────────────────
 echo ""
 echo "[Step 1/4] Strictly auditing trajectory records in ${DATASET_DIR}..."
 if [[ -f "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/cleanup_legacy_records.py" ]]; then
+  audit_profile="formal"
+  if [[ "${ALLOW_ESTIMATED_LATENCY}" == "1" ]]; then
+    audit_profile="quality_valid_legacy"
+  fi
   python "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/cleanup_legacy_records.py" \
     --dataset_dir "${DATASET_DIR}" \
-    --profile formal \
+    --profile "${audit_profile}" \
     --strict
 fi
 
 # ── Step 2: Train & Benchmark All Router Models ────────────────────────────────
 echo ""
 echo "[Step 2/4] Training & Benchmarking Router Models (Prompt-Disjoint Split)..."
-python "${SCRIPT_DIR}/train_router.py" \
-  --dataset_dir "${DATASET_DIR}" \
-  --out_dir "${OUT_DIR}" \
-  --model_type all \
-  --epochs "${EPOCHS}" \
-  --batch_size "${BATCH_SIZE}" \
-  --lr "${LR}" \
-  --primary_lambda "${PRIMARY_LAMBDA}" \
+train_args=(
+  --dataset_dir "${DATASET_DIR}"
+  --out_dir "${OUT_DIR}"
+  --model_type all
+  --epochs "${EPOCHS}"
+  --batch_size "${BATCH_SIZE}"
+  --lr "${LR}"
+  --primary_lambda "${PRIMARY_LAMBDA}"
   --seed "${SEED}"
+)
+if [[ "${ALLOW_ESTIMATED_LATENCY}" == "1" ]]; then
+  train_args+=(--allow_estimated_latency)
+fi
+python "${SCRIPT_DIR}/train_router.py" "${train_args[@]}"
 
 # ── Step 3: Reverse Token Attribution & Semantic Keyword Extraction ───────────
 echo ""

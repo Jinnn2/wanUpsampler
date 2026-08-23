@@ -96,6 +96,20 @@ def main() -> None:
     sample_attributions: list[dict[str, Any]] = []
 
     npz_files = sorted(t5_dir.glob("prompt_*.npz"))
+    manifest_path = dataset_root / "dataset_manifest.json"
+    if manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        record_names = manifest.get("record_files", [])
+        if isinstance(record_names, list) and record_names:
+            selected_prompt_ids = {
+                int(str(name).split("_s", 1)[0].removeprefix("p"))
+                for name in record_names
+            }
+            npz_files = [
+                path
+                for path in npz_files
+                if int(path.stem.split("_")[1]) in selected_prompt_ids
+            ]
     logger.info(f"Analyzing {len(npz_files)} prompt T5 token sequences...")
 
     for npz_file in npz_files:

@@ -157,6 +157,7 @@ def create_prompt_disjoint_splits(
     primary_lambda: float = 0.01,
     tau: float = 0.02,
     candidate_steps: list[int] | None = None,
+    allow_estimated_latency: bool = False,
 ) -> tuple[RouterDataset, RouterDataset, RouterDataset, dict[str, Any]]:
     """
     Partition prompts strictly by Prompt ID into Train, Val, and Test sets.
@@ -175,10 +176,18 @@ def create_prompt_disjoint_splits(
         manifest_data = json.loads(dataset_manifest.read_text(encoding="utf-8"))
         if manifest_data.get("is_complete") is False:
             raise ValueError(f"Dataset manifest is incomplete: {dataset_manifest}")
-    if manifest_data.get("quality_profile") != "strict_vbench5_v1":
+    quality_profile = str(manifest_data.get("quality_profile", ""))
+    strict_profile = quality_profile == "strict_vbench5_v1"
+    legacy_development_profile = (
+        quality_profile == "quality_valid_legacy_vbench5_v1"
+    )
+    if not strict_profile and not (
+        legacy_development_profile and allow_estimated_latency
+    ):
         raise ValueError(
-            "Router training requires quality_profile='strict_vbench5_v1'; "
-            "legacy scalar or unprovenanced records must be rescored first"
+            "Router training requires strict_vbench5_v1. The isolated "
+            "quality_valid_legacy_vbench5_v1 development profile requires "
+            "allow_estimated_latency=True."
         )
     if manifest_data.get("quality_dimensions") != QUALITY5_DIMENSIONS:
         raise ValueError("Dataset manifest does not declare canonical VBench-5 dimensions")
@@ -241,7 +250,8 @@ def create_prompt_disjoint_splits(
         expected_seeds=manifest_expected_seeds,
         seed_policy=seed_policy,
         require_dimensions=True,
-        require_provenance=True,
+        require_native_dimensions=strict_profile,
+        require_provenance=strict_profile,
     )
     expected_prompts = manifest_data.get("expected_prompts")
     if expected_prompts is not None and len(prompt_samples) != int(expected_prompts):
@@ -297,6 +307,9 @@ def create_prompt_disjoint_splits(
         "label_granularity": "prompt_mean_utility_across_seeds",
         "candidate_steps": expected_steps,
         "primary_lambda": primary_lambda,
+        "quality_profile": quality_profile,
+        "latency_profile": manifest_data.get("latency_profile"),
+        "formal_evidence": bool(manifest_data.get("formal_evidence", strict_profile)),
     }
 
     return train_ds, val_ds, test_ds, meta
@@ -309,12 +322,14 @@ def get_dataloaders(
     seed: int = 42,
     primary_lambda: float = 0.01,
     tau: float = 0.02,
+    allow_estimated_latency: bool = False,
 ) -> tuple[DataLoader, DataLoader, DataLoader, dict[str, Any]]:
     train_ds, val_ds, test_ds, meta = create_prompt_disjoint_splits(
         dataset_dir=dataset_dir,
         seed=seed,
         primary_lambda=primary_lambda,
         tau=tau,
+        allow_estimated_latency=allow_estimated_latency,
     )
 
     train_loader = DataLoader(
