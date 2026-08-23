@@ -33,7 +33,7 @@ LR_W="${LR_W:-640}"
 HR_H="${HR_H:-720}"
 HR_W="${HR_W:-1248}"
 NUM_FRAMES="${NUM_FRAMES:-81}"
-PRIMARY_LAMBDA="${PRIMARY_LAMBDA:-0.05}"
+PRIMARY_LAMBDA="${PRIMARY_LAMBDA:-0.01}"
 SKIP_EXISTING="${SKIP_EXISTING:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 CLEAN_VIDEOS="${CLEAN_VIDEOS:-0}"
@@ -151,4 +151,3 @@ if [[ "${CLEAN_VIDEOS}" == "1" ]]; then
 fi
 
 python "${SCRIPT_DIR}/build_oracle_trajectory_dataset.py" "${py_args[@]}"
-

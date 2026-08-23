@@ -38,6 +38,7 @@ QUALITY5_DIMENSIONS = [
 ]
 
 FORMAL_STEPS = [30, 35, *range(40, 51)]
+UTILITY_LAMBDAS = [0.01, 0.02, 0.05, 0.10, 0.20]
 
 
 def parse_args() -> argparse.Namespace:
@@ -69,9 +70,22 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--ngpus", type=int, default=4, help="Number of GPUs for VBench torchrun.")
     parser.add_argument(
+        "--expected_prompts",
+        type=int,
+        default=None,
+        help="Require this exact number of prompt IDs before writing scored records.",
+    )
+    parser.add_argument(
+        "--expected_seeds",
+        type=int,
+        nargs="+",
+        default=[42, 100, 2024],
+        help="Require every prompt to contain exactly these seeds.",
+    )
+    parser.add_argument(
         "--primary_lambda",
         type=float,
-        default=0.05,
+        default=0.01,
         help="Tradeoff lambda for optimal stopping step calculation.",
     )
     parser.add_argument(
@@ -295,6 +309,7 @@ def backfill_seed_records(
     skip_existing: bool,
 ) -> dict[str, Any]:
     """Runs VBench on all step directories of a seed, compiles scores, and backfills manifests."""
+    utility_lambdas = sorted(set([*UTILITY_LAMBDAS, float(primary_lambda)]))
     manifest_dir = seed_dir / "manifests"
     videos_root = seed_dir / "videos"
     metrics_root = seed_dir / "metrics" / "vbench_eval"
@@ -362,6 +377,7 @@ def backfill_seed_records(
 
     # 2. Backfill scores into sample records
     compiled_records = []
+    validation_errors: list[str] = []
     for m_file, m in zip(manifest_files, sample_manifests):
         p_idx = int(m["prompt_index"])
         seed = int(m["seed"])
@@ -370,8 +386,20 @@ def backfill_seed_records(
         # Native HR timing & score
         native_stem = f"{sample_id}_native_hr"
         native_dims = case_scores.get("native_hr", {}).get(native_stem, {})
-        native_vbench5 = float(np.mean(list(native_dims.values()))) if native_dims else 0.817
-        native_lat = float(m.get("native_hr", {}).get("estimated_warm_pipeline_seconds", 189.0)) if isinstance(m.get("native_hr"), dict) else 189.0
+        missing_native_dims = [dim for dim in dimensions if dim not in native_dims]
+        native_info = m.get("native_hr") if isinstance(m.get("native_hr"), dict) else {}
+        native_lat = float(native_info.get("warm_pipeline_seconds", 0.0))
+        if missing_native_dims:
+            validation_errors.append(
+                f"{sample_id}: native_hr missing VBench dimensions {missing_native_dims}"
+            )
+        if not np.isfinite(native_lat) or native_lat <= 0.0:
+            validation_errors.append(
+                f"{sample_id}: native_hr missing positive warm_pipeline_seconds"
+            )
+        if missing_native_dims or not np.isfinite(native_lat) or native_lat <= 0.0:
+            continue
+        native_vbench5 = float(np.mean([native_dims[dim] for dim in dimensions]))
 
         candidates_list = []
         branches = m.get("branches", [])
@@ -381,15 +409,34 @@ def backfill_seed_records(
             case_name = f"step{s}"
             vstem = f"{sample_id}_{case_name}"
             s_dims = case_scores.get(case_name, {}).get(vstem, {})
-            s_vb = float(np.mean(list(s_dims.values()))) if s_dims else native_vbench5
+            missing_dims = [dim for dim in dimensions if dim not in s_dims]
+            if missing_dims:
+                validation_errors.append(
+                    f"{sample_id}: step {s} missing VBench dimensions {missing_dims}"
+                )
+                continue
+            s_vb = float(np.mean([s_dims[dim] for dim in dimensions]))
 
             b_info = branch_dict.get(s, {})
-            lat = float(b_info.get("estimated_warm_pipeline_seconds", 50.0))
+            if "warm_pipeline_seconds" in b_info:
+                latency_source = "warm_pipeline_seconds"
+                lat = float(b_info[latency_source])
+            elif "estimated_warm_pipeline_seconds" in b_info:
+                latency_source = "estimated_warm_pipeline_seconds"
+                lat = float(b_info[latency_source])
+            else:
+                latency_source = "missing"
+                lat = 0.0
+            if not np.isfinite(lat) or lat <= 0.0:
+                validation_errors.append(
+                    f"{sample_id}: step {s} missing positive branch latency"
+                )
+                continue
 
             # Multi-lambda utilities
             u_dict = {
                 f"u_{lam:.2f}": s_vb - lam * (lat / max(native_lat, 1e-5))
-                for lam in [0.01, 0.02, 0.05, 0.10, 0.20]
+                for lam in utility_lambdas
             }
 
             candidates_list.append({
@@ -397,11 +444,15 @@ def backfill_seed_records(
                 "vbench5": round(s_vb, 5),
                 "dimensions": {k: round(v, 5) for k, v in s_dims.items()},
                 "latency_seconds": round(lat, 2),
+                "latency_source": latency_source,
                 "speedup_vs_native": round(native_lat / max(lat, 1e-5), 2),
                 "utilities": {k: round(v, 6) for k, v in u_dict.items()},
             })
 
-        # Calculate optimal step for primary lambda
+        if len(candidates_list) != len(FORMAL_STEPS):
+            continue
+
+        # Calculate optimal steps for every stored lambda.
         u_key = f"u_{primary_lambda:.2f}"
         opt_cand = max(candidates_list, key=lambda c: c["utilities"].get(u_key, 0.0))
 
@@ -411,11 +462,28 @@ def backfill_seed_records(
             "prompt_text": m.get("prompt", ""),
             "native_vbench5": round(native_vbench5, 5),
             "native_latency_seconds": round(native_lat, 2),
+            "native_dimensions": {k: round(native_dims[k], 5) for k in dimensions},
+            "native_latency_source": "warm_pipeline_seconds",
             "candidates": candidates_list,
             f"optimal_step_lambda_{int(primary_lambda*100):03d}": opt_cand["step"],
-            "optimal_step_lambda_005": opt_cand["step"],
         }
+        for lam in utility_lambdas:
+            key = f"u_{lam:.2f}"
+            best = max(candidates_list, key=lambda c: c["utilities"][key])
+            rec[f"optimal_step_lambda_{int(lam * 100):03d}"] = best["step"]
         compiled_records.append(rec)
+
+    if validation_errors:
+        preview = "\n".join(f"  - {item}" for item in validation_errors[:50])
+        suffix = (
+            ""
+            if len(validation_errors) <= 50
+            else f"\n  ... and {len(validation_errors) - 50} more"
+        )
+        raise RuntimeError(
+            "Refusing to backfill incomplete oracle scores or timings:\n"
+            f"{preview}{suffix}"
+        )
 
     return {"seed": seed, "records": compiled_records}
 
@@ -439,12 +507,16 @@ def main() -> None:
         else [dataset_dir]
     )
     seed_dirs = discover_seed_dirs(source_dirs)
+    if not seed_dirs:
+        raise FileNotFoundError(
+            f"No raw_samples/seed_* directories found under {[str(d) for d in source_dirs]}"
+        )
     logger.info(f"Discovered {len(seed_dirs)} seed raw sample directories to score from {[str(d) for d in source_dirs]}:")
     for s in seed_dirs:
         logger.info(f"  - {s}")
 
-    total_backfilled = 0
     optimal_steps_histogram = {}
+    compiled_by_key: dict[tuple[int, int], tuple[dict[str, Any], Path]] = {}
 
     for s_idx, s_dir in enumerate(seed_dirs, 1):
         logger.info(f"\n[{s_idx}/{len(seed_dirs)}] Evaluating and backfilling seed directory: {s_dir.name}")
@@ -462,14 +534,71 @@ def main() -> None:
         for r in records:
             p_id = r["prompt_id"]
             seed = r["seed"]
-            opt_s = r["optimal_step_lambda_005"]
-            optimal_steps_histogram[opt_s] = optimal_steps_histogram.get(opt_s, 0) + 1
+            record_key = (int(p_id), int(seed))
+            if record_key in compiled_by_key:
+                previous_record, previous_source = compiled_by_key[record_key]
+                if previous_record != r:
+                    raise RuntimeError(
+                        f"Conflicting duplicate oracle record {record_key} from "
+                        f"{previous_source} and {s_dir}"
+                    )
+                logger.info(
+                    f"Skipping identical duplicate oracle record {record_key} from {s_dir}"
+                )
+                continue
+            compiled_by_key[record_key] = (r, s_dir)
+    if not compiled_by_key:
+        raise RuntimeError("No oracle records were backfilled; refusing to continue")
 
-            # Save / update unified record JSON
-            rec_path = final_records_dir / f"p{p_id:06d}_s{seed}.json"
-            rec_path.write_text(json.dumps(r, indent=2, ensure_ascii=False), encoding="utf-8")
-            total_backfilled += 1
+    expected_seed_set = {int(seed) for seed in args.expected_seeds}
+    records_by_prompt: dict[int, set[int]] = {}
+    for prompt_id, seed in compiled_by_key:
+        records_by_prompt.setdefault(prompt_id, set()).add(seed)
+    seed_errors = {
+        prompt_id: sorted(seeds)
+        for prompt_id, seeds in records_by_prompt.items()
+        if seeds != expected_seed_set
+    }
+    if seed_errors:
+        preview = list(sorted(seed_errors.items()))[:30]
+        raise RuntimeError(
+            f"Seed coverage mismatch; expected {sorted(expected_seed_set)}, "
+            f"examples={preview}"
+        )
+    if args.expected_prompts is not None and len(records_by_prompt) != args.expected_prompts:
+        raise RuntimeError(
+            f"Prompt coverage mismatch: expected {args.expected_prompts}, "
+            f"got {len(records_by_prompt)}"
+        )
 
+    record_files = []
+    opt_key = f"optimal_step_lambda_{int(args.primary_lambda * 100):03d}"
+    for (prompt_id, seed), (record, _) in sorted(compiled_by_key.items()):
+        opt_s = record[opt_key]
+        optimal_steps_histogram[opt_s] = optimal_steps_histogram.get(opt_s, 0) + 1
+        rec_path = final_records_dir / f"p{prompt_id:06d}_s{seed}.json"
+        rec_path.write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding="utf-8")
+        record_files.append(rec_path.name)
+
+    manifest = {
+        "schema": "prompt_conditioned_scored_oracle_dataset_v2",
+        "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "total_prompts_found": len(records_by_prompt),
+        "expected_prompts": args.expected_prompts or len(records_by_prompt),
+        "total_trajectories": len(compiled_by_key),
+        "expected_trajectories": (args.expected_prompts or len(records_by_prompt))
+        * len(expected_seed_set),
+        "expected_seeds": sorted(expected_seed_set),
+        "candidate_steps": FORMAL_STEPS,
+        "primary_lambda": args.primary_lambda,
+        "record_files": record_files,
+        "is_complete": True,
+    }
+    (dataset_dir / "dataset_manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+    total_backfilled = len(compiled_by_key)
     logger.info(f"\nSuccessfully backfilled {total_backfilled} trajectory records into {final_records_dir}!")
     logger.info(f"Genuine Oracle Optimal Step Distribution (lambda={args.primary_lambda}): {dict(sorted(optimal_steps_histogram.items()))}")
 

@@ -5,12 +5,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 
 DATASET_DIR="${DATASET_DIR:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_1k}"
+SOURCE_DATASET_DIRS="${SOURCE_DATASET_DIRS:-${DATASET_DIR}}"
 VBENCH_ROOT="${VBENCH_ROOT:-/mnt/afs_2/houze/VBench}"
 NGPUS="${NGPUS:-4}"
-PRIMARY_LAMBDA="${PRIMARY_LAMBDA:-0.05}"
-OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/router_benchmarks_1k}"
+EXPECTED_PROMPTS="${EXPECTED_PROMPTS:-1000}"
+EXPECTED_SEEDS="${EXPECTED_SEEDS:-42 100 2024}"
+PRIMARY_LAMBDA="${PRIMARY_LAMBDA:-0.01}"
+OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/router_benchmarks_1k_lambda$(echo "${PRIMARY_LAMBDA}" | tr -d '.')}"
 
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
+read -r -a SOURCE_DATASET_ARRAY <<< "${SOURCE_DATASET_DIRS}"
+
+echo "Dataset target : ${DATASET_DIR}"
+echo "Dataset sources: ${SOURCE_DATASET_DIRS}"
+echo "Expected data  : ${EXPECTED_PROMPTS} prompts x seeds [${EXPECTED_SEEDS}]"
+echo "Primary lambda : ${PRIMARY_LAMBDA}"
+echo "Router outputs : ${OUT_DIR}"
 
 # Check and auto-install all dependencies and pre-warm models if needed
 if ! python -c "import clip, pyiqa; assert hasattr(clip, 'load')" 2>/dev/null; then
@@ -18,25 +28,29 @@ if ! python -c "import clip, pyiqa; assert hasattr(clip, 'load')" 2>/dev/null; t
   bash "${SCRIPT_DIR}/setup_environment.sh"
 fi
 
-# Clean potential corrupted torch hub cache from previous multi-process race
-rm -rf "${HOME}/.cache/torch/hub/main.zip"* "${HOME}/.cache/torch/hub/facebookresearch-dino"* "${HOME}/.cache/torch/hub/facebookresearch_dino"* 2>/dev/null || true
-
 echo "================================================================================"
-echo " [Step 1/3] Running Distributed VBench-5 Quality Scoring on Generated Videos..."
+echo " [Step 1/5] Running Distributed VBench-5 Quality Scoring on Generated Videos..."
 echo "================================================================================"
 python "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/batch_vbench_score_dataset.py" \
-  --input_dirs \
-    "${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_2k" \
-    "${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_500_1000" \
-    "${DATASET_DIR}" \
+  --input_dirs "${SOURCE_DATASET_ARRAY[@]}" \
   --dataset_dir "${DATASET_DIR}" \
   --vbench_root "${VBENCH_ROOT}" \
   --ngpus "${NGPUS}" \
+  --expected_prompts "${EXPECTED_PROMPTS}" \
+  --expected_seeds ${EXPECTED_SEEDS} \
   --primary_lambda "${PRIMARY_LAMBDA}"
 
 echo ""
 echo "================================================================================"
-echo " [Step 2/3] Training & Benchmarking Router Models on Genuine Oracle Labels..."
+echo " [Step 2/5] Strictly auditing scored oracle records..."
+echo "================================================================================"
+python "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/cleanup_legacy_records.py" \
+  --dataset_dir "${DATASET_DIR}" \
+  --strict
+
+echo ""
+echo "================================================================================"
+echo " [Step 3/5] Training & Benchmarking Router Models on prompt-level labels..."
 echo "================================================================================"
 python "${SCRIPT_DIR}/train_router.py" \
   --dataset_dir "${DATASET_DIR}" \
@@ -49,7 +63,7 @@ python "${SCRIPT_DIR}/train_router.py" \
 
 echo ""
 echo "================================================================================"
-echo " [Step 3/3] Running Token Attribution & Semantic Keyword Analysis..."
+echo " [Step 4/5] Running Token Attribution & Semantic Keyword Analysis..."
 echo "================================================================================"
 python "${SCRIPT_DIR}/analyze_token_attribution.py" \
   --checkpoint "${OUT_DIR}/linear_ordinal_router.pt" \
@@ -59,9 +73,11 @@ python "${SCRIPT_DIR}/analyze_token_attribution.py" \
 
 echo ""
 echo "================================================================================"
-echo " [Step 4/4] Printing Comprehensive Publication-Ready Report..."
+echo " [Step 5/5] Printing Comprehensive Publication-Ready Report..."
 echo "================================================================================"
-python "${SCRIPT_DIR}/print_results_summary.py"
+python "${SCRIPT_DIR}/print_results_summary.py" \
+  --out_dir "${OUT_DIR}" \
+  --dataset_dir "${DATASET_DIR}"
 
 echo ""
 echo "================================================================================"

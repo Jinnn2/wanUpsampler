@@ -11,7 +11,16 @@ import json
 import sys
 from pathlib import Path
 
+import numpy as np
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from changing_resolution_uni.scripts.data.oracle_record_schema import (
+    FORMAL_STEPS,
+    aggregate_prompt_records,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -79,25 +88,41 @@ def main() -> None:
     else:
         print(f"\n[!] Benchmark CSV not found at {csv_path}")
 
-    # 2. Optimal Step Histogram (computed directly from records)
+    summary_json = out_dir / "router_benchmark_summary.json"
+    primary_lambda = 0.01
+    if summary_json.is_file():
+        primary_lambda = float(
+            json.loads(summary_json.read_text(encoding="utf-8")).get(
+                "primary_lambda", primary_lambda
+            )
+        )
+
+    # 2. Prompt-level optimal step histogram (mean utility across seeds)
     records_dir = dataset_dir / "records"
     hist: dict[int, int] = {}
     if records_dir.is_dir():
+        records_by_prompt: dict[int, list[dict]] = {}
         for r_file in records_dir.glob("*.json"):
             try:
                 data = json.loads(r_file.read_text(encoding="utf-8"))
-                cands = data.get("candidates", [])
-                if cands:
-                    # Find optimal step according to primary lambda or default
-                    opt_s = data.get("optimal_step_lambda_001") or data.get("optimal_step_lambda_005") or data.get("optimal_step")
-                    if opt_s is None:
-                        opt_s = max(cands, key=lambda c: float(c.get("utilities", {}).get("u_0.01", c.get("vbench5", 0.0))))["step"]
-                    hist[int(opt_s)] = hist.get(int(opt_s), 0) + 1
+                records_by_prompt.setdefault(int(data["prompt_id"]), []).append(data)
             except Exception:
                 pass
+        if records_by_prompt:
+            prompt_samples, _ = aggregate_prompt_records(
+                records_by_prompt,
+                candidate_steps=FORMAL_STEPS,
+                primary_lambda=primary_lambda,
+            )
+            for sample in prompt_samples.values():
+                opt_s = FORMAL_STEPS[int(np.argmax(sample["utilities"]))]
+                hist[opt_s] = hist.get(opt_s, 0) + 1
 
     if hist:
-        print("\n[2] Global Oracle Optimal Step Distribution (across dataset trajectories):")
+        print(
+            f"\n[2] Prompt Oracle Optimal Step Distribution "
+            f"(mean across seeds, lambda={primary_lambda:.2f}):"
+        )
         print(f"    - Step Histogram: {dict(sorted(hist.items()))}")
 
     # 3. Token Attribution Discovery (Top Late vs Early Switch Words)

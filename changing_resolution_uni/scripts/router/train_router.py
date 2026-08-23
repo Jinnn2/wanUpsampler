@@ -69,7 +69,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size.")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
     parser.add_argument("--weight_decay", type=float, default=1e-4, help="L2 regularization.")
-    parser.add_argument("--primary_lambda", type=float, default=0.05, help="Utility tradeoff lambda.")
+    parser.add_argument("--primary_lambda", type=float, default=0.01, help="Utility tradeoff lambda.")
     parser.add_argument("--seed", type=int, default=42, help="Random split and init seed.")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     return parser.parse_args()
@@ -100,6 +100,7 @@ def evaluate_policy_on_loader(
     total_regret = 0.0
     total_realized_u = 0.0
     total_oracle_u = 0.0
+    total_seed_oracle_u = 0.0
     total_realized_vbench = 0.0
     total_realized_latency = 0.0
     total_native_latency = 0.0
@@ -137,7 +138,8 @@ def evaluate_policy_on_loader(
         oracle_u = utilities[batch_indices, target_idx]
         realized_vb = vbench[batch_indices, chosen_idx]
         realized_lat = latencies[batch_indices, chosen_idx]
-        native_lat = batch.get("native_latency", torch.full((B,), 189.0, dtype=torch.float32))
+        native_lat = batch["native_latency"]
+        seed_oracle_u = batch["seed_oracle_utility"]
 
         regret = (oracle_u - realized_u).clamp(min=0.0)
         step_mae = (chosen_step - target_step).abs().float()
@@ -146,6 +148,7 @@ def evaluate_policy_on_loader(
         total_regret += regret.sum().item()
         total_realized_u += realized_u.sum().item()
         total_oracle_u += oracle_u.sum().item()
+        total_seed_oracle_u += seed_oracle_u.sum().item()
         total_realized_vbench += realized_vb.sum().item()
         total_realized_latency += realized_lat.sum().item()
         total_native_latency += native_lat.sum().item()
@@ -153,7 +156,7 @@ def evaluate_policy_on_loader(
 
         # Accuracy
         correct_top1 += (chosen_idx == target_idx).sum().item()
-        # Top-3 distance (|chosen_idx - target_idx| <= 1)
+        # Neighbor accuracy: exact or one adjacent candidate index.
         correct_top3 += ((chosen_idx - target_idx).abs() <= 1).sum().item()
 
     n = max(total_samples, 1)
@@ -165,6 +168,10 @@ def evaluate_policy_on_loader(
         "policy_regret": total_regret / n,
         "realized_utility": total_realized_u / n,
         "oracle_utility": total_oracle_u / n,
+        "seed_oracle_utility": total_seed_oracle_u / n,
+        "regret_to_seed_oracle": max(
+            0.0, (total_seed_oracle_u - total_realized_u) / n
+        ),
         "realized_vbench5": total_realized_vbench / n,
         "realized_latency_sec": mean_lat,
         "speedup_vs_native": speedup,
@@ -297,7 +304,7 @@ def main() -> None:
 
     # 1. Oracle Upper Bound
     oracle_test = evaluate_policy_on_loader(None, test_loader, cand_steps, device, is_oracle=True)
-    results.append({"Method": "Oracle (Upper Bound)", **oracle_test})
+    results.append({"Method": "Prompt Oracle (Upper Bound)", **oracle_test})
 
     # Evaluate all fixed steps on training set to find the empirical best fixed policy
     train_fixed_regrets = {}

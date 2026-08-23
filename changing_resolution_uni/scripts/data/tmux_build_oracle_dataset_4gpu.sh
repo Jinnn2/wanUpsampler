@@ -12,6 +12,7 @@ SEEDS="${SEEDS:-42 100 2024}"
 OUT_ROOT="${OUT_ROOT:-}"
 CLEAN_VIDEOS="${CLEAN_VIDEOS:-0}"
 DRY_RUN="${DRY_RUN:-0}"
+PRIMARY_LAMBDA="${PRIMARY_LAMBDA:-0.01}"
 
 if ! command -v tmux >/dev/null 2>&1; then
   echo "tmux is not installed or not in PATH." >&2
@@ -32,10 +33,16 @@ echo "  Prompt Offset: ${PROMPT_OFFSET}"
 echo "  Total Prompts: ${TOTAL_PROMPTS}"
 echo "  GPU Devices  : ${GPU_IDS}"
 echo "  Seeds        : ${SEEDS}"
+echo "  Primary Lambda: ${PRIMARY_LAMBDA}"
 echo "  Log File     : ${LOG_FILE}"
 
-tmux new-session -d -s "${SESSION_NAME}" \
-  "bash -c 'TOTAL_PROMPTS=\"${TOTAL_PROMPTS}\" PROMPT_OFFSET=\"${PROMPT_OFFSET}\" GPU_IDS=\"${GPU_IDS}\" SEEDS=\"${SEEDS}\" OUT_ROOT=\"${OUT_ROOT}\" CLEAN_VIDEOS=\"${CLEAN_VIDEOS}\" DRY_RUN=\"${DRY_RUN}\" bash \"${SCRIPT_DIR}/build_oracle_dataset_4gpu.sh\" 2>&1 | tee -a \"${LOG_FILE}\"'"
+printf -v RUN_COMMAND \
+  'env PROJECT_ROOT=%q TOTAL_PROMPTS=%q PROMPT_OFFSET=%q GPU_IDS=%q SEEDS=%q OUT_ROOT=%q CLEAN_VIDEOS=%q DRY_RUN=%q PRIMARY_LAMBDA=%q bash %q 2>&1 | tee -a %q' \
+  "${PROJECT_ROOT}" "${TOTAL_PROMPTS}" "${PROMPT_OFFSET}" "${GPU_IDS}" \
+  "${SEEDS}" "${OUT_ROOT}" "${CLEAN_VIDEOS}" "${DRY_RUN}" \
+  "${PRIMARY_LAMBDA}" "${SCRIPT_DIR}/build_oracle_dataset_4gpu.sh" "${LOG_FILE}"
+
+tmux new-session -d -s "${SESSION_NAME}" "${RUN_COMMAND}"
 
 echo "Started successfully!"
 echo "To attach to monitor progress:"

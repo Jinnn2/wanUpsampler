@@ -22,6 +22,7 @@ EXTRACT_T5="${EXTRACT_T5:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 SKIP_EXISTING="${SKIP_EXISTING:-1}"
 CLEAN_VIDEOS="${CLEAN_VIDEOS:-0}"
+PRIMARY_LAMBDA="${PRIMARY_LAMBDA:-0.01}"
 
 IFS=',' read -r -a GPUS <<< "${GPU_IDS}"
 NUM_GPUS="${#GPUS[@]}"
@@ -140,6 +141,7 @@ for rank in "${!GPUS[@]}"; do
     SKIP_EXISTING="${SKIP_EXISTING}" \
     DRY_RUN="${DRY_RUN}" \
     CLEAN_VIDEOS="${CLEAN_VIDEOS}" \
+    PRIMARY_LAMBDA="${PRIMARY_LAMBDA}" \
     bash "${SCRIPT_DIR}/run_oracle_worker.sh"
   ) >"${log_path}" 2>&1 &
 
@@ -203,7 +205,8 @@ python "${SCRIPT_DIR}/merge_and_verify_oracle_dataset.py" \
   --parts_dir "${PARTS_DIR}" \
   --out_root "${OUT_ROOT}" \
   --total_prompts "${TOTAL_PROMPTS}" \
-  --seeds ${SEEDS}
+  --seeds ${SEEDS} \
+  --primary_lambda "${PRIMARY_LAMBDA}"
 
 echo "================================================================================"
 echo " Dataset Generation Complete!"

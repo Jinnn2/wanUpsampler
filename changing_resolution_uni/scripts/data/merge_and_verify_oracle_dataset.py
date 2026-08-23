@@ -46,21 +46,38 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out_root", type=str, required=True, help="Final master output root directory.")
     parser.add_argument("--total_prompts", type=int, default=1000, help="Expected total unique prompts.")
     parser.add_argument("--seeds", type=int, nargs="+", default=[42, 100, 2024], help="Expected seed list per prompt.")
-    parser.add_argument("--primary_lambda", type=float, default=0.05, help="Lambda for regret and utility calculation.")
+    parser.add_argument("--primary_lambda", type=float, default=0.01, help="Lambda for regret and utility calculation.")
     return parser.parse_args()
 
 
 def extract_candidates_from_record(
-    s_data: dict[str, Any], u_key: str, default_lambda: float = 0.05
+    s_data: dict[str, Any], u_key: str, default_lambda: float = 0.01
 ) -> tuple[list[int], np.ndarray, np.ndarray]:
     """Extract candidate steps, utilities, and vbench5 scores from a trajectory record."""
     if "candidates" in s_data and s_data["candidates"]:
         cands = s_data["candidates"]
         cand_steps = [int(c["step"]) for c in cands]
-        utilities = np.array(
-            [float(c.get("utilities", {}).get(u_key, c.get("vbench5", 0.0))) for c in cands],
-            dtype=np.float64,
-        )
+        native_lat = float(s_data.get("native_latency_seconds", 0.0))
+        if native_lat > 0.0 and all(
+            float(c.get("latency_seconds", 0.0)) > 0.0 for c in cands
+        ):
+            utilities = np.array(
+                [
+                    float(c.get("vbench5", 0.0))
+                    - default_lambda
+                    * (float(c.get("latency_seconds", 0.0)) / native_lat)
+                    for c in cands
+                ],
+                dtype=np.float64,
+            )
+        elif all(u_key in c.get("utilities", {}) for c in cands):
+            utilities = np.array(
+                [float(c["utilities"][u_key]) for c in cands], dtype=np.float64
+            )
+        else:
+            utilities = np.array(
+                [float(c.get("vbench5", 0.0)) for c in cands], dtype=np.float64
+            )
         vbench5 = np.array([float(c.get("vbench5", 0.0)) for c in cands], dtype=np.float64)
         return cand_steps, utilities, vbench5
 
@@ -167,6 +184,15 @@ def main() -> None:
 
     num_found = len(all_records)
     logger.info(f"Successfully indexed {num_found} unique trajectory records across {len(prompts_map)} prompts.")
+    seed_coverage_complete = all(
+        set(prompt_info["seeds"]) == expected_seeds
+        for prompt_info in prompts_map.values()
+    )
+    is_complete = (
+        len(prompts_map) == args.total_prompts
+        and num_found == expected_total_trajectories
+        and seed_coverage_complete
+    )
 
     # ── Scientific Metric Computation: R_prompt & Variance ─────────────────────
     u_key = f"u_{args.primary_lambda:.2f}"
@@ -300,7 +326,9 @@ def main() -> None:
         "expected_prompts": args.total_prompts,
         "total_trajectories": num_found,
         "expected_trajectories": expected_total_trajectories,
-        "is_complete": (num_found == expected_total_trajectories),
+        "expected_seeds": sorted(expected_seeds),
+        "seed_coverage_complete": seed_coverage_complete,
+        "is_complete": is_complete,
         "primary_lambda": args.primary_lambda,
         "scientific_metrics": {
             "prompt_explainable_regret_R_prompt": round(mean_regret_global, 6),
@@ -317,12 +345,14 @@ def main() -> None:
     print("=" * 80)
     print(f" Total Unique Prompts : {len(prompts_map)} / {args.total_prompts}")
     print(f" Total Trajectories    : {num_found} / {expected_total_trajectories}")
-    print(f" Completion Status     : {'[COMPLETE]' if num_found == expected_total_trajectories else '[PARTIAL / IN PROGRESS]'}")
+    print(f" Completion Status     : {'[COMPLETE]' if is_complete else '[PARTIAL / IN PROGRESS]'}")
     print("-" * 80)
     print(f" Prompt-Explainable Regret (R_prompt) : {mean_regret_global:.6f}")
     print(f" Mean Intra-Prompt Seed Std          : {mean_step_std:.3f} steps")
     print(f" Oracle Optimal Step Distribution    : {dict(sorted(step_histogram.items()))}")
     print("=" * 80 + "\n")
+    if not is_complete:
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":

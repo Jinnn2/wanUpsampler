@@ -57,8 +57,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hr_h", type=int, default=720, help="High-res height.")
     parser.add_argument("--hr_w", type=int, default=1248, help="High-res width.")
     parser.add_argument("--num_frames", type=int, default=81, help="Video frame count.")
-    parser.add_argument("--lambda_list", type=float, nargs="+", default=[0.0, 0.02, 0.05, 0.08, 0.10], help="Utility lambdas.")
-    parser.add_argument("--primary_lambda", type=float, default=0.05, help="Primary lambda for default decision labeling.")
+    parser.add_argument("--lambda_list", type=float, nargs="+", default=[0.01, 0.02, 0.05, 0.10, 0.20], help="Utility lambdas.")
+    parser.add_argument("--primary_lambda", type=float, default=0.01, help="Primary lambda for default decision labeling.")
     parser.add_argument("--lightx2v_repo", type=str, default="/mnt/afs_2/houze/LightX2V")
     parser.add_argument("--model_root", type=str, default="/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B")
     parser.add_argument("--stage2_checkpoint", type=str, default=None)
@@ -101,6 +101,7 @@ def simulate_oracle_evaluation(
     candidate_steps: list[int],
     infer_steps: int,
     lambdas: list[float],
+    primary_lambda: float,
 ) -> dict[str, Any]:
     """Dry-run synthetic trajectory generator for testing sharding and aggregation."""
     rng = np.random.RandomState((prompt_id * 10007 + seed) % (2**31 - 1))
@@ -145,11 +146,12 @@ def simulate_oracle_evaluation(
         })
 
     # Find optimal for primary lambda (e.g. 0.05)
-    best_u005 = -1e9
+    primary_key = f"u_{primary_lambda:.2f}"
+    best_primary = -1e9
     optimal_step = candidate_steps[-1]
     for c in candidates:
-        if c["utilities"]["u_0.05"] > best_u005:
-            best_u005 = c["utilities"]["u_0.05"]
+        if c["utilities"][primary_key] > best_primary:
+            best_primary = c["utilities"][primary_key]
             optimal_step = c["step"]
 
     return {
@@ -162,7 +164,7 @@ def simulate_oracle_evaluation(
             "step": infer_steps,
         },
         "candidates": candidates,
-        "optimal_step_lambda_005": optimal_step,
+        f"optimal_step_lambda_{int(primary_lambda * 100):03d}": optimal_step,
     }
 
 
@@ -242,7 +244,7 @@ def parse_sample_manifest(
                 "prompt_text": prompt_text,
                 "seed": seed,
                 "candidates": cands_list,
-                "optimal_step_lambda_005": opt_step,
+                f"optimal_step_lambda_{int(args.primary_lambda * 100):03d}": opt_step,
             }
 
     # Fallback to reading single manifest if available
@@ -253,7 +255,7 @@ def parse_sample_manifest(
             "prompt_text": prompt_text,
             "seed": seed,
             "manifest": m_data,
-            "optimal_step_lambda_005": args.candidate_steps[-1],
+            f"optimal_step_lambda_{int(args.primary_lambda * 100):03d}": args.candidate_steps[-1],
         }
 
     return {"prompt_id": prompt_id, "prompt_text": prompt_text, "seed": seed, "status": "manifest_not_found"}
@@ -261,6 +263,7 @@ def parse_sample_manifest(
 
 def main() -> None:
     args = parse_args()
+    args.lambda_list = sorted(set([*args.lambda_list, float(args.primary_lambda)]))
     out_root = Path(args.out_root).resolve()
     out_root.mkdir(parents=True, exist_ok=True)
     records_dir = out_root / "records"
@@ -298,7 +301,9 @@ def main() -> None:
                     "prompt_id": prompt_id,
                     "seed": seed,
                     "prompt_text": prompt_text,
-                    "optimal_step": existing_record.get("optimal_step_lambda_005"),
+                    "optimal_step": existing_record.get(
+                        f"optimal_step_lambda_{int(args.primary_lambda * 100):03d}"
+                    ),
                     "record_file": str(record_json),
                 })
                 done_count += 1
@@ -312,6 +317,7 @@ def main() -> None:
                     candidate_steps=args.candidate_steps,
                     infer_steps=args.infer_steps,
                     lambdas=args.lambda_list,
+                    primary_lambda=args.primary_lambda,
                 )
             else:
                 b_metrics = batch_metrics_by_seed.get(seed, {})
@@ -342,7 +348,9 @@ def main() -> None:
                 "prompt_id": prompt_id,
                 "seed": seed,
                 "prompt_text": prompt_text,
-                "optimal_step": traj_record.get("optimal_step_lambda_005"),
+                "optimal_step": traj_record.get(
+                    f"optimal_step_lambda_{int(args.primary_lambda * 100):03d}"
+                ),
                 "record_file": str(record_json),
             })
             done_count += 1

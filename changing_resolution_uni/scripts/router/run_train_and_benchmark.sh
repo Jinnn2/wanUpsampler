@@ -25,9 +25,11 @@ echo "==========================================================================
 
 # ── Step 1: Clean & Prepare Dataset Records ────────────────────────────────────
 echo ""
-echo "[Step 1/4] Verifying and cleaning trajectory records in ${DATASET_DIR}..."
+echo "[Step 1/4] Strictly auditing trajectory records in ${DATASET_DIR}..."
 if [[ -f "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/cleanup_legacy_records.py" ]]; then
-  python "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/cleanup_legacy_records.py"
+  python "${PROJECT_ROOT}/changing_resolution_uni/scripts/data/cleanup_legacy_records.py" \
+    --dataset_dir "${DATASET_DIR}" \
+    --strict
 fi
 
 # ── Step 2: Train & Benchmark All Router Models ────────────────────────────────
