@@ -83,9 +83,9 @@ echo "==========================================================================
 echo " [Step 4/5] Running Token Attribution & Semantic Keyword Analysis..."
 echo "================================================================================"
 python "${SCRIPT_DIR}/analyze_token_attribution.py" \
-  --checkpoint "${OUT_DIR}/linear_ordinal_router.pt" \
+  --checkpoint "${OUT_DIR}/mlp_distill_router.pt" \
   --dataset_dir "${DATASET_DIR}" \
-  --out_dir "${OUT_DIR}/token_attribution" \
+  --out_dir "${OUT_DIR}/token_attribution_b4" \
   --top_k 30
 
 echo ""

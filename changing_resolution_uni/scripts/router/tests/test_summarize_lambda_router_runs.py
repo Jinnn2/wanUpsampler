@@ -12,7 +12,7 @@ from changing_resolution_uni.scripts.router import summarize_lambda_router_runs
 
 
 class SummarizeLambdaRouterRunsTest(unittest.TestCase):
-    def test_combines_runs_and_selects_lowest_regret_learned_model(self) -> None:
+    def test_combines_runs_without_selecting_architecture_on_test(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for lambda_value, regrets in ((0.01, (0.2, 0.1)), (0.02, (0.05, 0.08))):
@@ -39,13 +39,12 @@ class SummarizeLambdaRouterRunsTest(unittest.TestCase):
             ):
                 summarize_lambda_router_runs.main()
 
-            with (root / "lambda_best_learned_models.csv").open(
-                encoding="utf-8"
-            ) as handle:
+            with (root / "lambda_b4_results.csv").open(encoding="utf-8") as handle:
                 rows = list(csv.DictReader(handle))
             self.assertEqual(len(rows), 2)
             self.assertEqual(rows[0]["Method"], "Learned: Soft Distillation MLP (B4)")
-            self.assertEqual(rows[1]["Method"], "Learned: Linear Probe (B1)")
+            self.assertEqual(rows[1]["Method"], "Learned: Soft Distillation MLP (B4)")
+            self.assertFalse((root / "lambda_best_learned_models.csv").exists())
 
 
 if __name__ == "__main__":

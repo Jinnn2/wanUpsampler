@@ -32,7 +32,7 @@ read -r -a lambda_array <<< "${TRAIN_LAMBDAS}"
 for lambda_value in "${lambda_array[@]}"; do
   lambda_slug="${lambda_value//./}"
   lambda_out="${TRAIN_ROOT}/lambda_${lambda_slug}"
-  checkpoint="${lambda_out}/linear_ordinal_router.pt"
+  checkpoint="${lambda_out}/mlp_distill_router.pt"
   if [[ ! -f "${checkpoint}" ]]; then
     echo "Missing trained checkpoint for lambda=${lambda_value}: ${checkpoint}" >&2
     exit 2
@@ -42,7 +42,7 @@ for lambda_value in "${lambda_array[@]}"; do
     --checkpoint "${checkpoint}" \
     --dataset_dir "${DATASET_DIR}" \
     --t5_dir "${TOKEN_T5_DIR}" \
-    --out_dir "${lambda_out}/token_attribution" \
+    --out_dir "${lambda_out}/token_attribution_b4" \
     --top_k 30
   python "${SCRIPT_DIR}/print_results_summary.py" \
     --out_dir "${lambda_out}" \

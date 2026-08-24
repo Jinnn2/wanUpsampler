@@ -1,39 +1,36 @@
 #!/usr/bin/env python3
-"""
-Reverse Token Attribution & Semantic Analysis for Linear Ordinal Switch Router.
-Extracts r_i = w^T h_i for every token in prompts, discovers top early-switch
-and late-switch semantic keywords, and performs counterfactual prompt interventions.
-"""
+"""Token attribution for the nonlinear B4 router via leave-one-token-out effects."""
+
 from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import logging
+import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-logger = logging.getLogger("token_attribution")
+logger = logging.getLogger("token_attribution_b4")
 
-import sys
-
-# Add repo root to path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from changing_resolution_uni.scripts.router.model_router import LinearOrdinalRouter
-from changing_resolution_uni.scripts.router.token_word_utils import (
+from changing_resolution_uni.scripts.router.model_router import (  # noqa: E402
+    SoftDistillationMLPRouter,
+)
+from changing_resolution_uni.scripts.router.token_word_utils import (  # noqa: E402
     ENGLISH_STOPWORDS,
     clean_token,
     merge_subtokens_to_words,
@@ -42,86 +39,145 @@ from changing_resolution_uni.scripts.router.token_word_utils import (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Analyze token attributions of linear ordinal router.")
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--checkpoint",
-        type=str,
-        default=str(REPO_ROOT / "outputs" / "router_benchmarks_1k" / "linear_ordinal_router.pt"),
-        help="Path to trained linear ordinal router checkpoint.",
+        default=str(
+            REPO_ROOT / "outputs" / "router_benchmarks_1k" / "mlp_distill_router.pt"
+        ),
     )
     parser.add_argument(
         "--dataset_dir",
-        type=str,
-        default=str(REPO_ROOT / "data" / "changing_resolution_uni" / "oracle_dataset_1k"),
-        help="Path to dataset directory containing t5_embeddings/ and records/.",
+        default=str(
+            REPO_ROOT / "data" / "changing_resolution_uni" / "oracle_dataset_1k"
+        ),
     )
     parser.add_argument(
         "--out_dir",
-        type=str,
-        default=str(REPO_ROOT / "outputs" / "router_benchmarks_1k" / "token_attribution"),
-        help="Output directory for attribution reports and tables.",
+        default=str(
+            REPO_ROOT / "outputs" / "router_benchmarks_1k" / "token_attribution_b4"
+        ),
     )
     parser.add_argument(
         "--t5_dir",
-        type=str,
         default=None,
-        help=(
-            "Optional directory containing seq_embedding NPZ files and token "
-            "metadata JSON; defaults to <dataset_dir>/t5_embeddings."
-        ),
+        help="Optional seq_embedding/token metadata directory.",
     )
-    parser.add_argument("--top_k", type=int, default=30, help="Top K words to export.")
+    parser.add_argument("--top_k", type=int, default=30)
+    parser.add_argument("--min_word_count", type=int, default=3)
+    parser.add_argument("--include_stopwords", action="store_true")
+    parser.add_argument("--attribution_batch_size", type=int, default=64)
     parser.add_argument(
-        "--min_word_count",
-        type=int,
-        default=3,
-        help="Minimum number of natural-word occurrences used in Top Words.",
+        "--device", default="cuda" if torch.cuda.is_available() else "cpu"
     )
-    parser.add_argument(
-        "--include_stopwords",
-        action="store_true",
-        help="Include common English function words in natural-language Top Words.",
+    args = parser.parse_args()
+    if args.top_k < 1 or args.min_word_count < 1 or args.attribution_batch_size < 1:
+        parser.error(
+            "top_k, min_word_count, and attribution_batch_size must be positive"
+        )
+    return args
+
+
+def safe_load_checkpoint(path: Path) -> dict[str, Any]:
+    try:
+        return torch.load(path, map_location="cpu", weights_only=True)
+    except TypeError:
+        logger.warning(
+            "This PyTorch version lacks weights_only=True; using legacy loader"
+        )
+        return torch.load(path, map_location="cpu")
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+@torch.no_grad()
+def expected_step(
+    model: SoftDistillationMLPRouter,
+    pooled: torch.Tensor,
+    candidate_steps: torch.Tensor,
+) -> torch.Tensor:
+    probabilities = model(pooled)["discrete_probs"]
+    return (probabilities * candidate_steps.unsqueeze(0)).sum(dim=-1)
+
+
+@torch.no_grad()
+def leave_one_out_expected_step_deltas(
+    model: SoftDistillationMLPRouter,
+    seq_embedding: np.ndarray,
+    pooled_embedding: np.ndarray,
+    candidate_steps: list[int],
+    device: torch.device,
+    batch_size: int,
+) -> tuple[np.ndarray, float, int]:
+    """Return full-minus-token-removed expected-step deltas for every token."""
+    sequence = torch.from_numpy(np.asarray(seq_embedding, dtype=np.float32)).to(device)
+    if sequence.ndim != 2 or sequence.shape[1] != 4096:
+        raise ValueError(
+            f"expected seq_embedding [L,4096], got {tuple(sequence.shape)}"
+        )
+    pooled = torch.from_numpy(np.asarray(pooled_embedding, dtype=np.float32)).to(device)
+    if pooled.shape != (4096,):
+        raise ValueError(f"expected pooled_embedding [4096], got {tuple(pooled.shape)}")
+    steps = torch.tensor(candidate_steps, dtype=torch.float32, device=device)
+    full_output = model(pooled.unsqueeze(0))
+    full_expected = float(
+        (full_output["discrete_probs"] * steps.unsqueeze(0)).sum().item()
     )
-    return parser.parse_args()
+    predicted_index = int(full_output["pred_step_idx"].item())
+
+    token_count = sequence.shape[0]
+    if token_count <= 1:
+        return np.zeros(token_count, dtype=np.float32), full_expected, predicted_index
+    removed_pooled = (sequence.sum(dim=0, keepdim=True) - sequence) / (token_count - 1)
+    removed_scores: list[torch.Tensor] = []
+    for start in range(0, token_count, batch_size):
+        removed_scores.append(
+            expected_step(
+                model,
+                removed_pooled[start : start + batch_size],
+                steps,
+            ).cpu()
+        )
+    removed = torch.cat(removed_scores)
+    return (full_expected - removed.numpy()), full_expected, predicted_index
 
 
 def main() -> None:
     args = parse_args()
     out_dir = Path(args.out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_path = Path(args.checkpoint).resolve()
+    if not checkpoint_path.is_file():
+        raise FileNotFoundError(checkpoint_path)
 
-    ckpt_path = Path(args.checkpoint).resolve()
-    if not ckpt_path.is_file():
-        raise FileNotFoundError(f"Checkpoint not found at {ckpt_path}. Train the router first!")
-
-    ckpt = torch.load(ckpt_path, map_location="cpu")
-    cand_steps = ckpt.get("candidate_steps", [30, 35, *range(40, 51)])
-    K = len(cand_steps)
-
-    model = LinearOrdinalRouter(in_dim=4096, num_classes=K)
-    model.load_state_dict(ckpt["state_dict"])
-    model.eval()
-
-    # w: [4096]
-    w = model.linear.weight.squeeze(0).detach().numpy()
-    thresholds = model.get_monotonic_thresholds().detach().numpy()
-
-    logger.info(f"Loaded LinearOrdinalRouter (Weight norm: {np.linalg.norm(w):.4f}, Thresholds: {np.round(thresholds, 2)})")
+    checkpoint = safe_load_checkpoint(checkpoint_path)
+    model_type = checkpoint.get("model_type")
+    if model_type != "mlp_distill":
+        raise ValueError(
+            f"B4 attribution requires model_type='mlp_distill', got {model_type!r}"
+        )
+    candidate_steps = list(checkpoint.get("candidate_steps", [30, 35, *range(40, 51)]))
+    model = SoftDistillationMLPRouter(
+        in_dim=4096,
+        hidden_dims=[256, 128],
+        num_classes=len(candidate_steps),
+        dropout=0.1,
+    )
+    model.load_state_dict(checkpoint["state_dict"])
+    device = torch.device(args.device)
+    model.to(device).eval()
+    logger.info("Loaded B4 SoftDistillationMLPRouter on %s", device)
 
     dataset_root = Path(args.dataset_dir).resolve()
     t5_dir = (
-        Path(args.t5_dir).resolve()
-        if args.t5_dir
-        else dataset_root / "t5_embeddings"
+        Path(args.t5_dir).resolve() if args.t5_dir else dataset_root / "t5_embeddings"
     )
-    records_dir = dataset_root / "records"
-
-    # Gather token statistics across dataset
-    token_scores: dict[str, list[float]] = defaultdict(list)
-    natural_word_scores: dict[str, list[dict[str, float]]] = defaultdict(list)
-    sample_attributions: list[dict[str, Any]] = []
-    processing_errors: list[str] = []
-
     npz_files = sorted(t5_dir.glob("prompt_*.npz"))
     manifest_path = dataset_root / "dataset_manifest.json"
     if manifest_path.is_file():
@@ -137,71 +193,52 @@ def main() -> None:
                 for path in npz_files
                 if int(path.stem.split("_")[1]) in selected_prompt_ids
             ]
-    logger.info(f"Analyzing {len(npz_files)} prompt T5 token sequences...")
     if not npz_files:
-        raise RuntimeError(
-            f"No selected prompt embeddings found under {t5_dir}. "
-            "Run the token-attribution input audit before retrying."
-        )
+        raise RuntimeError(f"No selected prompt embeddings found under {t5_dir}")
 
-    for npz_file in npz_files:
+    token_scores: dict[str, list[float]] = defaultdict(list)
+    natural_word_scores: dict[str, list[dict[str, float]]] = defaultdict(list)
+    sample_attributions: list[dict[str, Any]] = []
+    processing_errors: list[str] = []
+    for npz_path in npz_files:
         try:
-            data = np.load(npz_file, allow_pickle=True)
-            if "seq_embedding" not in data.files:
+            with np.load(npz_path, allow_pickle=False) as data:
+                if "seq_embedding" not in data or "pooled_embedding" not in data:
+                    raise ValueError("missing seq_embedding or pooled_embedding")
+                sequence = np.asarray(data["seq_embedding"], dtype=np.float32)
+                pooled = np.asarray(data["pooled_embedding"], dtype=np.float32)
+            prompt_id = int(npz_path.stem.split("_")[1])
+            metadata_path = npz_path.with_suffix(".json")
+            if not metadata_path.is_file():
+                raise ValueError(f"missing token metadata {metadata_path.name}")
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            tokens = [str(token) for token in metadata.get("tokens", [])]
+            prompt_text = str(metadata.get("prompt_text", ""))
+            if len(tokens) != len(sequence):
                 raise ValueError(
-                    "missing seq_embedding; pooled-only T5 features support training "
-                    "but cannot support token attribution"
-                )
-            seq_emb = data["seq_embedding"].astype(np.float32)  # [L, 4096]
-            pid = int(npz_file.stem.split("_")[1])
-
-            # Load tokens and prompt_text from corresponding JSON metadata file
-            meta_json = t5_dir / f"{npz_file.stem}.json"
-            tokens = []
-            prompt_text = ""
-            if meta_json.is_file():
-                try:
-                    m_data = json.loads(meta_json.read_text(encoding="utf-8"))
-                    tokens = m_data.get("tokens", [])
-                    prompt_text = m_data.get("prompt_text", "")
-                except Exception:
-                    pass
-            if not tokens and "tokens" in data:
-                tokens = list(data["tokens"])
-            if not prompt_text and "prompt_text" in data:
-                prompt_text = str(data["prompt_text"])
-
-            if not tokens:
-                raise ValueError(
-                    "missing human-readable token metadata; expected prompt_*.json "
-                    "with a tokens list"
-                )
-            if len(tokens) != len(seq_emb):
-                raise ValueError(
-                    f"token/sequence length mismatch: tokens={len(tokens)}, "
-                    f"seq_embedding={len(seq_emb)}"
+                    f"token/sequence mismatch: tokens={len(tokens)} sequence={len(sequence)}"
                 )
 
-            # Exact token attribution r_i = w^T h_i
-            r_scores = np.dot(seq_emb, w.astype(np.float32))  # [L]
-
-            # Model prediction on this prompt
-            pooled = data["pooled_embedding"].astype(np.float32)
-            with torch.no_grad():
-                out = model(torch.from_numpy(pooled).float().unsqueeze(0))
-                pred_idx = out["pred_step_idx"].item()
-                pred_step = cand_steps[pred_idx]
-                switch_score = out["switch_score"].item()
-
-            token_list = []
-            for tok, score in zip(tokens, r_scores):
-                c_tok = clean_token(str(tok))
-                if len(c_tok) >= 2 and not c_tok.startswith("<") and not c_tok.endswith(">"):
-                    token_scores[c_tok.lower()].append(float(score))
-                    token_list.append({"token": c_tok, "attribution": round(float(score), 4)})
-            natural_words = merge_subtokens_to_words(
-                [str(token) for token in tokens], r_scores
+            deltas, full_expected, predicted_index = leave_one_out_expected_step_deltas(
+                model,
+                sequence,
+                pooled,
+                candidate_steps,
+                device,
+                args.attribution_batch_size,
             )
+            token_list = []
+            for token, delta in zip(tokens, deltas):
+                cleaned = clean_token(token)
+                if len(cleaned) >= 2 and not cleaned.startswith("<"):
+                    token_scores[cleaned.casefold()].append(float(delta))
+                    token_list.append(
+                        {
+                            "token": cleaned,
+                            "expected_step_delta": round(float(delta), 6),
+                        }
+                    )
+            natural_words = merge_subtokens_to_words(tokens, deltas)
             for occurrence in natural_words:
                 natural_word_scores[occurrence["word"]].append(
                     {
@@ -214,18 +251,18 @@ def main() -> None:
                         "subtoken_count": float(occurrence["subtoken_count"]),
                     }
                 )
-
-            sample_attributions.append({
-                "prompt_id": pid,
-                "prompt_text": prompt_text,
-                "switch_score": round(switch_score, 4),
-                "predicted_step": pred_step,
-                "tokens": token_list,
-                "natural_words": natural_words,
-            })
-        except Exception as e:
-            logger.warning(f"Error processing {npz_file}: {e}")
-            processing_errors.append(f"{npz_file.name}: {e}")
+            sample_attributions.append(
+                {
+                    "prompt_id": prompt_id,
+                    "prompt_text": prompt_text,
+                    "expected_step": round(full_expected, 6),
+                    "predicted_step": candidate_steps[predicted_index],
+                    "tokens": token_list,
+                    "natural_words": natural_words,
+                }
+            )
+        except Exception as exc:
+            processing_errors.append(f"{npz_path.name}: {exc}")
 
     if processing_errors:
         preview = "\n".join(f"  - {item}" for item in processing_errors[:20])
@@ -235,11 +272,10 @@ def main() -> None:
             else f"\n  ... and {len(processing_errors) - 20} more"
         )
         raise RuntimeError(
-            "Token attribution input validation failed; refusing to emit partial or "
-            f"empty Top Words:\n{preview}{suffix}"
+            "B4 token attribution failed closed on incomplete inputs:\n"
+            f"{preview}{suffix}"
         )
 
-    # Preserve subtoken-level results for traceability.
     token_summary = []
     for token, scores in token_scores.items():
         if len(scores) >= args.min_word_count:
@@ -252,33 +288,30 @@ def main() -> None:
                 }
             )
     token_summary.sort(key=lambda row: row["mean_attribution"], reverse=True)
-
-    # Natural words merge all SentencePiece pieces belonging to one occurrence.
     natural_summary = summarize_attributions(
         natural_word_scores, minimum_count=args.min_word_count
     )
     if not natural_summary:
-        raise RuntimeError(
-            "No natural words survived subtoken merging and occurrence filtering. "
-            "Inspect token metadata with audit_token_attribution_inputs.py."
-        )
+        raise RuntimeError("No natural words survived attribution filtering")
     natural_summary.sort(key=lambda row: row["mean_attribution"], reverse=True)
     ranking_candidates = [
         row
         for row in natural_summary
         if args.include_stopwords or row["word"] not in ENGLISH_STOPWORDS
     ]
-    top_late = ranking_candidates[: args.top_k]
+    top_late = [row for row in ranking_candidates if row["mean_attribution"] > 0.0][
+        : args.top_k
+    ]
     top_early = sorted(
-        ranking_candidates, key=lambda row: row["mean_attribution"]
+        [row for row in ranking_candidates if row["mean_attribution"] < 0.0],
+        key=lambda row: row["mean_attribution"],
     )[: args.top_k]
 
     word_fields = [
         "rank",
         "word",
-        "mean_attribution",
-        "std_attribution",
-        "mean_additive_contribution",
+        "mean_expected_step_delta",
+        "std_expected_step_delta",
         "mean_subtokens",
         "count",
     ]
@@ -292,11 +325,8 @@ def main() -> None:
                     {
                         "rank": rank,
                         "word": row["word"],
-                        "mean_attribution": f"{row['mean_attribution']:+.6f}",
-                        "std_attribution": f"{row['std_attribution']:.6f}",
-                        "mean_additive_contribution": (
-                            f"{row['mean_additive_contribution']:+.8f}"
-                        ),
+                        "mean_expected_step_delta": f"{row['mean_attribution']:+.8f}",
+                        "std_expected_step_delta": f"{row['std_attribution']:.8f}",
                         "mean_subtokens": f"{row['mean_subtokens']:.3f}",
                         "count": row["count"],
                     }
@@ -306,14 +336,26 @@ def main() -> None:
     write_word_ranking(out_dir / "top_early_switch_words.csv", top_early)
     write_word_ranking(out_dir / "natural_word_attributions.csv", natural_summary)
 
-    token_fields = ["rank", "token", "mean_attribution", "std_attribution", "count"]
+    token_fields = [
+        "rank",
+        "token",
+        "mean_expected_step_delta",
+        "std_expected_step_delta",
+        "count",
+    ]
     for filename, rows in (
-        ("top_late_switch_tokens.csv", token_summary[: args.top_k]),
         (
-            "top_early_switch_tokens.csv",
-            sorted(token_summary, key=lambda row: row["mean_attribution"])[
+            "top_late_switch_tokens.csv",
+            [row for row in token_summary if row["mean_attribution"] > 0.0][
                 : args.top_k
             ],
+        ),
+        (
+            "top_early_switch_tokens.csv",
+            sorted(
+                [row for row in token_summary if row["mean_attribution"] < 0.0],
+                key=lambda row: row["mean_attribution"],
+            )[: args.top_k],
         ),
     ):
         with (out_dir / filename).open("w", newline="", encoding="utf-8") as handle:
@@ -324,49 +366,64 @@ def main() -> None:
                     {
                         "rank": rank,
                         "token": row["word"],
-                        "mean_attribution": f"{row['mean_attribution']:+.6f}",
-                        "std_attribution": f"{row['std_attribution']:.6f}",
+                        "mean_expected_step_delta": f"{row['mean_attribution']:+.8f}",
+                        "std_expected_step_delta": f"{row['std_attribution']:.8f}",
                         "count": row["count"],
                     }
                 )
 
-    # Export Sample Attributions JSON
-    sample_json = out_dir / "sample_token_attributions.json"
-    sample_json.write_text(json.dumps(sample_attributions[:100], indent=2, ensure_ascii=False), encoding="utf-8")
-    (out_dir / "attribution_metadata.json").write_text(
-        json.dumps(
-            {
-                "schema": "natural_word_token_attribution_v1",
-                "prompt_count": len(sample_attributions),
-                "natural_vocabulary_size": len(natural_summary),
-                "subtoken_vocabulary_size": len(token_summary),
-                "minimum_occurrence_count": args.min_word_count,
-                "stopwords_in_top_rankings": args.include_stopwords,
-                "word_aggregation": (
-                    "SentencePiece or WordPiece pieces are merged per occurrence; "
-                    "mean_attribution averages piece scores and "
-                    "mean_additive_contribution sums piece scores divided by prompt "
-                    "token count."
-                ),
-            },
-            indent=2,
-            ensure_ascii=False,
+    (out_dir / "sample_token_attributions.json").write_text(
+        json.dumps(sample_attributions[:100], indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    attribution_metadata = {
+        "schema": "b4_leave_one_out_token_attribution_v1",
+        "model_type": "mlp_distill",
+        "model_label": "Soft Distillation MLP (B4)",
+        "checkpoint": str(checkpoint_path),
+        "checkpoint_sha256": sha256_file(checkpoint_path),
+        "primary_lambda": checkpoint.get("primary_lambda"),
+        "prompt_count": len(sample_attributions),
+        "sample_prompt_count": min(100, len(sample_attributions)),
+        "natural_vocabulary_size": len(natural_summary),
+        "subtoken_vocabulary_size": len(token_summary),
+        "minimum_occurrence_count": args.min_word_count,
+        "stopwords_in_top_rankings": args.include_stopwords,
+        "attribution_method": "leave_one_token_out_masked_mean_pooling",
+        "attribution_target": "expected_candidate_timestep",
+        "attribution_definition": (
+            "full prompt expected timestep minus expected timestep after removing "
+            "one token from masked-mean pooling"
         ),
+        "positive_direction": "later_switch_stay_lr",
+        "negative_direction": "earlier_switch_go_hr",
+        "ranking_sign_filter": "late rankings are positive; early rankings are negative",
+        "additive_completeness": False,
+        "natural_word_aggregation": (
+            "mean of constituent token-piece leave-one-out effects; not joint word removal"
+        ),
+    }
+    (out_dir / "attribution_metadata.json").write_text(
+        json.dumps(attribution_metadata, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
 
-    # Print Summary Markdown Table
-    print("\n" + "=" * 90)
-    print(" NATURAL-WORD ATTRIBUTION: SEMANTIC DISCOVERY OF TIMESTEP SWITCHING")
-    print("=" * 90)
-    print(f"{'Top Words Pushing LATER Switch (Stay LR)':<42} | {'Top Words Pushing EARLIER Switch (Go HR)':<42}")
-    print("-" * 90)
-    for i in range(min(15, len(top_late), len(top_early))):
-        lw = f"{i+1:2d}. {top_late[i]['word']} ({top_late[i]['mean_attribution']:+.3f})"
-        ew = f"{i+1:2d}. {top_early[i]['word']} ({top_early[i]['mean_attribution']:+.3f})"
-        print(f"{lw:<42} | {ew:<42}")
-    print("=" * 90 + "\n")
-    logger.info(f"Token attribution tables saved to {out_dir}")
+    print("\n" + "=" * 96)
+    print(" B4 LEAVE-ONE-TOKEN-OUT ATTRIBUTION OF EXPECTED TIMESTEP")
+    print("=" * 96)
+    print(
+        f"{'Words pushing LATER switch (stay LR)':<46} | "
+        f"{'Words pushing EARLIER switch (go HR)':<46}"
+    )
+    print("-" * 96)
+    for index in range(min(15, len(top_late), len(top_early))):
+        late = f"{top_late[index]['word']} ({top_late[index]['mean_attribution']:+.4f})"
+        early = (
+            f"{top_early[index]['word']} ({top_early[index]['mean_attribution']:+.4f})"
+        )
+        print(f"{late:<46} | {early:<46}")
+    print("=" * 96)
+    logger.info("B4 token attribution saved to %s", out_dir)
 
 
 if __name__ == "__main__":

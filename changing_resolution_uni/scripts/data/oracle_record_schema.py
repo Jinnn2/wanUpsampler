@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Strict schema helpers for scored oracle timestep records."""
+
 from __future__ import annotations
 
 import math
@@ -53,9 +54,7 @@ def _diagnostic(value: Any, field: str, name: str) -> float:
     number = _finite_float(value, field)
     lower_bound = -1.0 if name == "overall_consistency" else 0.0
     if not lower_bound <= number <= 1.0:
-        raise OracleRecordError(
-            f"{field} must be in [{lower_bound}, 1]; got {number}"
-        )
+        raise OracleRecordError(f"{field} must be in [{lower_bound}, 1]; got {number}")
     return number
 
 
@@ -108,13 +107,11 @@ def validate_scored_record(
                 f"scalar={native_vbench5}, recomputed={native_mean}"
             )
     else:
-        normalized_native_dimensions = (
-            {
-                name: _quality(native_dimensions[name], f"native_dimensions.{name}")
-                for name in expected_dimensions
-                if isinstance(native_dimensions, dict) and name in native_dimensions
-            }
-        )
+        normalized_native_dimensions = {
+            name: _quality(native_dimensions[name], f"native_dimensions.{name}")
+            for name in expected_dimensions
+            if isinstance(native_dimensions, dict) and name in native_dimensions
+        }
 
     candidates = record.get("candidates")
     if not isinstance(candidates, list):
@@ -210,7 +207,9 @@ def validate_scored_record(
             scoring_provenance.get("quality_aggregation")
             != "arithmetic_mean_raw_vbench5_float64"
         ):
-            raise OracleRecordError("unsupported scoring_provenance quality aggregation")
+            raise OracleRecordError(
+                "unsupported scoring_provenance quality aggregation"
+            )
         vbench = scoring_provenance.get("vbench")
         if not isinstance(vbench, dict):
             raise OracleRecordError("scoring_provenance.vbench must be a mapping")
@@ -222,7 +221,9 @@ def validate_scored_record(
             "scoring_provenance.vbench.evaluate_py_sha256",
         )
         if bool(vbench.get("tracked_dirty")):
-            raise OracleRecordError("formal scoring provenance must use a clean VBench checkout")
+            raise OracleRecordError(
+                "formal scoring provenance must use a clean VBench checkout"
+            )
 
         cases = scoring_provenance.get("cases")
         if not isinstance(cases, dict):
@@ -251,9 +252,10 @@ def validate_scored_record(
 
         diagnostic_cases = scoring_provenance.get("diagnostic_cases", {})
         expected_diagnostic_cases = expected_cases if diagnostic_dimensions else set()
-        if not isinstance(diagnostic_cases, dict) or set(
-            diagnostic_cases
-        ) != expected_diagnostic_cases:
+        if (
+            not isinstance(diagnostic_cases, dict)
+            or set(diagnostic_cases) != expected_diagnostic_cases
+        ):
             raise OracleRecordError(
                 "scoring_provenance diagnostic case coverage mismatch; "
                 f"missing={sorted(expected_diagnostic_cases - set(diagnostic_cases or {}))}, "
@@ -408,7 +410,9 @@ def aggregate_prompt_records(
                 observed_seed_count = len(seed_set)
             expected_for_prompt = None
         elif seed_policy == "prompt_offset":
-            expected_for_prompt = {base_seed + prompt_id for base_seed in expected_base_seeds}
+            expected_for_prompt = {
+                base_seed + prompt_id for base_seed in expected_base_seeds
+            }
         elif seed_policy == "fixed":
             expected_for_prompt = expected_base_seeds
         else:
@@ -416,7 +420,9 @@ def aggregate_prompt_records(
             observed_seed_count = len(expected_base_seeds)
 
         required_count = observed_seed_count or (
-            len(expected_base_seeds) if expected_base_seeds is not None else len(seed_set)
+            len(expected_base_seeds)
+            if expected_base_seeds is not None
+            else len(seed_set)
         )
         if expected_for_prompt is not None and seed_set != expected_for_prompt:
             errors.append(
@@ -445,6 +451,43 @@ def aggregate_prompt_records(
             ],
             dtype=np.float32,
         )
+        available_dimensions = [
+            dimension
+            for dimension in QUALITY5_DIMENSIONS
+            if all(
+                dimension in candidate.get("dimensions", {})
+                for record in normalized_records
+                for candidate in record["candidates"]
+            )
+        ]
+        dimension_values = {
+            dimension: np.asarray(
+                [
+                    [
+                        candidate["dimensions"][dimension]
+                        for candidate in record["candidates"]
+                    ]
+                    for record in normalized_records
+                ],
+                dtype=np.float32,
+            ).mean(axis=0)
+            for dimension in available_dimensions
+        }
+        native_dimension_values = {
+            dimension: float(
+                np.mean(
+                    [
+                        record.get("native_dimensions", {}).get(dimension)
+                        for record in normalized_records
+                    ]
+                )
+            )
+            for dimension in available_dimensions
+            if all(
+                dimension in record.get("native_dimensions", {})
+                for record in normalized_records
+            )
+        }
         latencies = np.asarray(
             [
                 [candidate["latency_seconds"] for candidate in record["candidates"]]
@@ -463,6 +506,8 @@ def aggregate_prompt_records(
             "seeds": sorted(seeds),
             "utilities": utilities.mean(axis=0),
             "vbench5": vbench5.mean(axis=0),
+            "dimensions": dimension_values,
+            "native_dimensions": native_dimension_values,
             "latencies": latencies.mean(axis=0),
             "native_latency_seconds": float(native_latencies.mean()),
             "seed_oracle_utility": float(utilities.max(axis=1).mean()),

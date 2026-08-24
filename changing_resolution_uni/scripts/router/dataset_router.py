@@ -3,6 +3,7 @@
 Prompt-Conditioned Router Dataset & DataLoader with Prompt-Disjoint Splitting.
 Loads precomputed T5 embeddings and oracle utility records.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -20,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from changing_resolution_uni.scripts.data.oracle_record_schema import (
+from changing_resolution_uni.scripts.data.oracle_record_schema import (  # noqa: E402
     FORMAL_STEPS,
     QUALITY5_DIMENSIONS,
     aggregate_prompt_records,
@@ -83,7 +84,9 @@ class RouterDataset(Dataset):
                         raise ValueError("missing pooled_embedding")
                     pooled = np.asarray(data["pooled_embedding"], dtype=np.float32)
                 if pooled.shape != (4096,):
-                    raise ValueError(f"expected pooled_embedding shape (4096,), got {pooled.shape}")
+                    raise ValueError(
+                        f"expected pooled_embedding shape (4096,), got {pooled.shape}"
+                    )
                 if not np.isfinite(pooled).all():
                     raise ValueError("pooled_embedding contains non-finite values")
                 self.pooled_cache[pid] = pooled
@@ -105,6 +108,10 @@ class RouterDataset(Dataset):
         u_arr = np.asarray(item["utilities"], dtype=np.float32)
         vbench_arr = np.asarray(item["vbench5"], dtype=np.float32)
         latency_arr = np.asarray(item["latencies"], dtype=np.float32)
+        dimension_arrays = {
+            name: np.asarray(values, dtype=np.float32)
+            for name, values in item.get("dimensions", {}).items()
+        }
         for name, values in (
             ("utilities", u_arr),
             ("vbench5", vbench_arr),
@@ -113,6 +120,12 @@ class RouterDataset(Dataset):
             if values.shape != (self.K,) or not np.isfinite(values).all():
                 raise ValueError(
                     f"prompt {pid}: {name} must have shape ({self.K},) with finite values"
+                )
+        for name, values in dimension_arrays.items():
+            if values.shape != (self.K,) or not np.isfinite(values).all():
+                raise ValueError(
+                    f"prompt {pid}: dimension {name} must have shape ({self.K},) "
+                    "with finite values"
                 )
 
         # 3. Target optimal step
@@ -136,9 +149,15 @@ class RouterDataset(Dataset):
             "pooled_t5": torch.from_numpy(pooled).float(),  # [4096]
             "target_step_idx": torch.tensor(opt_idx, dtype=torch.long),
             "target_step": torch.tensor(opt_step, dtype=torch.long),
-            "soft_utility_target": torch.from_numpy(soft_target.astype(np.float32)),  # [K]
+            "soft_utility_target": torch.from_numpy(
+                soft_target.astype(np.float32)
+            ),  # [K]
             "utilities": torch.from_numpy(u_arr),  # [K]
             "vbench5": torch.from_numpy(vbench_arr),  # [K]
+            "vbench_dimensions": {
+                name: torch.from_numpy(values)
+                for name, values in dimension_arrays.items()
+            },
             "latencies": torch.from_numpy(latency_arr),  # [K]
             "native_latency": torch.tensor(native_lat, dtype=torch.float32),
             "ordinal_targets": torch.from_numpy(ordinal_targets),  # [K-1]
@@ -158,6 +177,7 @@ def create_prompt_disjoint_splits(
     tau: float = 0.02,
     candidate_steps: list[int] | None = None,
     allow_estimated_latency: bool = False,
+    require_measured_latency: bool = False,
 ) -> tuple[RouterDataset, RouterDataset, RouterDataset, dict[str, Any]]:
     """
     Partition prompts strictly by Prompt ID into Train, Val, and Test sets.
@@ -178,9 +198,7 @@ def create_prompt_disjoint_splits(
             raise ValueError(f"Dataset manifest is incomplete: {dataset_manifest}")
     quality_profile = str(manifest_data.get("quality_profile", ""))
     strict_profile = quality_profile == "strict_vbench5_v1"
-    legacy_development_profile = (
-        quality_profile == "quality_valid_legacy_vbench5_v1"
-    )
+    legacy_development_profile = quality_profile == "quality_valid_legacy_vbench5_v1"
     if not strict_profile and not (
         legacy_development_profile and allow_estimated_latency
     ):
@@ -189,8 +207,14 @@ def create_prompt_disjoint_splits(
             "quality_valid_legacy_vbench5_v1 development profile requires "
             "allow_estimated_latency=True."
         )
+    if require_measured_latency and not strict_profile:
+        raise ValueError(
+            "require_measured_latency=True requires strict_vbench5_v1 formal data"
+        )
     if manifest_data.get("quality_dimensions") != QUALITY5_DIMENSIONS:
-        raise ValueError("Dataset manifest does not declare canonical VBench-5 dimensions")
+        raise ValueError(
+            "Dataset manifest does not declare canonical VBench-5 dimensions"
+        )
     if manifest_data.get("record_files"):
         record_files = [
             (records_dir / str(name)).resolve()
@@ -229,6 +253,32 @@ def create_prompt_disjoint_splits(
         preview = "\n".join(f"  - {item}" for item in read_errors[:30])
         raise ValueError(f"Failed to index oracle records:\n{preview}")
 
+    if require_measured_latency:
+        latency_errors: list[str] = []
+        for pid, seed_records in records_by_prompt_seed.items():
+            for seed_val, record in seed_records.items():
+                if record.get("native_latency_source") != "warm_pipeline_seconds":
+                    latency_errors.append(
+                        f"prompt={pid} seed={seed_val}: native latency is not measured"
+                    )
+                for candidate in record.get("candidates", []):
+                    if candidate.get("latency_source") != "warm_pipeline_seconds":
+                        latency_errors.append(
+                            f"prompt={pid} seed={seed_val} step={candidate.get('step')}: "
+                            "candidate latency is not measured"
+                        )
+        if latency_errors:
+            preview = "\n".join(f"  - {item}" for item in latency_errors[:30])
+            suffix = (
+                ""
+                if len(latency_errors) <= 30
+                else f"\n  ... and {len(latency_errors) - 30} more"
+            )
+            raise ValueError(
+                "Measured-latency confirmation requires warm_pipeline_seconds for "
+                f"every native and candidate branch:\n{preview}{suffix}"
+            )
+
     records_by_prompt = {
         pid: list(seed_records.values())
         for pid, seed_records in records_by_prompt_seed.items()
@@ -239,7 +289,9 @@ def create_prompt_disjoint_splits(
             int(seed) for seed in manifest_data["expected_base_seeds"]
         ]
     elif "expected_seeds" in manifest_data:
-        manifest_expected_seeds = [int(seed) for seed in manifest_data["expected_seeds"]]
+        manifest_expected_seeds = [
+            int(seed) for seed in manifest_data["expected_seeds"]
+        ]
     if manifest_expected_seeds is None:
         manifest_expected_seeds = [42, 100, 2024]
     seed_policy = str(manifest_data.get("seed_policy", "prompt_offset"))
@@ -270,7 +322,9 @@ def create_prompt_disjoint_splits(
 
     n_total = len(shuffled_pids)
     if n_total < 3:
-        raise ValueError("Prompt-disjoint train/val/test split requires at least 3 prompts")
+        raise ValueError(
+            "Prompt-disjoint train/val/test split requires at least 3 prompts"
+        )
     if not np.isclose(train_ratio + val_ratio + test_ratio, 1.0):
         raise ValueError("train_ratio + val_ratio + test_ratio must equal 1")
     n_val = max(1, int(n_total * val_ratio))
@@ -310,6 +364,8 @@ def create_prompt_disjoint_splits(
         "quality_profile": quality_profile,
         "latency_profile": manifest_data.get("latency_profile"),
         "formal_evidence": bool(manifest_data.get("formal_evidence", strict_profile)),
+        "measured_latency_only": require_measured_latency,
+        "split_seed": seed,
     }
 
     return train_ds, val_ds, test_ds, meta
@@ -323,6 +379,7 @@ def get_dataloaders(
     primary_lambda: float = 0.01,
     tau: float = 0.02,
     allow_estimated_latency: bool = False,
+    require_measured_latency: bool = False,
 ) -> tuple[DataLoader, DataLoader, DataLoader, dict[str, Any]]:
     train_ds, val_ds, test_ds, meta = create_prompt_disjoint_splits(
         dataset_dir=dataset_dir,
@@ -330,6 +387,7 @@ def get_dataloaders(
         primary_lambda=primary_lambda,
         tau=tau,
         allow_estimated_latency=allow_estimated_latency,
+        require_measured_latency=require_measured_latency,
     )
 
     train_loader = DataLoader(

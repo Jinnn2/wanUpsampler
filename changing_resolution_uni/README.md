@@ -213,6 +213,11 @@ The default logical split is `1000/200/300`. Validation and test share the
 physical `eval` directory to load each seed's resident model only once; their
 non-overlapping prompt-ID ranges are recorded in `generation_plan.json`.
 `SKIP_EXISTING=1` makes restarts idempotent.
+
+The leakage-controlled router selection/confirmation protocol, prompt-level
+bootstrap outputs, measured-latency gates, and nonlinear B4 token attribution
+are documented in
+[`scripts/router/EXPERIMENT_PROTOCOL.md`](scripts/router/EXPERIMENT_PROTOCOL.md).
 `CLEAN_VIDEOS=1` and `SAVE_LATENTS=0` are rejected by this formal launcher so
 an accidental restart cannot remove or omit the requested intermediate data.
 

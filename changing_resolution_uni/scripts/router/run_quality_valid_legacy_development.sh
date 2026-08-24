@@ -11,10 +11,10 @@ TRAIN_ROOT="${TRAIN_ROOT:-${PROJECT_ROOT}/outputs/router_500_quality_valid_lambd
 TRAIN_LAMBDAS="${TRAIN_LAMBDAS:-0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10}"
 RUN_TRAINING="${RUN_TRAINING:-1}"
 SKIP_COMPLETED="${SKIP_COMPLETED:-1}"
-MODEL_TYPE="${MODEL_TYPE:-linear_ordinal}"
+MODEL_TYPE="${MODEL_TYPE:-mlp_distill}"
 
-if [[ "${MODEL_TYPE}" != "all" && "${MODEL_TYPE}" != "linear_ordinal" ]]; then
-  echo "Natural-word attribution requires MODEL_TYPE=all or linear_ordinal." >&2
+if [[ "${MODEL_TYPE}" != "all" && "${MODEL_TYPE}" != "mlp_distill" ]]; then
+  echo "B4 token attribution requires MODEL_TYPE=all or mlp_distill." >&2
   exit 2
 fi
 
@@ -54,8 +54,8 @@ if [[ "${RUN_TRAINING}" == "1" ]]; then
     if [[ "${SKIP_COMPLETED}" == "1" \
       && -f "${lambda_out}/router_benchmark_results.csv" \
       && -f "${lambda_out}/router_benchmark_summary.json" \
-      && -f "${lambda_out}/token_attribution/top_late_switch_words.csv" \
-      && -f "${lambda_out}/token_attribution/attribution_metadata.json" ]]; then
+      && -f "${lambda_out}/token_attribution_b4/top_late_switch_words.csv" \
+      && -f "${lambda_out}/token_attribution_b4/attribution_metadata.json" ]]; then
       echo "Skipping completed lambda=${lambda_value}: ${lambda_out}"
       continue
     fi

@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
-"""
-Training & Evaluation Pipeline for Prompt-Conditioned Optimal Switching Routers.
-Evaluates Policy Regret, Realized VBench Quality, Latency, Step MAE, and compares
-against Fixed Baselines and Oracle Upper Bounds.
-"""
+"""Train and evaluate prompt-conditioned timestep routers without test leakage."""
+
 from __future__ import annotations
 
 import argparse
@@ -11,16 +8,16 @@ import csv
 import datetime as dt
 import json
 import logging
-import os
 import random
+import statistics
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,13 +26,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger("train_router")
 
-# Add repo root to path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from changing_resolution_uni.scripts.router.dataset_router import get_dataloaders
-from changing_resolution_uni.scripts.router.model_router import (
+from changing_resolution_uni.scripts.data.oracle_record_schema import (  # noqa: E402
+    QUALITY5_DIMENSIONS,
+)
+from changing_resolution_uni.scripts.router.dataset_router import (  # noqa: E402
+    get_dataloaders,
+)
+from changing_resolution_uni.scripts.router.model_router import (  # noqa: E402
     LinearOrdinalRouter,
     LinearProbeRouter,
     OrdinalLoss,
@@ -44,44 +45,108 @@ from changing_resolution_uni.scripts.router.model_router import (
     Wasserstein1Loss,
 )
 
+MODEL_LABELS = {
+    "linear_probe": "Learned: Linear Probe (B1)",
+    "linear_ordinal": "Learned: Linear Ordinal Regressor (B3)",
+    "mlp_distill": "Learned: Soft Distillation MLP (B4)",
+}
+
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train and evaluate prompt-conditioned switching router.")
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dataset_dir",
-        type=str,
-        default=str(REPO_ROOT / "data" / "changing_resolution_uni" / "oracle_dataset_1k"),
-        help="Path to merged oracle dataset directory.",
+        default=str(
+            REPO_ROOT / "data" / "changing_resolution_uni" / "oracle_dataset_1k"
+        ),
     )
     parser.add_argument(
-        "--out_dir",
-        type=str,
-        default=str(REPO_ROOT / "outputs" / "router_benchmarks_1k"),
-        help="Directory to save checkpoints, logs, and evaluation metrics.",
+        "--out_dir", default=str(REPO_ROOT / "outputs" / "router_benchmarks_1k")
     )
     parser.add_argument(
         "--model_type",
-        type=str,
         default="all",
         choices=["linear_ordinal", "linear_probe", "mlp_distill", "all"],
-        help="Model architecture to train (or 'all' to train and benchmark all variants).",
     )
-    parser.add_argument("--epochs", type=int, default=40, help="Training epochs.")
-    parser.add_argument("--batch_size", type=int, default=32, help="Batch size.")
-    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
-    parser.add_argument("--weight_decay", type=float, default=1e-4, help="L2 regularization.")
-    parser.add_argument("--primary_lambda", type=float, default=0.01, help="Utility tradeoff lambda.")
-    parser.add_argument("--seed", type=int, default=42, help="Random split and init seed.")
+    parser.add_argument(
+        "--evaluation_stage",
+        default="development",
+        choices=["development", "selection", "confirmation"],
+        help=(
+            "selection evaluates validation only; confirmation evaluates a locked "
+            "single architecture on test; development preserves the legacy test run"
+        ),
+    )
+    parser.add_argument("--epochs", type=int, default=40)
+    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--weight_decay", type=float, default=1e-4)
+    parser.add_argument("--primary_lambda", type=float, default=0.01)
+    parser.add_argument(
+        "--seed", type=int, default=42, help="Training initialization/shuffle seed."
+    )
+    parser.add_argument(
+        "--split_seed",
+        type=int,
+        default=42,
+        help="Prompt split seed, intentionally independent of the training seed.",
+    )
     parser.add_argument(
         "--allow_estimated_latency",
         action="store_true",
-        help=(
-            "Explicitly allow the isolated quality-valid legacy development "
-            "profile with estimated, non-formal latency."
-        ),
+        help="Allow the explicitly non-formal legacy development dataset.",
     )
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
-    return parser.parse_args()
+    parser.add_argument(
+        "--require_measured_latency",
+        action="store_true",
+        help="Require warm_pipeline_seconds for native and every candidate branch.",
+    )
+    parser.add_argument(
+        "--measure_router_overhead",
+        action="store_true",
+        help="Measure batch-1 router forward latency and include it for learned policies.",
+    )
+    parser.add_argument("--overhead_warmup", type=int, default=20)
+    parser.add_argument("--overhead_repeats", type=int, default=200)
+    parser.add_argument(
+        "--allow_confirmation_overwrite",
+        action="store_true",
+        help="Explicit escape hatch; confirmation otherwise refuses to overwrite test results.",
+    )
+    parser.add_argument(
+        "--device", default="cuda" if torch.cuda.is_available() else "cpu"
+    )
+    args = parser.parse_args()
+    if args.epochs < 1 or args.batch_size < 1:
+        parser.error("epochs and batch_size must be positive")
+    if args.overhead_warmup < 0 or args.overhead_repeats < 1:
+        parser.error(
+            "overhead_warmup must be non-negative and repeats must be positive"
+        )
+    if args.evaluation_stage == "confirmation" and args.model_type == "all":
+        parser.error("confirmation requires one validation-selected --model_type")
+    if args.evaluation_stage == "confirmation" and args.allow_estimated_latency:
+        parser.error("confirmation cannot use --allow_estimated_latency")
+    if args.evaluation_stage == "confirmation" and not args.require_measured_latency:
+        parser.error("confirmation requires --require_measured_latency")
+    if args.evaluation_stage == "confirmation" and not args.measure_router_overhead:
+        parser.error("confirmation requires --measure_router_overhead")
+    return args
+
+
+def build_model(model_name: str, candidate_count: int) -> nn.Module:
+    if model_name == "linear_ordinal":
+        return LinearOrdinalRouter(in_dim=4096, num_classes=candidate_count)
+    if model_name == "linear_probe":
+        return LinearProbeRouter(in_dim=4096, num_classes=candidate_count)
+    if model_name == "mlp_distill":
+        return SoftDistillationMLPRouter(
+            in_dim=4096,
+            hidden_dims=[256, 128],
+            num_classes=candidate_count,
+            dropout=0.1,
+        )
+    raise ValueError(f"Unknown model_type {model_name}")
 
 
 @torch.no_grad()
@@ -90,103 +155,206 @@ def evaluate_policy_on_loader(
     loader: torch.utils.data.DataLoader,
     candidate_steps: list[int],
     device: torch.device,
+    *,
+    primary_lambda: float,
     fixed_step: int | None = None,
     is_oracle: bool = False,
+    router_overhead_sec: float = 0.0,
+    method: str = "",
+    method_role: str = "",
+    model_type: str = "",
+    split_name: str = "",
+    prediction_rows: list[dict[str, Any]] | None = None,
 ) -> dict[str, float]:
-    """
-    Evaluates a policy on a dataloader, measuring real Pareto metrics:
-      - Policy Regret E[U(k*) - U(k_pred)]
-      - Realized Utility E[U(k_pred)]
-      - Realized VBench-5 Quality
-      - Realized Latency (s) & Speedup
-      - Step MAE
-      - Top-1 and Top-3 Accuracy
-    """
+    """Evaluate utility and optionally emit one traceable row per prompt."""
     if model is not None:
         model.eval()
+    if router_overhead_sec < 0:
+        raise ValueError("router_overhead_sec must be non-negative")
 
-    total_samples = 0
-    total_regret = 0.0
-    total_realized_u = 0.0
-    total_oracle_u = 0.0
-    total_seed_oracle_u = 0.0
-    total_realized_vbench = 0.0
-    total_realized_latency = 0.0
-    total_native_latency = 0.0
-    total_step_mae = 0.0
-    correct_top1 = 0
-    correct_top3 = 0
-
+    totals = {
+        "samples": 0,
+        "regret": 0.0,
+        "realized_u": 0.0,
+        "oracle_u": 0.0,
+        "seed_oracle_u": 0.0,
+        "vbench": 0.0,
+        "latency": 0.0,
+        "native_latency": 0.0,
+        "step_mae": 0.0,
+        "top1": 0,
+        "top3": 0,
+        "dimensions": {name: 0.0 for name in QUALITY5_DIMENSIONS},
+    }
     cand_steps_tensor = torch.tensor(candidate_steps, dtype=torch.long)
-    step_to_idx = {s: i for i, s in enumerate(candidate_steps)}
+    step_to_idx = {step: index for index, step in enumerate(candidate_steps)}
 
     for batch in loader:
-        B = batch["pooled_t5"].shape[0]
-        target_idx = batch["target_step_idx"]  # [B]
-        target_step = batch["target_step"]  # [B]
-        utilities = batch["utilities"]  # [B, K]
-        vbench = batch["vbench5"]  # [B, K]
-        latencies = batch["latencies"]  # [B, K]
+        batch_size = batch["pooled_t5"].shape[0]
+        target_idx = batch["target_step_idx"]
+        target_step = batch["target_step"]
+        utilities = batch["utilities"]
+        vbench = batch["vbench5"]
+        latencies = batch["latencies"]
 
-        # Determine chosen step index for each item in batch
         if is_oracle:
             chosen_idx = target_idx
         elif fixed_step is not None:
-            f_idx = step_to_idx.get(fixed_step, len(candidate_steps) - 1)
-            chosen_idx = torch.full((B,), f_idx, dtype=torch.long)
+            chosen_idx = torch.full(
+                (batch_size,),
+                step_to_idx.get(fixed_step, len(candidate_steps) - 1),
+                dtype=torch.long,
+            )
         else:
             pooled = batch["pooled_t5"].to(device)
-            out = model(pooled)
-            chosen_idx = out["pred_step_idx"].cpu()
+            chosen_idx = model(pooled)["pred_step_idx"].cpu()
 
+        batch_indices = torch.arange(batch_size)
         chosen_step = cand_steps_tensor[chosen_idx]
-
-        # Extract realized metrics for chosen index
-        batch_indices = torch.arange(B)
-        realized_u = utilities[batch_indices, chosen_idx]
-        oracle_u = utilities[batch_indices, target_idx]
-        realized_vb = vbench[batch_indices, chosen_idx]
-        realized_lat = latencies[batch_indices, chosen_idx]
         native_lat = batch["native_latency"]
+        overhead = torch.full_like(native_lat, float(router_overhead_sec))
+        realized_u = utilities[batch_indices, chosen_idx]
+        if router_overhead_sec:
+            realized_u = realized_u - primary_lambda * overhead / native_lat
+        oracle_u = utilities[batch_indices, target_idx]
         seed_oracle_u = batch["seed_oracle_utility"]
-
+        realized_vb = vbench[batch_indices, chosen_idx]
+        realized_dimensions = {
+            name: values[batch_indices, chosen_idx]
+            for name, values in batch.get("vbench_dimensions", {}).items()
+        }
+        realized_lat = latencies[batch_indices, chosen_idx] + overhead
         regret = (oracle_u - realized_u).clamp(min=0.0)
         step_mae = (chosen_step - target_step).abs().float()
 
-        total_samples += B
-        total_regret += regret.sum().item()
-        total_realized_u += realized_u.sum().item()
-        total_oracle_u += oracle_u.sum().item()
-        total_seed_oracle_u += seed_oracle_u.sum().item()
-        total_realized_vbench += realized_vb.sum().item()
-        total_realized_latency += realized_lat.sum().item()
-        total_native_latency += native_lat.sum().item()
-        total_step_mae += step_mae.sum().item()
+        totals["samples"] += batch_size
+        totals["regret"] += regret.sum().item()
+        totals["realized_u"] += realized_u.sum().item()
+        totals["oracle_u"] += oracle_u.sum().item()
+        totals["seed_oracle_u"] += seed_oracle_u.sum().item()
+        totals["vbench"] += realized_vb.sum().item()
+        for name, values in realized_dimensions.items():
+            totals["dimensions"][name] += values.sum().item()
+        totals["latency"] += realized_lat.sum().item()
+        totals["native_latency"] += native_lat.sum().item()
+        totals["step_mae"] += step_mae.sum().item()
+        totals["top1"] += (chosen_idx == target_idx).sum().item()
+        totals["top3"] += ((chosen_idx - target_idx).abs() <= 1).sum().item()
 
-        # Accuracy
-        correct_top1 += (chosen_idx == target_idx).sum().item()
-        # Neighbor accuracy: exact or one adjacent candidate index.
-        correct_top3 += ((chosen_idx - target_idx).abs() <= 1).sum().item()
+        if prediction_rows is not None:
+            prompt_ids = batch["prompt_id"].tolist()
+            for index in range(batch_size):
+                row = {
+                    "split": split_name,
+                    "Method": method,
+                    "method_role": method_role,
+                    "model_type": model_type,
+                    "prompt_id": int(prompt_ids[index]),
+                    "target_step": int(target_step[index]),
+                    "chosen_step": int(chosen_step[index]),
+                    "policy_regret": float(regret[index]),
+                    "realized_utility": float(realized_u[index]),
+                    "oracle_utility": float(oracle_u[index]),
+                    "seed_oracle_utility": float(seed_oracle_u[index]),
+                    "regret_to_seed_oracle": max(
+                        0.0, float(seed_oracle_u[index] - realized_u[index])
+                    ),
+                    "realized_vbench5": float(realized_vb[index]),
+                    "realized_latency_sec": float(realized_lat[index]),
+                    "native_latency_sec": float(native_lat[index]),
+                    "speedup_vs_native": float(
+                        native_lat[index] / realized_lat[index].clamp(min=1e-3)
+                    ),
+                    "step_abs_error": float(step_mae[index]),
+                    "top1_correct": int(chosen_idx[index] == target_idx[index]),
+                    "top3_correct": int(
+                        abs(int(chosen_idx[index]) - int(target_idx[index])) <= 1
+                    ),
+                    "router_overhead_sec": float(router_overhead_sec),
+                }
+                for name, values in realized_dimensions.items():
+                    row[f"realized_{name}"] = float(values[index])
+                prediction_rows.append(row)
 
-    n = max(total_samples, 1)
-    mean_lat = total_realized_latency / n
-    native_lat = total_native_latency / n
-    speedup = native_lat / max(mean_lat, 1e-3)
+    count = max(int(totals["samples"]), 1)
+    mean_latency = float(totals["latency"]) / count
+    mean_native_latency = float(totals["native_latency"]) / count
+    metrics = {
+        "policy_regret": float(totals["regret"]) / count,
+        "realized_utility": float(totals["realized_u"]) / count,
+        "oracle_utility": float(totals["oracle_u"]) / count,
+        "seed_oracle_utility": float(totals["seed_oracle_u"]) / count,
+        "regret_to_seed_oracle": max(
+            0.0,
+            (float(totals["seed_oracle_u"]) - float(totals["realized_u"])) / count,
+        ),
+        "realized_vbench5": float(totals["vbench"]) / count,
+        "realized_latency_sec": mean_latency,
+        "speedup_vs_native": mean_native_latency / max(mean_latency, 1e-3),
+        "step_mae": float(totals["step_mae"]) / count,
+        "top1_acc": float(totals["top1"]) / count * 100.0,
+        "top3_acc": float(totals["top3"]) / count * 100.0,
+        "router_overhead_ms": router_overhead_sec * 1000.0,
+    }
+    for name, total in totals["dimensions"].items():
+        if total or name in QUALITY5_DIMENSIONS:
+            metrics[f"realized_{name}"] = float(total) / count
+    return metrics
+
+
+@torch.no_grad()
+def measure_router_overhead(
+    model: nn.Module,
+    loader: torch.utils.data.DataLoader,
+    device: torch.device,
+    *,
+    warmup: int,
+    repeats: int,
+) -> dict[str, Any]:
+    """Measure isolated batch-1 router forward latency on the evaluation device."""
+    model.eval()
+    pooled = next(iter(loader))["pooled_t5"][:1].to(device)
+    is_cuda = device.type == "cuda"
+    if is_cuda:
+        torch.cuda.synchronize(device)
+        torch.cuda.reset_peak_memory_stats(device)
+    for _ in range(warmup):
+        model(pooled)
+    if is_cuda:
+        torch.cuda.synchronize(device)
+
+    timings_ms: list[float] = []
+    for _ in range(repeats):
+        if is_cuda:
+            torch.cuda.synchronize(device)
+        start = time.perf_counter()
+        model(pooled)
+        if is_cuda:
+            torch.cuda.synchronize(device)
+        timings_ms.append((time.perf_counter() - start) * 1000.0)
+
+    ordered = sorted(timings_ms)
+
+    def percentile(fraction: float) -> float:
+        index = min(len(ordered) - 1, int(round((len(ordered) - 1) * fraction)))
+        return ordered[index]
 
     return {
-        "policy_regret": total_regret / n,
-        "realized_utility": total_realized_u / n,
-        "oracle_utility": total_oracle_u / n,
-        "seed_oracle_utility": total_seed_oracle_u / n,
-        "regret_to_seed_oracle": max(
-            0.0, (total_seed_oracle_u - total_realized_u) / n
-        ),
-        "realized_vbench5": total_realized_vbench / n,
-        "realized_latency_sec": mean_lat,
-        "speedup_vs_native": speedup,
-        "step_mae": total_step_mae / n,
-        "top1_acc": (correct_top1 / n) * 100.0,
-        "top3_acc": (correct_top3 / n) * 100.0,
+        "schema": "router_overhead_timing_v1",
+        "device": str(device),
+        "torch_device_name": torch.cuda.get_device_name(device) if is_cuda else "cpu",
+        "batch_size": 1,
+        "warmup": warmup,
+        "repeats": repeats,
+        "mean_ms": statistics.fmean(timings_ms),
+        "median_ms": statistics.median(timings_ms),
+        "p90_ms": percentile(0.90),
+        "p95_ms": percentile(0.95),
+        "std_ms": statistics.pstdev(timings_ms),
+        "peak_memory_bytes": int(torch.cuda.max_memory_allocated(device))
+        if is_cuda
+        else None,
+        "synchronization": "torch.cuda.synchronize" if is_cuda else "not_applicable",
     }
 
 
@@ -194,96 +362,100 @@ def train_single_model(
     model_name: str,
     train_loader: torch.utils.data.DataLoader,
     val_loader: torch.utils.data.DataLoader,
-    test_loader: torch.utils.data.DataLoader,
     candidate_steps: list[int],
     args: argparse.Namespace,
     device: torch.device,
-) -> tuple[nn.Module, dict[str, float]]:
-    logger.info(f"\n{'='*70}\n[Training Model]: {model_name}\n{'='*70}")
-    K = len(candidate_steps)
-
+) -> tuple[nn.Module, dict[str, float], int]:
+    logger.info("\n%s\n[Training Model]: %s\n%s", "=" * 70, model_name, "=" * 70)
+    model = build_model(model_name, len(candidate_steps)).to(device)
     if model_name == "linear_ordinal":
-        model = LinearOrdinalRouter(in_dim=4096, num_classes=K).to(device)
-        criterion = OrdinalLoss()
+        criterion: nn.Module = OrdinalLoss()
     elif model_name == "linear_probe":
-        model = LinearProbeRouter(in_dim=4096, num_classes=K).to(device)
         criterion = nn.CrossEntropyLoss()
-    elif model_name == "mlp_distill":
-        model = SoftDistillationMLPRouter(in_dim=4096, hidden_dims=[256, 128], num_classes=K, dropout=0.1).to(device)
+    else:
         criterion_kl = SoftUtilityKLLoss()
         criterion_emd = Wasserstein1Loss()
-    else:
-        raise ValueError(f"Unknown model_type {model_name}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-5)
-
-    best_val_regret = 1e9
-    best_weights = None
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=args.lr, weight_decay=args.weight_decay
+    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=args.epochs, eta_min=1e-5
+    )
+    best_val_regret = float("inf")
+    best_weights: dict[str, torch.Tensor] | None = None
+    best_epoch = 0
 
     for epoch in range(1, args.epochs + 1):
         model.train()
         running_loss = 0.0
         batches = 0
-
         for batch in train_loader:
             pooled = batch["pooled_t5"].to(device)
-            optimizer.zero_grad()
-
+            optimizer.zero_grad(set_to_none=True)
+            out = model(pooled)
             if model_name == "linear_ordinal":
-                out = model(pooled)
-                loss = criterion(out["cumulative_logits"], batch["ordinal_targets"].to(device))
+                loss = criterion(
+                    out["cumulative_logits"], batch["ordinal_targets"].to(device)
+                )
             elif model_name == "linear_probe":
-                out = model(pooled)
                 loss = criterion(out["logits"], batch["target_step_idx"].to(device))
-            elif model_name == "mlp_distill":
-                out = model(pooled)
-                soft_t = batch["soft_utility_target"].to(device)
-                loss_kl = criterion_kl(out["logits"], soft_t)
-                loss_emd = criterion_emd(out["discrete_probs"], soft_t)
-                loss = loss_kl + 0.5 * loss_emd
-
+            else:
+                soft_target = batch["soft_utility_target"].to(device)
+                loss = criterion_kl(out["logits"], soft_target) + 0.5 * criterion_emd(
+                    out["discrete_probs"], soft_target
+                )
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
-
             running_loss += loss.item()
             batches += 1
-
         scheduler.step()
-        epoch_loss = running_loss / max(batches, 1)
 
-        # Validation
-        val_metrics = evaluate_policy_on_loader(model, val_loader, candidate_steps, device)
-        val_regret = val_metrics["policy_regret"]
-
-        if val_regret < best_val_regret:
-            best_val_regret = val_regret
-            best_weights = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-
+        val_metrics = evaluate_policy_on_loader(
+            model,
+            val_loader,
+            candidate_steps,
+            device,
+            primary_lambda=args.primary_lambda,
+        )
+        if val_metrics["policy_regret"] < best_val_regret:
+            best_val_regret = val_metrics["policy_regret"]
+            best_weights = {
+                name: value.detach().cpu().clone()
+                for name, value in model.state_dict().items()
+            }
+            best_epoch = epoch
         if epoch % 10 == 0 or epoch == args.epochs:
             logger.info(
-                f"Epoch [{epoch:02d}/{args.epochs}] Loss: {epoch_loss:.4f} | "
-                f"Val Regret: {val_regret:.6f} | Val MAE: {val_metrics['step_mae']:.2f} steps | "
-                f"Val Speedup: {val_metrics['speedup_vs_native']:.2f}x"
+                "Epoch [%02d/%02d] Loss: %.4f | Val Regret: %.6f | Val MAE: %.2f",
+                epoch,
+                args.epochs,
+                running_loss / max(batches, 1),
+                val_metrics["policy_regret"],
+                val_metrics["step_mae"],
             )
 
-    # Load best checkpoint
-    if best_weights is not None:
-        model.load_state_dict(best_weights)
-
-    # Final Blind Test Evaluation
-    test_metrics = evaluate_policy_on_loader(model, test_loader, candidate_steps, device)
-    logger.info(
-        f"-> [Test Evaluation ({model_name})]: "
-        f"Regret: {test_metrics['policy_regret']:.6f} | "
-        f"VBench5: {test_metrics['realized_vbench5']:.4f} | "
-        f"Speedup: {test_metrics['speedup_vs_native']:.2f}x | "
-        f"MAE: {test_metrics['step_mae']:.2f} steps | "
-        f"Top-1: {test_metrics['top1_acc']:.1f}%"
+    if best_weights is None:
+        raise RuntimeError(f"No validation checkpoint was selected for {model_name}")
+    model.load_state_dict(best_weights)
+    final_val_metrics = evaluate_policy_on_loader(
+        model,
+        val_loader,
+        candidate_steps,
+        device,
+        primary_lambda=args.primary_lambda,
     )
+    return model, final_val_metrics, best_epoch
 
-    return model, test_metrics
+
+def write_rows(path: Path, rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        raise ValueError(f"Refusing to write empty table: {path}")
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def main() -> None:
@@ -296,120 +468,249 @@ def main() -> None:
     if hasattr(torch.backends, "cudnn"):
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
+
     out_dir = Path(args.out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     device = torch.device(args.device)
+    confirmation_guard = out_dir / "test_access_guard.json"
+    if args.evaluation_stage == "confirmation":
+        existing = out_dir / "router_benchmark_summary.json"
+        existing_guard = confirmation_guard.exists()
+        if (
+            existing.exists() or existing_guard
+        ) and not args.allow_confirmation_overwrite:
+            raise FileExistsError(
+                "Confirmation test was already started or completed; refusing a "
+                f"second test read: summary={existing.exists()} guard={existing_guard}"
+            )
 
-    logger.info(f"Loading dataset from: {args.dataset_dir}")
     train_loader, val_loader, test_loader, meta = get_dataloaders(
         dataset_dir=args.dataset_dir,
         batch_size=args.batch_size,
-        seed=args.seed,
+        seed=args.split_seed,
         primary_lambda=args.primary_lambda,
         allow_estimated_latency=args.allow_estimated_latency,
+        require_measured_latency=args.require_measured_latency,
     )
-    cand_steps = meta["candidate_steps"]
+    meta.update(
+        {
+            "train_seed": args.seed,
+            "split_seed": args.split_seed,
+            "evaluation_stage": args.evaluation_stage,
+        }
+    )
+    if args.evaluation_stage == "confirmation" and not meta.get("formal_evidence"):
+        raise ValueError("Confirmation requires dataset formal_evidence=true")
 
+    candidate_steps = meta["candidate_steps"]
+    evaluation_split = "validation" if args.evaluation_stage == "selection" else "test"
+    evaluation_loader = val_loader if evaluation_split == "validation" else test_loader
+    meta["evaluation_split"] = evaluation_split
     logger.info(
-        f"Prompt-Disjoint Split: {meta['train_prompts']} Train ({meta['train_trajectories']} trajs), "
-        f"{meta['val_prompts']} Val ({meta['val_trajectories']} trajs), "
-        f"{meta['test_prompts']} Test ({meta['test_trajectories']} trajs)"
-    )
-    logger.info(f"Candidate switch steps: {cand_steps}")
-    logger.info(
-        "Evidence profile: quality=%s latency=%s formal=%s",
-        meta.get("quality_profile"),
-        meta.get("latency_profile"),
-        meta.get("formal_evidence"),
+        "Split seed=%d, train seed=%d; train/val/test=%d/%d/%d; evaluating %s only",
+        args.split_seed,
+        args.seed,
+        meta["train_prompts"],
+        meta["val_prompts"],
+        meta["test_prompts"],
+        evaluation_split,
     )
     if not meta.get("formal_evidence", False):
-        logger.warning(
-            "DEVELOPMENT-ONLY RUN: quality dimensions passed legacy validation, "
-            "but latency/provenance are not formal evidence."
-        )
+        logger.warning("DEVELOPMENT-ONLY RUN: provenance is not formal evidence")
 
-    # ── Evaluate Standard Baselines First ─────────────────────────────────────────
-    results: list[dict[str, Any]] = []
-
-    # 1. Oracle Upper Bound
-    oracle_test = evaluate_policy_on_loader(None, test_loader, cand_steps, device, is_oracle=True)
-    results.append({"Method": "Prompt Oracle (Upper Bound)", **oracle_test})
-
-    # Evaluate all fixed steps on training set to find the empirical best fixed policy
     train_fixed_regrets = {}
-    for s in cand_steps:
-        s_eval = evaluate_policy_on_loader(None, train_loader, cand_steps, device, fixed_step=s)
-        train_fixed_regrets[s] = s_eval["policy_regret"]
-    best_fixed_step = min(train_fixed_regrets, key=train_fixed_regrets.get)
-
-    # 2. Best Empirical Fixed Step Baseline
-    best_fixed_test = evaluate_policy_on_loader(None, test_loader, cand_steps, device, fixed_step=best_fixed_step)
-    results.append({"Method": f"Fixed Step {best_fixed_step} (Best Fixed)", **best_fixed_test})
-
-    # 3. Other representative fixed baselines (Step 47, Step 45, Step 50)
-    for s in [47, 45, 50]:
-        if s != best_fixed_step:
-            s_test = evaluate_policy_on_loader(None, test_loader, cand_steps, device, fixed_step=s)
-            s_label = f"Fixed Step {s}" + (" (Pure LR)" if s == 50 else "")
-            results.append({"Method": s_label, **s_test})
-
-    # ── Train Learned Router Models ──────────────────────────────────────────────
-    models_to_train = [args.model_type] if args.model_type != "all" else ["linear_probe", "linear_ordinal", "mlp_distill"]
-
-    for m_name in models_to_train:
-        model, test_metrics = train_single_model(
-            m_name, train_loader, val_loader, test_loader, cand_steps, args, device
+    for step in candidate_steps:
+        metrics = evaluate_policy_on_loader(
+            None,
+            train_loader,
+            candidate_steps,
+            device,
+            primary_lambda=args.primary_lambda,
+            fixed_step=step,
         )
-        ckpt_path = out_dir / f"{m_name}_router.pt"
-        torch.save({
-            "model_type": m_name,
+        train_fixed_regrets[step] = metrics["policy_regret"]
+    best_fixed_step = min(train_fixed_regrets, key=train_fixed_regrets.get)
+    fixed_steps = [
+        best_fixed_step,
+        *[step for step in (47, 45, 50) if step != best_fixed_step],
+    ]
+    models_to_train = (
+        [args.model_type]
+        if args.model_type != "all"
+        else ["linear_probe", "linear_ordinal", "mlp_distill"]
+    )
+    trained_models: dict[str, tuple[nn.Module, dict[str, float], int]] = {}
+    for model_name in models_to_train:
+        trained_models[model_name] = train_single_model(
+            model_name, train_loader, val_loader, candidate_steps, args, device
+        )
+
+    if args.evaluation_stage == "confirmation":
+        confirmation_guard.write_text(
+            json.dumps(
+                {
+                    "schema": "router_test_access_guard_v1",
+                    "started_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+                    "model_type": args.model_type,
+                    "primary_lambda": args.primary_lambda,
+                    "split_seed": args.split_seed,
+                    "train_seed": args.seed,
+                    "purpose": "single locked confirmation test",
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+    results: list[dict[str, Any]] = []
+    predictions: list[dict[str, Any]] = []
+    oracle_label = "Prompt Oracle (Upper Bound)"
+    oracle_metrics = evaluate_policy_on_loader(
+        None,
+        evaluation_loader,
+        candidate_steps,
+        device,
+        primary_lambda=args.primary_lambda,
+        is_oracle=True,
+        method=oracle_label,
+        method_role="prompt_oracle",
+        split_name=evaluation_split,
+        prediction_rows=predictions,
+    )
+    results.append({"Method": oracle_label, **oracle_metrics})
+    for index, step in enumerate(fixed_steps):
+        if index == 0:
+            label = f"Fixed Step {step} (Best Fixed)"
+            role = "best_fixed"
+        else:
+            label = f"Fixed Step {step}" + (" (Pure LR)" if step == 50 else "")
+            role = "fixed"
+        metrics = evaluate_policy_on_loader(
+            None,
+            evaluation_loader,
+            candidate_steps,
+            device,
+            primary_lambda=args.primary_lambda,
+            fixed_step=step,
+            method=label,
+            method_role=role,
+            split_name=evaluation_split,
+            prediction_rows=predictions,
+        )
+        results.append({"Method": label, **metrics})
+
+    overhead_reports: dict[str, Any] = {}
+    for model_name, (model, val_metrics, best_epoch) in trained_models.items():
+        overhead_sec = 0.0
+        if args.measure_router_overhead:
+            overhead = measure_router_overhead(
+                model,
+                evaluation_loader,
+                device,
+                warmup=args.overhead_warmup,
+                repeats=args.overhead_repeats,
+            )
+            overhead["model_type"] = model_name
+            overhead_reports[model_name] = overhead
+            overhead_sec = float(overhead["median_ms"]) / 1000.0
+
+        label = MODEL_LABELS[model_name]
+        evaluation_metrics = evaluate_policy_on_loader(
+            model,
+            evaluation_loader,
+            candidate_steps,
+            device,
+            primary_lambda=args.primary_lambda,
+            router_overhead_sec=overhead_sec,
+            method=label,
+            method_role="learned",
+            model_type=model_name,
+            split_name=evaluation_split,
+            prediction_rows=predictions,
+        )
+        results.append({"Method": label, **evaluation_metrics})
+        checkpoint = {
+            "model_type": model_name,
             "state_dict": model.state_dict(),
-            "candidate_steps": cand_steps,
+            "candidate_steps": candidate_steps,
             "primary_lambda": args.primary_lambda,
             "meta": meta,
-            "test_metrics": test_metrics,
-        }, ckpt_path)
-        logger.info(f"Checkpoint saved: {ckpt_path}")
-
-        label_map = {
-            "linear_probe": "Learned: Linear Probe (B1)",
-            "linear_ordinal": "Learned: Linear Ordinal Regressor (B3)",
-            "mlp_distill": "Learned: Soft Distillation MLP (B4)",
+            "best_epoch": best_epoch,
+            "validation_metrics": val_metrics,
+            "evaluation_split": evaluation_split,
+            "evaluation_metrics": evaluation_metrics,
+            "router_overhead": overhead_reports.get(model_name),
         }
-        results.append({"Method": label_map.get(m_name, m_name), **test_metrics})
+        if evaluation_split == "test":
+            checkpoint["test_metrics"] = evaluation_metrics
+        torch.save(checkpoint, out_dir / f"{model_name}_router.pt")
 
-    # ── Print & Save Master Benchmark Comparison Table ───────────────────────────
-    csv_path = out_dir / "router_benchmark_results.csv"
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=list(results[0].keys()))
-        writer.writeheader()
-        writer.writerows(results)
+    if evaluation_split == "validation":
+        result_csv = out_dir / "router_validation_results.csv"
+        result_json = out_dir / "router_validation_summary.json"
+        prediction_csv = out_dir / "router_validation_predictions.csv"
+    else:
+        result_csv = out_dir / "router_benchmark_results.csv"
+        result_json = out_dir / "router_benchmark_summary.json"
+        prediction_csv = out_dir / "router_test_predictions.csv"
 
-    json_path = out_dir / "router_benchmark_summary.json"
-    json_path.write_text(json.dumps({
+    write_rows(result_csv, results)
+    write_rows(prediction_csv, predictions)
+    summary = {
+        "schema": "router_evaluation_summary_v2",
         "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "primary_lambda": args.primary_lambda,
+        "evaluation_stage": args.evaluation_stage,
+        "evaluation_split": evaluation_split,
+        "test_accessed": evaluation_split == "test",
         "meta": meta,
+        "router_overhead": overhead_reports,
         "results": results,
-    }, indent=2), encoding="utf-8")
-
-    print("\n" + "=" * 95)
-    print(f" PROMPT-CONDITIONED ROUTER BENCHMARK RESULTS (Test Set: {meta['test_prompts']} Prompts, {meta['test_trajectories']} Trajectories)")
-    print("=" * 95)
-    print(f"{'Method':<38} | {'Regret':<9} | {'VBench-5':<9} | {'Latency':<9} | {'Speedup':<8} | {'MAE':<6} | {'Top-1'}")
-    print("-" * 95)
-    for r in results:
-        print(
-            f"{r['Method']:<38} | "
-            f"{r['policy_regret']:<9.6f} | "
-            f"{r['realized_vbench5']:<9.4f} | "
-            f"{r['realized_latency_sec']:<7.1f}s | "
-            f"{r['speedup_vs_native']:<6.2f}x | "
-            f"{r['step_mae']:<4.2f}st | "
-            f"{r['top1_acc']:.1f}%"
+        "artifacts": {
+            "per_prompt_predictions": prediction_csv.name,
+            "test_access_guard": (
+                confirmation_guard.name
+                if args.evaluation_stage == "confirmation"
+                else None
+            ),
+        },
+    }
+    result_json.write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    if args.evaluation_stage == "confirmation":
+        guard_payload = json.loads(confirmation_guard.read_text(encoding="utf-8"))
+        guard_payload.update(
+            {
+                "completed_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "summary": result_json.name,
+                "predictions": prediction_csv.name,
+            }
         )
-    print("=" * 95 + "\n")
-    logger.info(f"Results saved to {csv_path} and {json_path}")
+        confirmation_guard.write_text(
+            json.dumps(guard_payload, indent=2), encoding="utf-8"
+        )
+    if overhead_reports:
+        (out_dir / "router_overhead.json").write_text(
+            json.dumps(overhead_reports, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    print("\n" + "=" * 100)
+    print(
+        f" ROUTER {args.evaluation_stage.upper()} RESULTS "
+        f"({evaluation_split}: {len(evaluation_loader.dataset)} prompts)"
+    )
+    print("=" * 100)
+    for row in results:
+        print(
+            f"{row['Method']:<38} regret={row['policy_regret']:.6f} "
+            f"VBench-5={row['realized_vbench5']:.6f} "
+            f"latency={row['realized_latency_sec']:.3f}s "
+            f"speedup={row['speedup_vs_native']:.2f}x"
+        )
+    print("=" * 100)
+    logger.info("Results: %s; per-prompt predictions: %s", result_json, prediction_csv)
 
 
 if __name__ == "__main__":

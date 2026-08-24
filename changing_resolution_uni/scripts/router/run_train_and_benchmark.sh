@@ -11,8 +11,15 @@ EPOCHS="${EPOCHS:-40}"
 BATCH_SIZE="${BATCH_SIZE:-32}"
 LR="${LR:-0.001}"
 SEED="${SEED:-42}"
+SPLIT_SEED="${SPLIT_SEED:-42}"
 MODEL_TYPE="${MODEL_TYPE:-all}"
+EVALUATION_STAGE="${EVALUATION_STAGE:-development}"
 ALLOW_ESTIMATED_LATENCY="${ALLOW_ESTIMATED_LATENCY:-0}"
+
+if [[ "${MODEL_TYPE}" != "all" && "${MODEL_TYPE}" != "mlp_distill" ]]; then
+  echo "B4 token attribution requires MODEL_TYPE=all or mlp_distill." >&2
+  exit 2
+fi
 
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
 
@@ -24,6 +31,7 @@ echo "  Output Directory  : ${OUT_DIR}"
 echo "  Primary Lambda    : ${PRIMARY_LAMBDA}"
 echo "  Epochs / BatchSize: ${EPOCHS} / ${BATCH_SIZE}"
 echo "  Model Type         : ${MODEL_TYPE}"
+echo "  Stage / Split Seed : ${EVALUATION_STAGE} / ${SPLIT_SEED}"
 echo "  Estimated Latency  : ${ALLOW_ESTIMATED_LATENCY}"
 echo "================================================================================"
 
@@ -48,11 +56,13 @@ train_args=(
   --dataset_dir "${DATASET_DIR}"
   --out_dir "${OUT_DIR}"
   --model_type "${MODEL_TYPE}"
+  --evaluation_stage "${EVALUATION_STAGE}"
   --epochs "${EPOCHS}"
   --batch_size "${BATCH_SIZE}"
   --lr "${LR}"
   --primary_lambda "${PRIMARY_LAMBDA}"
   --seed "${SEED}"
+  --split_seed "${SPLIT_SEED}"
 )
 if [[ "${ALLOW_ESTIMATED_LATENCY}" == "1" ]]; then
   train_args+=(--allow_estimated_latency)
@@ -63,9 +73,9 @@ python "${SCRIPT_DIR}/train_router.py" "${train_args[@]}"
 echo ""
 echo "[Step 3/4] Running Reverse Token Attribution & Semantic Discovery..."
 python "${SCRIPT_DIR}/analyze_token_attribution.py" \
-  --checkpoint "${OUT_DIR}/linear_ordinal_router.pt" \
+  --checkpoint "${OUT_DIR}/mlp_distill_router.pt" \
   --dataset_dir "${DATASET_DIR}" \
-  --out_dir "${OUT_DIR}/token_attribution" \
+  --out_dir "${OUT_DIR}/token_attribution_b4" \
   --top_k 30
 
 # ── Step 4: Print Master Benchmark Report ─────────────────────────────────────

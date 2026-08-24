@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Combine isolated router benchmark outputs across utility lambdas."""
+
 from __future__ import annotations
 
 import argparse
@@ -19,7 +20,9 @@ def main() -> None:
     args = parse_args()
     runs_root = Path(args.runs_root).resolve()
     combined: list[dict[str, Any]] = []
-    for summary_path in sorted(runs_root.glob("lambda_*/router_benchmark_summary.json")):
+    for summary_path in sorted(
+        runs_root.glob("lambda_*/router_benchmark_summary.json")
+    ):
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
         lambda_value = float(summary["primary_lambda"])
         for row in summary.get("results", []):
@@ -40,22 +43,23 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(combined)
 
-    best_learned = []
-    by_lambda: dict[float, list[dict[str, Any]]] = {}
-    for row in combined:
-        if str(row["Method"]).startswith("Learned:"):
-            by_lambda.setdefault(float(row["lambda"]), []).append(row)
-    for lambda_value, rows in sorted(by_lambda.items()):
-        best = min(rows, key=lambda row: float(row["policy_regret"]))
-        best_learned.append({"lambda": lambda_value, **best})
-    best_path = runs_root / "lambda_best_learned_models.csv"
-    with best_path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(best_learned[0]))
+    # Keep one predeclared architecture across lambda. Selecting the minimum
+    # regret architecture here would select on test results and leak the test set.
+    b4_rows = [
+        row
+        for row in combined
+        if str(row["Method"]) == "Learned: Soft Distillation MLP (B4)"
+    ]
+    if not b4_rows:
+        raise RuntimeError("No predeclared B4 rows found in completed lambda runs")
+    b4_path = runs_root / "lambda_b4_results.csv"
+    with b4_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(b4_rows[0]))
         writer.writeheader()
-        writer.writerows(best_learned)
+        writer.writerows(b4_rows)
 
     print(f"Combined lambda summary: {combined_path}")
-    print(f"Best learned model per lambda: {best_path}")
+    print(f"Predeclared B4 lambda results: {b4_path}")
 
 
 if __name__ == "__main__":
