@@ -36,7 +36,9 @@ Run:
 
 ```bash
 PRIMARY_LAMBDA=0.08 \
-DATASET_DIR=/path/to/router_ready_dataset \
+DATASET_DIR=/mnt/afs_2/houze/wanUpsampler/data/changing_resolution_uni/oracle_dataset_500_quality_valid \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/router_selection_500_quality_valid_lambda008 \
+ALLOW_ESTIMATED_LATENCY=1 \
 bash changing_resolution_uni/scripts/router/run_multiseed_router_selection.sh
 ```
 
@@ -85,10 +87,24 @@ blocks an accidental second test read unless the explicit override is supplied.
 Run exactly once after the selection manifest is frozen:
 
 ```bash
-DATASET_DIR=/path/to/formal_measured_router_dataset \
-SELECTION_JSON=outputs/router_selection_lambda008/selection/architecture_selection.json \
+DATASET_DIR=/mnt/afs_2/houze/wanUpsampler/data/changing_resolution_uni/oracle_dataset_1k_strict \
+SELECTION_JSON=/mnt/afs_2/houze/wanUpsampler/outputs/router_selection_500_quality_valid_lambda008/selection/architecture_selection.json \
+OUT_DIR=/mnt/afs_2/houze/wanUpsampler/outputs/router_confirmation_1k_strict_lambda008 \
 bash changing_resolution_uni/scripts/router/run_locked_router_confirmation.sh
 ```
+
+These paths follow `configs/local_paths.sh` (`PROJECT_ROOT` defaults to
+`/mnt/afs_2/houze/wanUpsampler`) and the existing legacy/strict router scripts.
+The confirmation command still fails if `oracle_dataset_1k_strict` contains
+`estimated_warm_pipeline_seconds`; its path is real and traceable, but it is not
+declared confirmation-ready until every branch latency is measured.
+
+The newer 1,500-prompt generator writes raw physical datasets to
+`data/changing_resolution_uni/oracle_dataset_1500_8gpu/train` and `.../eval`.
+They are not interchangeable with the single-directory `DATASET_DIR` above:
+the current router loader expects one scored manifest with uniform seed
+coverage, while the 1,500 design intentionally uses one train seed and three
+evaluation seeds.
 
 The confirmation output includes:
 

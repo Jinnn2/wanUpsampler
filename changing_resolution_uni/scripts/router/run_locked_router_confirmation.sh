@@ -3,9 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
-DATASET_DIR="${DATASET_DIR:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_1k_router_ready}"
-SELECTION_JSON="${SELECTION_JSON:-${PROJECT_ROOT}/outputs/router_selection_lambda008/selection/architecture_selection.json}"
-OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/router_confirmation_lambda008}"
+DATASET_DIR="${DATASET_DIR:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_1k_strict}"
+SELECTION_JSON="${SELECTION_JSON:-${PROJECT_ROOT}/outputs/router_selection_500_quality_valid_lambda008/selection/architecture_selection.json}"
+OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/router_confirmation_1k_strict_lambda008}"
 TRAIN_SEED="${TRAIN_SEED:-42}"
 EPOCHS="${EPOCHS:-40}"
 BATCH_SIZE="${BATCH_SIZE:-32}"
