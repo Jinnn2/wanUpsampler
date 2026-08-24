@@ -14,7 +14,9 @@ if HAS_TORCH:
         SoftDistillationMLPRouter,
     )
     from changing_resolution_uni.scripts.router.train_router import (
+        build_model,
         choose_model_step,
+        seed_everything,
         train_single_model,
     )
 
@@ -32,6 +34,14 @@ class QualityCurveRouterTest(unittest.TestCase):
         )
         output = b4_q(torch.ones(2, 16))
         self.assertEqual(tuple(output["quality_deltas"].shape), (2, 3))
+
+    def test_b4_and_b4_qa_can_use_identical_initial_parameters(self) -> None:
+        seed_everything(2027)
+        b4 = build_model("mlp_distill", candidate_count=3)
+        seed_everything(2027)
+        b4_qa = build_model("mlp_quality_aligned", candidate_count=3)
+        for name, value in b4.state_dict().items():
+            self.assertTrue(torch.equal(value, b4_qa.state_dict()[name]), name)
 
     def test_quality_curve_selection_combines_quality_and_normalized_latency(
         self,
@@ -72,6 +82,7 @@ class QualityCurveRouterTest(unittest.TestCase):
                 {
                     "pooled_t5": torch.randn(4096),
                     "relative_quality_target": vbench - vbench[-1],
+                    "soft_utility_target": torch.softmax(utilities / 0.02, dim=-1),
                     "target_step_idx": torch.tensor(target_idx),
                     "target_step": torch.tensor(candidate_steps[target_idx]),
                     "utilities": utilities,
@@ -87,19 +98,23 @@ class QualityCurveRouterTest(unittest.TestCase):
             lr=1e-3,
             weight_decay=1e-4,
             quality_curve_beta=0.01,
+            quality_curve_alpha=1.0,
+            soft_target_tau=0.02,
             primary_lambda=0.08,
         )
-        model, metrics, best_epoch = train_single_model(
-            "mlp_quality_curve",
-            loader,
-            loader,
-            candidate_steps,
-            args,
-            torch.device("cpu"),
-        )
-        self.assertIsInstance(model, RelativeQualityCurveMLPRouter)
-        self.assertEqual(best_epoch, 1)
-        self.assertGreaterEqual(metrics["policy_regret"], 0.0)
+        for model_name in ("mlp_quality_curve", "mlp_quality_aligned"):
+            with self.subTest(model_name=model_name):
+                model, metrics, best_epoch = train_single_model(
+                    model_name,
+                    loader,
+                    loader,
+                    candidate_steps,
+                    args,
+                    torch.device("cpu"),
+                )
+                self.assertIsInstance(model, RelativeQualityCurveMLPRouter)
+                self.assertEqual(best_epoch, 1)
+                self.assertGreaterEqual(metrics["policy_regret"], 0.0)
 
 
 if __name__ == "__main__":

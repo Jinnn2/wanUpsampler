@@ -78,6 +78,34 @@ quality representation. Estimated-latency results remain development evidence.
 Use `selection/multiseed_reference_paired_deltas.csv` for the direct B4-Q
 minus B4 comparison; positive values always mean B4-Q is better.
 
+## Experiment 1c: utility-aligned relative quality curves
+
+B4-QA keeps the B4-Q architecture and relative quality output, but aligns it
+with the routing objective using:
+
+```text
+KL(soft utility) + 0.5 * Wasserstein(soft utility)
++ alpha * SmoothL1(relative quality), alpha=1
+```
+
+Predicted utility logits are
+`(predicted_relative_quality - lambda * normalized_latency) / tau`, using the
+same `tau=0.02` as the target distribution. This is the only change from B4-Q.
+Within each train seed, B4 and B4-QA reset the same initialization, DataLoader,
+and dropout RNG streams before training so the loss is the isolated variable.
+
+```bash
+PRIMARY_LAMBDA=0.08 \
+DATASET_DIR=/mnt/afs_2/houze/wanUpsampler/data/changing_resolution_uni/oracle_dataset_500_quality_valid \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/router_b4_quality_aligned_comparison_lambda008 \
+ALLOW_ESTIMATED_LATENCY=1 \
+bash changing_resolution_uni/scripts/router/run_multiseed_quality_aligned_comparison.sh
+```
+
+Use the direct reference-paired delta against B4. If B4-QA does not reduce
+validation policy regret without degrading speed, stop prompt-only loss
+experiments and proceed to latent-conditioned features.
+
 ## Experiment 2: formal quality, measured latency, and router overhead
 
 Hypothesis: the locked router remains useful after replacing branch estimates

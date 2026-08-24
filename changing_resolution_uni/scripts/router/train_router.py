@@ -51,6 +51,7 @@ MODEL_LABELS = {
     "linear_ordinal": "Learned: Linear Ordinal Regressor (B3)",
     "mlp_distill": "Learned: Soft Distillation MLP (B4)",
     "mlp_quality_curve": "Learned: Relative Quality Curve MLP (B4-Q)",
+    "mlp_quality_aligned": "Learned: Utility-Aligned Quality Curve MLP (B4-QA)",
 }
 
 
@@ -73,7 +74,9 @@ def parse_args() -> argparse.Namespace:
             "linear_probe",
             "mlp_distill",
             "mlp_quality_curve",
+            "mlp_quality_aligned",
             "b4_comparison",
+            "b4_qa_comparison",
             "all",
         ],
     )
@@ -95,6 +98,18 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.01,
         help="SmoothL1 beta for B4-Q relative VBench-5 curve regression.",
+    )
+    parser.add_argument(
+        "--quality_curve_alpha",
+        type=float,
+        default=1.0,
+        help="Weight on the B4-QA SmoothL1 relative-quality auxiliary loss.",
+    )
+    parser.add_argument(
+        "--soft_target_tau",
+        type=float,
+        default=0.02,
+        help="Temperature shared by soft utility targets and B4-QA utility logits.",
     )
     parser.add_argument("--primary_lambda", type=float, default=0.01)
     parser.add_argument(
@@ -136,6 +151,10 @@ def parse_args() -> argparse.Namespace:
         parser.error("epochs and batch_size must be positive")
     if args.quality_curve_beta <= 0:
         parser.error("quality_curve_beta must be positive")
+    if args.quality_curve_alpha < 0:
+        parser.error("quality_curve_alpha must be non-negative")
+    if args.soft_target_tau <= 0:
+        parser.error("soft_target_tau must be positive")
     if args.overhead_warmup < 0 or args.overhead_repeats < 1:
         parser.error(
             "overhead_warmup must be non-negative and repeats must be positive"
@@ -143,6 +162,7 @@ def parse_args() -> argparse.Namespace:
     if args.evaluation_stage == "confirmation" and args.model_type in {
         "all",
         "b4_comparison",
+        "b4_qa_comparison",
     }:
         parser.error("confirmation requires one validation-selected --model_type")
     if args.evaluation_stage == "confirmation" and args.allow_estimated_latency:
@@ -166,7 +186,7 @@ def build_model(model_name: str, candidate_count: int) -> nn.Module:
             num_classes=candidate_count,
             dropout=0.1,
         )
-    if model_name == "mlp_quality_curve":
+    if model_name in {"mlp_quality_curve", "mlp_quality_aligned"}:
         return RelativeQualityCurveMLPRouter(
             in_dim=4096,
             hidden_dims=[256, 128],
@@ -174,6 +194,27 @@ def build_model(model_name: str, candidate_count: int) -> nn.Module:
             dropout=0.1,
         )
     raise ValueError(f"Unknown model_type {model_name}")
+
+
+def quality_curve_utility(
+    quality_deltas: torch.Tensor,
+    latencies: torch.Tensor,
+    native_latency: torch.Tensor,
+    primary_lambda: float,
+) -> torch.Tensor:
+    """Combine a relative quality curve with normalized candidate cost."""
+    latencies = latencies.to(quality_deltas.device)
+    native_latency = native_latency.to(quality_deltas.device)
+    if quality_deltas.shape != latencies.shape:
+        raise ValueError(
+            "quality_deltas and latencies must share [batch, candidate] shape; "
+            f"got {tuple(quality_deltas.shape)} and {tuple(latencies.shape)}"
+        )
+    if native_latency.ndim != 1 or native_latency.shape[0] != latencies.shape[0]:
+        raise ValueError("native_latency must have shape [batch]")
+    return quality_deltas - float(primary_lambda) * (
+        latencies / native_latency.unsqueeze(1).clamp(min=1e-6)
+    )
 
 
 def choose_model_step(
@@ -187,15 +228,11 @@ def choose_model_step(
         return model_output["pred_step_idx"].detach().cpu()
 
     quality_deltas = model_output["quality_deltas"].detach().cpu()
-    if quality_deltas.shape != latencies.shape:
-        raise ValueError(
-            "quality_deltas and latencies must share [batch, candidate] shape; "
-            f"got {tuple(quality_deltas.shape)} and {tuple(latencies.shape)}"
-        )
-    if native_latency.ndim != 1 or native_latency.shape[0] != latencies.shape[0]:
-        raise ValueError("native_latency must have shape [batch]")
-    predicted_utility = quality_deltas - float(primary_lambda) * (
-        latencies / native_latency.unsqueeze(1).clamp(min=1e-6)
+    predicted_utility = quality_curve_utility(
+        quality_deltas,
+        latencies,
+        native_latency,
+        primary_lambda,
     )
     return torch.argmax(predicted_utility, dim=-1)
 
@@ -428,8 +465,11 @@ def train_single_model(
         criterion: nn.Module = OrdinalLoss()
     elif model_name == "linear_probe":
         criterion = nn.CrossEntropyLoss()
-    elif model_name == "mlp_quality_curve":
+    elif model_name in {"mlp_quality_curve", "mlp_quality_aligned"}:
         criterion = nn.SmoothL1Loss(beta=args.quality_curve_beta)
+        if model_name == "mlp_quality_aligned":
+            criterion_kl = SoftUtilityKLLoss()
+            criterion_emd = Wasserstein1Loss()
     else:
         criterion_kl = SoftUtilityKLLoss()
         criterion_emd = Wasserstein1Loss()
@@ -462,6 +502,25 @@ def train_single_model(
                 loss = criterion(
                     out["quality_deltas"],
                     batch["relative_quality_target"].to(device),
+                )
+            elif model_name == "mlp_quality_aligned":
+                quality_loss = criterion(
+                    out["quality_deltas"],
+                    batch["relative_quality_target"].to(device),
+                )
+                predicted_utility = quality_curve_utility(
+                    out["quality_deltas"],
+                    batch["latencies"],
+                    batch["native_latency"],
+                    args.primary_lambda,
+                )
+                utility_logits = predicted_utility / args.soft_target_tau
+                utility_probs = torch.softmax(utility_logits, dim=-1)
+                soft_target = batch["soft_utility_target"].to(device)
+                loss = (
+                    criterion_kl(utility_logits, soft_target)
+                    + 0.5 * criterion_emd(utility_probs, soft_target)
+                    + args.quality_curve_alpha * quality_loss
                 )
             else:
                 soft_target = batch["soft_utility_target"].to(device)
@@ -521,13 +580,18 @@ def write_rows(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def seed_everything(seed: int) -> None:
+    """Reset model initialization, shuffling, and dropout RNG streams."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
 def main() -> None:
     args = parse_args()
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(args.seed)
+    seed_everything(args.seed)
     if hasattr(torch.backends, "cudnn"):
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
@@ -552,6 +616,7 @@ def main() -> None:
         batch_size=args.batch_size,
         seed=args.split_seed,
         primary_lambda=args.primary_lambda,
+        tau=args.soft_target_tau,
         allow_estimated_latency=args.allow_estimated_latency,
         require_measured_latency=args.require_measured_latency,
     )
@@ -563,6 +628,11 @@ def main() -> None:
             "quality_curve_target": "candidate_vbench5_minus_final_candidate_vbench5",
             "quality_curve_loss": "smooth_l1",
             "quality_curve_beta": args.quality_curve_beta,
+            "quality_curve_alpha": args.quality_curve_alpha,
+            "soft_target_tau": args.soft_target_tau,
+            "quality_aligned_loss": "kl_utility_plus_0.5_wasserstein_plus_alpha_smooth_l1",
+            "paired_model_initialization": args.model_type
+            in {"b4_comparison", "b4_qa_comparison"},
         }
     )
     if args.evaluation_stage == "confirmation" and not meta.get("formal_evidence"):
@@ -604,10 +674,14 @@ def main() -> None:
         models_to_train = ["linear_probe", "linear_ordinal", "mlp_distill"]
     elif args.model_type == "b4_comparison":
         models_to_train = ["mlp_distill", "mlp_quality_curve"]
+    elif args.model_type == "b4_qa_comparison":
+        models_to_train = ["mlp_distill", "mlp_quality_aligned"]
     else:
         models_to_train = [args.model_type]
     trained_models: dict[str, tuple[nn.Module, dict[str, float], int]] = {}
     for model_name in models_to_train:
+        if args.model_type in {"b4_comparison", "b4_qa_comparison"}:
+            seed_everything(args.seed)
         trained_models[model_name] = train_single_model(
             model_name, train_loader, val_loader, candidate_steps, args, device
         )
