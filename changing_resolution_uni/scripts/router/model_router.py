@@ -5,11 +5,10 @@ Includes:
   - LinearOrdinalRouter (B3: Monotonic Thresholds + Exact Token Attribution)
   - LinearProbeRouter (B1: Direct Linear Baseline)
   - SoftDistillationMLPRouter (B4: Non-linear KL + Wasserstein Distillation)
+  - RelativeQualityCurveMLPRouter (B4-Q: Relative Quality Curve Regression)
 """
-from __future__ import annotations
 
-import math
-from typing import Any
+from __future__ import annotations
 
 import torch
 import torch.nn as nn
@@ -75,7 +74,6 @@ class LinearOrdinalRouter(nn.Module):
           - discrete_probs: [B, K] P(k* == m)
           - pred_step_idx: [B]
         """
-        B = pooled_t5.shape[0]
         # s_p: [B]
         s_p = self.linear(pooled_t5).squeeze(-1)
         thresholds = self.get_monotonic_thresholds()  # [K-1]
@@ -181,6 +179,15 @@ class SoftDistillationMLPRouter(nn.Module):
             "discrete_probs": probs,
             "pred_step_idx": pred_idx,
         }
+
+
+class RelativeQualityCurveMLPRouter(SoftDistillationMLPRouter):
+    """B4-compatible MLP that regresses quality relative to the final candidate."""
+
+    def forward(self, pooled_t5: torch.Tensor) -> dict[str, torch.Tensor]:
+        feat = self.mlp(pooled_t5)
+        quality_deltas = self.head(feat)
+        return {"quality_deltas": quality_deltas}
 
 
 # ─── 4. Specialized Loss Functions ─────────────────────────────────────────────

@@ -40,6 +40,7 @@ from changing_resolution_uni.scripts.router.model_router import (  # noqa: E402
     LinearOrdinalRouter,
     LinearProbeRouter,
     OrdinalLoss,
+    RelativeQualityCurveMLPRouter,
     SoftDistillationMLPRouter,
     SoftUtilityKLLoss,
     Wasserstein1Loss,
@@ -49,6 +50,7 @@ MODEL_LABELS = {
     "linear_probe": "Learned: Linear Probe (B1)",
     "linear_ordinal": "Learned: Linear Ordinal Regressor (B3)",
     "mlp_distill": "Learned: Soft Distillation MLP (B4)",
+    "mlp_quality_curve": "Learned: Relative Quality Curve MLP (B4-Q)",
 }
 
 
@@ -66,7 +68,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model_type",
         default="all",
-        choices=["linear_ordinal", "linear_probe", "mlp_distill", "all"],
+        choices=[
+            "linear_ordinal",
+            "linear_probe",
+            "mlp_distill",
+            "mlp_quality_curve",
+            "b4_comparison",
+            "all",
+        ],
     )
     parser.add_argument(
         "--evaluation_stage",
@@ -81,6 +90,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight_decay", type=float, default=1e-4)
+    parser.add_argument(
+        "--quality_curve_beta",
+        type=float,
+        default=0.01,
+        help="SmoothL1 beta for B4-Q relative VBench-5 curve regression.",
+    )
     parser.add_argument("--primary_lambda", type=float, default=0.01)
     parser.add_argument(
         "--seed", type=int, default=42, help="Training initialization/shuffle seed."
@@ -119,11 +134,16 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.epochs < 1 or args.batch_size < 1:
         parser.error("epochs and batch_size must be positive")
+    if args.quality_curve_beta <= 0:
+        parser.error("quality_curve_beta must be positive")
     if args.overhead_warmup < 0 or args.overhead_repeats < 1:
         parser.error(
             "overhead_warmup must be non-negative and repeats must be positive"
         )
-    if args.evaluation_stage == "confirmation" and args.model_type == "all":
+    if args.evaluation_stage == "confirmation" and args.model_type in {
+        "all",
+        "b4_comparison",
+    }:
         parser.error("confirmation requires one validation-selected --model_type")
     if args.evaluation_stage == "confirmation" and args.allow_estimated_latency:
         parser.error("confirmation cannot use --allow_estimated_latency")
@@ -146,7 +166,38 @@ def build_model(model_name: str, candidate_count: int) -> nn.Module:
             num_classes=candidate_count,
             dropout=0.1,
         )
+    if model_name == "mlp_quality_curve":
+        return RelativeQualityCurveMLPRouter(
+            in_dim=4096,
+            hidden_dims=[256, 128],
+            num_classes=candidate_count,
+            dropout=0.1,
+        )
     raise ValueError(f"Unknown model_type {model_name}")
+
+
+def choose_model_step(
+    model_output: dict[str, torch.Tensor],
+    latencies: torch.Tensor,
+    native_latency: torch.Tensor,
+    primary_lambda: float,
+) -> torch.Tensor:
+    """Choose a candidate from either direct probabilities or a quality curve."""
+    if "quality_deltas" not in model_output:
+        return model_output["pred_step_idx"].detach().cpu()
+
+    quality_deltas = model_output["quality_deltas"].detach().cpu()
+    if quality_deltas.shape != latencies.shape:
+        raise ValueError(
+            "quality_deltas and latencies must share [batch, candidate] shape; "
+            f"got {tuple(quality_deltas.shape)} and {tuple(latencies.shape)}"
+        )
+    if native_latency.ndim != 1 or native_latency.shape[0] != latencies.shape[0]:
+        raise ValueError("native_latency must have shape [batch]")
+    predicted_utility = quality_deltas - float(primary_lambda) * (
+        latencies / native_latency.unsqueeze(1).clamp(min=1e-6)
+    )
+    return torch.argmax(predicted_utility, dim=-1)
 
 
 @torch.no_grad()
@@ -207,7 +258,12 @@ def evaluate_policy_on_loader(
             )
         else:
             pooled = batch["pooled_t5"].to(device)
-            chosen_idx = model(pooled)["pred_step_idx"].cpu()
+            chosen_idx = choose_model_step(
+                model(pooled),
+                latencies,
+                batch["native_latency"],
+                primary_lambda,
+            )
 
         batch_indices = torch.arange(batch_size)
         chosen_step = cand_steps_tensor[chosen_idx]
@@ -372,6 +428,8 @@ def train_single_model(
         criterion: nn.Module = OrdinalLoss()
     elif model_name == "linear_probe":
         criterion = nn.CrossEntropyLoss()
+    elif model_name == "mlp_quality_curve":
+        criterion = nn.SmoothL1Loss(beta=args.quality_curve_beta)
     else:
         criterion_kl = SoftUtilityKLLoss()
         criterion_emd = Wasserstein1Loss()
@@ -400,6 +458,11 @@ def train_single_model(
                 )
             elif model_name == "linear_probe":
                 loss = criterion(out["logits"], batch["target_step_idx"].to(device))
+            elif model_name == "mlp_quality_curve":
+                loss = criterion(
+                    out["quality_deltas"],
+                    batch["relative_quality_target"].to(device),
+                )
             else:
                 soft_target = batch["soft_utility_target"].to(device)
                 loss = criterion_kl(out["logits"], soft_target) + 0.5 * criterion_emd(
@@ -497,6 +560,9 @@ def main() -> None:
             "train_seed": args.seed,
             "split_seed": args.split_seed,
             "evaluation_stage": args.evaluation_stage,
+            "quality_curve_target": "candidate_vbench5_minus_final_candidate_vbench5",
+            "quality_curve_loss": "smooth_l1",
+            "quality_curve_beta": args.quality_curve_beta,
         }
     )
     if args.evaluation_stage == "confirmation" and not meta.get("formal_evidence"):
@@ -534,11 +600,12 @@ def main() -> None:
         best_fixed_step,
         *[step for step in (47, 45, 50) if step != best_fixed_step],
     ]
-    models_to_train = (
-        [args.model_type]
-        if args.model_type != "all"
-        else ["linear_probe", "linear_ordinal", "mlp_distill"]
-    )
+    if args.model_type == "all":
+        models_to_train = ["linear_probe", "linear_ordinal", "mlp_distill"]
+    elif args.model_type == "b4_comparison":
+        models_to_train = ["mlp_distill", "mlp_quality_curve"]
+    else:
+        models_to_train = [args.model_type]
     trained_models: dict[str, tuple[nn.Module, dict[str, float], int]] = {}
     for model_name in models_to_train:
         trained_models[model_name] = train_single_model(

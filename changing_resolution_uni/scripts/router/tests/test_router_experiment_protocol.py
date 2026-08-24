@@ -147,6 +147,8 @@ class RouterExperimentProtocolTest(unittest.TestCase):
                 str(root),
                 "--bootstrap-samples",
                 "100",
+                "--reference-model",
+                "linear_probe",
             ]
             with mock.patch.object(sys, "argv", argv):
                 summarize_multiseed_selection.main()
@@ -158,6 +160,15 @@ class RouterExperimentProtocolTest(unittest.TestCase):
             self.assertEqual(selection["selected_model_type"], "mlp_distill")
             self.assertFalse(selection["test_accessed"])
             self.assertEqual(selection["run_count"], 3)
+            self.assertEqual(selection["reference_model"], "linear_probe")
+            with (root / "selection" / "multiseed_reference_paired_deltas.csv").open(
+                encoding="utf-8"
+            ) as handle:
+                direct = list(csv.DictReader(handle))
+            regret = next(row for row in direct if row["metric"] == "policy_regret")
+            self.assertEqual(regret["reference_model"], "linear_probe")
+            self.assertEqual(regret["candidate_model"], "mlp_distill")
+            self.assertAlmostEqual(float(regret["mean_delta"]), 0.05)
 
     def test_confirmation_bootstrap_requires_formal_test(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

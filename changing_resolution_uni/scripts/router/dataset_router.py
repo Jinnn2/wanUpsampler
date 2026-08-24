@@ -44,6 +44,7 @@ class RouterDataset(Dataset):
       - target_step_idx: int (0 to K-1)
       - target_step: int (e.g. 47)
       - soft_utility_target: [K] float32
+      - relative_quality_target: [K] float32, VBench-5 relative to final candidate
       - utilities: [K] float32
       - latencies: [K] float32
       - vbench5: [K] float32
@@ -137,6 +138,10 @@ class RouterDataset(Dataset):
         exp_u = np.exp((u_arr - u_max) / max(self.tau, 1e-4))
         soft_target = exp_u / np.sum(exp_u)
 
+        # A prompt-wise quality offset cannot change the selected candidate. Regressing
+        # quality relative to the final candidate focuses B4-Q on routing-relevant shape.
+        relative_quality_target = vbench_arr - vbench_arr[-1]
+
         # 5. Ordinal binary targets: y_k = 1 if opt_idx > k else 0 for k in [0, K-2]
         ordinal_targets = (opt_idx > np.arange(self.K - 1)).astype(np.float32)
 
@@ -151,6 +156,9 @@ class RouterDataset(Dataset):
             "target_step": torch.tensor(opt_step, dtype=torch.long),
             "soft_utility_target": torch.from_numpy(
                 soft_target.astype(np.float32)
+            ),  # [K]
+            "relative_quality_target": torch.from_numpy(
+                relative_quality_target.astype(np.float32)
             ),  # [K]
             "utilities": torch.from_numpy(u_arr),  # [K]
             "vbench5": torch.from_numpy(vbench_arr),  # [K]

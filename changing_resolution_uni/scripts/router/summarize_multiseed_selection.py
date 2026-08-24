@@ -29,6 +29,7 @@ METRICS = (
     "realized_aesthetic_quality",
     "realized_imaging_quality",
 )
+LOWER_IS_BETTER = {"policy_regret", "realized_latency_sec", "step_abs_error"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,6 +38,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-dir", default=None)
     parser.add_argument("--bootstrap-samples", type=int, default=10000)
     parser.add_argument("--bootstrap-seed", type=int, default=2027)
+    parser.add_argument(
+        "--reference-model",
+        default=None,
+        help="Optional learned model for direct prompt-paired candidate comparisons.",
+    )
     args = parser.parse_args()
     if args.bootstrap_samples < 1:
         parser.error("bootstrap-samples must be positive")
@@ -146,6 +152,10 @@ def main() -> None:
     run_ids = sorted({str(row["run_id"]) for row in rows})
     if not model_types:
         raise ValueError("No learned models found in validation predictions")
+    if args.reference_model is not None and args.reference_model not in model_types:
+        raise ValueError(
+            f"reference model {args.reference_model!r} is absent; found {model_types}"
+        )
 
     interval_rows: list[dict[str, Any]] = []
     regret_by_model: dict[str, float] = {}
@@ -237,6 +247,53 @@ def main() -> None:
                 }
             )
 
+    reference_paired_rows: list[dict[str, Any]] = []
+    if args.reference_model is not None:
+        reference_rows = [
+            row for row in learned_rows if row["model_type"] == args.reference_model
+        ]
+        reference_by_key = {
+            (str(row["run_id"]), int(row["prompt_id"])): row for row in reference_rows
+        }
+        for candidate_model in model_types:
+            if candidate_model == args.reference_model:
+                continue
+            candidate_rows = [
+                row for row in learned_rows if row["model_type"] == candidate_model
+            ]
+            for metric in METRICS:
+                by_prompt: dict[int, list[float]] = defaultdict(list)
+                for row in candidate_rows:
+                    key = (str(row["run_id"]), int(row["prompt_id"]))
+                    if key not in reference_by_key:
+                        raise ValueError(
+                            f"Missing paired {args.reference_model} row for {key}"
+                        )
+                    reference = reference_by_key[key]
+                    if metric in LOWER_IS_BETTER:
+                        delta = reference[metric] - row[metric]
+                    else:
+                        delta = row[metric] - reference[metric]
+                    by_prompt[row["prompt_id"]].append(float(delta))
+                point, low, high = mean_ci(
+                    by_prompt,
+                    samples=args.bootstrap_samples,
+                    rng=rng,
+                )
+                reference_paired_rows.append(
+                    {
+                        "reference_model": args.reference_model,
+                        "candidate_model": candidate_model,
+                        "metric": metric,
+                        "positive_means": "candidate_better",
+                        "mean_delta": point,
+                        "ci95_low": low,
+                        "ci95_high": high,
+                        "run_count": len(run_ids),
+                        "prompt_count": len(by_prompt),
+                    }
+                )
+
     selected_model = min(regret_by_model, key=regret_by_model.get)
     first_summary = json.loads(
         Path(run_meta[0]["summary_path"]).read_text(encoding="utf-8")
@@ -250,6 +307,7 @@ def main() -> None:
         "primary_lambda": first_summary["primary_lambda"],
         "split_seed": first_summary["meta"]["split_seed"],
         "test_accessed": False,
+        "reference_model": args.reference_model,
         "run_count": len(run_ids),
         "train_seeds": [item["train_seed"] for item in run_meta],
         "bootstrap": {
@@ -261,6 +319,11 @@ def main() -> None:
         "artifacts": {
             "metric_intervals": "multiseed_validation_intervals.csv",
             "paired_best_fixed_deltas": "multiseed_paired_deltas.csv",
+            "paired_reference_deltas": (
+                "multiseed_reference_paired_deltas.csv"
+                if reference_paired_rows
+                else None
+            ),
         },
     }
 
@@ -272,6 +335,13 @@ def main() -> None:
             writer = csv.DictWriter(handle, fieldnames=list(output_rows[0]))
             writer.writeheader()
             writer.writerows(output_rows)
+    if reference_paired_rows:
+        with (out_dir / "multiseed_reference_paired_deltas.csv").open(
+            "w", newline="", encoding="utf-8"
+        ) as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(reference_paired_rows[0]))
+            writer.writeheader()
+            writer.writerows(reference_paired_rows)
     (out_dir / "architecture_selection.json").write_text(
         json.dumps(selection, indent=2, ensure_ascii=False), encoding="utf-8"
     )

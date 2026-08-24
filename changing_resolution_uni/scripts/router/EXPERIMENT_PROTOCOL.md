@@ -52,6 +52,32 @@ Acceptance for proceeding to confirmation:
 Do not require Top-1 timestep accuracy to improve. Regret is primary; VBench-5,
 latency, step MAE, and Top-1/Top-3 are secondary diagnostics.
 
+## Experiment 1b: B4 soft distillation versus relative quality curves
+
+After the original B4 passes Experiment 1, compare it against B4-Q without
+changing the MLP widths, prompt split, initialization seeds, optimizer, or
+evaluation metrics. B4-Q regresses the 13-point target
+`candidate_vbench5 - step50_vbench5` with SmoothL1 loss. At evaluation time it
+combines the predicted relative quality curve with the selected lambda and the
+recorded normalized candidate latency. This isolates the supervision change
+and does not access the test split.
+
+Run in a new output root so the accepted B4 selection is not overwritten:
+
+```bash
+PRIMARY_LAMBDA=0.08 \
+DATASET_DIR=/mnt/afs_2/houze/wanUpsampler/data/changing_resolution_uni/oracle_dataset_500_quality_valid \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/router_b4_quality_curve_comparison_lambda008 \
+ALLOW_ESTIMATED_LATENCY=1 \
+bash changing_resolution_uni/scripts/router/run_multiseed_quality_curve_comparison.sh
+```
+
+Keep B4-Q only if its validation policy regret improves over B4, or is
+statistically indistinguishable while providing the desired lambda-independent
+quality representation. Estimated-latency results remain development evidence.
+Use `selection/multiseed_reference_paired_deltas.csv` for the direct B4-Q
+minus B4 comparison; positive values always mean B4-Q is better.
+
 ## Experiment 2: formal quality, measured latency, and router overhead
 
 Hypothesis: the locked router remains useful after replacing branch estimates

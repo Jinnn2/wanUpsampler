@@ -154,7 +154,9 @@ class RouterDatasetTest(unittest.TestCase):
             expected_seeds=[42, 100],
         )
         with tempfile.TemporaryDirectory() as directory:
-            with self.assertRaisesRegex(ValueError, "T5 embedding coverage check failed"):
+            with self.assertRaisesRegex(
+                ValueError, "T5 embedding coverage check failed"
+            ):
                 RouterDataset(
                     [samples[3]],
                     Path(directory),
@@ -191,6 +193,12 @@ class RouterDatasetTest(unittest.TestCase):
             item = dataset[0]
             self.assertEqual(tuple(item["pooled_t5"].shape), (4096,))
             self.assertEqual(item["seed_count"], 2)
+            expected_quality = item["vbench5"] - item["vbench5"][-1]
+            np.testing.assert_allclose(
+                item["relative_quality_target"].numpy(),
+                expected_quality.numpy(),
+            )
+            self.assertEqual(float(item["relative_quality_target"][-1]), 0.0)
 
 
 if __name__ == "__main__":
