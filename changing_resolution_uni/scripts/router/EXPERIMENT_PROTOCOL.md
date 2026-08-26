@@ -106,6 +106,56 @@ Use the direct reference-paired delta against B4. If B4-QA does not reduce
 validation policy regret without degrading speed, stop prompt-only loss
 experiments and proceed to latent-conditioned features.
 
+## Variable-lambda sequential router on the 1,500-prompt dataset
+
+The 1,500-prompt generator has two physical roots rather than one uniform
+router directory:
+
+```text
+oracle_dataset_1500_8gpu/
+  generation_plan.json
+  generation_complete.json
+  train/  # prompt IDs 0..999, one base seed
+    t5_embeddings/
+    _parts/part_*/raw_samples/seed_42/{manifests,latents,videos}/
+  eval/   # prompt IDs 1000..1499, three base seeds
+    t5_embeddings/
+    _parts/part_*/raw_samples/seed_{42,100,2024}/{manifests,latents,videos}/
+```
+
+The actual stored seed is `base_seed + prompt_id`. Validation is prompt IDs
+`1000..1199`; test is `1200..1499`. Do not pass these roots to the legacy
+single-directory loader.
+
+After generation completes, score the physical train/eval roots into isolated
+strict datasets and extract lambda-independent state features for train and
+validation only:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_prepare_1500_variable_lambda.sh check
+bash changing_resolution_uni/scripts/router/run_prepare_1500_variable_lambda.sh score
+bash changing_resolution_uni/scripts/router/run_prepare_1500_variable_lambda.sh features
+```
+
+The state builder resolves each latent through the authoritative sample
+manifest, validates `wan_taa_free_oracle_latent_v1`, and emits one 13-state
+feature file per trajectory. It does not read test record or manifest content
+during selection preparation.
+
+Train the multi-lambda prompt-only reference and prompt+state router with
+matched initialization seeds:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_multiseed_variable_lambda_selection.sh
+```
+
+Training lambdas default to `0.01,0.02,0.04,0.06,0.08,0.10`. Validation also
+contains held-out interpolation points `0.03,0.05,0.07,0.09`. Lambda, sigma,
+timestep, and a train-calibrated static cost profile are online inputs;
+per-trajectory VBench and actual latency remain label/evaluation-only. Model
+selection uses macro validation policy regret across lambdas. Prompt bootstrap
+remains the statistical protocol despite multiple seeds, states, and lambdas.
+
 ## Experiment 2: formal quality, measured latency, and router overhead
 
 Hypothesis: the locked router remains useful after replacing branch estimates
