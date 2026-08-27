@@ -225,3 +225,56 @@ an accidental restart cannot remove or omit the requested intermediate data.
 explicit generation-only mode: the current strict VBench scorer requires a
 matched Native-HR video for every train trajectory. Keep the default value of
 `1` unless a calibrated native-latency training profile is used downstream.
+
+### Resume an existing eight-part dataset on two eight-GPU nodes
+
+The two-node resume launcher keeps the legacy `_parts/part_00..part_07` layout.
+It divides every canonical part into two disjoint prompt lanes, so all 16 GPUs
+can work without moving or renaming retained videos, manifests, or latents.
+Only Node 0 extracts/verifies shared T5 embeddings and performs the merge; both
+nodes verify task completion through a shared orchestration directory.
+Inline VBench scoring is disabled during generation so the two lanes never
+write the same metrics file concurrently; score the verified dataset afterward.
+
+First inspect retained coverage on the shared filesystem:
+
+```bash
+python changing_resolution_uni/scripts/data/inspect_oracle_1500_resume.py \
+  --out-root /mnt/afs_2/houze/wanUpsampler/data/changing_resolution_uni/oracle_dataset_1500_8gpu
+```
+
+Use one new `RUN_ID` on both nodes. Check the mapping without touching output:
+
+```bash
+NODE_RANK=0 NUM_NODES=2 RUN_ID=resume_20260827 \
+PART_INDICES=0,1,2,3 GPU_IDS=0,1,2,3,4,5,6,7 PLAN_ONLY=1 \
+bash changing_resolution_uni/scripts/data/build_oracle_dataset_1500_2gpu.sh
+
+NODE_RANK=1 NUM_NODES=2 RUN_ID=resume_20260827 \
+PART_INDICES=4,5,6,7 GPU_IDS=0,1,2,3,4,5,6,7 PLAN_ONLY=1 \
+bash changing_resolution_uni/scripts/data/build_oracle_dataset_1500_2gpu.sh
+```
+
+Then launch both nodes against the same `OUT_ROOT`:
+
+```bash
+# Node 0
+NODE_RANK=0 NUM_NODES=2 RUN_ID=resume_20260827 \
+PART_INDICES=0,1,2,3 GPU_IDS=0,1,2,3,4,5,6,7 \
+SESSION_NAME=oracle_1500_node0 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/data/changing_resolution_uni/oracle_dataset_1500_8gpu \
+bash changing_resolution_uni/scripts/data/tmux_build_oracle_dataset_1500_2gpu.sh
+
+# Node 1
+NODE_RANK=1 NUM_NODES=2 RUN_ID=resume_20260827 \
+PART_INDICES=4,5,6,7 GPU_IDS=0,1,2,3,4,5,6,7 \
+SESSION_NAME=oracle_1500_node1 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/data/changing_resolution_uni/oracle_dataset_1500_8gpu \
+bash changing_resolution_uni/scripts/data/tmux_build_oracle_dataset_1500_2gpu.sh
+```
+
+`RUN_ID`, `OUT_ROOT`, split sizes, seeds, and prompt file must match. Reusing the
+same `RUN_ID` is safe when resuming the same attempt; use a new ID after changing
+assignments. The launcher rejects overlapping/out-of-range parts, deletion or
+latent omission, non-numeric GPU IDs, incompatible existing plans, and less than
+`MIN_FREE_GIB=100` free space by default.

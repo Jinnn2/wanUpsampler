@@ -150,8 +150,9 @@ def main() -> None:
         if t5_src.is_dir():
             for npz in t5_src.glob("*.npz"):
                 dest = final_t5_dir / npz.name
-                if not dest.exists():
-                    shutil.copy2(npz, dest)
+                temporary = dest.with_name(f".{dest.name}.tmp.{os.getpid()}")
+                shutil.copy2(npz, temporary)
+                os.replace(temporary, dest)
 
     logger.info(f"Found {len(source_record_files)} raw record files across sources.")
 
@@ -167,8 +168,11 @@ def main() -> None:
 
             # Copy to final unified records directory
             dest_file = final_records_dir / f"{sample_key}.json"
-            if not dest_file.exists():
-                shutil.copy2(rec_file, dest_file)
+            temporary = dest_file.with_name(
+                f".{dest_file.name}.tmp.{os.getpid()}"
+            )
+            shutil.copy2(rec_file, temporary)
+            os.replace(temporary, dest_file)
 
             all_records[sample_key] = data
             if p_id not in prompts_map:
@@ -338,7 +342,14 @@ def main() -> None:
             "mean_prompt_theory_utility": round(total_prompt_utilities / max(num_found, 1), 5),
         },
     }
-    manifest_path.write_text(json.dumps(manifest_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    manifest_temporary = manifest_path.with_name(
+        f".{manifest_path.name}.tmp.{os.getpid()}"
+    )
+    manifest_temporary.write_text(
+        json.dumps(manifest_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    os.replace(manifest_temporary, manifest_path)
 
     print("\n" + "=" * 80)
     print(f" DATASET MERGE & VERIFICATION REPORT (Lambda = {args.primary_lambda})")

@@ -217,7 +217,11 @@ def parse_sample_manifest(
 ) -> dict[str, Any]:
     """Extract candidate metrics for a specific prompt/seed from batch outputs."""
     seed_dir = out_root / "raw_samples" / f"seed_{seed}"
-    manifest_file = seed_dir / "manifests" / f"{prompt_id:04d}_seed{seed}.json"
+    # The branch generator derives a deterministic per-prompt sampling seed from
+    # the configured base seed. Records retain the base seed so train/eval split
+    # semantics stay stable, while raw artifact names use the derived seed.
+    sample_seed = seed + prompt_id
+    manifest_file = seed_dir / "manifests" / f"{prompt_id:04d}_seed{sample_seed}.json"
 
     # Check if candidate_per_sample in oracle_metrics.json has our records
     if "candidate_per_sample" in batch_metrics:
@@ -295,19 +299,34 @@ def main() -> None:
             record_json = records_dir / f"{sample_key}.json"
 
             if args.skip_existing and record_json.is_file():
-                logger.info(f"Skipping existing record: {sample_key}")
-                existing_record = json.loads(record_json.read_text(encoding="utf-8"))
-                summary_rows.append({
-                    "prompt_id": prompt_id,
-                    "seed": seed,
-                    "prompt_text": prompt_text,
-                    "optimal_step": existing_record.get(
-                        f"optimal_step_lambda_{int(args.primary_lambda * 100):03d}"
-                    ),
-                    "record_file": str(record_json),
-                })
-                done_count += 1
-                continue
+                try:
+                    existing_record = json.loads(record_json.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    existing_record = {}
+                record_is_usable = (
+                    isinstance(existing_record, dict)
+                    and int(existing_record.get("prompt_id", -1)) == prompt_id
+                    and int(existing_record.get("seed", -1)) == seed
+                    and existing_record.get("status") != "manifest_not_found"
+                    and (
+                        isinstance(existing_record.get("manifest"), dict)
+                        or isinstance(existing_record.get("candidates"), list)
+                    )
+                )
+                if record_is_usable:
+                    logger.info(f"Skipping existing record: {sample_key}")
+                    summary_rows.append({
+                        "prompt_id": prompt_id,
+                        "seed": seed,
+                        "prompt_text": prompt_text,
+                        "optimal_step": existing_record.get(
+                            f"optimal_step_lambda_{int(args.primary_lambda * 100):03d}"
+                        ),
+                        "record_file": str(record_json),
+                    })
+                    done_count += 1
+                    continue
+                logger.warning(f"Repairing unusable existing record: {sample_key}")
 
             if args.dry_run:
                 traj_record = simulate_oracle_evaluation(

@@ -22,9 +22,12 @@ PROMPTS_FILE="${PROMPTS_FILE:-${CR_HF_PROMPTS_FILE:-${PROJECT_ROOT}/prompts/vidp
 OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset}"
 T5_EMBED_DIR="${T5_EMBED_DIR:-${OUT_ROOT}/t5_embeddings}"
 VBENCH_ROOT="${VBENCH_ROOT:-}"
+ENABLE_INLINE_VBENCH="${ENABLE_INLINE_VBENCH:-0}"
 
 PROMPT_OFFSET="${PROMPT_OFFSET:-0}"
 LIMIT="${LIMIT:-500}"
+PROTOCOL_PROMPT_OFFSET="${PROTOCOL_PROMPT_OFFSET:-${PROMPT_OFFSET}}"
+PROTOCOL_PROMPT_LIMIT="${PROTOCOL_PROMPT_LIMIT:-${LIMIT}}"
 SEEDS="${SEEDS:-42 100 2024}"
 CANDIDATE_STEPS="${CANDIDATE_STEPS:-30 35 40 41 42 43 44 45 46 47 48 49 50}"
 INFER_STEPS="${INFER_STEPS:-50}"
@@ -53,6 +56,10 @@ if [[ "${LATENT_SAVE_DTYPE}" != "fp16" && "${LATENT_SAVE_DTYPE}" != "bf16" && "$
   echo "LATENT_SAVE_DTYPE must be fp16, bf16, or fp32, got: ${LATENT_SAVE_DTYPE}" >&2
   exit 2
 fi
+if [[ "${ENABLE_INLINE_VBENCH}" != "0" && "${ENABLE_INLINE_VBENCH}" != "1" ]]; then
+  echo "ENABLE_INLINE_VBENCH must be 0 or 1, got: ${ENABLE_INLINE_VBENCH}" >&2
+  exit 2
+fi
 
 export LIGHTX2V_REPO MODEL_ROOT PROJECT_ROOT
 export INFER_STEPS NUM_FRAMES HR_H HR_W LR_H LR_W STAGE2_CHECKPOINT STAGE2_TRAIN_CONFIG
@@ -75,6 +82,7 @@ for seed in ${SEEDS}; do
   config_json="${seed_out}/configs/stage2_branch_config.json"
   python - "${config_json}" "${CANDIDATE_STEPS%% *}" <<'PY'
 import json, os, sys
+from pathlib import Path
 path, first_step = sys.argv[1], int(sys.argv[2])
 cfg = {
     "infer_steps": int(os.environ["INFER_STEPS"]),
@@ -101,8 +109,11 @@ cfg = {
     "wan_clean_resizer_model_class": "stage2",
     "wan_clean_resizer_use_ema": False,
 }
-with open(path, "w", encoding="utf-8") as f:
+output = Path(path)
+temporary = output.with_name(f".{output.name}.tmp.{os.getpid()}")
+with temporary.open("w", encoding="utf-8") as f:
     json.dump(cfg, f, ensure_ascii=False, indent=2)
+os.replace(temporary, output)
 PY
 
   if [[ "${DRY_RUN}" != "1" ]]; then
@@ -118,6 +129,8 @@ PY
       --prompts_file "${PROMPTS_FILE}"
       --prompt-offset "${PROMPT_OFFSET}"
       --limit "${LIMIT}"
+      --protocol-prompt-offset "${PROTOCOL_PROMPT_OFFSET}"
+      --protocol-prompt-limit "${PROTOCOL_PROMPT_LIMIT}"
       --change-steps "${CANDIDATE_STEPS}"
       --infer-steps "${INFER_STEPS}"
       --lr-height "${LR_H}"
@@ -160,7 +173,7 @@ py_args=(
 if [[ -d "${T5_EMBED_DIR}" ]]; then
   py_args+=(--t5_embed_dir "${T5_EMBED_DIR}")
 fi
-if [[ -n "${VBENCH_ROOT}" && -d "${VBENCH_ROOT}" ]]; then
+if [[ "${ENABLE_INLINE_VBENCH}" == "1" && -n "${VBENCH_ROOT}" && -d "${VBENCH_ROOT}" ]]; then
   py_args+=(--vbench_root "${VBENCH_ROOT}")
 fi
 if [[ "${SKIP_EXISTING}" == "1" ]]; then

@@ -52,6 +52,41 @@ def main() -> None:
     if not prompts:
         raise SystemExit(f"No prompts selected from {args.prompts_file}")
 
+    protocol_prompt_offset = (
+        args.protocol_prompt_offset
+        if args.protocol_prompt_offset is not None
+        else args.prompt_offset
+    )
+    protocol_prompt_limit = (
+        args.protocol_prompt_limit
+        if args.protocol_prompt_limit is not None
+        else args.limit
+    )
+    if protocol_prompt_offset < 0 or protocol_prompt_limit < 1:
+        raise SystemExit(
+            "--protocol-prompt-offset must be non-negative and "
+            "--protocol-prompt-limit must be positive"
+        )
+    execution_end = args.prompt_offset + len(prompts)
+    protocol_end = protocol_prompt_offset + protocol_prompt_limit
+    if args.prompt_offset < protocol_prompt_offset or execution_end > protocol_end:
+        raise SystemExit(
+            "Execution prompt slice must be contained in the canonical protocol slice: "
+            f"execution=[{args.prompt_offset}, {execution_end}), "
+            f"protocol=[{protocol_prompt_offset}, {protocol_end})"
+        )
+    protocol_prompts = load_prompts(
+        Path(args.prompts_file),
+        offset=protocol_prompt_offset,
+        limit=protocol_prompt_limit,
+    )
+    if len(protocol_prompts) != protocol_prompt_limit:
+        raise SystemExit(
+            "Canonical protocol prompt slice is incomplete: "
+            f"expected={protocol_prompt_limit}, found={len(protocol_prompts)}, "
+            f"offset={protocol_prompt_offset}"
+        )
+
     seed_all(args.seed)
     config = set_config(args)
     validate_protocol(args, config, steps)
@@ -60,8 +95,21 @@ def main() -> None:
 
     out_root = Path(args.out_root).resolve()
     prepare_output_tree(out_root, steps, args.execution_mode)
-    write_protocol(out_root, args, config, steps, prompts)
-    write_prompt_map(out_root, args, steps, prompts)
+    write_protocol(
+        out_root,
+        args,
+        config,
+        steps,
+        protocol_prompts,
+        protocol_prompt_offset=protocol_prompt_offset,
+    )
+    write_prompt_map(
+        out_root,
+        args,
+        steps,
+        protocol_prompts,
+        prompt_offset=protocol_prompt_offset,
+    )
 
     try:
         with ProfilingContext4DebugL1("TAA-free oracle sweep model residency"):
@@ -697,7 +745,13 @@ def tensor_stats(tensor: torch.Tensor) -> dict[str, float | list[int] | str]:
 
 
 def write_protocol(
-    out_root: Path, args, config, steps: list[int], prompts: list[str]
+    out_root: Path,
+    args,
+    config,
+    steps: list[int],
+    prompts: list[str],
+    *,
+    protocol_prompt_offset: int,
 ) -> None:
     prompt_payload = json.dumps(prompts, ensure_ascii=False, separators=(",", ":"))
     config_json_path = Path(args.config_json).resolve()
@@ -715,7 +769,7 @@ def write_protocol(
         "selected_prompts_sha256": hashlib.sha256(
             prompt_payload.encode("utf-8")
         ).hexdigest(),
-        "prompt_offset": args.prompt_offset,
+        "prompt_offset": protocol_prompt_offset,
         "start_seed": args.seed,
         "taa_enabled": False,
         "runtime_lora_allowed": False,
@@ -762,11 +816,16 @@ def write_protocol(
 
 
 def write_prompt_map(
-    out_root: Path, args, steps: list[int], prompts: list[str]
+    out_root: Path,
+    args,
+    steps: list[int],
+    prompts: list[str],
+    *,
+    prompt_offset: int,
 ) -> None:
     mapping: dict[str, str] = {}
     for local_index, prompt in enumerate(prompts):
-        prompt_index = args.prompt_offset + local_index
+        prompt_index = prompt_offset + local_index
         seed = args.seed + prompt_index
         sample_id = f"{prompt_index:04d}_seed{seed}"
         for step in steps:
@@ -993,10 +1052,12 @@ def load_json_object(path: Path) -> dict[str, Any]:
 
 def write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    temporary = path.with_name(f".{path.name}.tmp.{os.getpid()}")
+    temporary.write_text(
         json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
         encoding="utf-8",
     )
+    os.replace(temporary, path)
 
 
 def sha256_file(path: Path) -> str:
@@ -1046,6 +1107,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompts_file", required=True)
     parser.add_argument("--prompt-offset", type=int, default=0)
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument(
+        "--protocol-prompt-offset",
+        type=int,
+        default=None,
+        help=(
+            "Canonical prompt-slice offset recorded in protocol.json. Use with "
+            "--protocol-prompt-limit when parallel workers execute disjoint subsets "
+            "of one existing output root."
+        ),
+    )
+    parser.add_argument(
+        "--protocol-prompt-limit",
+        type=int,
+        default=None,
+        help="Canonical prompt-slice size recorded in protocol.json.",
+    )
     parser.add_argument("--change-steps", required=True)
     parser.add_argument("--infer-steps", type=int, default=50)
     parser.add_argument("--lr-height", type=int, default=368)
