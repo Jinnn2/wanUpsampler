@@ -278,3 +278,40 @@ same `RUN_ID` is safe when resuming the same attempt; use a new ID after changin
 assignments. The launcher rejects overlapping/out-of-range parts, deletion or
 latent omission, non-numeric GPU IDs, incompatible existing plans, and less than
 `MIN_FREE_GIB=100` free space by default.
+
+### Exclusive eight-H100 tail completion
+
+When only a few trajectories remain and fixed two-node lanes leave most GPUs
+idle, stop every previous writer first and use the dedicated H100 tail launcher.
+It plans only trajectories with missing candidate videos, latents, Native-HR, or
+manifest rows; missing records alone do not consume a GPU task. Missing prompts
+are grouped into small one-seed micro-tasks and claimed dynamically by eight GPUs.
+
+Inspect the read-only tail plan:
+
+```bash
+RUN_ID=resume_20260828_h100_tail8 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/data/changing_resolution_uni/oracle_dataset_1500_8gpu \
+PROMPTS_FILE=/mnt/afs_2/houze/wanUpsampler/prompts/vidprom_filtered_extended.txt \
+MICRO_BATCH_PROMPTS=2 PLAN_ONLY=1 \
+bash changing_resolution_uni/scripts/data/build_oracle_dataset_1500_h100_tail8.sh
+```
+
+After checking `pgrep` and `nvidia-smi` on all former writer nodes, launch on the
+exclusive eight-H100 machine:
+
+```bash
+RUN_ID=resume_20260828_h100_tail8 \
+GPU_IDS=0,1,2,3,4,5,6,7 \
+SESSION_NAME=oracle_1500_h100_tail8 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/data/changing_resolution_uni/oracle_dataset_1500_8gpu \
+PROMPTS_FILE=/mnt/afs_2/houze/wanUpsampler/prompts/vidprom_filtered_extended.txt \
+MICRO_BATCH_PROMPTS=2 CONFIRM_EXCLUSIVE=1 \
+bash changing_resolution_uni/scripts/data/tmux_build_oracle_dataset_1500_h100_tail8.sh
+```
+
+The tail launcher preserves the old eight-part paths, runs one seed per GPU task,
+repairs records without generation, then invokes the standard single-node merge
+and final 35,000-video/32,500-latent coverage gate. `CONFIRM_EXCLUSIVE=1` is a
+required operator assertion because a shared filesystem cannot prove that an old
+writer on another host has stopped.

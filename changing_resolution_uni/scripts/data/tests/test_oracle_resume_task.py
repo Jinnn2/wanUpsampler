@@ -11,6 +11,10 @@ from types import SimpleNamespace
 from changing_resolution_uni.scripts.data.build_oracle_trajectory_dataset import (
     parse_sample_manifest,
 )
+from changing_resolution_uni.scripts.data.plan_oracle_h100_tail import (
+    group_consecutive,
+    inspect_trajectory,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -24,6 +28,51 @@ VERIFY_SCRIPT = (
 
 
 class OracleResumeTaskTest(unittest.TestCase):
+    def test_tail_planner_groups_only_adjacent_missing_prompts(self) -> None:
+        self.assertEqual(
+            group_consecutive([1000, 1001, 1002, 1005, 1006], maximum=2),
+            [[1000, 1001], [1002], [1005, 1006]],
+        )
+
+    def test_tail_planner_requires_all_retained_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            part = Path(temporary) / "part_00"
+            prompt_id = 7
+            base_seed = 42
+            sample_id = f"{prompt_id:04d}_seed{base_seed + prompt_id}"
+            seed_root = part / "raw_samples" / f"seed_{base_seed}"
+            branches = []
+            for step in [30, 35, *range(40, 51)]:
+                branches.append({"candidate_step": step})
+                for folder, suffix in (
+                    ("videos", ".mp4"),
+                    ("latents", ".pt"),
+                ):
+                    path = (
+                        seed_root
+                        / folder
+                        / f"step{step:02d}"
+                        / f"{sample_id}_step{step:02d}{suffix}"
+                    )
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(b"artifact")
+            native = seed_root / "videos" / "native_hr" / f"{sample_id}_native_hr.mp4"
+            native.parent.mkdir(parents=True, exist_ok=True)
+            native.write_bytes(b"native")
+            manifest = seed_root / "manifests" / f"{sample_id}.json"
+            manifest.parent.mkdir(parents=True, exist_ok=True)
+            manifest.write_text(
+                json.dumps({"branches": branches, "native_hr": {"output": str(native)}}),
+                encoding="utf-8",
+            )
+            complete, reasons = inspect_trajectory(part, prompt_id, base_seed)
+            self.assertTrue(complete)
+            self.assertFalse(reasons)
+            native.unlink()
+            complete, reasons = inspect_trajectory(part, prompt_id, base_seed)
+            self.assertFalse(complete)
+            self.assertEqual(reasons["native_videos"], 1)
+
     def test_verifier_uses_derived_sample_seed_and_writes_marker(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             part = Path(temporary) / "part_00"
@@ -89,6 +138,34 @@ class OracleResumeTaskTest(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0)
             self.assertTrue(json.loads(marker.read_text(encoding="utf-8"))["complete"])
+            record.unlink()
+            marker.unlink()
+            ignored_record_result = subprocess.run(
+                [
+                    sys.executable,
+                    str(VERIFY_SCRIPT),
+                    "--part-root",
+                    str(part),
+                    "--prompt-offset",
+                    str(prompt_id),
+                    "--limit",
+                    "1",
+                    "--seeds",
+                    str(base_seed),
+                    "--candidate-steps",
+                    "30",
+                    "--include-native-hr",
+                    "1",
+                    "--require-latents",
+                    "1",
+                    "--ignore-records",
+                    "--marker",
+                    str(marker),
+                    "--quiet",
+                ],
+                check=False,
+            )
+            self.assertEqual(ignored_record_result.returncode, 0)
 
     def test_parse_manifest_uses_base_seed_plus_prompt_id(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

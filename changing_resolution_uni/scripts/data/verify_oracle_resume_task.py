@@ -22,6 +22,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--include-native-hr", type=int, choices=(0, 1), required=True)
     parser.add_argument("--require-latents", type=int, choices=(0, 1), default=1)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--ignore-records",
+        action="store_true",
+        help="Verify retained generation artifacts without requiring packaged records.",
+    )
     parser.add_argument("--marker", type=Path)
     parser.add_argument("--quiet", action="store_true")
     return parser.parse_args()
@@ -72,7 +77,7 @@ def main() -> int:
         "latents": 0,
     }
     expected = {
-        "records": args.limit * len(args.seeds),
+        "records": 0 if args.ignore_records else args.limit * len(args.seeds),
         "manifests": 0 if args.dry_run else args.limit * len(args.seeds),
         "candidate_videos": (
             0 if args.dry_run else args.limit * len(args.seeds) * len(args.candidate_steps)
@@ -92,22 +97,23 @@ def main() -> int:
 
     for prompt_id in range(args.prompt_offset, args.prompt_offset + args.limit):
         for base_seed in args.seeds:
-            record_path = root / "records" / f"p{prompt_id:06d}_s{base_seed}.json"
-            record = valid_json(record_path)
-            if (
-                record is not None
-                and int(record.get("prompt_id", -1)) == prompt_id
-                and int(record.get("seed", -1)) == base_seed
-                and record.get("status") != "manifest_not_found"
-                and (
-                    args.dry_run
-                    or isinstance(record.get("manifest"), dict)
-                    or isinstance(record.get("candidates"), list)
-                )
-            ):
-                counts["records"] += 1
-            elif record_path.exists():
-                invalid_records += 1
+            if not args.ignore_records:
+                record_path = root / "records" / f"p{prompt_id:06d}_s{base_seed}.json"
+                record = valid_json(record_path)
+                if (
+                    record is not None
+                    and int(record.get("prompt_id", -1)) == prompt_id
+                    and int(record.get("seed", -1)) == base_seed
+                    and record.get("status") != "manifest_not_found"
+                    and (
+                        args.dry_run
+                        or isinstance(record.get("manifest"), dict)
+                        or isinstance(record.get("candidates"), list)
+                    )
+                ):
+                    counts["records"] += 1
+                elif record_path.exists():
+                    invalid_records += 1
 
             if args.dry_run:
                 continue
@@ -168,6 +174,7 @@ def main() -> int:
         "include_native_hr": bool(args.include_native_hr),
         "require_latents": bool(args.require_latents),
         "dry_run": args.dry_run,
+        "records_checked": not args.ignore_records,
         "counts": counts,
         "expected": expected,
         "invalid_existing_records": invalid_records,
