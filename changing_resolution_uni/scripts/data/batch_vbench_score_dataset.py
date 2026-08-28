@@ -142,7 +142,6 @@ def parse_args() -> argparse.Namespace:
 def warmup_vbench_cache(python_bin: str, vbench_root: Path) -> None:
     """Pre-downloads torch.hub dependencies (DINO) and OpenAI CLIP models in a single process to prevent multi-GPU race condition and network timeout."""
     hub_dir = Path.home() / ".cache" / "torch" / "hub"
-    clip_dir = Path.home() / ".cache" / "clip"
     dino_dir = hub_dir / "facebookresearch_dino_main"
 
     # If DINO is corrupted, clean it
@@ -547,14 +546,51 @@ def score_case_directory(
 
     result_files = sorted(run_dir.glob("*_eval_results.json"))
     full_info_files = sorted(run_dir.glob("*_full_info.json"))
-    if len(result_files) != 1 or len(full_info_files) != 1:
+    if len(result_files) != 1:
         raise RuntimeError(
-            f"Strict VBench run must produce exactly one eval result and one full-info "
-            f"JSON in {run_dir}; got results={len(result_files)}, "
-            f"full_info={len(full_info_files)}"
+            f"Strict VBench run must produce exactly one eval result JSON in {run_dir}; "
+            f"got results={len(result_files)}"
         )
     result_file = result_files[0]
-    full_info_file = full_info_files[0]
+    result_prefix = result_file.name.removesuffix("_eval_results.json")
+    full_info_file = run_dir / f"{result_prefix}_full_info.json"
+    if not full_info_file.is_file():
+        raise RuntimeError(
+            "Strict VBench run is missing the full-info JSON corresponding to its "
+            f"unique eval result: {full_info_file}"
+        )
+    try:
+        selected_full_info = json.loads(full_info_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Invalid selected VBench full-info JSON: {full_info_file}") from exc
+    if not isinstance(selected_full_info, list):
+        raise RuntimeError(f"VBench full-info JSON must contain a list: {full_info_file}")
+
+    def normalized_full_info(value: list[Any]) -> list[str]:
+        return sorted(
+            json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            for item in value
+        )
+
+    selected_normalized = normalized_full_info(selected_full_info)
+    equivalent_extra_full_info = []
+    for candidate in full_info_files:
+        if candidate == full_info_file:
+            continue
+        try:
+            candidate_payload = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Invalid extra VBench full-info JSON: {candidate}") from exc
+        if not isinstance(candidate_payload, list) or normalized_full_info(
+            candidate_payload
+        ) != selected_normalized:
+            raise RuntimeError(
+                "Multiple VBench full-info JSONs were produced and are not equivalent: "
+                f"selected={full_info_file}, conflicting={candidate}"
+            )
+        equivalent_extra_full_info.append(
+            {"file": candidate.name, "sha256": sha256_file(candidate)}
+        )
     scores = parse_vbench_eval_result(
         result_file,
         dimensions=dimensions,
@@ -569,6 +605,7 @@ def score_case_directory(
         "result_sha256": sha256_file(result_file),
         "full_info_file": full_info_file.name,
         "full_info_sha256": sha256_file(full_info_file),
+        "equivalent_extra_full_info": equivalent_extra_full_info,
         "video_count": len(expected_stems),
         "dimensions": dimensions,
         "quality_dimensions": quality_dimensions,

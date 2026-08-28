@@ -265,6 +265,113 @@ class BatchVBenchBackfillTest(unittest.TestCase):
                 first.scores["0000_seed42_step40"]["imaging_quality"], 0.9
             )
 
+    def test_equivalent_cross_second_full_info_is_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vbench_root = root / "VBench"
+            vbench_root.mkdir()
+            (vbench_root / "evaluate.py").write_text("# fixture", encoding="utf-8")
+            video_dir = root / "videos" / "step42"
+            video_dir.mkdir(parents=True)
+            video = video_dir / "0000_seed42_step42.mp4"
+            video.write_bytes(b"video")
+            prompt_map = root / "prompt_map.json"
+            prompt_map.write_text(
+                json.dumps({str(video): "a test prompt"}), encoding="utf-8"
+            )
+
+            def fake_vbench(cmd: list[str], **_: object) -> None:
+                output_path = Path(cmd[cmd.index("--output_path") + 1])
+                result_payload = {
+                    dimension: [
+                        0.9,
+                        [
+                            {
+                                "video_path": str(video),
+                                "video_results": 90.0
+                                if dimension == "imaging_quality"
+                                else 0.9,
+                            }
+                        ],
+                    ]
+                    for dimension in scorer.QUALITY5_DIMENSIONS
+                }
+                (output_path / "results_second_eval_results.json").write_text(
+                    json.dumps(result_payload), encoding="utf-8"
+                )
+                full_info = [
+                    {
+                        "prompt_en": "a test prompt",
+                        "dimension": scorer.QUALITY5_DIMENSIONS,
+                        "video_list": [str(video)],
+                    }
+                ]
+                (output_path / "results_second_full_info.json").write_text(
+                    json.dumps(full_info), encoding="utf-8"
+                )
+                (output_path / "results_first_full_info.json").write_text(
+                    json.dumps(list(reversed(full_info))), encoding="utf-8"
+                )
+
+            with mock.patch.object(scorer.subprocess, "run", side_effect=fake_vbench):
+                result = scorer.score_case_directory(
+                    vbench_root=vbench_root,
+                    python_bin="python",
+                    video_dir=video_dir,
+                    prompt_map=prompt_map,
+                    out_dir=root / "metrics" / "step42",
+                    dimensions=scorer.QUALITY5_DIMENSIONS,
+                    quality_dimensions=scorer.QUALITY5_DIMENSIONS,
+                    diagnostic_dimensions=[],
+                    ngpus=8,
+                    force_rescore=False,
+                    vbench_identity=self.VBENCH_IDENTITY,
+                )
+            extras = result.provenance["equivalent_extra_full_info"]
+            self.assertEqual([row["file"] for row in extras], ["results_first_full_info.json"])
+
+    def test_conflicting_cross_second_full_info_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vbench_root = root / "VBench"
+            vbench_root.mkdir()
+            (vbench_root / "evaluate.py").write_text("# fixture", encoding="utf-8")
+            video_dir = root / "videos" / "step42"
+            video_dir.mkdir(parents=True)
+            video = video_dir / "0000_seed42_step42.mp4"
+            video.write_bytes(b"video")
+            prompt_map = root / "prompt_map.json"
+            prompt_map.write_text(json.dumps({str(video): "prompt"}), encoding="utf-8")
+
+            def fake_vbench(cmd: list[str], **_: object) -> None:
+                output_path = Path(cmd[cmd.index("--output_path") + 1])
+                payload = {
+                    dimension: [
+                        0.9,
+                        [{"video_path": str(video), "video_results": 90.0 if dimension == "imaging_quality" else 0.9}],
+                    ]
+                    for dimension in scorer.QUALITY5_DIMENSIONS
+                }
+                (output_path / "results_second_eval_results.json").write_text(json.dumps(payload), encoding="utf-8")
+                (output_path / "results_second_full_info.json").write_text("[]", encoding="utf-8")
+                (output_path / "results_first_full_info.json").write_text("[{}]", encoding="utf-8")
+
+            with mock.patch.object(scorer.subprocess, "run", side_effect=fake_vbench):
+                with self.assertRaisesRegex(RuntimeError, "not equivalent"):
+                    scorer.score_case_directory(
+                        vbench_root=vbench_root,
+                        python_bin="python",
+                        video_dir=video_dir,
+                        prompt_map=prompt_map,
+                        out_dir=root / "metrics" / "step42",
+                        dimensions=scorer.QUALITY5_DIMENSIONS,
+                        quality_dimensions=scorer.QUALITY5_DIMENSIONS,
+                        diagnostic_dimensions=[],
+                        ngpus=8,
+                        force_rescore=False,
+                        vbench_identity=self.VBENCH_IDENTITY,
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()
