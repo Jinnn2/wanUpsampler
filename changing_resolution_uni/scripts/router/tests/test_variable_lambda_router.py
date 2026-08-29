@@ -359,6 +359,9 @@ class VariableLambdaRouterTest(unittest.TestCase):
                 train.main()
             summary = json.loads((run / "run_summary.json").read_text(encoding="utf-8"))
             self.assertFalse(summary["test_accessed"])
+            self.assertEqual(
+                summary["evaluation_protocol"], train.EVALUATION_PROTOCOL
+            )
             self.assertEqual(summary["train_prompts"], 1)
             self.assertEqual(summary["validation_prompts"], 1)
             np.testing.assert_allclose(summary["cost_profile"], [0.4, 0.2])
@@ -382,6 +385,21 @@ class VariableLambdaRouterTest(unittest.TestCase):
                     "b4_prompt_state",
                 },
             )
+            self.assertEqual(
+                set(summary["artifacts"]["training_histories"]),
+                {
+                    "prompt_only",
+                    "prompt_state",
+                    "b4_offline",
+                    "b4_prompt_state",
+                },
+            )
+            for model_type in summary["model_types"]:
+                history_path = run / f"{model_type}_training_history.csv"
+                with history_path.open(encoding="utf-8") as handle:
+                    history_rows = list(csv.DictReader(handle))
+                self.assertEqual(len(history_rows), 1)
+                self.assertIn("validation_macro_harmful_stop_rate", history_rows[0])
             with (run / "validation_predictions.csv").open(encoding="utf-8") as handle:
                 rows = list(csv.DictReader(handle))
             self.assertEqual(len(rows), 8)
@@ -491,6 +509,56 @@ class VariableLambdaRouterTest(unittest.TestCase):
         )
         self.assertEqual(tuple(output["scaled_regret"].shape), (2,))
         self.assertEqual(tuple(output["harm_logit"].shape), (2,))
+
+    def test_online_evaluation_forces_deterministic_eval_mode(self) -> None:
+        model = train.VariableLambdaRouter(
+            state_dim=3,
+            use_state=True,
+            dropout=0.8,
+        )
+        model.train()
+        trajectory = {
+            "split": "validation",
+            "prompt_id": 1000,
+            "seed": 1042,
+            "pooled_t5": np.ones(4096, dtype=np.float32),
+            "features": np.ones((2, 3), dtype=np.float32),
+            "sigmas": np.asarray([0.4, 0.05], dtype=np.float32),
+            "qualities": np.asarray([0.81, 0.82], dtype=np.float32),
+            "costs": np.asarray([0.4, 0.2], dtype=np.float32),
+            "latencies": np.asarray([80.0, 40.0], dtype=np.float32),
+            "native_latency": 200.0,
+            "calibrated_latencies": np.asarray([80.0, 40.0], dtype=np.float32),
+            "calibrated_native_latency": 200.0,
+            "dimensions": np.full(
+                (2, len(QUALITY5_DIMENSIONS)), 0.82, dtype=np.float32
+            ),
+        }
+        arguments = (
+            model,
+            "prompt_state",
+            [trajectory],
+            [0.08],
+            np.asarray(STEPS, dtype=np.int64),
+            np.zeros(3, dtype=np.float32),
+            np.ones(3, dtype=np.float32),
+            np.asarray([0.4, 0.2], dtype=np.float32),
+            100.0,
+            0.001,
+            0.5,
+            {0.08: 1},
+            QUALITY5_DIMENSIONS,
+            torch.device("cpu"),
+            1,
+            True,
+        )
+        metrics_first, rows_first = train.evaluate_model(*arguments)
+        self.assertFalse(model.training)
+        model.train()
+        metrics_second, rows_second = train.evaluate_model(*arguments)
+        self.assertFalse(model.training)
+        self.assertEqual(metrics_first, metrics_second)
+        self.assertEqual(rows_first, rows_second)
 
 
 if __name__ == "__main__":

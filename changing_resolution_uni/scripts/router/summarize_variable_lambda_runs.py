@@ -23,6 +23,7 @@ METRIC_DIRECTIONS = {
     "speedup_vs_native": "higher",
     "harmful_stop": "lower",
 }
+EVALUATION_PROTOCOL = "deterministic_eval_mode_v1"
 
 
 def parse_args() -> argparse.Namespace:
@@ -84,7 +85,12 @@ def load_runs(runs_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any
             "test_accessed"
         ):
             raise ValueError(f"Run is not validation-only: {summary_path}")
+        if summary.get("evaluation_protocol") != EVALUATION_PROTOCOL:
+            raise ValueError(
+                f"Run does not use {EVALUATION_PROTOCOL}: {summary_path}"
+            )
         current_signature = (
+            str(summary["evaluation_protocol"]),
             tuple(summary["train_lambdas"]),
             tuple(summary["eval_lambdas"]),
             float(summary["primary_lambda"]),
@@ -120,6 +126,18 @@ def load_runs(runs_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any
                         f"Checkpoint SHA256 mismatch for {model_type}: "
                         f"{checkpoint_path}"
                     )
+        history_metadata = summary.get("artifacts", {}).get(
+            "training_histories", {}
+        )
+        if set(history_metadata) != {str(row["model_type"]) for row in run_rows}:
+            raise ValueError(f"Training-history coverage differs: {summary_path}")
+        for model_type, metadata_item in history_metadata.items():
+            history_path = summary_path.parent / metadata_item["path"]
+            if sha256_file(history_path) != metadata_item["sha256"]:
+                raise ValueError(
+                    f"Training-history SHA256 mismatch for {model_type}: "
+                    f"{history_path}"
+                )
         run_id = summary_path.parent.name
         for raw in run_rows:
             row = dict(raw)
@@ -140,6 +158,7 @@ def load_runs(runs_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any
                 "predictions_path": str(predictions_path),
                 "predictions_sha256": sha256_file(predictions_path),
                 "checkpoints": checkpoint_metadata,
+                "training_histories": history_metadata,
                 "latency_profile": summary["latency_profile"],
             }
         )
@@ -401,7 +420,8 @@ def main() -> None:
     write_csv(out_dir / "paired_fixed_deltas.csv", fixed_paired_rows)
     selected_model = min(macro_regret_by_model, key=macro_regret_by_model.get)
     selection = {
-        "schema": "variable_lambda_multiseed_selection_v2",
+        "schema": "variable_lambda_multiseed_selection_v3",
+        "evaluation_protocol": EVALUATION_PROTOCOL,
         "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "selection_rule": "minimum validation macro policy regret across lambdas and train seeds",
         "selected_model_type": selected_model,

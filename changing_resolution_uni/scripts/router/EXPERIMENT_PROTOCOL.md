@@ -180,6 +180,16 @@ a prior; online latent state may advance or delay the actual handoff.
 Positive deltas always mean the candidate is better. Use a new `OUT_ROOT` for
 this adaptive extension, and keep the earlier selection immutable.
 
+All online validation runs must record
+`evaluation_protocol=deterministic_eval_mode_v1`. Evaluation switches every
+model to `eval()` before best-epoch selection and prediction export. Each run
+writes one `*_training_history.csv` per model with separated train loss
+components plus deterministic validation regret and harmful-stop rate. The
+multi-seed summarizer rejects runs without this protocol or with missing or
+modified history/checkpoint hashes; results produced by the earlier
+dropout-active evaluation bug must remain diagnostic-only and cannot be mixed
+into this selection.
+
 Training lambdas default to `0.01,0.02,0.04,0.06,0.08,0.10`. Validation also
 contains held-out interpolation points `0.03,0.05,0.07,0.09`. Lambda, sigma,
 timestep, and a locked train-calibrated static cost profile are online inputs.

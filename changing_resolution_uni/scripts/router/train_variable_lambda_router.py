@@ -23,6 +23,7 @@ from torch.utils.data import DataLoader, Dataset
 
 DATASET_SCHEMA = "variable_lambda_online_state_dataset_v1"
 LATENCY_PROFILE_SCHEMA = "train_calibrated_latency_profile_v1"
+EVALUATION_PROTOCOL = "deterministic_eval_mode_v1"
 MODEL_LABELS = {
     "prompt_only": "Variable-Lambda Prompt Router",
     "prompt_state": "Variable-Lambda Prompt+State Router",
@@ -853,6 +854,7 @@ def evaluate_b4_offline_model(
     model.eval()
     rows: list[dict[str, Any]] = []
     lambda_regrets = []
+    harmful_stops = []
     for lambda_value in lambdas:
         fixed_index = fixed_steps[lambda_value]
         for start in range(0, len(trajectories), eval_batch_trajectories):
@@ -874,6 +876,7 @@ def evaluate_b4_offline_model(
                 regret = max(0.0, oracle_utility - realized_utility)
                 fixed_regret = max(0.0, oracle_utility - float(utility[fixed_index]))
                 lambda_regrets.append(regret)
+                harmful_stops.append(float(regret > harm_epsilon))
                 if emit_rows:
                     rows.append(
                         prediction_row(
@@ -895,7 +898,10 @@ def evaluate_b4_offline_model(
                             predicted_harm_probability="",
                         )
                     )
-    return {"macro_policy_regret": float(np.mean(lambda_regrets))}, rows
+    return {
+        "macro_policy_regret": float(np.mean(lambda_regrets)),
+        "macro_harmful_stop_rate": float(np.mean(harmful_stops)),
+    }, rows
 
 
 @torch.no_grad()
@@ -932,8 +938,10 @@ def evaluate_model(
             eval_batch_trajectories,
             emit_rows,
         )
+    model.eval()
     rows: list[dict[str, Any]] = []
     lambda_regrets = []
+    harmful_stops = []
     for lambda_value in lambdas:
         fixed_index = fixed_steps[lambda_value]
         for start in range(0, len(trajectories), eval_batch_trajectories):
@@ -1008,6 +1016,7 @@ def evaluate_model(
                 regret = max(0.0, oracle_utility - realized_utility)
                 fixed_regret = max(0.0, oracle_utility - float(utility[fixed_index]))
                 lambda_regrets.append(regret)
+                harmful_stops.append(float(regret > harm_epsilon))
                 if emit_rows:
                     rows.append(
                         prediction_row(
@@ -1033,7 +1042,10 @@ def evaluate_model(
                             ),
                         )
                     )
-    return {"macro_policy_regret": float(np.mean(lambda_regrets))}, rows
+    return {
+        "macro_policy_regret": float(np.mean(lambda_regrets)),
+        "macro_harmful_stop_rate": float(np.mean(harmful_stops)),
+    }, rows
 
 
 def ordered_emd_loss(
@@ -1053,7 +1065,12 @@ def train_b4_model(
     quality_dimensions: list[str],
     args: argparse.Namespace,
     device: torch.device,
-) -> tuple[VariableLambdaB4Prior, int, dict[str, float]]:
+) -> tuple[
+    VariableLambdaB4Prior,
+    int,
+    dict[str, float],
+    list[dict[str, Any]],
+]:
     model = VariableLambdaB4Prior(
         candidate_count=len(candidate_steps), dropout=args.dropout
     ).to(device)
@@ -1066,9 +1083,12 @@ def train_b4_model(
     best_regret = float("inf")
     best_epoch = 0
     best_weights = None
+    history: list[dict[str, Any]] = []
     for epoch in range(1, args.epochs + 1):
         model.train()
         losses = []
+        kl_losses = []
+        emd_losses = []
         for batch in train_loader:
             optimizer.zero_grad(set_to_none=True)
             output = model(
@@ -1089,6 +1109,8 @@ def train_b4_model(
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             losses.append(float(loss.detach()))
+            kl_losses.append(float(kl_loss.detach()))
+            emd_losses.append(float(emd_loss.detach()))
         scheduler.step()
         metrics, _ = evaluate_b4_offline_model(
             model,
@@ -1102,18 +1124,36 @@ def train_b4_model(
             args.eval_batch_trajectories,
             emit_rows=False,
         )
-        if metrics["macro_policy_regret"] < best_regret:
+        selected_as_best = metrics["macro_policy_regret"] < best_regret
+        if selected_as_best:
             best_regret = metrics["macro_policy_regret"]
             best_epoch = epoch
             best_weights = {
                 name: value.detach().cpu().clone()
                 for name, value in model.state_dict().items()
             }
+        history.append(
+            {
+                "epoch": epoch,
+                "train_total_loss": float(np.mean(losses)),
+                "train_b4_kl_loss": float(np.mean(kl_losses)),
+                "train_b4_emd_loss": float(np.mean(emd_losses)),
+                "train_regret_loss": "",
+                "train_harm_loss": "",
+                "validation_macro_policy_regret": metrics["macro_policy_regret"],
+                "validation_macro_harmful_stop_rate": metrics[
+                    "macro_harmful_stop_rate"
+                ],
+                "selected_as_best": selected_as_best,
+            }
+        )
         if epoch == 1 or epoch % 5 == 0 or epoch == args.epochs:
             print(
                 f"b4_offline epoch={epoch:02d}/{args.epochs} "
-                f"loss={np.mean(losses):.6f} val_macro_regret="
-                f"{metrics['macro_policy_regret']:.6f}"
+                f"loss={np.mean(losses):.6f} kl={np.mean(kl_losses):.6f} "
+                f"emd={np.mean(emd_losses):.6f} val_macro_regret="
+                f"{metrics['macro_policy_regret']:.6f} val_harm="
+                f"{metrics['macro_harmful_stop_rate']:.6f}"
             )
     if best_weights is None:
         raise RuntimeError("No checkpoint selected for b4_offline")
@@ -1130,7 +1170,14 @@ def train_b4_model(
         args.eval_batch_trajectories,
         emit_rows=False,
     )
-    return model, best_epoch, final_metrics
+    if not math.isclose(
+        final_metrics["macro_policy_regret"],
+        best_regret,
+        rel_tol=0.0,
+        abs_tol=1e-12,
+    ):
+        raise RuntimeError("Deterministic B4 best-checkpoint evaluation changed")
+    return model, best_epoch, final_metrics, history
 
 
 def train_model(
@@ -1147,7 +1194,7 @@ def train_model(
     args: argparse.Namespace,
     device: torch.device,
     b4_prior: VariableLambdaB4Prior | None = None,
-) -> tuple[nn.Module, int, dict[str, float]]:
+) -> tuple[nn.Module, int, dict[str, float], list[dict[str, Any]]]:
     if model_type in {"prompt_only", "prompt_state"}:
         model: nn.Module = VariableLambdaRouter(
             state_dim=len(state_mean),
@@ -1174,9 +1221,12 @@ def train_model(
     best_regret = float("inf")
     best_epoch = 0
     best_weights = None
+    history: list[dict[str, Any]] = []
     for epoch in range(1, args.epochs + 1):
         model.train()
         losses = []
+        regret_losses = []
+        harm_losses = []
         for batch in train_loader:
             optimizer.zero_grad(set_to_none=True)
             output = model(
@@ -1202,6 +1252,8 @@ def train_model(
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             losses.append(float(loss.detach()))
+            regret_losses.append(float(regret_loss.detach()))
+            harm_losses.append(float(harm_loss.detach()))
         scheduler.step()
         metrics, _ = evaluate_model(
             model,
@@ -1221,18 +1273,36 @@ def train_model(
             args.eval_batch_trajectories,
             emit_rows=False,
         )
-        if metrics["macro_policy_regret"] < best_regret:
+        selected_as_best = metrics["macro_policy_regret"] < best_regret
+        if selected_as_best:
             best_regret = metrics["macro_policy_regret"]
             best_epoch = epoch
             best_weights = {
                 name: value.detach().cpu().clone()
                 for name, value in model.state_dict().items()
             }
+        history.append(
+            {
+                "epoch": epoch,
+                "train_total_loss": float(np.mean(losses)),
+                "train_b4_kl_loss": "",
+                "train_b4_emd_loss": "",
+                "train_regret_loss": float(np.mean(regret_losses)),
+                "train_harm_loss": float(np.mean(harm_losses)),
+                "validation_macro_policy_regret": metrics["macro_policy_regret"],
+                "validation_macro_harmful_stop_rate": metrics[
+                    "macro_harmful_stop_rate"
+                ],
+                "selected_as_best": selected_as_best,
+            }
+        )
         if epoch == 1 or epoch % 5 == 0 or epoch == args.epochs:
             print(
                 f"{model_type} epoch={epoch:02d}/{args.epochs} "
-                f"loss={np.mean(losses):.6f} val_macro_regret="
-                f"{metrics['macro_policy_regret']:.6f}"
+                f"loss={np.mean(losses):.6f} regret={np.mean(regret_losses):.6f} "
+                f"harm={np.mean(harm_losses):.6f} val_macro_regret="
+                f"{metrics['macro_policy_regret']:.6f} val_harm="
+                f"{metrics['macro_harmful_stop_rate']:.6f}"
             )
     if best_weights is None:
         raise RuntimeError(f"No checkpoint selected for {model_type}")
@@ -1255,7 +1325,16 @@ def train_model(
         args.eval_batch_trajectories,
         emit_rows=False,
     )
-    return model, best_epoch, final_metrics
+    if not math.isclose(
+        final_metrics["macro_policy_regret"],
+        best_regret,
+        rel_tol=0.0,
+        abs_tol=1e-12,
+    ):
+        raise RuntimeError(
+            f"Deterministic best-checkpoint evaluation changed for {model_type}"
+        )
+    return model, best_epoch, final_metrics, history
 
 
 def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -1349,6 +1428,7 @@ def main() -> None:
     b4_prior = None
     b4_best_epoch = None
     b4_metrics = None
+    b4_history = None
     if {"b4_offline", "b4_prompt_state"} & set(models_to_train):
         b4_dataset = B4LambdaDataset(
             train_trajectories,
@@ -1365,7 +1445,7 @@ def main() -> None:
             pin_memory=device.type == "cuda",
             drop_last=False,
         )
-        b4_prior, b4_best_epoch, b4_metrics = train_b4_model(
+        b4_prior, b4_best_epoch, b4_metrics, b4_history = train_b4_model(
             b4_loader,
             validation_trajectories,
             args.eval_lambdas,
@@ -1378,13 +1458,20 @@ def main() -> None:
     summary_rows = []
     prediction_rows = []
     checkpoint_artifacts: dict[str, dict[str, str]] = {}
+    history_artifacts: dict[str, dict[str, str]] = {}
     for model_type in models_to_train:
         if model_type == "b4_offline":
-            if b4_prior is None or b4_best_epoch is None or b4_metrics is None:
+            if (
+                b4_prior is None
+                or b4_best_epoch is None
+                or b4_metrics is None
+                or b4_history is None
+            ):
                 raise RuntimeError("B4 prior was not trained")
             model = b4_prior
             best_epoch = b4_best_epoch
             metrics = b4_metrics
+            history = b4_history
         else:
             seed_everything(args.seed)
             generator = torch.Generator().manual_seed(args.seed)
@@ -1397,7 +1484,7 @@ def main() -> None:
                 pin_memory=device.type == "cuda",
                 drop_last=False,
             )
-            model, best_epoch, metrics = train_model(
+            model, best_epoch, metrics, history = train_model(
                 model_type,
                 train_loader,
                 validation_trajectories,
@@ -1439,10 +1526,17 @@ def main() -> None:
                 **metrics,
             }
         )
+        history_path = out_dir / f"{model_type}_training_history.csv"
+        write_csv(history_path, history)
+        history_artifacts[model_type] = {
+            "path": history_path.name,
+            "sha256": sha256_file(history_path),
+        }
         checkpoint_path = out_dir / f"{model_type}_router.pt"
         torch.save(
             {
-                "schema": "variable_lambda_router_checkpoint_v2",
+                "schema": "variable_lambda_router_checkpoint_v3",
+                "evaluation_protocol": EVALUATION_PROTOCOL,
                 "model_type": model_type,
                 "state_dict": model.state_dict(),
                 "state_dim": len(state_mean),
@@ -1482,7 +1576,8 @@ def main() -> None:
     write_csv(out_dir / "validation_model_summary.csv", summary_rows)
     selected_model = min(summary_rows, key=lambda row: row["macro_policy_regret"])
     run_summary = {
-        "schema": "variable_lambda_router_selection_run_v2",
+        "schema": "variable_lambda_router_selection_run_v3",
+        "evaluation_protocol": EVALUATION_PROTOCOL,
         "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "evaluation_split": "validation",
         "test_accessed": False,
@@ -1531,6 +1626,7 @@ def main() -> None:
             "predictions": "validation_predictions.csv",
             "model_summary": "validation_model_summary.csv",
             "checkpoints": checkpoint_artifacts,
+            "training_histories": history_artifacts,
         },
     }
     (out_dir / "run_summary.json").write_text(
