@@ -74,7 +74,7 @@ for train_seed in "${seed_array[@]}"; do
     --seed "${train_seed}" \
     --device "${DEVICE}" \
     --num-workers "${NUM_WORKERS}" \
-    --eval-batch-trajectories "${EVAL_BATCH_TRAJECTORIES}"
+    --eval-batch-trajectories "${EVAL_BATCH_TRAJECTORIES}" \
     --expected-latency-profile-sha256 "${LATENCY_PROFILE_SHA256}"
 done
 
