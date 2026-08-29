@@ -34,6 +34,7 @@ LATENT_SCHEMA = "wan_taa_free_oracle_latent_v1"
 OUTPUT_SCHEMA = "variable_lambda_online_state_dataset_v1"
 LATENCY_PROFILE_SCHEMA = "train_calibrated_latency_profile_v1"
 EXPECTED_LATENT_SHAPE = (1, 16, 21, 46, 80)
+EXPECTED_LATENT_CORE_SHAPE = EXPECTED_LATENT_SHAPE[1:]
 
 
 def parse_args() -> argparse.Namespace:
@@ -364,7 +365,8 @@ def extract_step_features(
     x0 = x0.squeeze(0).to(dtype=torch.float32)
     if x_t.shape != x0.shape or x0.ndim != 4 or x0.shape[0] != 16:
         raise ValueError(
-            f"Expected matching [1,16,T,H,W] tensors, got {x_t.shape}, {x0.shape}"
+            "Expected matching [16,T,H,W] tensors after batch normalization, "
+            f"got {x_t.shape}, {x0.shape}"
         )
     if not torch.isfinite(x_t).all() or not torch.isfinite(x0).all():
         raise ValueError("Latent archive contains non-finite values")
@@ -489,14 +491,28 @@ def load_latent_archive(
     x0 = payload.get("x0_pred_lr")
     if not isinstance(x_t, torch.Tensor) or not isinstance(x0, torch.Tensor):
         raise ValueError(f"{path}: missing latent tensors")
+
+    # LightX2V has emitted both layouts over time: some scheduler versions keep
+    # a singleton batch axis while others expose the per-sample latent directly.
+    # They represent the same sample, so normalize both to the documented
+    # [1,C,T,H,W] contract without rewriting the immutable source archives.
+    accepted_shapes = {EXPECTED_LATENT_SHAPE, EXPECTED_LATENT_CORE_SHAPE}
+    x_t_shape = tuple(x_t.shape)
+    x0_shape = tuple(x0.shape)
     if (
-        tuple(x_t.shape) != EXPECTED_LATENT_SHAPE
-        or tuple(x0.shape) != EXPECTED_LATENT_SHAPE
+        x_t_shape not in accepted_shapes
+        or x0_shape not in accepted_shapes
+        or x_t_shape != x0_shape
     ):
         raise ValueError(
-            f"{path}: expected latent shape {EXPECTED_LATENT_SHAPE}, "
-            f"got x_t={tuple(x_t.shape)} x0={tuple(x0.shape)}"
+            f"{path}: expected latent shape {EXPECTED_LATENT_SHAPE} or "
+            f"{EXPECTED_LATENT_CORE_SHAPE}, "
+            f"got x_t={x_t_shape} x0={x0_shape}"
         )
+    if x_t.ndim == 4:
+        x_t = x_t.unsqueeze(0)
+    if x0.ndim == 4:
+        x0 = x0.unsqueeze(0)
     sigma = float(payload["sigma"])
     if not math.isfinite(sigma):
         raise ValueError(f"{path}: sigma is not finite")

@@ -115,7 +115,8 @@ if [[ "${LATENT_SAVE_DTYPE}" == "fp32" ]]; then
 else
   LATENT_BYTES_PER_VALUE=2
 fi
-# Each archive contains x_t_lr and x0_pred_lr with shape [1,16,21,46,80].
+# Each archive contains x_t_lr and x0_pred_lr with shape [16,21,46,80] or
+# [1,16,21,46,80], depending on whether LightX2V retains a singleton batch axis.
 ESTIMATED_LATENT_BYTES=$((EXPECTED_LATENT_FILES * 2 * 16 * 21 * 46 * 80 * LATENT_BYTES_PER_VALUE))
 ESTIMATED_LATENT_GIB=$(((ESTIMATED_LATENT_BYTES + 1073741823) / 1073741824))
 

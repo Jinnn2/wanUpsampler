@@ -128,6 +128,11 @@ def write_raw_trajectory(
         path = latent_dir / f"{sample_id}_step{step:02d}.pt"
         x0 = torch.full(prepare.EXPECTED_LATENT_SHAPE, 0.1 * (index + 1))
         x_t = x0 + 0.02 * (2 - index)
+        # Cover both layouts produced by LightX2V scheduler versions. The
+        # real 1500-prompt archive uses the first, batch-free layout.
+        if index == 0:
+            x0 = x0.squeeze(0)
+            x_t = x_t.squeeze(0)
         torch.save(
             {
                 "schema": prepare.LATENT_SCHEMA,
