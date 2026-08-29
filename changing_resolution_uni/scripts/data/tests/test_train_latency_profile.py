@@ -8,6 +8,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import numpy as np
+
 from changing_resolution_uni.scripts.data.oracle_record_schema import (
     QUALITY5_DIMENSIONS,
 )
@@ -114,11 +116,27 @@ class TrainLatencyProfileTest(unittest.TestCase):
             self.assertEqual(profile["hardware_label"], "H100")
             self.assertEqual(profile["selected_normalized_cost_profile"], [0.4, 0.2])
             self.assertEqual(profile["source_prompt_count"], 2)
+            self.assertTrue(profile["stability"]["diagnostic_available"])
+            self.assertEqual(profile["stability"]["even_prompt_count"], 1)
+            self.assertEqual(profile["stability"]["odd_prompt_count"], 1)
             self.assertEqual(profile["stability"]["max_even_odd_absolute_difference"], 0.0)
             self.assertTrue(profile["monotonic_nonincreasing"])
             with mock.patch.object(sys, "argv", argv):
                 with self.assertRaises(FileExistsError):
                     builder.main()
+
+    def test_single_parity_stability_is_explicitly_unavailable(self) -> None:
+        stability = builder.parity_stability(
+            np.asarray([[0.4, 0.2]], dtype=np.float64),
+            np.asarray([0], dtype=np.int64),
+        )
+        self.assertFalse(stability["diagnostic_available"])
+        self.assertEqual(stability["even_prompt_count"], 1)
+        self.assertEqual(stability["odd_prompt_count"], 0)
+        self.assertEqual(stability["even_prompt_mean"], [0.4, 0.2])
+        self.assertIsNone(stability["odd_prompt_mean"])
+        self.assertIsNone(stability["max_even_odd_absolute_difference"])
+        json.dumps(stability, allow_nan=False)
 
 
 if __name__ == "__main__":

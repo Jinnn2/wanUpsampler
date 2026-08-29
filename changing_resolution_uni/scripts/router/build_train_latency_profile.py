@@ -102,6 +102,28 @@ def vector_summary(
     }
 
 
+def parity_stability(
+    normalized_costs: np.ndarray, prompt_ids: np.ndarray
+) -> dict[str, Any]:
+    even_values = normalized_costs[prompt_ids % 2 == 0]
+    odd_values = normalized_costs[prompt_ids % 2 == 1]
+    even_mean = (
+        even_values.mean(axis=0, dtype=np.float64) if len(even_values) else None
+    )
+    odd_mean = odd_values.mean(axis=0, dtype=np.float64) if len(odd_values) else None
+    available = even_mean is not None and odd_mean is not None
+    return {
+        "diagnostic_available": available,
+        "even_prompt_count": int(len(even_values)),
+        "odd_prompt_count": int(len(odd_values)),
+        "even_prompt_mean": even_mean.tolist() if even_mean is not None else None,
+        "odd_prompt_mean": odd_mean.tolist() if odd_mean is not None else None,
+        "max_even_odd_absolute_difference": (
+            float(np.max(np.abs(even_mean - odd_mean))) if available else None
+        ),
+    }
+
+
 def main() -> None:
     args = parse_args()
     scored_dir = Path(args.scored_train_dir).resolve()
@@ -206,8 +228,7 @@ def main() -> None:
         for index in range(len(candidate_steps) - 1)
         if selected_profile[index + 1] > selected_profile[index]
     ]
-    even = normalized_costs[prompt_ids_array % 2 == 0].mean(axis=0)
-    odd = normalized_costs[prompt_ids_array % 2 == 1].mean(axis=0)
+    stability = parity_stability(normalized_costs, prompt_ids_array)
 
     candidate_sources = collections.Counter(
         str(candidate["latency_source"])
@@ -235,11 +256,7 @@ def main() -> None:
         "normalized_cost_distribution": normalized_summary,
         "candidate_latency_seconds_distribution": candidate_seconds_summary,
         "native_latency_seconds_distribution": native_summary,
-        "stability": {
-            "even_prompt_mean": even.tolist(),
-            "odd_prompt_mean": odd.tolist(),
-            "max_even_odd_absolute_difference": float(np.max(np.abs(even - odd))),
-        },
+        "stability": stability,
         "monotonic_nonincreasing": not monotonic_violations,
         "monotonic_violations": monotonic_violations,
         "latency_source_counts": {
