@@ -134,6 +134,7 @@ validation only:
 ```bash
 bash changing_resolution_uni/scripts/router/run_prepare_1500_variable_lambda.sh check
 bash changing_resolution_uni/scripts/router/run_prepare_1500_variable_lambda.sh score
+bash changing_resolution_uni/scripts/router/run_prepare_1500_variable_lambda.sh profile
 bash changing_resolution_uni/scripts/router/run_prepare_1500_variable_lambda.sh features
 ```
 
@@ -151,10 +152,16 @@ bash changing_resolution_uni/scripts/router/run_multiseed_variable_lambda_select
 
 Training lambdas default to `0.01,0.02,0.04,0.06,0.08,0.10`. Validation also
 contains held-out interpolation points `0.03,0.05,0.07,0.09`. Lambda, sigma,
-timestep, and a train-calibrated static cost profile are online inputs;
-per-trajectory VBench and actual latency remain label/evaluation-only. Model
-selection uses macro validation policy regret across lambdas. Prompt bootstrap
-remains the statistical protocol despite multiple seeds, states, and lambdas.
+timestep, and a locked train-calibrated static cost profile are online inputs.
+The same profile defines train/validation stop-regret labels, oracle/fixed-step
+utilities, realized calibrated latency, and speedup; raw per-trajectory manifest
+latency is diagnostic-only. The profile stores train-record and scored-manifest
+hashes, hardware identity, distribution diagnostics, prompt bootstrap intervals,
+and its own file hash is bound into the state dataset, checkpoints, five-seed run
+summaries, and architecture selection. Per-trajectory VBench remains label and
+evaluation-only. Model selection uses macro validation policy regret across
+lambdas. Prompt bootstrap remains the statistical protocol despite multiple
+seeds, states, and lambdas.
 
 ## Experiment 2: formal quality, measured latency, and router overhead
 

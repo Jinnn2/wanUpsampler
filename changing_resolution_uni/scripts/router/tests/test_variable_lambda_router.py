@@ -17,6 +17,9 @@ from changing_resolution_uni.scripts.data.oracle_record_schema import (
     QUALITY5_DIMENSIONS,
 )
 from changing_resolution_uni.scripts.router import (
+    build_train_latency_profile as latency_profile_builder,
+)
+from changing_resolution_uni.scripts.router import (
     prepare_1500_variable_lambda_states as prepare,
 )
 from changing_resolution_uni.scripts.router import (
@@ -36,7 +39,12 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def strict_record(prompt_id: int, seed: int) -> dict:
+def strict_record(
+    prompt_id: int,
+    seed: int,
+    *,
+    latencies: list[float] | None = None,
+) -> dict:
     cases = {
         name: {
             "request_sha256": "a" * 64,
@@ -47,7 +55,7 @@ def strict_record(prompt_id: int, seed: int) -> dict:
         for name in ("native_hr", "step30", "step50")
     }
     qualities = [0.81 + 0.001 * prompt_id, 0.82]
-    latencies = [80.0, 40.0]
+    latency_values = latencies or [80.0, 40.0]
     return {
         "prompt_id": prompt_id,
         "seed": seed,
@@ -64,7 +72,7 @@ def strict_record(prompt_id: int, seed: int) -> dict:
                 "latency_source": "estimated_warm_pipeline_seconds",
                 "dimensions": {name: quality for name in QUALITY5_DIMENSIONS},
             }
-            for step, quality, latency in zip(STEPS, qualities, latencies)
+            for step, quality, latency in zip(STEPS, qualities, latency_values)
         ],
         "scoring_provenance": {
             "schema": "strict_vbench5_record_provenance_v1",
@@ -98,6 +106,7 @@ def write_scored_dataset(root: Path, records: list[tuple[str, str]]) -> None:
         "is_complete": True,
         "record_files": names,
         "record_sha256": hashes,
+        "candidate_steps": STEPS,
     }
     (root / "dataset_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
@@ -160,7 +169,7 @@ def write_raw_trajectory(
 
 
 class VariableLambdaRouterTest(unittest.TestCase):
-    def build_fixture(self, root: Path) -> tuple[Path, Path, Path]:
+    def build_fixture(self, root: Path) -> tuple[Path, Path, Path, Path]:
         generation = root / "oracle_dataset_1500_8gpu"
         generation.mkdir()
         plan = {
@@ -216,16 +225,35 @@ class VariableLambdaRouterTest(unittest.TestCase):
         write_scored_dataset(
             scored_eval,
             [
-                ("p000001_s43.json", json.dumps(strict_record(1, 43))),
+                (
+                    "p000001_s43.json",
+                    json.dumps(strict_record(1, 43, latencies=[160.0, 20.0])),
+                ),
                 ("p000002_s44.json", "not test-accessible json"),
             ],
         )
-        return generation, scored_train, scored_eval
+        latency_profile = root / "train_latency_profile_h100.json"
+        profile_argv = [
+            "profile",
+            "--scored-train-dir",
+            str(scored_train),
+            "--output",
+            str(latency_profile),
+            "--hardware-label",
+            "H100-test",
+            "--expected-prompts",
+            "1",
+            "--bootstrap-samples",
+            "100",
+        ]
+        with mock.patch.object(sys, "argv", profile_argv):
+            latency_profile_builder.main()
+        return generation, scored_train, scored_eval, latency_profile
 
     def test_prepare_train_validation_without_test_access(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            generation, scored_train, scored_eval = self.build_fixture(root)
+            generation, scored_train, scored_eval, latency_profile = self.build_fixture(root)
             output = root / "states"
             argv = [
                 "prepare",
@@ -237,6 +265,8 @@ class VariableLambdaRouterTest(unittest.TestCase):
                 str(scored_eval),
                 "--output-dir",
                 str(output),
+                "--latency-profile",
+                str(latency_profile),
                 "--splits",
                 "train",
                 "validation",
@@ -258,6 +288,7 @@ class VariableLambdaRouterTest(unittest.TestCase):
             self.assertEqual(manifest["splits"]["validation"]["trajectory_count"], 1)
             self.assertGreater(manifest["feature_count"], 100)
             self.assertFalse((output / "test_trajectories.jsonl").exists())
+            self.assertEqual(manifest["latency_profile"]["hardware_label"], "H100-test")
             train_feature = next((output / "features" / "train").glob("*.npz"))
             with np.load(train_feature, allow_pickle=False) as payload:
                 features = np.asarray(payload["features"])
@@ -270,7 +301,7 @@ class VariableLambdaRouterTest(unittest.TestCase):
     def test_variable_lambda_training_and_multiseed_summary(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            generation, scored_train, scored_eval = self.build_fixture(root)
+            generation, scored_train, scored_eval, latency_profile = self.build_fixture(root)
             states = root / "states"
             prepare_argv = [
                 "prepare",
@@ -282,6 +313,8 @@ class VariableLambdaRouterTest(unittest.TestCase):
                 str(scored_eval),
                 "--output-dir",
                 str(states),
+                "--latency-profile",
+                str(latency_profile),
                 "--splits",
                 "train",
                 "validation",
@@ -323,9 +356,21 @@ class VariableLambdaRouterTest(unittest.TestCase):
             self.assertFalse(summary["test_accessed"])
             self.assertEqual(summary["train_prompts"], 1)
             self.assertEqual(summary["validation_prompts"], 1)
+            np.testing.assert_allclose(summary["cost_profile"], [0.4, 0.2])
+            self.assertEqual(summary["latency_profile"]["hardware_label"], "H100-test")
             with (run / "validation_predictions.csv").open(encoding="utf-8") as handle:
                 rows = list(csv.DictReader(handle))
             self.assertEqual(len(rows), 4)
+            for row in rows:
+                chosen_step = int(row["chosen_step"])
+                self.assertAlmostEqual(
+                    float(row["normalized_cost"]),
+                    {30: 0.4, 50: 0.2}[chosen_step],
+                )
+                self.assertAlmostEqual(
+                    float(row["raw_manifest_latency_sec_diagnostic"]),
+                    {30: 160.0, 50: 20.0}[chosen_step],
+                )
 
             runs_root = root / "runs"
             for seed in (42, 100, 2024):

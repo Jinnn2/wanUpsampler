@@ -36,6 +36,16 @@ if [[ ! -f "${DATASET_DIR}/dataset_manifest.json" ]]; then
   echo "Missing prepared variable-lambda state dataset: ${DATASET_DIR}" >&2
   exit 2
 fi
+LATENCY_PROFILE_SHA256="${EXPECTED_LATENCY_PROFILE_SHA256:-$(python - "${DATASET_DIR}/dataset_manifest.json" <<'PY'
+import json, sys
+from pathlib import Path
+manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+value = str(manifest.get("latency_profile", {}).get("sha256", ""))
+if len(value) != 64:
+    raise SystemExit("Dataset manifest has no locked latency profile SHA256")
+print(value)
+PY
+)}"
 if [[ -e "${OUT_ROOT}/selection/architecture_selection.json" ]]; then
   echo "Selection already exists; refusing to overwrite: ${OUT_ROOT}" >&2
   exit 2
@@ -65,6 +75,7 @@ for train_seed in "${seed_array[@]}"; do
     --device "${DEVICE}" \
     --num-workers "${NUM_WORKERS}" \
     --eval-batch-trajectories "${EVAL_BATCH_TRAJECTORIES}"
+    --expected-latency-profile-sha256 "${LATENCY_PROFILE_SHA256}"
 done
 
 python "${SCRIPT_DIR}/summarize_variable_lambda_runs.py" \
@@ -74,4 +85,5 @@ python "${SCRIPT_DIR}/summarize_variable_lambda_runs.py" \
   --bootstrap-seed "${BOOTSTRAP_SEED}"
 
 echo "Variable-lambda validation selection: ${OUT_ROOT}/selection"
+echo "Locked latency profile SHA256: ${LATENCY_PROFILE_SHA256}"
 echo "Test prompt states were not prepared or accessed."

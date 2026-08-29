@@ -21,6 +21,7 @@ from torch.utils.data import DataLoader, Dataset
 
 
 DATASET_SCHEMA = "variable_lambda_online_state_dataset_v1"
+LATENCY_PROFILE_SCHEMA = "train_calibrated_latency_profile_v1"
 MODEL_LABELS = {
     "prompt_only": "Variable-Lambda Prompt Router",
     "prompt_state": "Variable-Lambda Prompt+State Router",
@@ -84,6 +85,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--eval-batch-trajectories", type=int, default=64)
+    parser.add_argument(
+        "--expected-latency-profile-sha256",
+        default=None,
+        help="Optional operator-pinned SHA256 for the locked train cost profile.",
+    )
     parser.add_argument(
         "--device", default="cuda" if torch.cuda.is_available() else "cpu"
     )
@@ -162,6 +168,74 @@ def load_dataset_manifest(dataset_dir: Path) -> dict[str, Any]:
             "Selection requires exactly train and validation state features"
         )
     return manifest
+
+
+def load_locked_latency_profile(
+    manifest: dict[str, Any],
+    candidate_steps: np.ndarray,
+    expected_sha256: str | None,
+) -> tuple[np.ndarray, np.ndarray, float, dict[str, Any]]:
+    metadata = manifest.get("latency_profile")
+    if not isinstance(metadata, dict):
+        raise ValueError("State dataset has no locked latency profile")
+    profile_path = Path(str(metadata.get("path", ""))).resolve()
+    observed_sha256 = sha256_file(profile_path)
+    recorded_sha256 = str(metadata.get("sha256", ""))
+    if observed_sha256 != recorded_sha256:
+        raise ValueError(f"Latency profile SHA256 mismatch: {profile_path}")
+    if expected_sha256 and observed_sha256 != expected_sha256.lower():
+        raise ValueError(
+            "Latency profile differs from --expected-latency-profile-sha256: "
+            f"{profile_path}"
+        )
+    payload = json.loads(profile_path.read_text(encoding="utf-8"))
+    if payload.get("schema") != LATENCY_PROFILE_SCHEMA:
+        raise ValueError(f"Unexpected latency profile schema: {profile_path}")
+    if payload.get("monotonic_nonincreasing") is not True:
+        raise ValueError("Locked latency profile is not monotonic non-increasing")
+    if not np.array_equal(
+        np.asarray(payload.get("candidate_steps"), dtype=np.int64), candidate_steps
+    ):
+        raise ValueError("Latency profile candidate steps mismatch")
+    costs = np.asarray(
+        payload.get("selected_normalized_cost_profile"), dtype=np.float32
+    )
+    seconds = np.asarray(
+        payload.get("calibrated_candidate_latency_seconds"), dtype=np.float32
+    )
+    native_seconds = float(payload.get("calibrated_native_latency_seconds", 0.0))
+    if costs.shape != candidate_steps.shape or seconds.shape != candidate_steps.shape:
+        raise ValueError("Latency profile vector shape mismatch")
+    if not np.isfinite(costs).all() or not np.isfinite(seconds).all():
+        raise ValueError("Latency profile contains non-finite values")
+    if np.any(costs <= 0) or np.any(seconds <= 0) or native_seconds <= 0:
+        raise ValueError("Latency profile costs must be positive")
+    if not np.allclose(seconds / native_seconds, costs, rtol=1e-5, atol=1e-7):
+        raise ValueError("Latency profile seconds and normalized costs disagree")
+    provenance = {
+        "schema": payload["schema"],
+        "path": str(profile_path),
+        "sha256": observed_sha256,
+        "hardware_label": payload["hardware_label"],
+        "source_split": payload["source_split"],
+        "source_prompt_count": int(payload["source_prompt_count"]),
+        "aggregation": payload["aggregation_used_for_selection"],
+        "raw_trajectory_latency_role": "diagnostic_only",
+    }
+    return costs, seconds, native_seconds, provenance
+
+
+def apply_locked_latency_profile(
+    trajectories: list[dict[str, Any]],
+    costs: np.ndarray,
+    candidate_seconds: np.ndarray,
+    native_seconds: float,
+) -> None:
+    for trajectory in trajectories:
+        trajectory["raw_costs_diagnostic"] = trajectory["costs"]
+        trajectory["costs"] = costs.copy()
+        trajectory["calibrated_latencies"] = candidate_seconds.copy()
+        trajectory["calibrated_native_latency"] = native_seconds
 
 
 def load_pooled_t5(path: Path) -> np.ndarray:
@@ -586,8 +660,18 @@ def evaluate_model(
                         "realized_utility": realized_utility,
                         "oracle_utility": oracle_utility,
                         "realized_vbench5": float(trajectory["qualities"][chosen]),
-                        "realized_latency_sec": float(trajectory["latencies"][chosen]),
+                        "realized_latency_sec": float(
+                            trajectory["calibrated_latencies"][chosen]
+                        ),
                         "speedup_vs_native": float(
+                            trajectory["calibrated_native_latency"]
+                            / trajectory["calibrated_latencies"][chosen]
+                        ),
+                        "normalized_cost": float(trajectory["costs"][chosen]),
+                        "raw_manifest_latency_sec_diagnostic": float(
+                            trajectory["latencies"][chosen]
+                        ),
+                        "raw_manifest_speedup_diagnostic": float(
                             trajectory["native_latency"]
                             / trajectory["latencies"][chosen]
                         ),
@@ -754,7 +838,28 @@ def main() -> None:
         raise ValueError("Train and validation prompts overlap")
     candidate_steps = np.asarray(manifest["candidate_steps"], dtype=np.int64)
     state_mean, state_std = fit_state_normalizer(train_trajectories)
-    cost_profile = fit_cost_profile(train_trajectories)
+    (
+        cost_profile,
+        calibrated_candidate_seconds,
+        calibrated_native_seconds,
+        latency_profile_provenance,
+    ) = load_locked_latency_profile(
+        manifest,
+        candidate_steps,
+        args.expected_latency_profile_sha256,
+    )
+    apply_locked_latency_profile(
+        train_trajectories,
+        cost_profile,
+        calibrated_candidate_seconds,
+        calibrated_native_seconds,
+    )
+    apply_locked_latency_profile(
+        validation_trajectories,
+        cost_profile,
+        calibrated_candidate_seconds,
+        calibrated_native_seconds,
+    )
     fixed_steps = best_fixed_steps(train_trajectories, args.eval_lambdas)
     train_dataset = LambdaStateDataset(
         train_trajectories,
@@ -839,6 +944,9 @@ def main() -> None:
                 "state_mean": state_mean,
                 "state_std": state_std,
                 "cost_profile": cost_profile,
+                "calibrated_candidate_latency_seconds": calibrated_candidate_seconds,
+                "calibrated_native_latency_seconds": calibrated_native_seconds,
+                "latency_profile": latency_profile_provenance,
                 "candidate_steps": candidate_steps,
                 "train_lambdas": args.train_lambdas,
                 "eval_lambdas": args.eval_lambdas,
@@ -892,6 +1000,9 @@ def main() -> None:
         "train_trajectories": len(train_trajectories),
         "validation_trajectories": len(validation_trajectories),
         "cost_profile": cost_profile.tolist(),
+        "calibrated_candidate_latency_seconds": calibrated_candidate_seconds.tolist(),
+        "calibrated_native_latency_seconds": calibrated_native_seconds,
+        "latency_profile": latency_profile_provenance,
         "fixed_steps": {
             f"{lambda_value:.6f}": int(candidate_steps[index])
             for lambda_value, index in fixed_steps.items()

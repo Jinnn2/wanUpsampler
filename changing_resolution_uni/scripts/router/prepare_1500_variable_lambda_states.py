@@ -32,6 +32,7 @@ from changing_resolution_uni.scripts.data.oracle_record_schema import (  # noqa:
 PLAN_SCHEMA = "oracle_1500_8gpu_generation_plan_v1"
 LATENT_SCHEMA = "wan_taa_free_oracle_latent_v1"
 OUTPUT_SCHEMA = "variable_lambda_online_state_dataset_v1"
+LATENCY_PROFILE_SCHEMA = "train_calibrated_latency_profile_v1"
 EXPECTED_LATENT_SHAPE = (1, 16, 21, 46, 80)
 
 
@@ -41,6 +42,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--scored-train-dir", required=True)
     parser.add_argument("--scored-eval-dir", required=True)
     parser.add_argument("--output-dir", required=True)
+    parser.add_argument(
+        "--latency-profile",
+        required=True,
+        help="Locked train-calibrated latency profile used by every selection run.",
+    )
     parser.add_argument(
         "--splits",
         nargs="+",
@@ -86,6 +92,42 @@ def load_plan(generation_root: Path) -> tuple[Path, dict[str, Any]]:
     if plan.get("artifacts", {}).get("latent_schema") != LATENT_SCHEMA:
         raise ValueError("Generation plan does not require the expected latent schema")
     return path, plan
+
+
+def load_latency_profile(
+    path: Path,
+    *,
+    candidate_steps: list[int],
+    scored_train_manifest_sha256: str,
+    expected_train_prompts: int,
+) -> dict[str, Any]:
+    payload = load_json(path)
+    if payload.get("schema") != LATENCY_PROFILE_SCHEMA:
+        raise ValueError(f"Unexpected latency profile schema: {payload.get('schema')!r}")
+    if [int(value) for value in payload.get("candidate_steps", [])] != candidate_steps:
+        raise ValueError("Latency profile candidate steps differ from generation plan")
+    if payload.get("source_split") != "train":
+        raise ValueError("Latency profile must be calibrated from train only")
+    if payload.get("monotonic_nonincreasing") is not True:
+        raise ValueError(
+            "Latency profile is not monotonic non-increasing across candidate steps"
+        )
+    if int(payload.get("source_prompt_count", -1)) != expected_train_prompts:
+        raise ValueError("Latency profile train prompt count mismatch")
+    if payload.get("source_scored_manifest_sha256") != scored_train_manifest_sha256:
+        raise ValueError("Latency profile is not bound to the selected scored train manifest")
+    costs = np.asarray(payload.get("selected_normalized_cost_profile"), dtype=np.float64)
+    seconds = np.asarray(payload.get("calibrated_candidate_latency_seconds"), dtype=np.float64)
+    if costs.shape != (len(candidate_steps),) or seconds.shape != costs.shape:
+        raise ValueError("Latency profile vector shape mismatch")
+    if not np.isfinite(costs).all() or not np.isfinite(seconds).all():
+        raise ValueError("Latency profile contains non-finite values")
+    if np.any(costs <= 0) or np.any(seconds <= 0):
+        raise ValueError("Latency profile costs and seconds must be positive")
+    native = float(payload.get("calibrated_native_latency_seconds", 0.0))
+    if not math.isfinite(native) or native <= 0:
+        raise ValueError("Latency profile calibrated native latency must be positive")
+    return payload
 
 
 def prompt_ids(split_spec: dict[str, Any]) -> list[int]:
@@ -515,6 +557,17 @@ def main() -> None:
             "quality_profile": manifest["quality_profile"],
         }
 
+    latency_profile_path = Path(args.latency_profile).resolve()
+    scored_train_manifest_path = (
+        Path(args.scored_train_dir).resolve() / "dataset_manifest.json"
+    )
+    latency_profile = load_latency_profile(
+        latency_profile_path,
+        candidate_steps=[int(value) for value in plan["candidate_steps"]],
+        scored_train_manifest_sha256=sha256_file(scored_train_manifest_path),
+        expected_train_prompts=int(plan["splits"]["train"]["prompt_count"]),
+    )
+
     physical_roots = {
         "train": generation_root / "train",
         "validation": generation_root / "eval",
@@ -706,6 +759,14 @@ def main() -> None:
         "test_accessed": "test" in selected_splits,
         "splits": split_reports,
         "scored_sources": scored_sources,
+        "latency_profile": {
+            "schema": latency_profile["schema"],
+            "path": str(latency_profile_path),
+            "sha256": sha256_file(latency_profile_path),
+            "hardware_label": latency_profile["hardware_label"],
+            "source_split": latency_profile["source_split"],
+            "aggregation": latency_profile["aggregation_used_for_selection"],
+        },
         "is_complete": True,
     }
     (output_dir / "dataset_manifest.json").write_text(

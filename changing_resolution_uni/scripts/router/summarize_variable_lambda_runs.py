@@ -92,6 +92,7 @@ def load_runs(runs_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any
             tuple(float(value) for value in summary["cost_profile"]),
             int(summary["train_prompts"]),
             int(summary["validation_prompts"]),
+            json.dumps(summary["latency_profile"], sort_keys=True),
         )
         if signature is None:
             signature = current_signature
@@ -121,6 +122,7 @@ def load_runs(runs_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any
                 "summary_sha256": sha256_file(summary_path),
                 "predictions_path": str(predictions_path),
                 "predictions_sha256": sha256_file(predictions_path),
+                "latency_profile": summary["latency_profile"],
             }
         )
     return rows, metadata
@@ -347,6 +349,7 @@ def main() -> None:
         "test_accessed": False,
         "run_count": len(run_ids),
         "train_seeds": [item["train_seed"] for item in run_metadata],
+        "latency_profile": run_metadata[0]["latency_profile"],
         "bootstrap": {
             "unit": "prompt_after_averaging_generation_and_training_seeds_and_lambdas",
             "samples": args.bootstrap_samples,
