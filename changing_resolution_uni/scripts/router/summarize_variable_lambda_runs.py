@@ -30,6 +30,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--runs-root", required=True)
     parser.add_argument("--out-dir", default=None)
     parser.add_argument("--reference-model", default="prompt_only")
+    parser.add_argument(
+        "--secondary-reference-model",
+        default=None,
+        help="Optional second paired baseline, such as b4_offline.",
+    )
     parser.add_argument("--bootstrap-samples", type=int, default=10000)
     parser.add_argument("--bootstrap-seed", type=int, default=2027)
     args = parser.parse_args()
@@ -103,6 +108,18 @@ def load_runs(runs_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any
             run_rows = list(csv.DictReader(handle))
         if not run_rows:
             raise ValueError(f"Empty predictions: {predictions_path}")
+        checkpoint_metadata = summary.get("artifacts", {}).get("checkpoints", {})
+        if checkpoint_metadata:
+            run_model_types = {str(row["model_type"]) for row in run_rows}
+            if set(checkpoint_metadata) != run_model_types:
+                raise ValueError(f"Checkpoint coverage differs: {summary_path}")
+            for model_type, metadata_item in checkpoint_metadata.items():
+                checkpoint_path = summary_path.parent / metadata_item["path"]
+                if sha256_file(checkpoint_path) != metadata_item["sha256"]:
+                    raise ValueError(
+                        f"Checkpoint SHA256 mismatch for {model_type}: "
+                        f"{checkpoint_path}"
+                    )
         run_id = summary_path.parent.name
         for raw in run_rows:
             row = dict(raw)
@@ -122,10 +139,83 @@ def load_runs(runs_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any
                 "summary_sha256": sha256_file(summary_path),
                 "predictions_path": str(predictions_path),
                 "predictions_sha256": sha256_file(predictions_path),
+                "checkpoints": checkpoint_metadata,
                 "latency_profile": summary["latency_profile"],
             }
         )
     return rows, metadata
+
+
+def paired_rows_against_reference(
+    rows: list[dict[str, Any]],
+    model_types: list[str],
+    lambdas: list[float],
+    run_ids: list[str],
+    reference_model: str,
+    bootstrap_samples: int,
+    rng: np.random.Generator,
+) -> list[dict[str, Any]]:
+    reference_by_key = {
+        (
+            str(row["run_id"]),
+            int(row["prompt_id"]),
+            int(row["seed"]),
+            float(row["lambda"]),
+        ): row
+        for row in rows
+        if row["model_type"] == reference_model
+    }
+    paired_rows = []
+    for candidate_model in model_types:
+        if candidate_model == reference_model:
+            continue
+        candidate_rows = [row for row in rows if row["model_type"] == candidate_model]
+        for lambda_value in [*lambdas, None]:
+            subset = (
+                candidate_rows
+                if lambda_value is None
+                else [
+                    row
+                    for row in candidate_rows
+                    if float(row["lambda"]) == lambda_value
+                ]
+            )
+            for metric, direction in METRIC_DIRECTIONS.items():
+                by_prompt: dict[int, list[float]] = defaultdict(list)
+                for row in subset:
+                    key = (
+                        str(row["run_id"]),
+                        int(row["prompt_id"]),
+                        int(row["seed"]),
+                        float(row["lambda"]),
+                    )
+                    reference = reference_by_key.get(key)
+                    if reference is None:
+                        raise ValueError(f"Missing reference prediction for {key}")
+                    delta = (
+                        float(reference[metric]) - float(row[metric])
+                        if direction == "lower"
+                        else float(row[metric]) - float(reference[metric])
+                    )
+                    by_prompt[row["prompt_id"]].append(delta)
+                point, low, high = bootstrap_mean(
+                    by_prompt, bootstrap_samples, rng
+                )
+                paired_rows.append(
+                    {
+                        "reference_model": reference_model,
+                        "candidate_model": candidate_model,
+                        "lambda": "macro" if lambda_value is None else lambda_value,
+                        "metric": metric,
+                        "positive_means": "candidate_better",
+                        "mean_delta": point,
+                        "ci95_low": low,
+                        "ci95_high": high,
+                        "run_count": len(run_ids),
+                        "prompt_count": len(by_prompt),
+                    }
+                )
+    return paired_rows
 
 
 def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -152,6 +242,14 @@ def main() -> None:
     if args.reference_model not in model_types:
         raise ValueError(
             f"Reference model {args.reference_model!r} not in {model_types}"
+        )
+    if (
+        args.secondary_reference_model is not None
+        and args.secondary_reference_model not in model_types
+    ):
+        raise ValueError(
+            f"Secondary reference model {args.secondary_reference_model!r} "
+            f"not in {model_types}"
         )
     coverage_by_model = {
         model_type: {
@@ -246,66 +344,28 @@ def main() -> None:
             if metric == "policy_regret":
                 macro_regret_by_model[model_type] = point
 
-    reference_rows = [row for row in rows if row["model_type"] == args.reference_model]
-    reference_by_key = {
-        (
-            str(row["run_id"]),
-            int(row["prompt_id"]),
-            int(row["seed"]),
-            float(row["lambda"]),
-        ): row
-        for row in reference_rows
-    }
-    paired_rows = []
-    for candidate_model in model_types:
-        if candidate_model == args.reference_model:
-            continue
-        candidate_rows = [row for row in rows if row["model_type"] == candidate_model]
-        for lambda_value in [*lambdas, None]:
-            subset = (
-                candidate_rows
-                if lambda_value is None
-                else [
-                    row
-                    for row in candidate_rows
-                    if float(row["lambda"]) == lambda_value
-                ]
-            )
-            for metric, direction in METRIC_DIRECTIONS.items():
-                by_prompt: dict[int, list[float]] = defaultdict(list)
-                for row in subset:
-                    key = (
-                        str(row["run_id"]),
-                        int(row["prompt_id"]),
-                        int(row["seed"]),
-                        float(row["lambda"]),
-                    )
-                    reference = reference_by_key.get(key)
-                    if reference is None:
-                        raise ValueError(f"Missing reference prediction for {key}")
-                    delta = (
-                        float(reference[metric]) - float(row[metric])
-                        if direction == "lower"
-                        else float(row[metric]) - float(reference[metric])
-                    )
-                    by_prompt[row["prompt_id"]].append(delta)
-                point, low, high = bootstrap_mean(
-                    by_prompt, args.bootstrap_samples, rng
-                )
-                paired_rows.append(
-                    {
-                        "reference_model": args.reference_model,
-                        "candidate_model": candidate_model,
-                        "lambda": "macro" if lambda_value is None else lambda_value,
-                        "metric": metric,
-                        "positive_means": "candidate_better",
-                        "mean_delta": point,
-                        "ci95_low": low,
-                        "ci95_high": high,
-                        "run_count": len(run_ids),
-                        "prompt_count": len(by_prompt),
-                    }
-                )
+    paired_rows = paired_rows_against_reference(
+        rows,
+        model_types,
+        lambdas,
+        run_ids,
+        args.reference_model,
+        args.bootstrap_samples,
+        rng,
+    )
+    secondary_paired_rows = (
+        paired_rows_against_reference(
+            rows,
+            model_types,
+            lambdas,
+            run_ids,
+            args.secondary_reference_model,
+            args.bootstrap_samples,
+            rng,
+        )
+        if args.secondary_reference_model is not None
+        else []
+    )
 
     fixed_paired_rows = []
     for model_type in model_types:
@@ -336,15 +396,18 @@ def main() -> None:
     write_csv(out_dir / "per_lambda_intervals.csv", per_lambda_rows)
     write_csv(out_dir / "macro_intervals.csv", macro_rows)
     write_csv(out_dir / "paired_reference_deltas.csv", paired_rows)
+    if secondary_paired_rows:
+        write_csv(out_dir / "paired_b4_deltas.csv", secondary_paired_rows)
     write_csv(out_dir / "paired_fixed_deltas.csv", fixed_paired_rows)
     selected_model = min(macro_regret_by_model, key=macro_regret_by_model.get)
     selection = {
-        "schema": "variable_lambda_multiseed_selection_v1",
+        "schema": "variable_lambda_multiseed_selection_v2",
         "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "selection_rule": "minimum validation macro policy regret across lambdas and train seeds",
         "selected_model_type": selected_model,
         "selected_macro_policy_regret": macro_regret_by_model[selected_model],
         "reference_model": args.reference_model,
+        "secondary_reference_model": args.secondary_reference_model,
         "eval_lambdas": lambdas,
         "test_accessed": False,
         "run_count": len(run_ids),
@@ -360,6 +423,11 @@ def main() -> None:
             "per_lambda_intervals": "per_lambda_intervals.csv",
             "macro_intervals": "macro_intervals.csv",
             "paired_reference_deltas": "paired_reference_deltas.csv",
+            **(
+                {"paired_b4_deltas": "paired_b4_deltas.csv"}
+                if secondary_paired_rows
+                else {}
+            ),
             "paired_fixed_deltas": "paired_fixed_deltas.csv",
         },
     }

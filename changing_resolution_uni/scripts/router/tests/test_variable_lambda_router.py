@@ -339,7 +339,7 @@ class VariableLambdaRouterTest(unittest.TestCase):
                 "--out-dir",
                 str(run),
                 "--model-type",
-                "both",
+                "all",
                 "--train-lambdas",
                 "0.01",
                 "0.08",
@@ -363,9 +363,37 @@ class VariableLambdaRouterTest(unittest.TestCase):
             self.assertEqual(summary["validation_prompts"], 1)
             np.testing.assert_allclose(summary["cost_profile"], [0.4, 0.2])
             self.assertEqual(summary["latency_profile"]["hardware_label"], "H100-test")
+            self.assertEqual(
+                summary["model_types"],
+                [
+                    "prompt_only",
+                    "prompt_state",
+                    "b4_offline",
+                    "b4_prompt_state",
+                ],
+            )
+            self.assertEqual(summary["training"]["b4_temperature"], 0.02)
+            self.assertEqual(
+                set(summary["artifacts"]["checkpoints"]),
+                {
+                    "prompt_only",
+                    "prompt_state",
+                    "b4_offline",
+                    "b4_prompt_state",
+                },
+            )
             with (run / "validation_predictions.csv").open(encoding="utf-8") as handle:
                 rows = list(csv.DictReader(handle))
-            self.assertEqual(len(rows), 4)
+            self.assertEqual(len(rows), 8)
+            self.assertEqual(
+                {row["model_type"] for row in rows},
+                {
+                    "prompt_only",
+                    "prompt_state",
+                    "b4_offline",
+                    "b4_prompt_state",
+                },
+            )
             for row in rows:
                 chosen_step = int(row["chosen_step"])
                 self.assertAlmostEqual(
@@ -392,6 +420,8 @@ class VariableLambdaRouterTest(unittest.TestCase):
                 "summarize",
                 "--runs-root",
                 str(runs_root),
+                "--secondary-reference-model",
+                "b4_offline",
                 "--bootstrap-samples",
                 "100",
             ]
@@ -407,6 +437,20 @@ class VariableLambdaRouterTest(unittest.TestCase):
             self.assertTrue(
                 (runs_root / "selection" / "paired_reference_deltas.csv").is_file()
             )
+            self.assertTrue(
+                (runs_root / "selection" / "paired_b4_deltas.csv").is_file()
+            )
+            with (
+                runs_root / "selection" / "paired_b4_deltas.csv"
+            ).open(encoding="utf-8") as handle:
+                b4_rows = list(csv.DictReader(handle))
+            self.assertTrue(
+                any(
+                    row["reference_model"] == "b4_offline"
+                    and row["candidate_model"] == "b4_prompt_state"
+                    for row in b4_rows
+                )
+            )
 
     def test_lambda_changes_stop_regret(self) -> None:
         qualities = np.asarray([0.81, 0.82], dtype=np.float32)
@@ -415,6 +459,38 @@ class VariableLambdaRouterTest(unittest.TestCase):
         high_lambda = train.true_stop_regret(qualities, costs, 0.10)
         self.assertGreater(float(low_lambda[0]), 0.0)
         self.assertGreater(float(high_lambda[0]), float(low_lambda[0]))
+
+    def test_b4_soft_targets_and_hybrid_prior_contract(self) -> None:
+        trajectory = {
+            "pooled_t5": np.ones(4096, dtype=np.float32),
+            "qualities": np.asarray([0.80, 0.82], dtype=np.float32),
+            "costs": np.asarray([0.2, 0.8], dtype=np.float32),
+        }
+        dataset = train.B4LambdaDataset([trajectory], [0.0, 0.1], temperature=0.02)
+        quality_first = dataset[0]["soft_utility_target"].numpy()
+        cost_aware = dataset[1]["soft_utility_target"].numpy()
+        self.assertAlmostEqual(float(quality_first.sum()), 1.0)
+        self.assertAlmostEqual(float(cost_aware.sum()), 1.0)
+        self.assertGreater(float(quality_first[1]), float(quality_first[0]))
+        self.assertGreater(float(cost_aware[0]), float(cost_aware[1]))
+
+        prior = train.VariableLambdaB4Prior(candidate_count=2, dropout=0.0)
+        hybrid = train.B4PromptStateRouter(
+            b4_prior=prior,
+            state_dim=3,
+            candidate_steps=np.asarray(STEPS),
+            dropout=0.0,
+        )
+        self.assertTrue(all(not value.requires_grad for value in hybrid.b4_prior.parameters()))
+        output = hybrid(
+            torch.ones(2, 4096),
+            torch.ones(2, 3),
+            torch.ones(2, len(train.SCHEDULE_FEATURE_NAMES)),
+            torch.tensor([0.01, 0.08]),
+            torch.tensor([0, 1]),
+        )
+        self.assertEqual(tuple(output["scaled_regret"].shape), (2,))
+        self.assertEqual(tuple(output["harm_logit"].shape), (2,))
 
 
 if __name__ == "__main__":

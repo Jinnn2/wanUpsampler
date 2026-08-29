@@ -150,6 +150,36 @@ matched initialization seeds:
 bash changing_resolution_uni/scripts/router/run_multiseed_variable_lambda_selection.sh
 ```
 
+Run the B4 extension through its separate launcher so it writes a fresh
+four-way selection rather than overwriting the earlier two-model result:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_multiseed_variable_lambda_b4_selection.sh
+```
+
+- `prompt_only`: sequential prompt+schedule regret/harm router;
+- `prompt_state`: the same router plus 158-dimensional online latent state;
+- `b4_offline`: generation-independent prompt+lambda B4 distribution over all
+  13 candidates, trained with soft utility KL plus ordered EMD;
+- `b4_prompt_state`: the exact selected B4 prior for that initialization seed is
+  copied and frozen, then combined with schedule and latent state in a trainable
+  sequential correction head.
+
+The B4 target is
+`softmax((VBench5 - lambda * normalized_cost) / B4_TEMPERATURE)`. The default
+temperature remains `0.02` and the ordered-EMD weight is `0.5`; neither may be
+tuned from test. The old development B4 checkpoint is not loaded because its
+dataset and latency provenance differ from the strict 1,500-prompt protocol.
+Pure B4 uses only prompt and lambda at inference and selects the probability
+argmax. The hybrid B4 output is computed without latent input and serves only as
+a prior; online latent state may advance or delay the actual handoff.
+
+`paired_reference_deltas.csv` compares every candidate to `prompt_only`.
+`paired_b4_deltas.csv` uses `b4_offline` as the paired reference, so its
+`b4_prompt_state` rows directly measure the value of online latent correction.
+Positive deltas always mean the candidate is better. Use a new `OUT_ROOT` for
+this adaptive extension, and keep the earlier selection immutable.
+
 Training lambdas default to `0.01,0.02,0.04,0.06,0.08,0.10`. Validation also
 contains held-out interpolation points `0.03,0.05,0.07,0.09`. Lambda, sigma,
 timestep, and a locked train-calibrated static cost profile are online inputs.

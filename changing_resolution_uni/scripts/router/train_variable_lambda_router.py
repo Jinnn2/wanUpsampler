@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import datetime as dt
 import hashlib
@@ -25,6 +26,8 @@ LATENCY_PROFILE_SCHEMA = "train_calibrated_latency_profile_v1"
 MODEL_LABELS = {
     "prompt_only": "Variable-Lambda Prompt Router",
     "prompt_state": "Variable-Lambda Prompt+State Router",
+    "b4_offline": "Variable-Lambda Offline B4 Router",
+    "b4_prompt_state": "Variable-Lambda B4-Prior+State Router",
 }
 SCHEDULE_FEATURE_NAMES = [
     "step_fraction",
@@ -44,7 +47,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-dir", required=True)
     parser.add_argument(
         "--model-type",
-        choices=["prompt_only", "prompt_state", "both"],
+        choices=[
+            "prompt_only",
+            "prompt_state",
+            "b4_offline",
+            "b4_prompt_state",
+            "both",
+            "b4_pair",
+            "all",
+        ],
         default="both",
     )
     parser.add_argument(
@@ -77,6 +88,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--regret-scale", type=float, default=100.0)
     parser.add_argument("--regret-loss-weight", type=float, default=1.0)
     parser.add_argument("--harm-loss-weight", type=float, default=1.0)
+    parser.add_argument(
+        "--b4-temperature",
+        type=float,
+        default=0.02,
+        help="Temperature for variable-lambda B4 soft utility targets.",
+    )
+    parser.add_argument(
+        "--b4-emd-weight",
+        type=float,
+        default=0.5,
+        help="Weight on ordered-distribution Wasserstein/EMD loss for B4.",
+    )
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--lr", type=float, default=3e-4)
@@ -110,6 +133,10 @@ def parse_args() -> argparse.Namespace:
         parser.error("risk-threshold must be in [0, 1]")
     if args.regret_loss_weight < 0 or args.harm_loss_weight < 0:
         parser.error("loss weights must be non-negative")
+    if args.b4_temperature <= 0 or not math.isfinite(args.b4_temperature):
+        parser.error("b4-temperature must be finite and positive")
+    if args.b4_emd_weight < 0 or not math.isfinite(args.b4_emd_weight):
+        parser.error("b4-emd-weight must be finite and non-negative")
     if (
         args.epochs < 1
         or args.batch_size < 1
@@ -440,12 +467,46 @@ class LambdaStateDataset(Dataset):
             "pooled_t5": torch.from_numpy(trajectory["pooled_t5"]),
             "state": torch.from_numpy(state.astype(np.float32)),
             "schedule": torch.from_numpy(schedule[state_index]),
+            "lambda_value": torch.tensor(lambda_value, dtype=torch.float32),
+            "candidate_index": torch.tensor(state_index, dtype=torch.long),
             "regret_target": torch.tensor(
                 regret * self.regret_scale, dtype=torch.float32
             ),
             "harm_target": torch.tensor(
                 float(regret > self.harm_epsilon), dtype=torch.float32
             ),
+        }
+
+
+class B4LambdaDataset(Dataset):
+    """Prompt+lambda examples for the generation-independent B4 prior."""
+
+    def __init__(
+        self,
+        trajectories: list[dict[str, Any]],
+        lambdas: list[float],
+        temperature: float,
+    ):
+        self.trajectories = trajectories
+        self.lambdas = lambdas
+        self.temperature = float(temperature)
+
+    def __len__(self) -> int:
+        return len(self.trajectories) * len(self.lambdas)
+
+    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
+        lambda_index = index % len(self.lambdas)
+        trajectory_index = index // len(self.lambdas)
+        trajectory = self.trajectories[trajectory_index]
+        lambda_value = self.lambdas[lambda_index]
+        utilities = trajectory["qualities"] - lambda_value * trajectory["costs"]
+        centered = (utilities - float(np.max(utilities))) / self.temperature
+        weights = np.exp(centered.astype(np.float64))
+        soft_target = (weights / weights.sum()).astype(np.float32)
+        return {
+            "pooled_t5": torch.from_numpy(trajectory["pooled_t5"]),
+            "lambda_value": torch.tensor(lambda_value, dtype=torch.float32),
+            "soft_utility_target": torch.from_numpy(soft_target),
         }
 
 
@@ -497,7 +558,10 @@ class VariableLambdaRouter(nn.Module):
         pooled_t5: torch.Tensor,
         state: torch.Tensor,
         schedule: torch.Tensor,
+        lambda_value: torch.Tensor | None = None,
+        candidate_index: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
+        del lambda_value, candidate_index
         parts = [self.prompt_encoder(pooled_t5), self.schedule_encoder(schedule)]
         if self.use_state:
             parts.append(self.state_encoder(state))
@@ -508,9 +572,162 @@ class VariableLambdaRouter(nn.Module):
         }
 
 
+class VariableLambdaB4Prior(nn.Module):
+    """Offline prompt+lambda prior over all candidate handoff steps."""
+
+    def __init__(self, candidate_count: int, dropout: float):
+        super().__init__()
+        self.candidate_count = int(candidate_count)
+        self.prompt_encoder = nn.Sequential(
+            nn.Linear(4096, 256),
+            nn.LayerNorm(256),
+            nn.SiLU(),
+            nn.Dropout(dropout),
+            nn.Linear(256, 128),
+            nn.LayerNorm(128),
+            nn.SiLU(),
+        )
+        self.lambda_encoder = nn.Sequential(
+            nn.Linear(1, 16),
+            nn.LayerNorm(16),
+            nn.SiLU(),
+        )
+        self.head = nn.Sequential(
+            nn.Linear(128 + 16, 128),
+            nn.LayerNorm(128),
+            nn.SiLU(),
+            nn.Dropout(dropout),
+            nn.Linear(128, self.candidate_count),
+        )
+
+    def forward(
+        self, pooled_t5: torch.Tensor, lambda_value: torch.Tensor
+    ) -> dict[str, torch.Tensor]:
+        prompt_feature = self.prompt_encoder(pooled_t5)
+        scaled_lambda = lambda_value.reshape(-1, 1) / 0.1
+        lambda_feature = self.lambda_encoder(scaled_lambda)
+        logits = self.head(torch.cat([prompt_feature, lambda_feature], dim=-1))
+        return {
+            "logits": logits,
+            "discrete_probs": torch.softmax(logits, dim=-1),
+            "prompt_feature": prompt_feature,
+        }
+
+
+class B4PromptStateRouter(nn.Module):
+    """Frozen offline B4 prior with a trainable online latent correction head."""
+
+    def __init__(
+        self,
+        b4_prior: VariableLambdaB4Prior,
+        state_dim: int,
+        candidate_steps: np.ndarray,
+        dropout: float,
+    ):
+        super().__init__()
+        self.b4_prior = copy.deepcopy(b4_prior)
+        for parameter in self.b4_prior.parameters():
+            parameter.requires_grad_(False)
+        candidate_tensor = torch.as_tensor(candidate_steps, dtype=torch.float32)
+        self.register_buffer("candidate_steps", candidate_tensor)
+        candidate_count = int(candidate_tensor.numel())
+        self.schedule_encoder = nn.Sequential(
+            nn.Linear(len(SCHEDULE_FEATURE_NAMES), 32),
+            nn.LayerNorm(32),
+            nn.SiLU(),
+        )
+        self.state_encoder = nn.Sequential(
+            nn.Linear(state_dim, 128),
+            nn.LayerNorm(128),
+            nn.SiLU(),
+            nn.Dropout(dropout),
+            nn.Linear(128, 64),
+            nn.LayerNorm(64),
+            nn.SiLU(),
+        )
+        # Full B4 distribution plus expected step, entropy, maximum probability,
+        # probability at the current candidate, tail mass, and top-1 margin.
+        self.prior_encoder = nn.Sequential(
+            nn.Linear(candidate_count + 6, 32),
+            nn.LayerNorm(32),
+            nn.SiLU(),
+        )
+        self.fusion = nn.Sequential(
+            nn.Linear(128 + 32 + 64 + 32, 128),
+            nn.LayerNorm(128),
+            nn.SiLU(),
+            nn.Dropout(dropout),
+            nn.Linear(128, 64),
+            nn.SiLU(),
+        )
+        self.regret_head = nn.Linear(64, 1)
+        self.harm_head = nn.Linear(64, 1)
+
+    def train(self, mode: bool = True) -> "B4PromptStateRouter":
+        super().train(mode)
+        self.b4_prior.eval()
+        return self
+
+    def forward(
+        self,
+        pooled_t5: torch.Tensor,
+        state: torch.Tensor,
+        schedule: torch.Tensor,
+        lambda_value: torch.Tensor | None = None,
+        candidate_index: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
+        if lambda_value is None or candidate_index is None:
+            raise ValueError("B4PromptStateRouter requires lambda and candidate index")
+        self.b4_prior.eval()
+        with torch.no_grad():
+            prior = self.b4_prior(pooled_t5, lambda_value)
+        probabilities = prior["discrete_probs"]
+        normalized_steps = self.candidate_steps / 50.0
+        expected_step = (probabilities * normalized_steps.unsqueeze(0)).sum(dim=1)
+        entropy = -(
+            probabilities.clamp_min(1e-8) * probabilities.clamp_min(1e-8).log()
+        ).sum(dim=1) / math.log(probabilities.shape[1])
+        top2 = torch.topk(probabilities, k=min(2, probabilities.shape[1]), dim=1).values
+        margin = top2[:, 0] - (top2[:, 1] if top2.shape[1] > 1 else 0.0)
+        current_probability = probabilities.gather(
+            1, candidate_index.reshape(-1, 1)
+        ).squeeze(1)
+        positions = torch.arange(probabilities.shape[1], device=probabilities.device)
+        tail_probability = (
+            probabilities * (positions.unsqueeze(0) > candidate_index.unsqueeze(1))
+        ).sum(dim=1)
+        prior_features = torch.cat(
+            [
+                probabilities,
+                expected_step.unsqueeze(1),
+                entropy.unsqueeze(1),
+                probabilities.max(dim=1).values.unsqueeze(1),
+                current_probability.unsqueeze(1),
+                tail_probability.unsqueeze(1),
+                margin.unsqueeze(1),
+            ],
+            dim=1,
+        )
+        fused = self.fusion(
+            torch.cat(
+                [
+                    prior["prompt_feature"],
+                    self.schedule_encoder(schedule),
+                    self.state_encoder(state),
+                    self.prior_encoder(prior_features),
+                ],
+                dim=1,
+            )
+        )
+        return {
+            "scaled_regret": self.regret_head(fused).squeeze(-1),
+            "harm_logit": self.harm_head(fused).squeeze(-1),
+        }
+
+
 @torch.no_grad()
 def predict_trajectory(
-    model: VariableLambdaRouter,
+    model: nn.Module,
     trajectory: dict[str, Any],
     lambda_value: float,
     candidate_steps: np.ndarray,
@@ -535,6 +752,8 @@ def predict_trajectory(
         .expand(count, -1),
         torch.from_numpy(state.astype(np.float32)).to(device),
         torch.from_numpy(schedule).to(device),
+        torch.full((count,), lambda_value, dtype=torch.float32, device=device),
+        torch.arange(count, dtype=torch.long, device=device),
     )
     predicted_regret = output["scaled_regret"].clamp(min=0).cpu().numpy() / regret_scale
     harm_probability = torch.sigmoid(output["harm_logit"]).cpu().numpy()
@@ -560,9 +779,128 @@ def best_fixed_steps(
     return result
 
 
+def prediction_row(
+    *,
+    trajectory: dict[str, Any],
+    model_type: str,
+    lambda_value: float,
+    chosen: int,
+    oracle_index: int,
+    fixed_index: int,
+    candidate_steps: np.ndarray,
+    regret: float,
+    fixed_regret: float,
+    realized_utility: float,
+    oracle_utility: float,
+    harm_epsilon: float,
+    quality_dimensions: list[str],
+    decision_mode: str,
+    predicted_stop_regret: float | str,
+    predicted_harm_probability: float | str,
+) -> dict[str, Any]:
+    row = {
+        "split": trajectory["split"],
+        "model_type": model_type,
+        "Method": MODEL_LABELS[model_type],
+        "decision_mode": decision_mode,
+        "prompt_id": trajectory["prompt_id"],
+        "seed": trajectory["seed"],
+        "lambda": lambda_value,
+        "chosen_step": int(candidate_steps[chosen]),
+        "oracle_step": int(candidate_steps[oracle_index]),
+        "best_fixed_step": int(candidate_steps[fixed_index]),
+        "policy_regret": regret,
+        "best_fixed_regret": fixed_regret,
+        "realized_utility": realized_utility,
+        "oracle_utility": oracle_utility,
+        "realized_vbench5": float(trajectory["qualities"][chosen]),
+        "realized_latency_sec": float(trajectory["calibrated_latencies"][chosen]),
+        "speedup_vs_native": float(
+            trajectory["calibrated_native_latency"]
+            / trajectory["calibrated_latencies"][chosen]
+        ),
+        "normalized_cost": float(trajectory["costs"][chosen]),
+        "raw_manifest_latency_sec_diagnostic": float(
+            trajectory["latencies"][chosen]
+        ),
+        "raw_manifest_speedup_diagnostic": float(
+            trajectory["native_latency"] / trajectory["latencies"][chosen]
+        ),
+        "harmful_stop": int(regret > harm_epsilon),
+        "predicted_stop_regret": predicted_stop_regret,
+        "predicted_harm_probability": predicted_harm_probability,
+    }
+    for dimension_index, dimension in enumerate(quality_dimensions):
+        row[f"realized_{dimension}"] = float(
+            trajectory["dimensions"][chosen, dimension_index]
+        )
+    return row
+
+
+@torch.no_grad()
+def evaluate_b4_offline_model(
+    model: VariableLambdaB4Prior,
+    trajectories: list[dict[str, Any]],
+    lambdas: list[float],
+    candidate_steps: np.ndarray,
+    fixed_steps: dict[float, int],
+    harm_epsilon: float,
+    quality_dimensions: list[str],
+    device: torch.device,
+    eval_batch_trajectories: int,
+    emit_rows: bool,
+) -> tuple[dict[str, float], list[dict[str, Any]]]:
+    model.eval()
+    rows: list[dict[str, Any]] = []
+    lambda_regrets = []
+    for lambda_value in lambdas:
+        fixed_index = fixed_steps[lambda_value]
+        for start in range(0, len(trajectories), eval_batch_trajectories):
+            chunk = trajectories[start : start + eval_batch_trajectories]
+            pooled = torch.from_numpy(
+                np.stack([trajectory["pooled_t5"] for trajectory in chunk])
+            ).to(device)
+            lambda_tensor = torch.full(
+                (len(chunk),), lambda_value, dtype=torch.float32, device=device
+            )
+            probabilities = model(pooled, lambda_tensor)["discrete_probs"]
+            chosen_indices = probabilities.argmax(dim=1).cpu().numpy()
+            for row_index, trajectory in enumerate(chunk):
+                chosen = int(chosen_indices[row_index])
+                utility = trajectory["qualities"] - lambda_value * trajectory["costs"]
+                oracle_index = int(np.argmax(utility))
+                oracle_utility = float(utility[oracle_index])
+                realized_utility = float(utility[chosen])
+                regret = max(0.0, oracle_utility - realized_utility)
+                fixed_regret = max(0.0, oracle_utility - float(utility[fixed_index]))
+                lambda_regrets.append(regret)
+                if emit_rows:
+                    rows.append(
+                        prediction_row(
+                            trajectory=trajectory,
+                            model_type="b4_offline",
+                            lambda_value=lambda_value,
+                            chosen=chosen,
+                            oracle_index=oracle_index,
+                            fixed_index=fixed_index,
+                            candidate_steps=candidate_steps,
+                            regret=regret,
+                            fixed_regret=fixed_regret,
+                            realized_utility=realized_utility,
+                            oracle_utility=oracle_utility,
+                            harm_epsilon=harm_epsilon,
+                            quality_dimensions=quality_dimensions,
+                            decision_mode="offline_argmax",
+                            predicted_stop_regret="",
+                            predicted_harm_probability="",
+                        )
+                    )
+    return {"macro_policy_regret": float(np.mean(lambda_regrets))}, rows
+
+
 @torch.no_grad()
 def evaluate_model(
-    model: VariableLambdaRouter,
+    model: nn.Module,
     model_type: str,
     trajectories: list[dict[str, Any]],
     lambdas: list[float],
@@ -579,6 +917,21 @@ def evaluate_model(
     eval_batch_trajectories: int,
     emit_rows: bool,
 ) -> tuple[dict[str, float], list[dict[str, Any]]]:
+    if model_type == "b4_offline":
+        if not isinstance(model, VariableLambdaB4Prior):
+            raise TypeError("b4_offline evaluation requires VariableLambdaB4Prior")
+        return evaluate_b4_offline_model(
+            model,
+            trajectories,
+            lambdas,
+            candidate_steps,
+            fixed_steps,
+            harm_epsilon,
+            quality_dimensions,
+            device,
+            eval_batch_trajectories,
+            emit_rows,
+        )
     rows: list[dict[str, Any]] = []
     lambda_regrets = []
     for lambda_value in lambdas:
@@ -609,10 +962,21 @@ def evaluate_model(
                     for trajectory in chunk
                 ]
             ).reshape(batch_size * candidate_count, -1)
+            lambda_tensor = torch.full(
+                (batch_size * candidate_count,),
+                lambda_value,
+                dtype=torch.float32,
+                device=device,
+            )
+            candidate_index = torch.arange(
+                candidate_count, dtype=torch.long, device=device
+            ).repeat(batch_size)
             output = model(
                 torch.from_numpy(pooled).to(device),
                 torch.from_numpy(state.astype(np.float32)).to(device),
                 torch.from_numpy(schedule).to(device),
+                lambda_tensor,
+                candidate_index,
             )
             predicted_regret = (
                 output["scaled_regret"]
@@ -645,50 +1009,128 @@ def evaluate_model(
                 fixed_regret = max(0.0, oracle_utility - float(utility[fixed_index]))
                 lambda_regrets.append(regret)
                 if emit_rows:
-                    row = {
-                        "split": trajectory["split"],
-                        "model_type": model_type,
-                        "Method": MODEL_LABELS[model_type],
-                        "prompt_id": trajectory["prompt_id"],
-                        "seed": trajectory["seed"],
-                        "lambda": lambda_value,
-                        "chosen_step": int(candidate_steps[chosen]),
-                        "oracle_step": int(candidate_steps[oracle_index]),
-                        "best_fixed_step": int(candidate_steps[fixed_index]),
-                        "policy_regret": regret,
-                        "best_fixed_regret": fixed_regret,
-                        "realized_utility": realized_utility,
-                        "oracle_utility": oracle_utility,
-                        "realized_vbench5": float(trajectory["qualities"][chosen]),
-                        "realized_latency_sec": float(
-                            trajectory["calibrated_latencies"][chosen]
-                        ),
-                        "speedup_vs_native": float(
-                            trajectory["calibrated_native_latency"]
-                            / trajectory["calibrated_latencies"][chosen]
-                        ),
-                        "normalized_cost": float(trajectory["costs"][chosen]),
-                        "raw_manifest_latency_sec_diagnostic": float(
-                            trajectory["latencies"][chosen]
-                        ),
-                        "raw_manifest_speedup_diagnostic": float(
-                            trajectory["native_latency"]
-                            / trajectory["latencies"][chosen]
-                        ),
-                        "harmful_stop": int(regret > harm_epsilon),
-                        "predicted_stop_regret": float(
-                            predicted_regret[row_index, chosen]
-                        ),
-                        "predicted_harm_probability": float(
-                            harm_probability[row_index, chosen]
-                        ),
-                    }
-                    for dimension_index, dimension in enumerate(quality_dimensions):
-                        row[f"realized_{dimension}"] = float(
-                            trajectory["dimensions"][chosen, dimension_index]
+                    rows.append(
+                        prediction_row(
+                            trajectory=trajectory,
+                            model_type=model_type,
+                            lambda_value=lambda_value,
+                            chosen=chosen,
+                            oracle_index=oracle_index,
+                            fixed_index=fixed_index,
+                            candidate_steps=candidate_steps,
+                            regret=regret,
+                            fixed_regret=fixed_regret,
+                            realized_utility=realized_utility,
+                            oracle_utility=oracle_utility,
+                            harm_epsilon=harm_epsilon,
+                            quality_dimensions=quality_dimensions,
+                            decision_mode="sequential_stop",
+                            predicted_stop_regret=float(
+                                predicted_regret[row_index, chosen]
+                            ),
+                            predicted_harm_probability=float(
+                                harm_probability[row_index, chosen]
+                            ),
                         )
-                    rows.append(row)
+                    )
     return {"macro_policy_regret": float(np.mean(lambda_regrets))}, rows
+
+
+def ordered_emd_loss(
+    predicted_probabilities: torch.Tensor, target_probabilities: torch.Tensor
+) -> torch.Tensor:
+    predicted_cdf = predicted_probabilities.cumsum(dim=1)
+    target_cdf = target_probabilities.cumsum(dim=1)
+    return torch.mean(torch.abs(predicted_cdf - target_cdf))
+
+
+def train_b4_model(
+    train_loader: DataLoader,
+    validation_trajectories: list[dict[str, Any]],
+    eval_lambdas: list[float],
+    candidate_steps: np.ndarray,
+    fixed_steps: dict[float, int],
+    quality_dimensions: list[str],
+    args: argparse.Namespace,
+    device: torch.device,
+) -> tuple[VariableLambdaB4Prior, int, dict[str, float]]:
+    model = VariableLambdaB4Prior(
+        candidate_count=len(candidate_steps), dropout=args.dropout
+    ).to(device)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=args.lr, weight_decay=args.weight_decay
+    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=args.epochs, eta_min=args.lr * 0.05
+    )
+    best_regret = float("inf")
+    best_epoch = 0
+    best_weights = None
+    for epoch in range(1, args.epochs + 1):
+        model.train()
+        losses = []
+        for batch in train_loader:
+            optimizer.zero_grad(set_to_none=True)
+            output = model(
+                batch["pooled_t5"].to(device),
+                batch["lambda_value"].to(device),
+            )
+            target = batch["soft_utility_target"].to(device)
+            kl_loss = F.kl_div(
+                F.log_softmax(output["logits"], dim=1),
+                target,
+                reduction="batchmean",
+            )
+            emd_loss = ordered_emd_loss(output["discrete_probs"], target)
+            loss = kl_loss + args.b4_emd_weight * emd_loss
+            if not torch.isfinite(loss):
+                raise FloatingPointError("Non-finite loss for b4_offline")
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            losses.append(float(loss.detach()))
+        scheduler.step()
+        metrics, _ = evaluate_b4_offline_model(
+            model,
+            validation_trajectories,
+            eval_lambdas,
+            candidate_steps,
+            fixed_steps,
+            args.harm_epsilon,
+            quality_dimensions,
+            device,
+            args.eval_batch_trajectories,
+            emit_rows=False,
+        )
+        if metrics["macro_policy_regret"] < best_regret:
+            best_regret = metrics["macro_policy_regret"]
+            best_epoch = epoch
+            best_weights = {
+                name: value.detach().cpu().clone()
+                for name, value in model.state_dict().items()
+            }
+        if epoch == 1 or epoch % 5 == 0 or epoch == args.epochs:
+            print(
+                f"b4_offline epoch={epoch:02d}/{args.epochs} "
+                f"loss={np.mean(losses):.6f} val_macro_regret="
+                f"{metrics['macro_policy_regret']:.6f}"
+            )
+    if best_weights is None:
+        raise RuntimeError("No checkpoint selected for b4_offline")
+    model.load_state_dict(best_weights)
+    final_metrics, _ = evaluate_b4_offline_model(
+        model,
+        validation_trajectories,
+        eval_lambdas,
+        candidate_steps,
+        fixed_steps,
+        args.harm_epsilon,
+        quality_dimensions,
+        device,
+        args.eval_batch_trajectories,
+        emit_rows=False,
+    )
+    return model, best_epoch, final_metrics
 
 
 def train_model(
@@ -704,11 +1146,25 @@ def train_model(
     quality_dimensions: list[str],
     args: argparse.Namespace,
     device: torch.device,
-) -> tuple[VariableLambdaRouter, int, dict[str, float]]:
-    use_state = model_type == "prompt_state"
-    model = VariableLambdaRouter(
-        state_dim=len(state_mean), use_state=use_state, dropout=args.dropout
-    ).to(device)
+    b4_prior: VariableLambdaB4Prior | None = None,
+) -> tuple[nn.Module, int, dict[str, float]]:
+    if model_type in {"prompt_only", "prompt_state"}:
+        model: nn.Module = VariableLambdaRouter(
+            state_dim=len(state_mean),
+            use_state=model_type == "prompt_state",
+            dropout=args.dropout,
+        ).to(device)
+    elif model_type == "b4_prompt_state":
+        if b4_prior is None:
+            raise ValueError("b4_prompt_state requires a trained B4 prior")
+        model = B4PromptStateRouter(
+            b4_prior=b4_prior,
+            state_dim=len(state_mean),
+            candidate_steps=candidate_steps,
+            dropout=args.dropout,
+        ).to(device)
+    else:
+        raise ValueError(f"Unsupported online model type: {model_type}")
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
     )
@@ -727,6 +1183,8 @@ def train_model(
                 batch["pooled_t5"].to(device),
                 batch["state"].to(device),
                 batch["schedule"].to(device),
+                batch["lambda_value"].to(device),
+                batch["candidate_index"].to(device),
             )
             regret_loss = F.smooth_l1_loss(
                 output["scaled_regret"], batch["regret_target"].to(device)
@@ -809,6 +1267,21 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def requested_model_types(request: str) -> list[str]:
+    if request == "both":
+        return ["prompt_only", "prompt_state"]
+    if request == "b4_pair":
+        return ["b4_offline", "b4_prompt_state"]
+    if request == "all":
+        return [
+            "prompt_only",
+            "prompt_state",
+            "b4_offline",
+            "b4_prompt_state",
+        ]
+    return [request]
+
+
 def main() -> None:
     args = parse_args()
     seed_everything(args.seed)
@@ -872,39 +1345,73 @@ def main() -> None:
         args.regret_scale,
     )
     device = torch.device(args.device)
-    models_to_train = (
-        [args.model_type]
-        if args.model_type != "both"
-        else ["prompt_only", "prompt_state"]
-    )
-    summary_rows = []
-    prediction_rows = []
-    for model_type in models_to_train:
+    models_to_train = requested_model_types(args.model_type)
+    b4_prior = None
+    b4_best_epoch = None
+    b4_metrics = None
+    if {"b4_offline", "b4_prompt_state"} & set(models_to_train):
+        b4_dataset = B4LambdaDataset(
+            train_trajectories,
+            args.train_lambdas,
+            args.b4_temperature,
+        )
         seed_everything(args.seed)
-        generator = torch.Generator().manual_seed(args.seed)
-        train_loader = DataLoader(
-            train_dataset,
+        b4_loader = DataLoader(
+            b4_dataset,
             batch_size=args.batch_size,
             shuffle=True,
-            generator=generator,
+            generator=torch.Generator().manual_seed(args.seed),
             num_workers=args.num_workers,
             pin_memory=device.type == "cuda",
             drop_last=False,
         )
-        model, best_epoch, metrics = train_model(
-            model_type,
-            train_loader,
+        b4_prior, b4_best_epoch, b4_metrics = train_b4_model(
+            b4_loader,
             validation_trajectories,
             args.eval_lambdas,
             candidate_steps,
-            state_mean,
-            state_std,
-            cost_profile,
             fixed_steps,
             manifest["quality_dimensions"],
             args,
             device,
         )
+    summary_rows = []
+    prediction_rows = []
+    checkpoint_artifacts: dict[str, dict[str, str]] = {}
+    for model_type in models_to_train:
+        if model_type == "b4_offline":
+            if b4_prior is None or b4_best_epoch is None or b4_metrics is None:
+                raise RuntimeError("B4 prior was not trained")
+            model = b4_prior
+            best_epoch = b4_best_epoch
+            metrics = b4_metrics
+        else:
+            seed_everything(args.seed)
+            generator = torch.Generator().manual_seed(args.seed)
+            train_loader = DataLoader(
+                train_dataset,
+                batch_size=args.batch_size,
+                shuffle=True,
+                generator=generator,
+                num_workers=args.num_workers,
+                pin_memory=device.type == "cuda",
+                drop_last=False,
+            )
+            model, best_epoch, metrics = train_model(
+                model_type,
+                train_loader,
+                validation_trajectories,
+                args.eval_lambdas,
+                candidate_steps,
+                state_mean,
+                state_std,
+                cost_profile,
+                fixed_steps,
+                manifest["quality_dimensions"],
+                args,
+                device,
+                b4_prior=b4_prior,
+            )
         _, rows = evaluate_model(
             model,
             model_type,
@@ -932,9 +1439,10 @@ def main() -> None:
                 **metrics,
             }
         )
+        checkpoint_path = out_dir / f"{model_type}_router.pt"
         torch.save(
             {
-                "schema": "variable_lambda_router_checkpoint_v1",
+                "schema": "variable_lambda_router_checkpoint_v2",
                 "model_type": model_type,
                 "state_dict": model.state_dict(),
                 "state_dim": len(state_mean),
@@ -953,6 +1461,9 @@ def main() -> None:
                 "harm_epsilon": args.harm_epsilon,
                 "risk_threshold": args.risk_threshold,
                 "regret_scale": args.regret_scale,
+                "b4_temperature": args.b4_temperature,
+                "b4_emd_weight": args.b4_emd_weight,
+                "b4_prior_frozen": model_type == "b4_prompt_state",
                 "best_epoch": best_epoch,
                 "validation_metrics": metrics,
                 "dataset_manifest": str(dataset_dir / "dataset_manifest.json"),
@@ -960,19 +1471,24 @@ def main() -> None:
                     dataset_dir / "dataset_manifest.json"
                 ),
             },
-            out_dir / f"{model_type}_router.pt",
+            checkpoint_path,
         )
+        checkpoint_artifacts[model_type] = {
+            "path": checkpoint_path.name,
+            "sha256": sha256_file(checkpoint_path),
+        }
 
     write_csv(out_dir / "validation_predictions.csv", prediction_rows)
     write_csv(out_dir / "validation_model_summary.csv", summary_rows)
     selected_model = min(summary_rows, key=lambda row: row["macro_policy_regret"])
     run_summary = {
-        "schema": "variable_lambda_router_selection_run_v1",
+        "schema": "variable_lambda_router_selection_run_v2",
         "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "evaluation_split": "validation",
         "test_accessed": False,
         "train_seed": args.seed,
         "model_type_request": args.model_type,
+        "model_types": models_to_train,
         "selected_model_type": selected_model["model_type"],
         "selection_rule": "minimum validation macro policy regret across eval lambdas",
         "train_lambdas": args.train_lambdas,
@@ -993,6 +1509,9 @@ def main() -> None:
             "regret_scale": args.regret_scale,
             "regret_loss_weight": args.regret_loss_weight,
             "harm_loss_weight": args.harm_loss_weight,
+            "b4_temperature": args.b4_temperature,
+            "b4_emd_weight": args.b4_emd_weight,
+            "b4_prior_frozen_in_hybrid": True,
             "eval_batch_trajectories": args.eval_batch_trajectories,
         },
         "train_prompts": len(train_prompts),
@@ -1011,6 +1530,7 @@ def main() -> None:
         "artifacts": {
             "predictions": "validation_predictions.csv",
             "model_summary": "validation_model_summary.csv",
+            "checkpoints": checkpoint_artifacts,
         },
     }
     (out_dir / "run_summary.json").write_text(

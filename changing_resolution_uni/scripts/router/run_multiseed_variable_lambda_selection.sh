@@ -6,6 +6,7 @@ PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 GENERATION_ROOT="${GENERATION_ROOT:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_1500_8gpu}"
 DATASET_DIR="${DATASET_DIR:-${GENERATION_ROOT}/router_variable_lambda_states_selection}"
 OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/router_variable_lambda_1500_selection}"
+MODEL_TYPE="${MODEL_TYPE:-both}"
 TRAIN_SEEDS="${TRAIN_SEEDS:-42 100 2024 31415 27182}"
 TRAIN_LAMBDAS="${TRAIN_LAMBDAS:-0.01 0.02 0.04 0.06 0.08 0.10}"
 EVAL_LAMBDAS="${EVAL_LAMBDAS:-0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10}"
@@ -17,6 +18,8 @@ EPOCHS="${EPOCHS:-20}"
 BATCH_SIZE="${BATCH_SIZE:-256}"
 LR="${LR:-0.0003}"
 WEIGHT_DECAY="${WEIGHT_DECAY:-0.0001}"
+B4_TEMPERATURE="${B4_TEMPERATURE:-0.02}"
+B4_EMD_WEIGHT="${B4_EMD_WEIGHT:-0.5}"
 DEVICE="${DEVICE:-cuda}"
 NUM_WORKERS="${NUM_WORKERS:-0}"
 EVAL_BATCH_TRAJECTORIES="${EVAL_BATCH_TRAJECTORIES:-64}"
@@ -30,6 +33,10 @@ read -r -a eval_lambda_array <<< "${EVAL_LAMBDAS}"
 read -r -a feature_group_array <<< "${FEATURE_GROUPS}"
 if (( ${#seed_array[@]} < 3 )); then
   echo "TRAIN_SEEDS must contain at least three initialization seeds." >&2
+  exit 2
+fi
+if [[ "${MODEL_TYPE}" != "all" && "${MODEL_TYPE}" != "both" ]]; then
+  echo "Launcher MODEL_TYPE must be 'all' or 'both'; got ${MODEL_TYPE}." >&2
   exit 2
 fi
 if [[ ! -f "${DATASET_DIR}/dataset_manifest.json" ]]; then
@@ -60,7 +67,7 @@ for train_seed in "${seed_array[@]}"; do
   python "${SCRIPT_DIR}/train_variable_lambda_router.py" \
     --dataset-dir "${DATASET_DIR}" \
     --out-dir "${seed_out}" \
-    --model-type both \
+    --model-type "${MODEL_TYPE}" \
     --feature-groups "${feature_group_array[@]}" \
     --train-lambdas "${train_lambda_array[@]}" \
     --eval-lambdas "${eval_lambda_array[@]}" \
@@ -71,6 +78,8 @@ for train_seed in "${seed_array[@]}"; do
     --batch-size "${BATCH_SIZE}" \
     --lr "${LR}" \
     --weight-decay "${WEIGHT_DECAY}" \
+    --b4-temperature "${B4_TEMPERATURE}" \
+    --b4-emd-weight "${B4_EMD_WEIGHT}" \
     --seed "${train_seed}" \
     --device "${DEVICE}" \
     --num-workers "${NUM_WORKERS}" \
@@ -78,12 +87,18 @@ for train_seed in "${seed_array[@]}"; do
     --expected-latency-profile-sha256 "${LATENCY_PROFILE_SHA256}"
 done
 
-python "${SCRIPT_DIR}/summarize_variable_lambda_runs.py" \
-  --runs-root "${OUT_ROOT}" \
-  --reference-model prompt_only \
-  --bootstrap-samples "${BOOTSTRAP_SAMPLES}" \
+summary_args=(
+  --runs-root "${OUT_ROOT}"
+  --reference-model prompt_only
+  --bootstrap-samples "${BOOTSTRAP_SAMPLES}"
   --bootstrap-seed "${BOOTSTRAP_SEED}"
+)
+if [[ "${MODEL_TYPE}" == "all" ]]; then
+  summary_args+=(--secondary-reference-model b4_offline)
+fi
+python "${SCRIPT_DIR}/summarize_variable_lambda_runs.py" "${summary_args[@]}"
 
 echo "Variable-lambda validation selection: ${OUT_ROOT}/selection"
+echo "Compared model request: ${MODEL_TYPE}"
 echo "Locked latency profile SHA256: ${LATENCY_PROFILE_SHA256}"
 echo "Test prompt states were not prepared or accessed."
