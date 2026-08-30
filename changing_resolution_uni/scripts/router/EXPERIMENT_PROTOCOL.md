@@ -266,6 +266,11 @@ First run the isolated 32-trajectory, single-lambda overfit check:
 bash changing_resolution_uni/scripts/router/run_soft_margin_overfit_sanity.sh
 ```
 
+Both V0.88 launchers default to the completed strict state dataset
+`router_variable_lambda_states_selection_20260829_h100_profile_v1`; the older
+unversioned directory may exist as an empty placeholder. Override `DATASET_DIR`
+explicitly only when using another complete directory with `dataset_manifest.json`.
+
 This is a train-only diagnostic and must not be summarized as validation
 evidence. Inspect `minimum_train_soft_margin_excess` rather than total soft BCE:
 soft targets have irreducible entropy, while excess BCE has a zero optimum.

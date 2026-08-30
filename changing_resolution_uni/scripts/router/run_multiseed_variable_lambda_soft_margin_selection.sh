@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 GENERATION_ROOT="${GENERATION_ROOT:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_1500_8gpu}"
-DATASET_DIR="${DATASET_DIR:-${GENERATION_ROOT}/router_variable_lambda_states_selection}"
+DATASET_DIR="${DATASET_DIR:-${GENERATION_ROOT}/router_variable_lambda_states_selection_20260829_h100_profile_v1}"
 OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/router_variable_lambda_1500_soft_margin_v1}"
 TRAIN_SEEDS="${TRAIN_SEEDS:-42 100 2024 31415 27182}"
 TRAIN_LAMBDAS="${TRAIN_LAMBDAS:-0.01 0.02 0.04 0.06 0.08 0.10}"
@@ -40,7 +40,9 @@ if (( ${#seed_array[@]} < 3 )); then
   exit 2
 fi
 if [[ ! -f "${DATASET_DIR}/dataset_manifest.json" ]]; then
-  echo "Missing prepared state dataset: ${DATASET_DIR}" >&2
+  echo "Missing prepared state manifest: ${DATASET_DIR}/dataset_manifest.json" >&2
+  echo "Prepared state datasets under ${GENERATION_ROOT}:" >&2
+  find "${GENERATION_ROOT}" -mindepth 2 -maxdepth 2 -name dataset_manifest.json -printf '  %h\n' >&2
   exit 2
 fi
 LATENCY_PROFILE_SHA256="${EXPECTED_LATENCY_PROFILE_SHA256:-$(python - "${DATASET_DIR}/dataset_manifest.json" <<'PY'
