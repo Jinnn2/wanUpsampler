@@ -467,6 +467,13 @@ class VariableLambdaRouterTest(unittest.TestCase):
             self.assertTrue(
                 (runs_root / "selection" / "paired_b4_deltas.csv").is_file()
             )
+            self.assertTrue(
+                (
+                    runs_root
+                    / "selection"
+                    / "paired_secondary_reference_deltas.csv"
+                ).is_file()
+            )
             with (
                 runs_root / "selection" / "paired_b4_deltas.csv"
             ).open(encoding="utf-8") as handle:
@@ -486,6 +493,188 @@ class VariableLambdaRouterTest(unittest.TestCase):
         high_lambda = train.true_stop_regret(qualities, costs, 0.10)
         self.assertGreater(float(low_lambda[0]), 0.0)
         self.assertGreater(float(high_lambda[0]), float(low_lambda[0]))
+
+    def test_b4_residual_pair_training_keeps_epoch_zero_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            generation, scored_train, scored_eval, latency_profile = self.build_fixture(root)
+            states = root / "states"
+            prepare_argv = [
+                "prepare",
+                "--generation-root",
+                str(generation),
+                "--scored-train-dir",
+                str(scored_train),
+                "--scored-eval-dir",
+                str(scored_eval),
+                "--output-dir",
+                str(states),
+                "--latency-profile",
+                str(latency_profile),
+                "--splits",
+                "train",
+                "validation",
+                "--torch-threads",
+                "1",
+            ]
+            with (
+                mock.patch.object(prepare, "FORMAL_STEPS", STEPS),
+                mock.patch.object(sys, "argv", prepare_argv),
+            ):
+                prepare.main()
+            run = root / "residual_run"
+            train_argv = [
+                "train",
+                "--dataset-dir",
+                str(states),
+                "--out-dir",
+                str(run),
+                "--model-type",
+                "b4_residual_pair",
+                "--train-lambdas",
+                "0.01",
+                "0.08",
+                "--eval-lambdas",
+                "0.01",
+                "0.08",
+                "--primary-lambda",
+                "0.08",
+                "--epochs",
+                "1",
+                "--batch-size",
+                "2",
+                "--device",
+                "cpu",
+            ]
+            with mock.patch.object(sys, "argv", train_argv):
+                train.main()
+            summary = json.loads((run / "run_summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                summary["model_types"],
+                ["b4_offline", "b4_residual_prompt", "b4_residual_state"],
+            )
+            for model_type in ("b4_residual_prompt", "b4_residual_state"):
+                checkpoint = torch.load(
+                    run / f"{model_type}_router.pt",
+                    map_location="cpu",
+                    weights_only=False,
+                )
+                self.assertEqual(
+                    checkpoint["schema"], "variable_lambda_router_checkpoint_v5"
+                )
+                with (run / f"{model_type}_training_history.csv").open(
+                    encoding="utf-8"
+                ) as handle:
+                    history = list(csv.DictReader(handle))
+                self.assertEqual(len(history), 2)
+                self.assertEqual(history[0]["epoch"], "0")
+                self.assertEqual(
+                    history[0]["checkpoint_role"],
+                    "exact_b4_anchor_before_state_training",
+                )
+            with (run / "validation_predictions.csv").open(
+                encoding="utf-8"
+            ) as handle:
+                predictions = list(csv.DictReader(handle))
+            self.assertEqual(len(predictions), 6)
+            runs_root = root / "residual_runs"
+            for seed in (42, 100, 2024):
+                destination = runs_root / f"seed_{seed}"
+                shutil.copytree(run, destination)
+                payload = json.loads(
+                    (destination / "run_summary.json").read_text(encoding="utf-8")
+                )
+                payload["train_seed"] = seed
+                (destination / "run_summary.json").write_text(
+                    json.dumps(payload), encoding="utf-8"
+                )
+            summarize_argv = [
+                "summarize",
+                "--runs-root",
+                str(runs_root),
+                "--reference-model",
+                "b4_offline",
+                "--secondary-reference-model",
+                "b4_residual_prompt",
+                "--bootstrap-samples",
+                "100",
+            ]
+            with mock.patch.object(sys, "argv", summarize_argv):
+                summarize.main()
+            selection_dir = runs_root / "selection"
+            self.assertTrue(
+                (selection_dir / "paired_secondary_reference_deltas.csv").is_file()
+            )
+            self.assertFalse((selection_dir / "paired_b4_deltas.csv").exists())
+
+    def test_signed_continue_advantage_preserves_stop_margin(self) -> None:
+        qualities = np.asarray([0.82, 0.81], dtype=np.float32)
+        costs = np.asarray([0.4, 0.2], dtype=np.float32)
+        low_lambda = train.signed_continue_advantage(qualities, costs, 0.01)
+        high_lambda = train.signed_continue_advantage(qualities, costs, 0.10)
+        self.assertLess(float(low_lambda[0]), 0.0)
+        self.assertGreater(float(high_lambda[0]), 0.0)
+        self.assertEqual(float(low_lambda[-1]), 0.0)
+
+    def test_zero_residual_router_exactly_reproduces_b4_argmax(self) -> None:
+        prior = train.VariableLambdaB4Prior(candidate_count=2, dropout=0.0)
+        with torch.no_grad():
+            for parameter in prior.parameters():
+                parameter.zero_()
+            prior.head[-1].bias.copy_(torch.tensor([0.0, 10.0]))
+        model = train.B4ResidualStateRouter(
+            b4_prior=prior,
+            state_dim=3,
+            candidate_steps=np.asarray(STEPS),
+            dropout=0.0,
+            use_state=True,
+            continue_threshold=0.2,
+            anchor_logit_scale=4.0,
+            residual_logit_limit=6.0,
+        )
+        output = model(
+            torch.ones(2, 4096),
+            torch.ones(2, 3),
+            torch.ones(2, len(train.SCHEDULE_FEATURE_NAMES)),
+            torch.tensor([0.01, 0.01]),
+            torch.tensor([0, 1]),
+        )
+        continue_probability = torch.sigmoid(output["continue_logit"])
+        self.assertGreater(float(continue_probability[0]), 0.2)
+        self.assertLess(float(continue_probability[1]), 0.2)
+        self.assertTrue(torch.equal(output["residual_logit"], torch.zeros(2)))
+        self.assertTrue(
+            all(not parameter.requires_grad for parameter in model.b4_prior.parameters())
+        )
+        prompt_residual = train.B4ResidualStateRouter(
+            b4_prior=prior,
+            state_dim=3,
+            candidate_steps=np.asarray(STEPS),
+            dropout=0.0,
+            use_state=False,
+            continue_threshold=0.5,
+            anchor_logit_scale=4.0,
+            residual_logit_limit=6.0,
+        )
+        prompt_first = prompt_residual(
+            torch.ones(2, 4096),
+            torch.zeros(2, 3),
+            torch.ones(2, len(train.SCHEDULE_FEATURE_NAMES)),
+            torch.tensor([0.01, 0.01]),
+            torch.tensor([0, 1]),
+        )["continue_logit"]
+        prompt_second = prompt_residual(
+            torch.ones(2, 4096),
+            torch.full((2, 3), 99.0),
+            torch.ones(2, len(train.SCHEDULE_FEATURE_NAMES)),
+            torch.tensor([0.01, 0.01]),
+            torch.tensor([0, 1]),
+        )["continue_logit"]
+        self.assertTrue(torch.equal(prompt_first, prompt_second))
+        self.assertEqual(
+            train.requested_model_types("b4_residual_pair"),
+            ["b4_offline", "b4_residual_prompt", "b4_residual_state"],
+        )
 
     def test_b4_soft_targets_and_hybrid_prior_contract(self) -> None:
         trajectory = {

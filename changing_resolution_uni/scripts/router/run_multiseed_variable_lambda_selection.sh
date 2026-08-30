@@ -20,6 +20,11 @@ LR="${LR:-0.0003}"
 WEIGHT_DECAY="${WEIGHT_DECAY:-0.0001}"
 B4_TEMPERATURE="${B4_TEMPERATURE:-0.02}"
 B4_EMD_WEIGHT="${B4_EMD_WEIGHT:-0.5}"
+ANCHOR_LOGIT_SCALE="${ANCHOR_LOGIT_SCALE:-4.0}"
+RESIDUAL_LOGIT_LIMIT="${RESIDUAL_LOGIT_LIMIT:-6.0}"
+ADVANTAGE_LOSS_WEIGHT="${ADVANTAGE_LOSS_WEIGHT:-1.0}"
+ACTION_LOSS_WEIGHT="${ACTION_LOSS_WEIGHT:-1.0}"
+RESIDUAL_PENALTY_WEIGHT="${RESIDUAL_PENALTY_WEIGHT:-0.01}"
 DEVICE="${DEVICE:-cuda}"
 NUM_WORKERS="${NUM_WORKERS:-0}"
 EVAL_BATCH_TRAJECTORIES="${EVAL_BATCH_TRAJECTORIES:-64}"
@@ -35,8 +40,8 @@ if (( ${#seed_array[@]} < 3 )); then
   echo "TRAIN_SEEDS must contain at least three initialization seeds." >&2
   exit 2
 fi
-if [[ "${MODEL_TYPE}" != "all" && "${MODEL_TYPE}" != "both" ]]; then
-  echo "Launcher MODEL_TYPE must be 'all' or 'both'; got ${MODEL_TYPE}." >&2
+if [[ "${MODEL_TYPE}" != "all" && "${MODEL_TYPE}" != "both" && "${MODEL_TYPE}" != "b4_residual_pair" ]]; then
+  echo "Launcher MODEL_TYPE must be 'all', 'both', or 'b4_residual_pair'; got ${MODEL_TYPE}." >&2
   exit 2
 fi
 if [[ ! -f "${DATASET_DIR}/dataset_manifest.json" ]]; then
@@ -80,6 +85,11 @@ for train_seed in "${seed_array[@]}"; do
     --weight-decay "${WEIGHT_DECAY}" \
     --b4-temperature "${B4_TEMPERATURE}" \
     --b4-emd-weight "${B4_EMD_WEIGHT}" \
+    --anchor-logit-scale "${ANCHOR_LOGIT_SCALE}" \
+    --residual-logit-limit "${RESIDUAL_LOGIT_LIMIT}" \
+    --advantage-loss-weight "${ADVANTAGE_LOSS_WEIGHT}" \
+    --action-loss-weight "${ACTION_LOSS_WEIGHT}" \
+    --residual-penalty-weight "${RESIDUAL_PENALTY_WEIGHT}" \
     --seed "${train_seed}" \
     --device "${DEVICE}" \
     --num-workers "${NUM_WORKERS}" \
@@ -87,14 +97,20 @@ for train_seed in "${seed_array[@]}"; do
     --expected-latency-profile-sha256 "${LATENCY_PROFILE_SHA256}"
 done
 
+REFERENCE_MODEL=prompt_only
+if [[ "${MODEL_TYPE}" == "b4_residual_pair" ]]; then
+  REFERENCE_MODEL=b4_offline
+fi
 summary_args=(
   --runs-root "${OUT_ROOT}"
-  --reference-model prompt_only
+  --reference-model "${REFERENCE_MODEL}"
   --bootstrap-samples "${BOOTSTRAP_SAMPLES}"
   --bootstrap-seed "${BOOTSTRAP_SEED}"
 )
 if [[ "${MODEL_TYPE}" == "all" ]]; then
   summary_args+=(--secondary-reference-model b4_offline)
+elif [[ "${MODEL_TYPE}" == "b4_residual_pair" ]]; then
+  summary_args+=(--secondary-reference-model b4_residual_prompt)
 fi
 python "${SCRIPT_DIR}/summarize_variable_lambda_runs.py" "${summary_args[@]}"
 

@@ -29,6 +29,8 @@ MODEL_LABELS = {
     "prompt_state": "Variable-Lambda Prompt+State Router",
     "b4_offline": "Variable-Lambda Offline B4 Router",
     "b4_prompt_state": "Variable-Lambda B4-Prior+State Router",
+    "b4_residual_prompt": "Variable-Lambda B4-Anchored Prompt Residual Router",
+    "b4_residual_state": "Variable-Lambda B4-Anchored Residual State Router",
 }
 SCHEDULE_FEATURE_NAMES = [
     "step_fraction",
@@ -53,8 +55,11 @@ def parse_args() -> argparse.Namespace:
             "prompt_state",
             "b4_offline",
             "b4_prompt_state",
+            "b4_residual_prompt",
+            "b4_residual_state",
             "both",
             "b4_pair",
+            "b4_residual_pair",
             "all",
         ],
         default="both",
@@ -101,6 +106,21 @@ def parse_args() -> argparse.Namespace:
         default=0.5,
         help="Weight on ordered-distribution Wasserstein/EMD loss for B4.",
     )
+    parser.add_argument(
+        "--anchor-logit-scale",
+        type=float,
+        default=4.0,
+        help="Logit distance separating candidates around the frozen B4 argmax.",
+    )
+    parser.add_argument(
+        "--residual-logit-limit",
+        type=float,
+        default=6.0,
+        help="Maximum absolute state correction to the B4 continuation logit.",
+    )
+    parser.add_argument("--advantage-loss-weight", type=float, default=1.0)
+    parser.add_argument("--action-loss-weight", type=float, default=1.0)
+    parser.add_argument("--residual-penalty-weight", type=float, default=0.01)
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--lr", type=float, default=3e-4)
@@ -132,12 +152,28 @@ def parse_args() -> argparse.Namespace:
         parser.error("harm-epsilon must be non-negative and regret-scale positive")
     if not 0 <= args.risk_threshold <= 1:
         parser.error("risk-threshold must be in [0, 1]")
+    if args.model_type in {"b4_residual_prompt", "b4_residual_state", "b4_residual_pair"}:
+        if not 0 < args.risk_threshold < 1:
+            parser.error("B4 residual routers require risk-threshold strictly in (0, 1)")
     if args.regret_loss_weight < 0 or args.harm_loss_weight < 0:
         parser.error("loss weights must be non-negative")
     if args.b4_temperature <= 0 or not math.isfinite(args.b4_temperature):
         parser.error("b4-temperature must be finite and positive")
     if args.b4_emd_weight < 0 or not math.isfinite(args.b4_emd_weight):
         parser.error("b4-emd-weight must be finite and non-negative")
+    if args.anchor_logit_scale <= 0 or not math.isfinite(args.anchor_logit_scale):
+        parser.error("anchor-logit-scale must be finite and positive")
+    if args.residual_logit_limit <= 0 or not math.isfinite(
+        args.residual_logit_limit
+    ):
+        parser.error("residual-logit-limit must be finite and positive")
+    residual_weights = (
+        args.advantage_loss_weight,
+        args.action_loss_weight,
+        args.residual_penalty_weight,
+    )
+    if any(value < 0 or not math.isfinite(value) for value in residual_weights):
+        parser.error("residual-router loss weights must be finite and non-negative")
     if (
         args.epochs < 1
         or args.batch_size < 1
@@ -406,6 +442,20 @@ def true_stop_regret(
     return np.maximum(future_best - utilities, 0.0).astype(np.float32)
 
 
+def signed_continue_advantage(
+    qualities: np.ndarray,
+    costs: np.ndarray,
+    lambda_value: float,
+) -> np.ndarray:
+    """Future-best utility gain over stopping now; negative means stop is better."""
+    utilities = qualities - float(lambda_value) * costs
+    result = np.zeros_like(utilities, dtype=np.float32)
+    if len(utilities) > 1:
+        future_best = np.maximum.accumulate(utilities[:0:-1])[::-1]
+        result[:-1] = future_best - utilities[:-1]
+    return result
+
+
 def schedule_features(
     candidate_steps: np.ndarray,
     sigmas: np.ndarray,
@@ -466,6 +516,9 @@ class LambdaStateDataset(Dataset):
         regrets = true_stop_regret(
             trajectory["qualities"], trajectory["costs"], lambda_value
         )
+        advantages = signed_continue_advantage(
+            trajectory["qualities"], trajectory["costs"], lambda_value
+        )
         schedule = schedule_features(
             self.candidate_steps,
             trajectory["sigmas"],
@@ -474,6 +527,7 @@ class LambdaStateDataset(Dataset):
         )
         state = (trajectory["features"][state_index] - self.state_mean) / self.state_std
         regret = float(regrets[state_index])
+        advantage = float(advantages[state_index])
         return {
             "pooled_t5": torch.from_numpy(trajectory["pooled_t5"]),
             "state": torch.from_numpy(state.astype(np.float32)),
@@ -485,6 +539,12 @@ class LambdaStateDataset(Dataset):
             ),
             "harm_target": torch.tensor(
                 float(regret > self.harm_epsilon), dtype=torch.float32
+            ),
+            "advantage_target": torch.tensor(
+                advantage * self.regret_scale, dtype=torch.float32
+            ),
+            "continue_target": torch.tensor(
+                float(advantage > self.harm_epsilon), dtype=torch.float32
             ),
         }
 
@@ -736,6 +796,141 @@ class B4PromptStateRouter(nn.Module):
         }
 
 
+class B4ResidualStateRouter(nn.Module):
+    """Bounded state residual around a frozen B4 timestep decision."""
+
+    def __init__(
+        self,
+        b4_prior: VariableLambdaB4Prior,
+        state_dim: int,
+        candidate_steps: np.ndarray,
+        dropout: float,
+        use_state: bool,
+        continue_threshold: float,
+        anchor_logit_scale: float,
+        residual_logit_limit: float,
+    ):
+        super().__init__()
+        self.b4_prior = copy.deepcopy(b4_prior)
+        for parameter in self.b4_prior.parameters():
+            parameter.requires_grad_(False)
+        candidate_tensor = torch.as_tensor(candidate_steps, dtype=torch.float32)
+        self.register_buffer("candidate_steps", candidate_tensor)
+        self.anchor_logit_scale = float(anchor_logit_scale)
+        self.residual_logit_limit = float(residual_logit_limit)
+        self.use_state = bool(use_state)
+        self.continue_threshold_logit = math.log(
+            float(continue_threshold) / (1.0 - float(continue_threshold))
+        )
+        candidate_count = int(candidate_tensor.numel())
+        self.schedule_encoder = nn.Sequential(
+            nn.Linear(len(SCHEDULE_FEATURE_NAMES), 32),
+            nn.LayerNorm(32),
+            nn.SiLU(),
+        )
+        if self.use_state:
+            self.state_encoder = nn.Sequential(
+                nn.Linear(state_dim, 128),
+                nn.LayerNorm(128),
+                nn.SiLU(),
+                nn.Dropout(dropout),
+                nn.Linear(128, 64),
+                nn.LayerNorm(64),
+                nn.SiLU(),
+            )
+            state_fusion_dim = 64
+        else:
+            self.state_encoder = None
+            state_fusion_dim = 0
+        self.prior_encoder = nn.Sequential(
+            nn.Linear(candidate_count + 6, 32),
+            nn.LayerNorm(32),
+            nn.SiLU(),
+        )
+        self.fusion = nn.Sequential(
+            nn.Linear(128 + 32 + state_fusion_dim + 32, 128),
+            nn.LayerNorm(128),
+            nn.SiLU(),
+            nn.Dropout(dropout),
+            nn.Linear(128, 64),
+            nn.SiLU(),
+        )
+        self.residual_head = nn.Linear(64, 1)
+        self.advantage_head = nn.Linear(64, 1)
+        nn.init.zeros_(self.residual_head.weight)
+        nn.init.zeros_(self.residual_head.bias)
+
+    def train(self, mode: bool = True) -> "B4ResidualStateRouter":
+        super().train(mode)
+        self.b4_prior.eval()
+        return self
+
+    def forward(
+        self,
+        pooled_t5: torch.Tensor,
+        state: torch.Tensor,
+        schedule: torch.Tensor,
+        lambda_value: torch.Tensor | None = None,
+        candidate_index: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
+        if lambda_value is None or candidate_index is None:
+            raise ValueError("B4ResidualStateRouter requires lambda and candidate index")
+        self.b4_prior.eval()
+        with torch.no_grad():
+            prior = self.b4_prior(pooled_t5, lambda_value)
+        probabilities = prior["discrete_probs"]
+        normalized_steps = self.candidate_steps / 50.0
+        expected_step = (probabilities * normalized_steps.unsqueeze(0)).sum(dim=1)
+        entropy = -(
+            probabilities.clamp_min(1e-8) * probabilities.clamp_min(1e-8).log()
+        ).sum(dim=1) / math.log(probabilities.shape[1])
+        top2 = torch.topk(probabilities, k=min(2, probabilities.shape[1]), dim=1).values
+        margin = top2[:, 0] - (top2[:, 1] if top2.shape[1] > 1 else 0.0)
+        current_probability = probabilities.gather(
+            1, candidate_index.reshape(-1, 1)
+        ).squeeze(1)
+        positions = torch.arange(probabilities.shape[1], device=probabilities.device)
+        tail_probability = (
+            probabilities * (positions.unsqueeze(0) > candidate_index.unsqueeze(1))
+        ).sum(dim=1)
+        prior_features = torch.cat(
+            [
+                probabilities,
+                expected_step.unsqueeze(1),
+                entropy.unsqueeze(1),
+                probabilities.max(dim=1).values.unsqueeze(1),
+                current_probability.unsqueeze(1),
+                tail_probability.unsqueeze(1),
+                margin.unsqueeze(1),
+            ],
+            dim=1,
+        )
+        fusion_parts = [
+            prior["prompt_feature"],
+            self.schedule_encoder(schedule),
+            self.prior_encoder(prior_features),
+        ]
+        if self.use_state:
+            fusion_parts.insert(2, self.state_encoder(state))
+        fused = self.fusion(torch.cat(fusion_parts, dim=1))
+        anchor_index = probabilities.argmax(dim=1)
+        anchor_distance = anchor_index.to(torch.float32) - candidate_index.to(
+            torch.float32
+        )
+        anchor_logit = self.continue_threshold_logit + self.anchor_logit_scale * (
+            anchor_distance - 0.5
+        )
+        residual_logit = self.residual_logit_limit * torch.tanh(
+            self.residual_head(fused).squeeze(-1)
+        )
+        return {
+            "continue_logit": anchor_logit + residual_logit,
+            "anchor_continue_logit": anchor_logit,
+            "residual_logit": residual_logit,
+            "scaled_advantage": self.advantage_head(fused).squeeze(-1),
+        }
+
+
 @torch.no_grad()
 def predict_trajectory(
     model: nn.Module,
@@ -766,11 +961,21 @@ def predict_trajectory(
         torch.full((count,), lambda_value, dtype=torch.float32, device=device),
         torch.arange(count, dtype=torch.long, device=device),
     )
-    predicted_regret = output["scaled_regret"].clamp(min=0).cpu().numpy() / regret_scale
-    harm_probability = torch.sigmoid(output["harm_logit"]).cpu().numpy()
-    eligible = np.flatnonzero(
-        (predicted_regret <= harm_epsilon) & (harm_probability <= risk_threshold)
-    )
+    if "continue_logit" in output:
+        predicted_regret = (
+            output["scaled_advantage"].clamp(min=0).cpu().numpy() / regret_scale
+        )
+        harm_probability = torch.sigmoid(output["continue_logit"]).cpu().numpy()
+        eligible = np.flatnonzero(harm_probability <= risk_threshold)
+    else:
+        predicted_regret = (
+            output["scaled_regret"].clamp(min=0).cpu().numpy() / regret_scale
+        )
+        harm_probability = torch.sigmoid(output["harm_logit"]).cpu().numpy()
+        eligible = np.flatnonzero(
+            (predicted_regret <= harm_epsilon)
+            & (harm_probability <= risk_threshold)
+        )
     chosen_index = int(eligible[0]) if eligible.size else count - 1
     return chosen_index, predicted_regret, harm_probability
 
@@ -996,23 +1201,42 @@ def evaluate_model(
                 lambda_tensor,
                 candidate_index,
             )
-            predicted_regret = (
-                output["scaled_regret"]
-                .clamp(min=0)
-                .reshape(batch_size, candidate_count)
-                .cpu()
-                .numpy()
-                / regret_scale
-            )
-            harm_probability = (
-                torch.sigmoid(output["harm_logit"])
-                .reshape(batch_size, candidate_count)
-                .cpu()
-                .numpy()
-            )
-            eligible = (predicted_regret <= harm_epsilon) & (
-                harm_probability <= risk_threshold
-            )
+            if "continue_logit" in output:
+                predicted_regret = (
+                    output["scaled_advantage"]
+                    .clamp(min=0)
+                    .reshape(batch_size, candidate_count)
+                    .cpu()
+                    .numpy()
+                    / regret_scale
+                )
+                harm_probability = (
+                    torch.sigmoid(output["continue_logit"])
+                    .reshape(batch_size, candidate_count)
+                    .cpu()
+                    .numpy()
+                )
+                eligible = harm_probability <= risk_threshold
+                decision_mode = "b4_anchored_residual_stop"
+            else:
+                predicted_regret = (
+                    output["scaled_regret"]
+                    .clamp(min=0)
+                    .reshape(batch_size, candidate_count)
+                    .cpu()
+                    .numpy()
+                    / regret_scale
+                )
+                harm_probability = (
+                    torch.sigmoid(output["harm_logit"])
+                    .reshape(batch_size, candidate_count)
+                    .cpu()
+                    .numpy()
+                )
+                eligible = (predicted_regret <= harm_epsilon) & (
+                    harm_probability <= risk_threshold
+                )
+                decision_mode = "sequential_stop"
             has_eligible = eligible.any(axis=1)
             chosen_indices = np.where(
                 has_eligible, eligible.argmax(axis=1), candidate_count - 1
@@ -1043,7 +1267,7 @@ def evaluate_model(
                             oracle_utility=oracle_utility,
                             harm_epsilon=harm_epsilon,
                             quality_dimensions=quality_dimensions,
-                            decision_mode="sequential_stop",
+                            decision_mode=decision_mode,
                             predicted_stop_regret=float(
                                 predicted_regret[row_index, chosen]
                             ),
@@ -1220,6 +1444,19 @@ def train_model(
             candidate_steps=candidate_steps,
             dropout=args.dropout,
         ).to(device)
+    elif model_type in {"b4_residual_prompt", "b4_residual_state"}:
+        if b4_prior is None:
+            raise ValueError(f"{model_type} requires a trained B4 prior")
+        model = B4ResidualStateRouter(
+            b4_prior=b4_prior,
+            state_dim=len(state_mean),
+            candidate_steps=candidate_steps,
+            dropout=args.dropout,
+            use_state=model_type == "b4_residual_state",
+            continue_threshold=args.risk_threshold,
+            anchor_logit_scale=args.anchor_logit_scale,
+            residual_logit_limit=args.residual_logit_limit,
+        ).to(device)
     else:
         raise ValueError(f"Unsupported online model type: {model_type}")
     optimizer = torch.optim.AdamW(
@@ -1232,11 +1469,59 @@ def train_model(
     best_epoch = 0
     best_weights = None
     history: list[dict[str, Any]] = []
+    if model_type in {"b4_residual_prompt", "b4_residual_state"}:
+        initial_metrics, _ = evaluate_model(
+            model,
+            model_type,
+            validation_trajectories,
+            eval_lambdas,
+            candidate_steps,
+            state_mean,
+            state_std,
+            cost_profile,
+            args.regret_scale,
+            args.harm_epsilon,
+            args.risk_threshold,
+            fixed_steps,
+            quality_dimensions,
+            device,
+            args.eval_batch_trajectories,
+            emit_rows=False,
+        )
+        best_regret = initial_metrics["macro_policy_regret"]
+        best_weights = {
+            name: value.detach().cpu().clone()
+            for name, value in model.state_dict().items()
+        }
+        history.append(
+            {
+                "epoch": 0,
+                "train_total_loss": "",
+                "train_b4_kl_loss": "",
+                "train_b4_emd_loss": "",
+                "train_regret_loss": "",
+                "train_harm_loss": "",
+                "train_advantage_loss": "",
+                "train_action_loss": "",
+                "train_residual_penalty": "",
+                "validation_macro_policy_regret": initial_metrics[
+                    "macro_policy_regret"
+                ],
+                "validation_macro_harmful_stop_rate": initial_metrics[
+                    "macro_harmful_stop_rate"
+                ],
+                "selected_as_best": True,
+                "checkpoint_role": "exact_b4_anchor_before_state_training",
+            }
+        )
     for epoch in range(1, args.epochs + 1):
         model.train()
         losses = []
         regret_losses = []
         harm_losses = []
+        advantage_losses = []
+        action_losses = []
+        residual_penalties = []
         for batch in train_loader:
             optimizer.zero_grad(set_to_none=True)
             output = model(
@@ -1246,24 +1531,42 @@ def train_model(
                 batch["lambda_value"].to(device),
                 batch["candidate_index"].to(device),
             )
-            regret_loss = F.smooth_l1_loss(
-                output["scaled_regret"], batch["regret_target"].to(device)
-            )
-            harm_loss = F.binary_cross_entropy_with_logits(
-                output["harm_logit"], batch["harm_target"].to(device)
-            )
-            loss = (
-                args.regret_loss_weight * regret_loss
-                + args.harm_loss_weight * harm_loss
-            )
+            if model_type in {"b4_residual_prompt", "b4_residual_state"}:
+                advantage_loss = F.smooth_l1_loss(
+                    output["scaled_advantage"],
+                    batch["advantage_target"].to(device),
+                )
+                action_loss = F.binary_cross_entropy_with_logits(
+                    output["continue_logit"], batch["continue_target"].to(device)
+                )
+                residual_penalty = output["residual_logit"].square().mean()
+                loss = (
+                    args.advantage_loss_weight * advantage_loss
+                    + args.action_loss_weight * action_loss
+                    + args.residual_penalty_weight * residual_penalty
+                )
+                advantage_losses.append(float(advantage_loss.detach()))
+                action_losses.append(float(action_loss.detach()))
+                residual_penalties.append(float(residual_penalty.detach()))
+            else:
+                regret_loss = F.smooth_l1_loss(
+                    output["scaled_regret"], batch["regret_target"].to(device)
+                )
+                harm_loss = F.binary_cross_entropy_with_logits(
+                    output["harm_logit"], batch["harm_target"].to(device)
+                )
+                loss = (
+                    args.regret_loss_weight * regret_loss
+                    + args.harm_loss_weight * harm_loss
+                )
+                regret_losses.append(float(regret_loss.detach()))
+                harm_losses.append(float(harm_loss.detach()))
             if not torch.isfinite(loss):
                 raise FloatingPointError(f"Non-finite loss for {model_type}")
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             losses.append(float(loss.detach()))
-            regret_losses.append(float(regret_loss.detach()))
-            harm_losses.append(float(harm_loss.detach()))
         scheduler.step()
         metrics, _ = evaluate_model(
             model,
@@ -1297,20 +1600,42 @@ def train_model(
                 "train_total_loss": float(np.mean(losses)),
                 "train_b4_kl_loss": "",
                 "train_b4_emd_loss": "",
-                "train_regret_loss": float(np.mean(regret_losses)),
-                "train_harm_loss": float(np.mean(harm_losses)),
+                "train_regret_loss": (
+                    float(np.mean(regret_losses)) if regret_losses else ""
+                ),
+                "train_harm_loss": float(np.mean(harm_losses)) if harm_losses else "",
+                "train_advantage_loss": (
+                    float(np.mean(advantage_losses)) if advantage_losses else ""
+                ),
+                "train_action_loss": (
+                    float(np.mean(action_losses)) if action_losses else ""
+                ),
+                "train_residual_penalty": (
+                    float(np.mean(residual_penalties)) if residual_penalties else ""
+                ),
                 "validation_macro_policy_regret": metrics["macro_policy_regret"],
                 "validation_macro_harmful_stop_rate": metrics[
                     "macro_harmful_stop_rate"
                 ],
                 "selected_as_best": selected_as_best,
+                "checkpoint_role": "trained_state_residual",
             }
         )
         if epoch == 1 or epoch % 5 == 0 or epoch == args.epochs:
+            if model_type in {"b4_residual_prompt", "b4_residual_state"}:
+                loss_detail = (
+                    f"advantage={np.mean(advantage_losses):.6f} "
+                    f"action={np.mean(action_losses):.6f} "
+                    f"residual={np.mean(residual_penalties):.6f}"
+                )
+            else:
+                loss_detail = (
+                    f"regret={np.mean(regret_losses):.6f} "
+                    f"harm={np.mean(harm_losses):.6f}"
+                )
             print(
                 f"{model_type} epoch={epoch:02d}/{args.epochs} "
-                f"loss={np.mean(losses):.6f} regret={np.mean(regret_losses):.6f} "
-                f"harm={np.mean(harm_losses):.6f} val_macro_regret="
+                f"loss={np.mean(losses):.6f} {loss_detail} val_macro_regret="
                 f"{metrics['macro_policy_regret']:.6f} val_harm="
                 f"{metrics['macro_harmful_stop_rate']:.6f}"
             )
@@ -1361,6 +1686,8 @@ def requested_model_types(request: str) -> list[str]:
         return ["prompt_only", "prompt_state"]
     if request == "b4_pair":
         return ["b4_offline", "b4_prompt_state"]
+    if request == "b4_residual_pair":
+        return ["b4_offline", "b4_residual_prompt", "b4_residual_state"]
     if request == "all":
         return [
             "prompt_only",
@@ -1439,7 +1766,12 @@ def main() -> None:
     b4_best_epoch = None
     b4_metrics = None
     b4_history = None
-    if {"b4_offline", "b4_prompt_state"} & set(models_to_train):
+    if {
+        "b4_offline",
+        "b4_prompt_state",
+        "b4_residual_prompt",
+        "b4_residual_state",
+    } & set(models_to_train):
         b4_dataset = B4LambdaDataset(
             train_trajectories,
             args.train_lambdas,
@@ -1545,7 +1877,11 @@ def main() -> None:
         checkpoint_path = out_dir / f"{model_type}_router.pt"
         torch.save(
             {
-                "schema": "variable_lambda_router_checkpoint_v4",
+                "schema": (
+                    "variable_lambda_router_checkpoint_v5"
+                    if model_type in {"b4_residual_prompt", "b4_residual_state"}
+                    else "variable_lambda_router_checkpoint_v4"
+                ),
                 "evaluation_protocol": EVALUATION_PROTOCOL,
                 "model_type": model_type,
                 "state_dict": model.state_dict(),
@@ -1571,7 +1907,23 @@ def main() -> None:
                 "regret_scale": args.regret_scale,
                 "b4_temperature": args.b4_temperature,
                 "b4_emd_weight": args.b4_emd_weight,
-                "b4_prior_frozen": model_type == "b4_prompt_state",
+                "b4_prior_frozen": model_type
+                in {
+                    "b4_prompt_state",
+                    "b4_residual_prompt",
+                    "b4_residual_state",
+                },
+                "anchor_logit_scale": args.anchor_logit_scale,
+                "residual_logit_limit": args.residual_logit_limit,
+                "decision_rule": (
+                    "first_candidate_with_continue_probability_at_or_below_threshold"
+                    if model_type in {"b4_residual_prompt", "b4_residual_state"}
+                    else (
+                        "offline_probability_argmax"
+                        if model_type == "b4_offline"
+                        else "first_candidate_passing_regret_and_harm_thresholds"
+                    )
+                ),
                 "best_epoch": best_epoch,
                 "validation_metrics": metrics,
                 "dataset_manifest": str(dataset_dir / "dataset_manifest.json"),
@@ -1621,6 +1973,11 @@ def main() -> None:
             "b4_temperature": args.b4_temperature,
             "b4_emd_weight": args.b4_emd_weight,
             "b4_prior_frozen_in_hybrid": True,
+            "anchor_logit_scale": args.anchor_logit_scale,
+            "residual_logit_limit": args.residual_logit_limit,
+            "advantage_loss_weight": args.advantage_loss_weight,
+            "action_loss_weight": args.action_loss_weight,
+            "residual_penalty_weight": args.residual_penalty_weight,
             "eval_batch_trajectories": args.eval_batch_trajectories,
         },
         "train_prompts": len(train_prompts),

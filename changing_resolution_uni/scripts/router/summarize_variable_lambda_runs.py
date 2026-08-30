@@ -416,7 +416,12 @@ def main() -> None:
     write_csv(out_dir / "macro_intervals.csv", macro_rows)
     write_csv(out_dir / "paired_reference_deltas.csv", paired_rows)
     if secondary_paired_rows:
-        write_csv(out_dir / "paired_b4_deltas.csv", secondary_paired_rows)
+        write_csv(
+            out_dir / "paired_secondary_reference_deltas.csv",
+            secondary_paired_rows,
+        )
+        if args.secondary_reference_model == "b4_offline":
+            write_csv(out_dir / "paired_b4_deltas.csv", secondary_paired_rows)
     write_csv(out_dir / "paired_fixed_deltas.csv", fixed_paired_rows)
     selected_model = min(macro_regret_by_model, key=macro_regret_by_model.get)
     selection = {
@@ -444,8 +449,18 @@ def main() -> None:
             "macro_intervals": "macro_intervals.csv",
             "paired_reference_deltas": "paired_reference_deltas.csv",
             **(
+                {
+                    "paired_secondary_reference_deltas": (
+                        "paired_secondary_reference_deltas.csv"
+                    )
+                }
+                if secondary_paired_rows
+                else {}
+            ),
+            **(
                 {"paired_b4_deltas": "paired_b4_deltas.csv"}
                 if secondary_paired_rows
+                and args.secondary_reference_model == "b4_offline"
                 else {}
             ),
             "paired_fixed_deltas": "paired_fixed_deltas.csv",

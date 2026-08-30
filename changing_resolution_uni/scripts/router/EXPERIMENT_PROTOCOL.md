@@ -180,6 +180,50 @@ a prior; online latent state may advance or delay the actual handoff.
 Positive deltas always mean the candidate is better. Use a new `OUT_ROOT` for
 this adaptive extension, and keep the earlier selection immutable.
 
+### B4-anchored signed-advantage residual
+
+The first hybrid is an unconstrained fusion model: B4 features are inputs, but
+its stop decision is not a residual around the B4 argmax. The deterministic
+five-seed result selected `b4_offline`; the hybrid switched systematically
+later, especially at low lambda. Preserve that run as the V0 diagnostic.
+
+The V1 residual model makes one isolated change. Its frozen B4 argmax defines an
+anchor continuation logit, and the latent-state network can apply only a bounded
+residual. A zero residual therefore reproduces B4 exactly. The supervised
+target is the signed future continuation advantage
+
+```text
+max_{j > k} utility[j] - utility[k]
+```
+
+rather than the non-negative stop regret. Negative values retain the margin by
+which stopping now is better. The action head predicts whether that signed
+advantage exceeds `HARM_EPSILON`; the advantage regression head is diagnostic
+and auxiliary. Epoch zero is evaluated and eligible for checkpoint selection,
+so state training cannot be selected on validation when it is worse than the
+exact B4 anchor.
+
+Run the B4 reference and V1 residual with matched data, initialization seeds,
+lambda grid, B4 loss, and H100 profile:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_multiseed_variable_lambda_b4_residual_selection.sh
+```
+
+The launcher compares `b4_offline`, `b4_residual_prompt`, and
+`b4_residual_state`. The prompt residual has the same B4 anchor, signed target,
+and bounded correction but omits the 158-dimensional state input. Only the
+state-minus-prompt residual comparison isolates the value of online latent
+features. It is written to `paired_secondary_reference_deltas.csv` with
+`b4_residual_prompt` as the secondary reference.
+
+Keep V1 only when `paired_reference_deltas.csv` reports a positive macro
+policy-regret
+delta and the low-lambda rows no longer show the V0 late-switch failure. Epoch
+zero or a selected macro delta of zero means that the current compact latent
+statistics did not justify changing the B4 decision; it is a valid fallback,
+not evidence that the residual model improved.
+
 All online validation runs must record
 `evaluation_protocol=deterministic_eval_mode_v1`. Evaluation switches every
 model to `eval()` before best-epoch selection and prediction export. Each run
