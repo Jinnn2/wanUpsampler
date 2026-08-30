@@ -4,17 +4,33 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 GENERATION_ROOT="${GENERATION_ROOT:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_1500_8gpu}"
-SOURCE_DATASET_DIR="${SOURCE_DATASET_DIR:-${GENERATION_ROOT}/router_variable_lambda_states_selection}"
 CONTROL_DATASET_DIR="${CONTROL_DATASET_DIR:-${GENERATION_ROOT}/router_variable_lambda_states_train800_control200_v1}"
 CONTROL_SPLIT_SALT="train800_control200_v1"
 OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/router_variable_lambda_1500_train800_control200_b4_deterministic_eval_v1}"
 
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
 
+if [[ -z "${SOURCE_DATASET_DIR:-}" ]]; then
+  source_candidates=()
+  for candidate in "${GENERATION_ROOT}"/router_variable_lambda_states_selection*; do
+    if [[ -f "${candidate}/dataset_manifest.json" ]]; then
+      source_candidates+=("${candidate}")
+    fi
+  done
+  if (( ${#source_candidates[@]} != 1 )); then
+    echo "Expected exactly one complete source state dataset; found ${#source_candidates[@]}." >&2
+    printf '  %s\n' "${source_candidates[@]}" >&2
+    echo "Set SOURCE_DATASET_DIR explicitly to the intended complete dataset." >&2
+    exit 2
+  fi
+  SOURCE_DATASET_DIR="${source_candidates[0]}"
+fi
+
 if [[ ! -f "${SOURCE_DATASET_DIR}/dataset_manifest.json" ]]; then
   echo "Missing source state dataset: ${SOURCE_DATASET_DIR}" >&2
   exit 2
 fi
+echo "Source state dataset: ${SOURCE_DATASET_DIR}"
 
 if [[ ! -e "${CONTROL_DATASET_DIR}" ]]; then
   python "${SCRIPT_DIR}/prepare_train800_control_split.py" \

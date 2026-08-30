@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 GENERATION_ROOT="${GENERATION_ROOT:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_1500_8gpu}"
 RUNS_ROOT="${RUNS_ROOT:-${PROJECT_ROOT}/outputs/router_variable_lambda_1500_train800_control200_b4_deterministic_eval_v1}"
-OOD_DATASET_DIR="${OOD_DATASET_DIR:-${GENERATION_ROOT}/router_variable_lambda_states_selection}"
+CONTROL_DATASET_DIR="${CONTROL_DATASET_DIR:-${GENERATION_ROOT}/router_variable_lambda_states_train800_control200_v1}"
 OUT_DIR="${OUT_DIR:-${RUNS_ROOT}/ood_diagnostics}"
 REFERENCE_RUNS_ROOT="${REFERENCE_RUNS_ROOT:-${PROJECT_ROOT}/outputs/router_variable_lambda_1500_b4_hybrid_deterministic_eval_v1}"
 DEVICE="${DEVICE:-cuda}"
@@ -14,6 +14,28 @@ BOOTSTRAP_SAMPLES="${BOOTSTRAP_SAMPLES:-10000}"
 BOOTSTRAP_SEED="${BOOTSTRAP_SEED:-2027}"
 
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
+
+if [[ -z "${OOD_DATASET_DIR:-}" ]]; then
+  if [[ ! -f "${CONTROL_DATASET_DIR}/dataset_manifest.json" ]]; then
+    echo "Missing control dataset manifest: ${CONTROL_DATASET_DIR}/dataset_manifest.json" >&2
+    exit 2
+  fi
+  OOD_DATASET_DIR="$(python - "${CONTROL_DATASET_DIR}/dataset_manifest.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+source_manifest = Path(manifest["derivation"]["source_dataset_manifest"])
+print(source_manifest.parent)
+PY
+)"
+fi
+if [[ ! -f "${OOD_DATASET_DIR}/dataset_manifest.json" ]]; then
+  echo "Missing OOD source state dataset: ${OOD_DATASET_DIR}" >&2
+  exit 2
+fi
+echo "OOD source state dataset: ${OOD_DATASET_DIR}"
 
 args=(
   --runs-root "${RUNS_ROOT}"
