@@ -224,6 +224,67 @@ zero or a selected macro delta of zero means that the current compact latent
 statistics did not justify changing the B4 decision; it is a valid fallback,
 not evidence that the residual model improved.
 
+### V0.88 causal soft suffix-margin correction
+
+The anchored signed-action result did not establish an online-state gain. Its
+five-initialization state delta over B4 was effectively zero, while the prompt
+residual always selected the exact epoch-zero fallback. V0.88 changes the
+supervision and state conditioning without generating new videos or modifying
+the prepared state dataset.
+
+For B4 logits `l[k]`, define the offline sequential margin
+
+```text
+m_off[k] = l[k] - max(l[j] for j > k)
+```
+
+The first non-negative margin is exactly the B4 argmax. This preserves the
+epoch-zero B4 policy while retaining B4 confidence, unlike the fixed-distance
+argmax anchor. The online model applies a zero-initialized residual:
+
+```text
+m_online[k] = m_off[k] + delta_state[k]
+```
+
+The target is continuous rather than thresholded:
+
+```text
+m_target[k] = (utility[k] - max(utility[j] for j > k)) / temperature
+y_target[k] = sigmoid(m_target[k])
+```
+
+Training uses survival-weighted soft BCE plus a small residual penalty. There is
+no regret head, hard harmful-stop head, or `advantage > 0.001` training label.
+The complete candidate sequence is one training example. State normalization is
+fit on train separately for every candidate step, and a causal GRU carries only
+past and current state evidence. The residual branch receives no T5 prompt
+embedding; prompt semantics remain owned by the frozen B4 prior.
+
+First run the isolated 32-trajectory, single-lambda overfit check:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_soft_margin_overfit_sanity.sh
+```
+
+This is a train-only diagnostic and must not be summarized as validation
+evidence. Inspect `minimum_train_soft_margin_excess` rather than total soft BCE:
+soft targets have irreducible entropy, while excess BCE has a zero optimum.
+Then run the five-initialization validation comparison:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_multiseed_variable_lambda_soft_margin_selection.sh
+```
+
+The comparison contains `b4_offline`, `soft_margin_control`, and
+`soft_margin_state`. The control has the same B4 margin, state/schedule encoders,
+GRU, soft target, bounded residual, and matched initialization, but feeds a zero
+tensor instead of real state. Only the paired
+`soft_margin_state - soft_margin_control` result isolates online-state value.
+The first V0.88 experiment intentionally reuses the existing 158-dimensional
+features. Structured latent tokens remain a later ablation so target semantics,
+step normalization, temporal modeling, and representation are not all changed
+in one run.
+
 All online validation runs must record
 `evaluation_protocol=deterministic_eval_mode_v1`. Evaluation switches every
 model to `eval()` before best-epoch selection and prediction export. Each run

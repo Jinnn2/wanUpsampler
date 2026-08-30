@@ -86,16 +86,19 @@ def load_runs(runs_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any
         ):
             raise ValueError(f"Run is not validation-only: {summary_path}")
         if summary.get("evaluation_protocol") != EVALUATION_PROTOCOL:
-            raise ValueError(
-                f"Run does not use {EVALUATION_PROTOCOL}: {summary_path}"
-            )
+            raise ValueError(f"Run does not use {EVALUATION_PROTOCOL}: {summary_path}")
+        decision_parameter = str(summary.get("decision_parameter", "risk_threshold"))
+        decision_value = float(
+            summary.get("risk_margin", summary.get("risk_threshold", 0.5))
+        )
         current_signature = (
             str(summary["evaluation_protocol"]),
             tuple(summary["train_lambdas"]),
             tuple(summary["eval_lambdas"]),
             float(summary["primary_lambda"]),
             float(summary["harm_epsilon"]),
-            float(summary["risk_threshold"]),
+            decision_parameter,
+            decision_value,
             tuple(summary["feature_groups"]),
             int(summary["selected_feature_count"]),
             str(summary["dataset_manifest_sha256"]),
@@ -126,17 +129,14 @@ def load_runs(runs_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any
                         f"Checkpoint SHA256 mismatch for {model_type}: "
                         f"{checkpoint_path}"
                     )
-        history_metadata = summary.get("artifacts", {}).get(
-            "training_histories", {}
-        )
+        history_metadata = summary.get("artifacts", {}).get("training_histories", {})
         if set(history_metadata) != {str(row["model_type"]) for row in run_rows}:
             raise ValueError(f"Training-history coverage differs: {summary_path}")
         for model_type, metadata_item in history_metadata.items():
             history_path = summary_path.parent / metadata_item["path"]
             if sha256_file(history_path) != metadata_item["sha256"]:
                 raise ValueError(
-                    f"Training-history SHA256 mismatch for {model_type}: "
-                    f"{history_path}"
+                    f"Training-history SHA256 mismatch for {model_type}: {history_path}"
                 )
         run_id = summary_path.parent.name
         for raw in run_rows:
@@ -217,9 +217,7 @@ def paired_rows_against_reference(
                         else float(row[metric]) - float(reference[metric])
                     )
                     by_prompt[row["prompt_id"]].append(delta)
-                point, low, high = bootstrap_mean(
-                    by_prompt, bootstrap_samples, rng
-                )
+                point, low, high = bootstrap_mean(by_prompt, bootstrap_samples, rng)
                 paired_rows.append(
                     {
                         "reference_model": reference_model,
