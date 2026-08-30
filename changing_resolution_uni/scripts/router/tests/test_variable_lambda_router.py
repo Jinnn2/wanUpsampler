@@ -394,6 +394,15 @@ class VariableLambdaRouterTest(unittest.TestCase):
                     "b4_prompt_state",
                 },
             )
+            checkpoint = torch.load(
+                run / "prompt_only_router.pt",
+                map_location="cpu",
+                weights_only=False,
+            )
+            self.assertEqual(
+                checkpoint["schema"], "variable_lambda_router_checkpoint_v4"
+            )
+            self.assertEqual(checkpoint["fixed_steps"], summary["fixed_steps"])
             for model_type in summary["model_types"]:
                 history_path = run / f"{model_type}_training_history.csv"
                 with history_path.open(encoding="utf-8") as handle:

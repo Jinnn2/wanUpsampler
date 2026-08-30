@@ -291,6 +291,12 @@ def load_trajectories(
     for row in rows:
         prompt_id = int(row["prompt_id"])
         feature_path = dataset_dir / row["feature_file"]
+        expected_feature_sha256 = row.get("feature_sha256")
+        if (
+            expected_feature_sha256
+            and sha256_file(feature_path) != expected_feature_sha256
+        ):
+            raise ValueError(f"State feature SHA256 mismatch: {feature_path}")
         with np.load(feature_path, allow_pickle=False) as payload:
             observed_steps = np.asarray(payload["candidate_steps"], dtype=np.int64)
             features = np.asarray(payload["features"], dtype=np.float32)
@@ -327,7 +333,11 @@ def load_trajectories(
         ):
             raise ValueError(f"Non-finite or invalid state arrays: {feature_path}")
         if prompt_id not in prompt_cache:
-            prompt_cache[prompt_id] = load_pooled_t5(Path(row["t5_embedding_path"]))
+            t5_path = Path(row["t5_embedding_path"])
+            expected_t5_sha256 = row.get("t5_embedding_sha256")
+            if expected_t5_sha256 and sha256_file(t5_path) != expected_t5_sha256:
+                raise ValueError(f"T5 embedding SHA256 mismatch: {t5_path}")
+            prompt_cache[prompt_id] = load_pooled_t5(t5_path)
         trajectories.append(
             {
                 "split": split,
@@ -1535,7 +1545,7 @@ def main() -> None:
         checkpoint_path = out_dir / f"{model_type}_router.pt"
         torch.save(
             {
-                "schema": "variable_lambda_router_checkpoint_v3",
+                "schema": "variable_lambda_router_checkpoint_v4",
                 "evaluation_protocol": EVALUATION_PROTOCOL,
                 "model_type": model_type,
                 "state_dict": model.state_dict(),
@@ -1550,6 +1560,10 @@ def main() -> None:
                 "calibrated_native_latency_seconds": calibrated_native_seconds,
                 "latency_profile": latency_profile_provenance,
                 "candidate_steps": candidate_steps,
+                "fixed_steps": {
+                    f"{lambda_value:.6f}": int(candidate_steps[index])
+                    for lambda_value, index in fixed_steps.items()
+                },
                 "train_lambdas": args.train_lambdas,
                 "eval_lambdas": args.eval_lambdas,
                 "harm_epsilon": args.harm_epsilon,

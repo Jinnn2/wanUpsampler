@@ -203,6 +203,50 @@ evaluation-only. Model selection uses macro validation policy regret across
 lambdas. Prompt bootstrap remains the statistical protocol despite multiple
 seeds, states, and lambdas.
 
+### Train-pool 800/200 control and OOD diagnostic
+
+Use the train-pool control to distinguish router overfitting from a prompt-domain
+shift in the existing validation set. The control is an isolated derived state
+dataset: it does not regenerate videos, rescore VBench, re-extract latent
+features, or modify the original state dataset.
+
+```bash
+PREPARE_ONLY=1 \
+bash changing_resolution_uni/scripts/router/run_multiseed_train800_control_selection.sh
+
+bash changing_resolution_uni/scripts/router/run_multiseed_train800_control_selection.sh
+```
+
+`prepare_train800_control_split.py` ranks prompt IDs `0..999` by
+`SHA256("train800_control200_v1:" + prompt_id)`, assigns the first 200 hashes to
+control validation, and assigns the remaining 800 to control train. It fails on
+normalized duplicate prompt text, records both prompt-ID lists and source
+hashes, binds every reused feature/T5 file by SHA256, and never opens the source
+validation index or any test content. The five-seed launcher retains all four
+model types, lambdas, hyperparameters, and the existing frozen H100 hardware
+profile. Model state normalization and fixed-step selection use only the new
+800-prompt train split.
+
+After control selection completes, evaluate every frozen checkpoint on the
+existing prompt IDs `1000..1199`:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_train800_control_ood_diagnostics.sh
+```
+
+The OOD command evaluates base seed 42 for the matched one-seed domain
+comparison and all three base seeds for robustness. It writes
+`ood_base42_intervals.csv`, `ood_all3_intervals.csv`,
+`control_vs_ood_base42_deltas.csv`, and, when the original train1000 run root is
+available, `train800_vs_train1000_ood_paired_deltas.csv`. The OOD split is
+diagnostic-only: it cannot select an architecture, and prompt IDs `1200..1499`
+remain unread. Positive values in the train800-vs-train1000 paired file mean
+train800 is better, but that comparison is descriptive because the two sets of
+checkpoints were early-stopped on different validation domains. OOD paired
+model/fixed files report whether improvements survive the domain shift.
+Control-vs-OOD domain deltas are explicitly raw
+`control_mean - ood_mean` because the prompt sets are disjoint.
+
 ## Experiment 2: formal quality, measured latency, and router overhead
 
 Hypothesis: the locked router remains useful after replacing branch estimates
