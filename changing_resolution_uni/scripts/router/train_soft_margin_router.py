@@ -38,6 +38,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset-dir", required=True)
     parser.add_argument("--out-dir", required=True)
     parser.add_argument(
+        "--b4-checkpoint",
+        default=None,
+        help="Optional matched b4_offline checkpoint to reuse instead of retraining B4.",
+    )
+    parser.add_argument(
+        "--b4-training-history",
+        default=None,
+        help="Training history paired with --b4-checkpoint.",
+    )
+    parser.add_argument(
+        "--candidate-steps",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Optional ordered subset of manifest candidate steps; final step is required.",
+    )
+    parser.add_argument(
         "--model-type",
         choices=[
             "b4_offline",
@@ -146,6 +163,10 @@ def parse_args() -> argparse.Namespace:
         parser.error("risk-margin must be finite")
     if args.max_train_trajectories is not None and args.max_train_trajectories < 1:
         parser.error("max-train-trajectories must be positive")
+    if bool(args.b4_checkpoint) != bool(args.b4_training_history):
+        parser.error("--b4-checkpoint and --b4-training-history must be provided together")
+    if args.b4_checkpoint and args.selection_split != "validation":
+        parser.error("Reused B4 checkpoints are supported only for validation selection")
     if args.selection_split == "train" and args.max_train_trajectories is None:
         parser.error("train selection is reserved for bounded sanity runs")
     return args
@@ -669,6 +690,105 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def load_reused_b4(
+    checkpoint_path: Path,
+    history_path: Path,
+    dataset_manifest_sha256: str,
+    candidate_steps: np.ndarray,
+    selection_trajectories: list[dict[str, Any]],
+    fixed_steps: dict[float, int],
+    quality_dimensions: list[str],
+    latency_profile_sha256: str,
+    args: argparse.Namespace,
+    device: torch.device,
+) -> tuple[
+    base.VariableLambdaB4Prior,
+    int,
+    dict[str, float],
+    list[dict[str, Any]],
+    dict[str, str],
+]:
+    if checkpoint_path.parent != history_path.parent:
+        raise ValueError("Reused B4 checkpoint and history must share one seed directory")
+    source_summary_path = checkpoint_path.parent / "run_summary.json"
+    source_summary = json.loads(source_summary_path.read_text(encoding="utf-8"))
+    if (
+        source_summary.get("evaluation_split") != "validation"
+        or source_summary.get("test_accessed")
+        or int(source_summary.get("train_seed", -1)) != args.seed
+    ):
+        raise ValueError(f"Reused B4 source run is incompatible: {source_summary_path}")
+    source_checkpoint = source_summary["artifacts"]["checkpoints"]["b4_offline"]
+    source_history = source_summary["artifacts"]["training_histories"]["b4_offline"]
+    if (
+        checkpoint_path.name != source_checkpoint["path"]
+        or base.sha256_file(checkpoint_path) != source_checkpoint["sha256"]
+        or history_path.name != source_history["path"]
+        or base.sha256_file(history_path) != source_history["sha256"]
+    ):
+        raise ValueError(f"Reused B4 artifact hash differs: {source_summary_path}")
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    if checkpoint.get("model_type") != "b4_offline":
+        raise ValueError(f"Not a b4_offline checkpoint: {checkpoint_path}")
+    if not np.array_equal(
+        np.asarray(checkpoint.get("candidate_steps"), dtype=np.int64), candidate_steps
+    ):
+        raise ValueError(f"Reused B4 candidate steps differ: {checkpoint_path}")
+    expected_values = {
+        "dataset_manifest_sha256": dataset_manifest_sha256,
+        "train_lambdas": args.train_lambdas,
+        "eval_lambdas": args.eval_lambdas,
+        "b4_temperature": args.b4_temperature,
+        "b4_emd_weight": args.b4_emd_weight,
+        "dropout": args.dropout,
+    }
+    for key, expected in expected_values.items():
+        observed = checkpoint.get(key)
+        if observed != expected:
+            raise ValueError(
+                f"Reused B4 {key} differs: observed={observed!r}, expected={expected!r}"
+            )
+    if checkpoint.get("latency_profile", {}).get("sha256") != latency_profile_sha256:
+        raise ValueError(f"Reused B4 latency profile differs: {checkpoint_path}")
+    model = base.VariableLambdaB4Prior(len(candidate_steps), dropout=args.dropout)
+    model.load_state_dict(checkpoint["state_dict"])
+    model.to(device).eval()
+    metrics, _ = base.evaluate_b4_offline_model(
+        model,
+        selection_trajectories,
+        args.eval_lambdas,
+        candidate_steps,
+        fixed_steps,
+        args.harm_epsilon,
+        quality_dimensions,
+        device,
+        args.eval_batch_trajectories,
+        emit_rows=False,
+    )
+    recorded_metrics = checkpoint.get("validation_metrics", {})
+    for key in ("macro_policy_regret", "macro_harmful_stop_rate"):
+        if not math.isclose(
+            float(metrics[key]),
+            float(recorded_metrics.get(key, float("nan"))),
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        ):
+            raise ValueError(f"Reused B4 metric changed for {key}: {checkpoint_path}")
+    with history_path.open(encoding="utf-8", newline="") as handle:
+        history = list(csv.DictReader(handle))
+    if not history:
+        raise ValueError(f"Reused B4 training history is empty: {history_path}")
+    provenance = {
+        "source_run_summary_path": str(source_summary_path),
+        "source_run_summary_sha256": base.sha256_file(source_summary_path),
+        "checkpoint_path": str(checkpoint_path),
+        "checkpoint_sha256": base.sha256_file(checkpoint_path),
+        "training_history_path": str(history_path),
+        "training_history_sha256": base.sha256_file(history_path),
+    }
+    return model, int(checkpoint["best_epoch"]), metrics, history, provenance
+
+
 def main() -> None:
     args = parse_args()
     base.seed_everything(args.seed)
@@ -698,22 +818,31 @@ def main() -> None:
     }
     if train_prompts & validation_prompts:
         raise ValueError("Train and validation prompts overlap")
-    candidate_steps = np.asarray(manifest["candidate_steps"], dtype=np.int64)
-    state_mean, state_std = fit_step_state_normalizer(train_trajectories)
+    source_candidate_steps = np.asarray(manifest["candidate_steps"], dtype=np.int64)
+    candidate_indices, candidate_steps = base.resolve_candidate_subset(
+        source_candidate_steps, args.candidate_steps
+    )
     (
-        cost_profile,
-        calibrated_candidate_seconds,
+        source_cost_profile,
+        source_calibrated_candidate_seconds,
         calibrated_native_seconds,
         latency_profile_provenance,
     ) = base.load_locked_latency_profile(
-        manifest, candidate_steps, args.expected_latency_profile_sha256
+        manifest, source_candidate_steps, args.expected_latency_profile_sha256
     )
+    base.subset_trajectory_candidates(train_trajectories, candidate_indices)
+    base.subset_trajectory_candidates(validation_trajectories, candidate_indices)
+    cost_profile = source_cost_profile[candidate_indices].copy()
+    calibrated_candidate_seconds = source_calibrated_candidate_seconds[
+        candidate_indices
+    ].copy()
     base.apply_locked_latency_profile(
         train_trajectories,
         cost_profile,
         calibrated_candidate_seconds,
         calibrated_native_seconds,
     )
+    state_mean, state_std = fit_step_state_normalizer(train_trajectories)
     base.apply_locked_latency_profile(
         validation_trajectories,
         cost_profile,
@@ -736,28 +865,51 @@ def main() -> None:
         args.margin_temperature,
     )
     device = torch.device(args.device)
-    b4_dataset = base.B4LambdaDataset(
-        train_trajectories, args.train_lambdas, args.b4_temperature
-    )
-    b4_loader = DataLoader(
-        b4_dataset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        generator=torch.Generator().manual_seed(args.seed),
-        num_workers=args.num_workers,
-        pin_memory=device.type == "cuda",
-        drop_last=False,
-    )
-    b4_prior, b4_best_epoch, b4_metrics, b4_history = base.train_b4_model(
-        b4_loader,
-        selection_trajectories,
-        args.eval_lambdas,
-        candidate_steps,
-        fixed_steps,
-        manifest["quality_dimensions"],
-        args,
-        device,
-    )
+    reused_b4_provenance = None
+    if args.b4_checkpoint:
+        (
+            b4_prior,
+            b4_best_epoch,
+            b4_metrics,
+            b4_history,
+            reused_b4_provenance,
+        ) = load_reused_b4(
+            Path(args.b4_checkpoint).resolve(),
+            Path(args.b4_training_history).resolve(),
+            base.sha256_file(dataset_dir / "dataset_manifest.json"),
+            candidate_steps,
+            selection_trajectories,
+            fixed_steps,
+            manifest["quality_dimensions"],
+            latency_profile_provenance["sha256"],
+            args,
+            device,
+        )
+    else:
+        # Keep B4 initialization and data order identical to matched suites.
+        base.seed_everything(args.seed)
+        b4_dataset = base.B4LambdaDataset(
+            train_trajectories, args.train_lambdas, args.b4_temperature
+        )
+        b4_loader = DataLoader(
+            b4_dataset,
+            batch_size=args.batch_size,
+            shuffle=True,
+            generator=torch.Generator().manual_seed(args.seed),
+            num_workers=args.num_workers,
+            pin_memory=device.type == "cuda",
+            drop_last=False,
+        )
+        b4_prior, b4_best_epoch, b4_metrics, b4_history = base.train_b4_model(
+            b4_loader,
+            selection_trajectories,
+            args.eval_lambdas,
+            candidate_steps,
+            fixed_steps,
+            manifest["quality_dimensions"],
+            args,
+            device,
+        )
     model_types = requested_model_types(args.model_type)
     summary_rows: list[dict[str, Any]] = []
     prediction_rows: list[dict[str, Any]] = []
@@ -865,6 +1017,7 @@ def main() -> None:
                 "selected_feature_names": selected_names,
                 "schedule_feature_names": base.SCHEDULE_FEATURE_NAMES,
                 "candidate_steps": candidate_steps,
+                "source_candidate_steps": source_candidate_steps,
                 "cost_profile": cost_profile,
                 "risk_margin": args.risk_margin,
                 "margin_temperature": args.margin_temperature,
@@ -905,6 +1058,12 @@ def main() -> None:
         "risk_margin": args.risk_margin,
         "feature_groups": args.feature_groups,
         "selected_feature_count": len(selected_names),
+        "source_candidate_steps": source_candidate_steps.tolist(),
+        "candidate_steps": candidate_steps.tolist(),
+        "candidate_subset_applied": not np.array_equal(
+            candidate_steps, source_candidate_steps
+        ),
+        "reused_b4": reused_b4_provenance,
         "dataset_manifest": str(dataset_dir / "dataset_manifest.json"),
         "dataset_manifest_sha256": base.sha256_file(
             dataset_dir / "dataset_manifest.json"

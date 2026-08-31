@@ -6,6 +6,8 @@ PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 GENERATION_ROOT="${GENERATION_ROOT:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_1500_8gpu}"
 DATASET_DIR="${DATASET_DIR:-${GENERATION_ROOT}/router_variable_lambda_states_selection_20260829_h100_profile_v1}"
 OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/router_variable_lambda_1500_soft_margin_v1}"
+CANDIDATE_STEPS="${CANDIDATE_STEPS:-}"
+B4_CHECKPOINT_ROOT="${B4_CHECKPOINT_ROOT:-}"
 TRAIN_SEEDS="${TRAIN_SEEDS:-42 100 2024 31415 27182}"
 TRAIN_LAMBDAS="${TRAIN_LAMBDAS:-0.01 0.02 0.04 0.06 0.08 0.10}"
 EVAL_LAMBDAS="${EVAL_LAMBDAS:-0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10}"
@@ -35,6 +37,11 @@ read -r -a seed_array <<< "${TRAIN_SEEDS}"
 read -r -a train_lambda_array <<< "${TRAIN_LAMBDAS}"
 read -r -a eval_lambda_array <<< "${EVAL_LAMBDAS}"
 read -r -a feature_group_array <<< "${FEATURE_GROUPS}"
+candidate_step_args=()
+if [[ -n "${CANDIDATE_STEPS}" ]]; then
+  read -r -a candidate_step_array <<< "${CANDIDATE_STEPS}"
+  candidate_step_args=(--candidate-steps "${candidate_step_array[@]}")
+fi
 if (( ${#seed_array[@]} < 3 )); then
   echo "TRAIN_SEEDS must contain at least three initialization seeds." >&2
   exit 2
@@ -66,9 +73,24 @@ for train_seed in "${seed_array[@]}"; do
     echo "Seed output already exists; refusing to mix runs: ${seed_out}" >&2
     exit 2
   fi
+  b4_reuse_args=()
+  if [[ -n "${B4_CHECKPOINT_ROOT}" ]]; then
+    b4_checkpoint="${B4_CHECKPOINT_ROOT}/seed_${train_seed}/b4_offline_router.pt"
+    b4_history="${B4_CHECKPOINT_ROOT}/seed_${train_seed}/b4_offline_training_history.csv"
+    if [[ ! -f "${b4_checkpoint}" || ! -f "${b4_history}" ]]; then
+      echo "Missing matched B4 checkpoint/history for seed ${train_seed}: ${B4_CHECKPOINT_ROOT}" >&2
+      exit 2
+    fi
+    b4_reuse_args=(
+      --b4-checkpoint "${b4_checkpoint}"
+      --b4-training-history "${b4_history}"
+    )
+  fi
   python "${SCRIPT_DIR}/train_soft_margin_router.py" \
     --dataset-dir "${DATASET_DIR}" \
     --out-dir "${seed_out}" \
+    "${b4_reuse_args[@]}" \
+    "${candidate_step_args[@]}" \
     --model-type soft_margin_pair \
     --feature-groups "${feature_group_array[@]}" \
     --train-lambdas "${train_lambda_array[@]}" \

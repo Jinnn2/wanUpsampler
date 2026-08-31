@@ -7,6 +7,7 @@ GENERATION_ROOT="${GENERATION_ROOT:-${PROJECT_ROOT}/data/changing_resolution_uni
 DATASET_DIR="${DATASET_DIR:-${GENERATION_ROOT}/router_variable_lambda_states_selection}"
 OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/router_variable_lambda_1500_selection}"
 MODEL_TYPE="${MODEL_TYPE:-both}"
+CANDIDATE_STEPS="${CANDIDATE_STEPS:-}"
 TRAIN_SEEDS="${TRAIN_SEEDS:-42 100 2024 31415 27182}"
 TRAIN_LAMBDAS="${TRAIN_LAMBDAS:-0.01 0.02 0.04 0.06 0.08 0.10}"
 EVAL_LAMBDAS="${EVAL_LAMBDAS:-0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10}"
@@ -36,6 +37,11 @@ read -r -a seed_array <<< "${TRAIN_SEEDS}"
 read -r -a train_lambda_array <<< "${TRAIN_LAMBDAS}"
 read -r -a eval_lambda_array <<< "${EVAL_LAMBDAS}"
 read -r -a feature_group_array <<< "${FEATURE_GROUPS}"
+candidate_step_args=()
+if [[ -n "${CANDIDATE_STEPS}" ]]; then
+  read -r -a candidate_step_array <<< "${CANDIDATE_STEPS}"
+  candidate_step_args=(--candidate-steps "${candidate_step_array[@]}")
+fi
 if (( ${#seed_array[@]} < 3 )); then
   echo "TRAIN_SEEDS must contain at least three initialization seeds." >&2
   exit 2
@@ -72,6 +78,7 @@ for train_seed in "${seed_array[@]}"; do
   python "${SCRIPT_DIR}/train_variable_lambda_router.py" \
     --dataset-dir "${DATASET_DIR}" \
     --out-dir "${seed_out}" \
+    "${candidate_step_args[@]}" \
     --model-type "${MODEL_TYPE}" \
     --feature-groups "${feature_group_array[@]}" \
     --train-lambdas "${train_lambda_array[@]}" \

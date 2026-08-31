@@ -20,6 +20,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
+try:
+    from .candidate_step_subset import (
+        resolve_candidate_subset,
+        subset_trajectory_candidates,
+    )
+except ImportError:
+    from candidate_step_subset import (
+        resolve_candidate_subset,
+        subset_trajectory_candidates,
+    )
+
 
 DATASET_SCHEMA = "variable_lambda_online_state_dataset_v1"
 LATENCY_PROFILE_SCHEMA = "train_calibrated_latency_profile_v1"
@@ -48,6 +59,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", required=True)
     parser.add_argument("--out-dir", required=True)
+    parser.add_argument(
+        "--candidate-steps",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Optional ordered subset of manifest candidate steps; final step is required.",
+    )
     parser.add_argument(
         "--model-type",
         choices=[
@@ -1725,24 +1743,33 @@ def main() -> None:
     }
     if train_prompts & validation_prompts:
         raise ValueError("Train and validation prompts overlap")
-    candidate_steps = np.asarray(manifest["candidate_steps"], dtype=np.int64)
-    state_mean, state_std = fit_state_normalizer(train_trajectories)
+    source_candidate_steps = np.asarray(manifest["candidate_steps"], dtype=np.int64)
+    candidate_indices, candidate_steps = resolve_candidate_subset(
+        source_candidate_steps, args.candidate_steps
+    )
     (
-        cost_profile,
-        calibrated_candidate_seconds,
+        source_cost_profile,
+        source_calibrated_candidate_seconds,
         calibrated_native_seconds,
         latency_profile_provenance,
     ) = load_locked_latency_profile(
         manifest,
-        candidate_steps,
+        source_candidate_steps,
         args.expected_latency_profile_sha256,
     )
+    subset_trajectory_candidates(train_trajectories, candidate_indices)
+    subset_trajectory_candidates(validation_trajectories, candidate_indices)
+    cost_profile = source_cost_profile[candidate_indices].copy()
+    calibrated_candidate_seconds = source_calibrated_candidate_seconds[
+        candidate_indices
+    ].copy()
     apply_locked_latency_profile(
         train_trajectories,
         cost_profile,
         calibrated_candidate_seconds,
         calibrated_native_seconds,
     )
+    state_mean, state_std = fit_state_normalizer(train_trajectories)
     apply_locked_latency_profile(
         validation_trajectories,
         cost_profile,
@@ -1896,6 +1923,7 @@ def main() -> None:
                 "calibrated_native_latency_seconds": calibrated_native_seconds,
                 "latency_profile": latency_profile_provenance,
                 "candidate_steps": candidate_steps,
+                "source_candidate_steps": source_candidate_steps,
                 "fixed_steps": {
                     f"{lambda_value:.6f}": int(candidate_steps[index])
                     for lambda_value, index in fixed_steps.items()
@@ -1959,6 +1987,11 @@ def main() -> None:
         "risk_threshold": args.risk_threshold,
         "feature_groups": args.feature_groups,
         "selected_feature_count": len(selected_names),
+        "source_candidate_steps": source_candidate_steps.tolist(),
+        "candidate_steps": candidate_steps.tolist(),
+        "candidate_subset_applied": not np.array_equal(
+            candidate_steps, source_candidate_steps
+        ),
         "dataset_manifest": str(dataset_dir / "dataset_manifest.json"),
         "dataset_manifest_sha256": sha256_file(dataset_dir / "dataset_manifest.json"),
         "training": {

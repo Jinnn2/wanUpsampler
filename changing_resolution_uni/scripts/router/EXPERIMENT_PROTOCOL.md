@@ -363,6 +363,46 @@ train predictions are in-sample because cross-fitted B4 checkpoints do not
 exist; the prompt-disjoint three-seed validation is therefore the decisive
 generalization check.
 
+### Candidate steps 40-50 overall retraining
+
+To test whether the coarse early candidates dominate online supervision and
+irreversible stopping errors, retrain the current B4-anchored residual and
+causal soft-margin suites after removing steps 30 and 35:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_steps40_50_overall_selection.sh
+```
+
+The candidate set must be exactly
+`40,41,42,43,44,45,46,47,48,49,50`. This is a training-time subset, not an
+evaluation filter: state normalization, B4 soft utility targets, residual and
+soft-margin labels, online sequences, train-selected fixed steps, checkpoints,
+and validation decisions all use only these 11 candidates. Step 50 remains the
+forced final decision. Candidate costs and seconds are selected from the same
+locked full H100 profile, while the Native-HR denominator and profile hash stay
+unchanged.
+
+Removing 30 and 35 means they are not admissible handoff actions. The existing
+step-40 `trajectory_delta` feature may still reference the observed step-35 LR
+state, because that causal history is available before the step-40 decision; it
+does not restore step 35 as a switch candidate.
+
+The overall launcher trains five seeds for two matched suites:
+
+- `b4_offline`, `b4_residual_prompt`, and `b4_residual_state`;
+- `b4_offline`, `soft_margin_control`, and `soft_margin_state`.
+
+Both suites use the same prompt/seed splits, train and interpolation lambdas,
+feature groups, epochs, batch size, optimizer values, B4 temperature, and B4
+EMD weight. For each training seed, B4 is trained once by the residual suite and
+its hash-bound checkpoint/history are reused by the soft-margin suite. The
+cross-suite summarizer still fails unless B4 choices and metrics match row by
+row, then keeps one B4 copy and reports all five unique methods.
+It writes macro and per-lambda intervals, paired deltas against B4, paired state
+deltas against the matched no-state controls, and `overall_selection.json`.
+This remains validation-only selection and does not access test states or
+regenerate videos/latents.
+
 All online validation runs must record
 `evaluation_protocol=deterministic_eval_mode_v1`. Evaluation switches every
 model to `eval()` before best-epoch selection and prediction export. Each run

@@ -102,6 +102,8 @@ def load_runs(runs_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any
             tuple(summary["feature_groups"]),
             int(summary["selected_feature_count"]),
             str(summary["dataset_manifest_sha256"]),
+            tuple(summary.get("source_candidate_steps", [])),
+            tuple(summary.get("candidate_steps", [])),
             json.dumps(summary["training"], sort_keys=True),
             tuple(float(value) for value in summary["cost_profile"]),
             int(summary["train_prompts"]),
@@ -160,6 +162,8 @@ def load_runs(runs_root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any
                 "checkpoints": checkpoint_metadata,
                 "training_histories": history_metadata,
                 "latency_profile": summary["latency_profile"],
+                "source_candidate_steps": summary.get("source_candidate_steps"),
+                "candidate_steps": summary.get("candidate_steps"),
             }
         )
     return rows, metadata
@@ -432,6 +436,8 @@ def main() -> None:
         "reference_model": args.reference_model,
         "secondary_reference_model": args.secondary_reference_model,
         "eval_lambdas": lambdas,
+        "source_candidate_steps": run_metadata[0]["source_candidate_steps"],
+        "candidate_steps": run_metadata[0]["candidate_steps"],
         "test_accessed": False,
         "run_count": len(run_ids),
         "train_seeds": [item["train_seed"] for item in run_metadata],
