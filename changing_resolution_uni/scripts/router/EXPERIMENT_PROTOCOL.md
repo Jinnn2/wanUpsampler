@@ -322,6 +322,47 @@ regret improves, the prompt-bootstrap interval supports the gain, within-prompt
 seed association exceeds its shuffle control, and the train within-step shuffle
 removes the predictive gain. Raw correlation alone is not sufficient.
 
+### Frozen-B4 residual correction selection
+
+The factor audit found weak seed-specific state signal but no stable policy
+gain, and also showed that unconstrained margin refitting degrades the exact B4
+decision boundary. The follow-up therefore freezes the five-seed B4 ensemble
+and learns only a bounded additive correction:
+
+```text
+corrected_margin = b4_margin + alpha * clipped_state_residual
+```
+
+The correction is applied only when `abs(b4_margin) <= tau`. `alpha=0` is an
+explicit candidate and must reproduce every frozen-B4 margin and decision
+exactly. Run selection with:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_b4_residual_correction_selection.sh
+```
+
+Only three compact state choices are admitted: the global plus per-channel
+`trajectory.delta_rms_per_sigma` features, the two global x0 temporal-gradient
+features, and their union. A schedule+B4 residual model without state is kept
+as the matched control. The residual predictor may use current-step schedule,
+lambda, frozen B4 margin, and the selected current-step state; it cannot access
+future states.
+
+Ridge regularization, correction scale, and low-confidence gate threshold are
+selected by prompt-grouped out-of-fold policy regret on the 1,000-prompt train
+split. HistGradientBoosting uses one fixed small configuration while its scale
+and gate are selected the same way. Validation then compares each selected
+candidate directly with the untouched frozen B4 policy and with its matched
+schedule-only correction using paired prompt bootstrap. Report margin error as
+a diagnostic, but select the next router from macro policy regret, changed
+better/worse counts, stability across lambda, and the paired intervals.
+
+This remains validation-only architecture selection. The saved sklearn
+correction checkpoints are candidates, not locked test-confirmed routers. B4
+train predictions are in-sample because cross-fitted B4 checkpoints do not
+exist; the prompt-disjoint three-seed validation is therefore the decisive
+generalization check.
+
 All online validation runs must record
 `evaluation_protocol=deterministic_eval_mode_v1`. Evaluation switches every
 model to `eval()` before best-epoch selection and prediction export. Each run
