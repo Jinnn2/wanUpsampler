@@ -290,6 +290,38 @@ features. Structured latent tokens remain a later ablation so target semantics,
 step normalization, temporal modeling, and representation are not all changed
 in one run.
 
+### Online factor relevance audit
+
+Before adding another router or expanding the state encoder, measure whether each
+existing online factor has prompt-disjoint and seed-specific relation to the
+utility-optimal handoff. This audit reuses the completed state dataset and the
+five frozen B4 checkpoints; it does not generate videos, train a router, or read
+test content.
+
+```bash
+bash changing_resolution_uni/scripts/router/run_factor_relevance_audit.sh
+```
+
+The primary target is the continuous signed suffix-best utility margin. Oracle
+argmax step and the sequential policy induced by predicted margins are secondary
+targets. `schedule+B4 ensemble margin` is the main baseline. Ridge and one fixed,
+small histogram-gradient-boosting model measure linear and nonlinear incremental
+value for every feature group. Hyperparameter selection is prompt-grouped and
+train-only; final metrics use the formal `200 prompts x 3 seeds` validation.
+
+Two negative controls distinguish real trajectory evidence from proxies:
+
+- train features are shuffled across trajectories independently within each
+  candidate step;
+- validation features are shuffled only among the three seeds of the same
+  prompt before recomputing within-prompt association.
+
+Use group-level predictive gains for decisions. Individual-feature correlations
+are diagnostic: a factor is useful only when validation MAE/Brier or policy
+regret improves, the prompt-bootstrap interval supports the gain, within-prompt
+seed association exceeds its shuffle control, and the train within-step shuffle
+removes the predictive gain. Raw correlation alone is not sufficient.
+
 All online validation runs must record
 `evaluation_protocol=deterministic_eval_mode_v1`. Evaluation switches every
 model to `eval()` before best-epoch selection and prediction export. Each run
