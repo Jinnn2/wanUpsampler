@@ -547,3 +547,17 @@ Positive values push toward a later switch/staying LR; negative values push
 toward an earlier HR switch. Leave-one-out effects are local perturbation
 effects and are not additive Shapley values. Rankings therefore support
 exploratory interpretation only; they are not causal claims.
+## 40--50 single-factor geometry audit
+
+Before training another online router, run the lightweight model-free audit with:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_steps40_50_factor_geometry_audit.sh
+```
+
+It restricts actions and oracle labels to steps 40--50, detrends each state
+factor with train-only per-step statistics, and measures whether factor values,
+finite differences, two-step slopes, or trajectory change points identify the
+validation oracle boundary. The single-factor threshold is diagnostic only;
+the audit is validation-only, does not access test, and does not train or select
+a deployable router.
