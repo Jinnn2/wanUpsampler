@@ -29,7 +29,7 @@ except ImportError:
     )
 
 
-REPORT_SCHEMA = "steps40_50_factor_geometry_audit_v1"
+REPORT_SCHEMA = "steps40_50_factor_geometry_audit_v2"
 
 
 def parse_args() -> argparse.Namespace:
@@ -386,7 +386,7 @@ def boundary_rows(
     validation_signals: dict[str, np.ndarray],
     train_targets: dict[str, np.ndarray],
     validation_targets: dict[str, np.ndarray],
-    validation_seeds: np.ndarray,
+    validation_base_seeds: np.ndarray,
     lambdas: list[float],
     feature_names: list[str],
     feature_groups: list[str],
@@ -430,14 +430,14 @@ def boundary_rows(
                     balanced_accuracy(value, validation_y, threshold, direction)
                     for value in shuffled_x
                 ]
-                seed_scores = []
-                for seed in np.unique(validation_seeds):
-                    trajectory_mask = validation_seeds == seed
+                base_seed_scores = []
+                for base_seed in np.unique(validation_base_seeds):
+                    trajectory_mask = validation_base_seeds == base_seed
                     seed_x = validation_signal[
                         trajectory_mask, :, feature_index
                     ].reshape(-1)
                     seed_y = validation_y_matrix[trajectory_mask].reshape(-1)
-                    seed_scores.append(
+                    base_seed_scores.append(
                         balanced_accuracy(seed_x, seed_y, threshold, direction)
                     )
                 rows.append(
@@ -454,11 +454,11 @@ def boundary_rows(
                         "validation_auc_oriented": oriented_auc(
                             validation_x, validation_y
                         ),
-                        "validation_seed_min_balanced_accuracy": float(
-                            np.nanmin(seed_scores)
+                        "validation_base_seed_min_balanced_accuracy": float(
+                            np.nanmin(base_seed_scores)
                         ),
-                        "validation_seed_std_balanced_accuracy": float(
-                            np.nanstd(seed_scores)
+                        "validation_base_seed_std_balanced_accuracy": float(
+                            np.nanstd(base_seed_scores)
                         ),
                         "shuffle_balanced_accuracy_mean": float(
                             np.nanmean(shuffle_scores)
@@ -526,6 +526,20 @@ def main() -> None:
     }
     if set(validation_seed_counts.values()) != {3}:
         raise ValueError("Every validation prompt must have exactly three seeds")
+    validation_base_seeds = np.asarray(
+        [
+            int(item["seed"]) - int(item["prompt_id"])
+            for item in validation_trajectories
+        ],
+        dtype=np.int64,
+    )
+    expected_base_seeds = {
+        int(value) for value in manifest["splits"]["validation"]["base_seeds"]
+    }
+    if set(map(int, validation_base_seeds)) != expected_base_seeds:
+        raise ValueError(
+            "Validation generation base-seed coverage differs from manifest"
+        )
 
     cost_profile, seconds, native_seconds, latency_profile = (
         base.load_locked_latency_profile(manifest, source_steps, None)
@@ -605,7 +619,7 @@ def main() -> None:
         validation_signals,
         train_targets,
         validation_targets,
-        np.asarray([item["seed"] for item in validation_trajectories]),
+        validation_base_seeds,
         args.lambdas,
         feature_names,
         feature_groups,
@@ -622,7 +636,7 @@ def main() -> None:
         (
             "validation_balanced_accuracy",
             "validation_auc_oriented",
-            "validation_seed_min_balanced_accuracy",
+            "validation_base_seed_min_balanced_accuracy",
             "delta_balanced_accuracy_vs_shuffle",
         ),
     )
@@ -670,6 +684,8 @@ def main() -> None:
         "validation_prompt_count": len(validation_prompts),
         "validation_trajectory_count": len(validation_trajectories),
         "validation_seed_count_per_prompt": 3,
+        "validation_base_seeds": manifest["splits"]["validation"]["base_seeds"],
+        "validation_seed_grouping": "actual_seed_minus_prompt_id",
         "signals": list(train_signals),
         "descriptors": list(train_descriptors),
         "boundary_target": "oracle_step_index_lte_current_step_index",

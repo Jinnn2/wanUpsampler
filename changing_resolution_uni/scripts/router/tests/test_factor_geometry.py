@@ -47,6 +47,11 @@ class FactorGeometryTest(unittest.TestCase):
         self.assertEqual(int(targets["earliest_acceptable_index"][0, 0]), 0)
         self.assertEqual(int(targets["latest_acceptable_index"][0, 0]), 2)
 
+    def test_actual_seed_converts_to_generation_base_seed(self) -> None:
+        prompt_ids = np.asarray([1000, 1000, 1000])
+        actual_seeds = np.asarray([1042, 1100, 3024])
+        np.testing.assert_array_equal(actual_seeds - prompt_ids, [42, 100, 2024])
+
 
 if __name__ == "__main__":
     unittest.main()

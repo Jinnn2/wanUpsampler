@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 GENERATION_ROOT="${GENERATION_ROOT:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_1500_8gpu}"
 DATASET_DIR="${DATASET_DIR:-${GENERATION_ROOT}/router_variable_lambda_states_selection_20260829_h100_profile_v1}"
-OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/router_steps40_50_factor_geometry_audit_v1}"
+OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/router_steps40_50_factor_geometry_audit_v2}"
 SHUFFLE_REPETITIONS="${SHUFFLE_REPETITIONS:-3}"
 
 if [[ ! -f "${DATASET_DIR}/dataset_manifest.json" ]]; then
