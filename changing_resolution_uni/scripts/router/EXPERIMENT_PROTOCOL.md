@@ -610,3 +610,14 @@ nonzero selected checkpoints for at least four seeds; and nonnegative point
 gain for at least eight of ten lambdas with worst gain at least `-0.0002`.
 Generation and training seeds are averaged inside each prompt before the macro
 bootstrap. This experiment must not access the locked test split.
+
+Verifier V2 selects its checkpoint by minimum validation soft-margin BCE,
+independently of every policy threshold. It saves both the best-margin and last
+epoch weights, then evaluates the frozen best-margin checkpoint at logits
+`0.0`, `0.25`, `0.5`, `1.0`, `1.5`, and `2.0`. This prevents a conservative
+threshold from restoring epoch zero before the threshold frontier is measured.
+Every seed also writes `margin_target_audit.csv` and
+`state_feature_audit.csv`; epoch histories include validation logit quantiles
+and the fraction crossing each registered threshold. The default output is
+`outputs/router_steps40_50_b4_preemption_verifier_v2`, leaving V1 immutable as
+the failed checkpoint-selection diagnostic.

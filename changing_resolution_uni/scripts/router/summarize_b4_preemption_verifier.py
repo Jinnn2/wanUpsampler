@@ -19,8 +19,8 @@ except ImportError:
     import summarize_variable_lambda_runs as common
 
 
-REPORT_SCHEMA = "b4_sparse_preemption_verifier_selection_v1"
-EXPECTED_RUN_SCHEMA = "b4_sparse_preemption_verifier_run_v1"
+REPORT_SCHEMA = "b4_sparse_preemption_verifier_selection_v2"
+EXPECTED_RUN_SCHEMA = "b4_sparse_preemption_verifier_run_v2"
 RAW_METRICS = (
     "policy_regret",
     "realized_utility",
@@ -70,7 +70,7 @@ def protocol_signature(summary: dict[str, Any]) -> dict[str, Any]:
         "primary_lambda": summary["primary_lambda"],
         "harm_epsilon": summary["harm_epsilon"],
         "risk_thresholds": summary["risk_thresholds"],
-        "checkpoint_risk_threshold": summary["checkpoint_risk_threshold"],
+        "policy_diagnostic_threshold": summary["policy_diagnostic_threshold"],
         "candidate_steps": summary["candidate_steps"],
         "radius": summary["radius"],
         "base_state_feature_names": summary["base_state_feature_names"],
@@ -121,6 +121,11 @@ def load_runs(
                 path = summary_path.parent / item["path"]
                 if common.sha256_file(path) != item["sha256"]:
                     raise ValueError(f"Artifact SHA256 mismatch: {path}")
+        for name in ("margin_target_audit", "state_feature_audit"):
+            item = artifacts[name]
+            path = summary_path.parent / item["path"]
+            if common.sha256_file(path) != item["sha256"]:
+                raise ValueError(f"Artifact SHA256 mismatch: {path}")
         run_id = summary_path.parent.name
         with predictions_path.open(encoding="utf-8", newline="") as handle:
             run_rows = list(csv.DictReader(handle))
@@ -431,7 +436,7 @@ def main() -> None:
             "harm_rate_within_limit": harm_rate <= args.max_harm_rate,
             "train_seed_consistency": positive_seed_count
             >= args.minimum_positive_train_seeds,
-            "nonzero_checkpoint_count": positive_epoch_count
+            "nonzero_checkpoint_consistency": positive_epoch_count
             >= args.minimum_positive_train_seeds,
             "lambda_consistency": nonnegative_lambda_count
             >= args.minimum_nonnegative_lambdas

@@ -60,7 +60,7 @@ class B4PreemptionVerifierTest(unittest.TestCase):
         signals = np.zeros((1, 5, 12), dtype=np.float32)
         probabilities = np.zeros((1, 1, 5), dtype=np.float32)
         probabilities[0, 0, 3] = 1.0
-        inputs, targets = verifier.build_training_examples(
+        inputs, targets, margins = verifier.build_training_examples(
             [trajectory],
             signals,
             probabilities,
@@ -73,6 +73,26 @@ class B4PreemptionVerifierTest(unittest.TestCase):
         self.assertEqual(inputs.shape[0], 3)
         expected = 1.0 / (1.0 + math.exp(-0.5))
         self.assertAlmostEqual(float(targets[0]), expected, places=6)
+        self.assertAlmostEqual(float(margins[0]), 0.05, places=6)
+
+    def test_margin_diagnostics_expose_threshold_frontier(self) -> None:
+        diagnostics = verifier.margin_diagnostics(
+            np.asarray([-1.0, 0.2, 1.2], dtype=np.float32),
+            np.asarray([0.1, 0.5, 0.9], dtype=np.float32),
+            [0.0, 1.0],
+        )
+        self.assertGreater(diagnostics["soft_margin_loss"], 0.0)
+        self.assertAlmostEqual(diagnostics["logit_ge_0p0_rate"], 2.0 / 3.0)
+        self.assertAlmostEqual(diagnostics["logit_ge_1p0_rate"], 1.0 / 3.0)
+
+    def test_state_audit_reports_raw_structural_zeros(self) -> None:
+        raw = np.asarray([[0.0, 1.0], [0.0, 3.0]], dtype=np.float32)
+        normalized = np.asarray([[-1.0, -1.0], [1.0, 1.0]], dtype=np.float32)
+        rows = verifier.state_feature_audit_rows(
+            "train", raw, normalized, ["delta", "value"]
+        )
+        self.assertEqual(rows[0]["raw_exact_zero_rate"], 1.0)
+        self.assertEqual(rows[0]["normalized_exact_zero_rate"], 0.0)
 
     def test_sequential_choice_uses_first_eligible_preemption(self) -> None:
         chosen = verifier.sequential_choice(

@@ -6,15 +6,15 @@ PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 GENERATION_ROOT="${GENERATION_ROOT:-${PROJECT_ROOT}/data/changing_resolution_uni/oracle_dataset_1500_8gpu}"
 DATASET_DIR="${DATASET_DIR:-${GENERATION_ROOT}/router_variable_lambda_states_selection_20260829_h100_profile_v1}"
 B4_RUNS_ROOT="${B4_RUNS_ROOT:-${PROJECT_ROOT}/outputs/router_variable_lambda_1500_steps40_50_overall_v1/b4_residual}"
-OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/router_steps40_50_b4_preemption_verifier_v1}"
+OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/router_steps40_50_b4_preemption_verifier_v2}"
 TRAIN_SEEDS="${TRAIN_SEEDS:-42 100 2024 27182 31415}"
 TRAIN_LAMBDAS="${TRAIN_LAMBDAS:-0.01 0.02 0.04 0.06 0.08 0.10}"
 EVAL_LAMBDAS="${EVAL_LAMBDAS:-0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10}"
-RISK_THRESHOLDS="${RISK_THRESHOLDS:-0.5 1.0 1.5 2.0}"
+RISK_THRESHOLDS="${RISK_THRESHOLDS:-0.0 0.25 0.5 1.0 1.5 2.0}"
 PRIMARY_LAMBDA="${PRIMARY_LAMBDA:-0.08}"
 MARGIN_TEMPERATURE="${MARGIN_TEMPERATURE:-0.001}"
 HARM_EPSILON="${HARM_EPSILON:-0.001}"
-CHECKPOINT_RISK_THRESHOLD="${CHECKPOINT_RISK_THRESHOLD:-1.0}"
+POLICY_DIAGNOSTIC_THRESHOLD="${POLICY_DIAGNOSTIC_THRESHOLD:-1.0}"
 MAX_HARM_RATE="${MAX_HARM_RATE:-0.02}"
 HIDDEN_DIM="${HIDDEN_DIM:-32}"
 EPOCHS="${EPOCHS:-30}"
@@ -82,7 +82,7 @@ for train_seed in "${seed_array[@]}"; do
     --margin-temperature "${MARGIN_TEMPERATURE}" \
     --harm-epsilon "${HARM_EPSILON}" \
     --risk-thresholds "${threshold_array[@]}" \
-    --checkpoint-risk-threshold "${CHECKPOINT_RISK_THRESHOLD}" \
+    --policy-diagnostic-threshold "${POLICY_DIAGNOSTIC_THRESHOLD}" \
     --max-validation-harm-rate "${MAX_HARM_RATE}" \
     --hidden-dim "${HIDDEN_DIM}" \
     --epochs "${EPOCHS}" \

@@ -26,8 +26,8 @@ except ImportError:
     import train_variable_lambda_router as base
 
 
-RUN_SCHEMA = "b4_sparse_preemption_verifier_run_v1"
-CHECKPOINT_SCHEMA = "b4_sparse_preemption_verifier_checkpoint_v1"
+RUN_SCHEMA = "b4_sparse_preemption_verifier_run_v2"
+CHECKPOINT_SCHEMA = "b4_sparse_preemption_verifier_checkpoint_v2"
 EXPECTED_STEPS = tuple(range(40, 51))
 BASE_STATE_FEATURES = (
     "residual.temporal_gradient_abs_mean",
@@ -69,9 +69,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--margin-temperature", type=float, default=0.001)
     parser.add_argument("--harm-epsilon", type=float, default=0.001)
     parser.add_argument(
-        "--risk-thresholds", type=float, nargs="+", default=[0.5, 1.0, 1.5, 2.0]
+        "--risk-thresholds",
+        type=float,
+        nargs="+",
+        default=[0.0, 0.25, 0.5, 1.0, 1.5, 2.0],
     )
-    parser.add_argument("--checkpoint-risk-threshold", type=float, default=1.0)
+    parser.add_argument("--policy-diagnostic-threshold", type=float, default=1.0)
     parser.add_argument("--max-validation-harm-rate", type=float, default=0.02)
     parser.add_argument("--hidden-dim", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=30)
@@ -97,8 +100,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("This first verifier experiment is locked to radius=3")
     if args.primary_lambda not in args.eval_lambdas:
         parser.error("primary-lambda must be present in eval-lambdas")
-    if args.checkpoint_risk_threshold not in args.risk_thresholds:
-        parser.error("checkpoint-risk-threshold must be in risk-thresholds")
+    if args.policy_diagnostic_threshold not in args.risk_thresholds:
+        parser.error("policy-diagnostic-threshold must be in risk-thresholds")
     positive = (
         args.margin_temperature,
         args.hidden_dim,
@@ -271,9 +274,10 @@ def build_training_examples(
     cost_profile: np.ndarray,
     radius: int,
     temperature: float,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     inputs: list[np.ndarray] = []
     targets: list[float] = []
+    margins: list[float] = []
     for trajectory_index, trajectory in enumerate(trajectories):
         for lambda_index, lambda_value in enumerate(lambdas):
             probabilities = b4_probabilities[trajectory_index, lambda_index]
@@ -299,9 +303,14 @@ def build_training_examples(
                     )
                 )
                 targets.append(target)
+                margins.append(margin)
     if not inputs:
         raise ValueError("B4 anchors produced no preemption training examples")
-    return np.stack(inputs), np.asarray(targets, dtype=np.float32)
+    return (
+        np.stack(inputs),
+        np.asarray(targets, dtype=np.float32),
+        np.asarray(margins, dtype=np.float32),
+    )
 
 
 class PreemptionDataset(Dataset):
@@ -362,6 +371,116 @@ def predict_logits(
         tensor = torch.from_numpy(inputs[start : start + batch_size]).to(device)
         chunks.append(model(tensor).cpu().numpy())
     return np.concatenate(chunks) if chunks else np.empty(0, dtype=np.float32)
+
+
+def margin_diagnostics(
+    logits: np.ndarray, targets: np.ndarray, thresholds: list[float]
+) -> dict[str, float]:
+    values = np.asarray(logits, dtype=np.float64)
+    soft_targets = np.asarray(targets, dtype=np.float64)
+    if values.shape != soft_targets.shape or values.size == 0:
+        raise ValueError("Margin diagnostics require matching non-empty vectors")
+    element_loss = (
+        np.maximum(values, 0.0)
+        - values * soft_targets
+        + np.log1p(np.exp(-np.abs(values)))
+    )
+    clipped = np.clip(soft_targets, 1e-8, 1.0 - 1e-8)
+    target_entropy = -(
+        soft_targets * np.log(clipped) + (1.0 - soft_targets) * np.log(1.0 - clipped)
+    )
+    result = {
+        "soft_margin_loss": float(element_loss.mean()),
+        "soft_margin_excess": float((element_loss - target_entropy).mean()),
+    }
+    for quantile in (0.5, 0.9, 0.95, 0.99):
+        result[f"logit_p{int(quantile * 100):02d}"] = float(
+            np.quantile(values, quantile)
+        )
+    for threshold in thresholds:
+        label = str(threshold).replace("-", "neg").replace(".", "p")
+        result[f"logit_ge_{label}_rate"] = float((values >= threshold).mean())
+    return result
+
+
+def evaluate_margin_model(
+    model: SparsePreemptionVerifier,
+    dataset: PreemptionDataset,
+    thresholds: list[float],
+    device: torch.device,
+    batch_size: int,
+) -> dict[str, float]:
+    logits = predict_logits(model, dataset.inputs, device, batch_size)
+    return margin_diagnostics(logits, dataset.targets, thresholds)
+
+
+def collect_preemption_states(
+    signals: np.ndarray, b4_probabilities: np.ndarray, radius: int
+) -> np.ndarray:
+    rows = []
+    for trajectory_index in range(signals.shape[0]):
+        for lambda_index in range(b4_probabilities.shape[1]):
+            anchor = int(np.argmax(b4_probabilities[trajectory_index, lambda_index]))
+            for current in range(max(0, anchor - radius), anchor):
+                rows.append(signals[trajectory_index, current])
+    if not rows:
+        raise ValueError("No preemption-window states available for audit")
+    return np.stack(rows)
+
+
+def target_audit_row(
+    split: str,
+    margins: np.ndarray,
+    targets: np.ndarray,
+    harm_epsilon: float,
+) -> dict[str, Any]:
+    row: dict[str, Any] = {
+        "split": split,
+        "example_count": len(margins),
+        "exact_zero_margin_rate": float((margins == 0).mean()),
+        "positive_margin_rate": float((margins > 0).mean()),
+        "material_positive_margin_rate": float((margins > harm_epsilon).mean()),
+        "material_negative_margin_rate": float((margins < -harm_epsilon).mean()),
+    }
+    for name, values in (("margin", margins), ("soft_target", targets)):
+        for quantile in (0.01, 0.1, 0.5, 0.9, 0.99):
+            row[f"{name}_p{int(quantile * 100):02d}"] = float(
+                np.quantile(values, quantile)
+            )
+    return row
+
+
+def state_feature_audit_rows(
+    split: str,
+    raw_states: np.ndarray,
+    normalized_states: np.ndarray,
+    feature_names: list[str],
+) -> list[dict[str, Any]]:
+    if raw_states.shape != normalized_states.shape or raw_states.shape[1] != len(
+        feature_names
+    ):
+        raise ValueError("State audit arrays or names differ")
+    rows = []
+    for index, feature_name in enumerate(feature_names):
+        raw = raw_states[:, index]
+        normalized = normalized_states[:, index]
+        rows.append(
+            {
+                "split": split,
+                "feature_name": feature_name,
+                "example_count": len(raw),
+                "raw_exact_zero_rate": float((raw == 0).mean()),
+                "normalized_exact_zero_rate": float((normalized == 0).mean()),
+                "raw_mean": float(raw.mean()),
+                "raw_std": float(raw.std()),
+                "raw_p01": float(np.quantile(raw, 0.01)),
+                "raw_p50": float(np.quantile(raw, 0.5)),
+                "raw_p99": float(np.quantile(raw, 0.99)),
+                "normalized_mean": float(normalized.mean()),
+                "normalized_std": float(normalized.std()),
+            }
+        )
+    return rows
 
 
 def sequential_choice(
@@ -558,10 +677,17 @@ def b4_prediction_rows(
 def train_verifier(
     model_type: str,
     dataset: PreemptionDataset,
+    validation_dataset: PreemptionDataset,
     validation_args: dict[str, Any],
     args: argparse.Namespace,
     device: torch.device,
-) -> tuple[SparsePreemptionVerifier, int, list[dict[str, Any]]]:
+) -> tuple[
+    SparsePreemptionVerifier,
+    int,
+    float,
+    list[dict[str, Any]],
+    dict[str, torch.Tensor],
+]:
     use_state = model_type == "preemption_state"
     model = SparsePreemptionVerifier(
         input_dim=dataset.inputs.shape[1],
@@ -585,19 +711,29 @@ def train_verifier(
         pin_memory=device.type == "cuda",
         drop_last=False,
     )
-    primary = args.checkpoint_risk_threshold
+    primary = args.policy_diagnostic_threshold
     initial_metrics, _ = evaluate_model(
         model, model_type, thresholds=[primary], emit_rows=False, **validation_args
     )
+    initial_margin = evaluate_margin_model(
+        model,
+        validation_dataset,
+        args.risk_thresholds,
+        device,
+        args.inference_batch_size,
+    )
     best_epoch = 0
-    best_regret = initial_metrics[primary]["macro_policy_regret"]
+    best_margin_loss = initial_margin["soft_margin_loss"]
     best_weights = copy.deepcopy(model.state_dict())
     history = [
         {
             "epoch": 0,
             "train_soft_margin_loss": "",
             "train_soft_margin_excess": "",
-            "validation_macro_policy_regret": best_regret,
+            **{f"validation_{key}": value for key, value in initial_margin.items()},
+            "validation_macro_policy_regret": initial_metrics[primary][
+                "macro_policy_regret"
+            ],
             "validation_mean_utility_gain_vs_b4": initial_metrics[primary][
                 "mean_utility_gain_vs_b4"
             ],
@@ -633,18 +769,25 @@ def train_verifier(
         metrics, _ = evaluate_model(
             model, model_type, thresholds=[primary], emit_rows=False, **validation_args
         )
+        margin_metrics = evaluate_margin_model(
+            model,
+            validation_dataset,
+            args.risk_thresholds,
+            device,
+            args.inference_batch_size,
+        )
         current = metrics[primary]
-        eligible = current["harm_vs_b4_rate"] <= args.max_validation_harm_rate
-        selected = eligible and current["macro_policy_regret"] < best_regret - 1e-12
+        selected = margin_metrics["soft_margin_loss"] < best_margin_loss - 1e-12
         if selected:
             best_epoch = epoch
-            best_regret = current["macro_policy_regret"]
+            best_margin_loss = margin_metrics["soft_margin_loss"]
             best_weights = copy.deepcopy(model.state_dict())
         history.append(
             {
                 "epoch": epoch,
                 "train_soft_margin_loss": float(np.mean(losses)),
                 "train_soft_margin_excess": float(np.mean(excesses)),
+                **{f"validation_{key}": value for key, value in margin_metrics.items()},
                 "validation_macro_policy_regret": current["macro_policy_regret"],
                 "validation_mean_utility_gain_vs_b4": current[
                     "mean_utility_gain_vs_b4"
@@ -657,14 +800,17 @@ def train_verifier(
         print(
             f"[{model_type}] epoch={epoch:02d} "
             f"loss={np.mean(losses):.6f} "
+            f"val_margin={margin_metrics['soft_margin_loss']:.6f} "
+            f"logit_p95={margin_metrics['logit_p95']:.3f} "
             f"val_gain={current['mean_utility_gain_vs_b4']:.6f} "
             f"val_harm={current['harm_vs_b4_rate']:.4f} "
             f"selected={selected}",
             flush=True,
         )
+    last_weights = copy.deepcopy(model.state_dict())
     model.load_state_dict(best_weights)
     model.eval()
-    return model, best_epoch, history
+    return model, best_epoch, best_margin_loss, history, last_weights
 
 
 def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -723,11 +869,13 @@ def main() -> None:
 
     train_raw = np.stack([item["features"] for item in train_trajectories])
     validation_raw = np.stack([item["features"] for item in validation_trajectories])
-    train_signals = build_causal_signals(train_raw)
-    validation_signals = build_causal_signals(validation_raw)
-    signal_mean, signal_std = fit_step_normalizer(train_signals)
-    train_signals = normalize_signals(train_signals, signal_mean, signal_std)
-    validation_signals = normalize_signals(validation_signals, signal_mean, signal_std)
+    train_raw_signals = build_causal_signals(train_raw)
+    validation_raw_signals = build_causal_signals(validation_raw)
+    signal_mean, signal_std = fit_step_normalizer(train_raw_signals)
+    train_signals = normalize_signals(train_raw_signals, signal_mean, signal_std)
+    validation_signals = normalize_signals(
+        validation_raw_signals, signal_mean, signal_std
+    )
 
     device = torch.device(args.device)
     dataset_sha256 = base.sha256_file(dataset_dir / "dataset_manifest.json")
@@ -759,7 +907,7 @@ def main() -> None:
         args.inference_batch_size,
     )
     validate_prompt_only_anchors(validation_trajectories, validation_probabilities)
-    training_inputs, training_targets = build_training_examples(
+    training_inputs, training_targets, training_margins = build_training_examples(
         train_trajectories,
         train_signals,
         train_probabilities,
@@ -769,9 +917,51 @@ def main() -> None:
         args.radius,
         args.margin_temperature,
     )
+    validation_inputs, validation_targets, validation_margins = build_training_examples(
+        validation_trajectories,
+        validation_signals,
+        validation_probabilities,
+        args.eval_lambdas,
+        candidate_steps,
+        cost_profile,
+        args.radius,
+        args.margin_temperature,
+    )
     train_dataset = PreemptionDataset(training_inputs, training_targets)
+    validation_dataset = PreemptionDataset(validation_inputs, validation_targets)
+    signal_names = sparse_signal_names(base_feature_names)
+    train_raw_window = collect_preemption_states(
+        train_raw_signals, train_probabilities, args.radius
+    )
+    validation_raw_window = collect_preemption_states(
+        validation_raw_signals, validation_probabilities, args.radius
+    )
+    target_audit_rows = [
+        target_audit_row(
+            "train", training_margins, training_targets, args.harm_epsilon
+        ),
+        target_audit_row(
+            "validation",
+            validation_margins,
+            validation_targets,
+            args.harm_epsilon,
+        ),
+    ]
+    state_audit_rows = state_feature_audit_rows(
+        "train", train_raw_window, training_inputs[:, : len(signal_names)], signal_names
+    ) + state_feature_audit_rows(
+        "validation",
+        validation_raw_window,
+        validation_inputs[:, : len(signal_names)],
+        signal_names,
+    )
+    target_audit_path = out_dir / "margin_target_audit.csv"
+    state_audit_path = out_dir / "state_feature_audit.csv"
+    write_csv(target_audit_path, target_audit_rows)
+    write_csv(state_audit_path, state_audit_rows)
     print(
         f"Prepared {len(train_dataset)} local B4-3 margin examples; "
+        f"validation_examples={len(validation_dataset)}; "
         f"input_dim={training_inputs.shape[1]}",
         flush=True,
     )
@@ -804,8 +994,13 @@ def main() -> None:
     trained_models: dict[str, SparsePreemptionVerifier] = {}
     for model_type in ("preemption_control", "preemption_state"):
         base.seed_everything(args.seed)
-        model, best_epoch, history = train_verifier(
-            model_type, train_dataset, validation_args, args, device
+        model, best_epoch, best_margin_loss, history, last_weights = train_verifier(
+            model_type,
+            train_dataset,
+            validation_dataset,
+            validation_args,
+            args,
+            device,
         )
         trained_models[model_type] = model
         metrics, rows = evaluate_model(
@@ -816,12 +1011,14 @@ def main() -> None:
             **validation_args,
         )
         prediction_rows.extend(rows)
-        primary_metrics = metrics[args.checkpoint_risk_threshold]
+        primary_metrics = metrics[args.policy_diagnostic_threshold]
         model_summary.append(
             {
                 "model_type": model_type,
                 "best_epoch": best_epoch,
-                "checkpoint_risk_threshold": args.checkpoint_risk_threshold,
+                "checkpoint_selection_metric": "validation_soft_margin_loss",
+                "best_validation_soft_margin_loss": best_margin_loss,
+                "policy_diagnostic_threshold": args.policy_diagnostic_threshold,
                 **primary_metrics,
             }
         )
@@ -831,31 +1028,51 @@ def main() -> None:
             "path": history_path.name,
             "sha256": base.sha256_file(history_path),
         }
+        checkpoint_common = {
+            "schema": CHECKPOINT_SCHEMA,
+            "evaluation_protocol": base.EVALUATION_PROTOCOL,
+            "model_type": model_type,
+            "input_dim": training_inputs.shape[1],
+            "state_dim": len(BASE_STATE_FEATURES) * len(SIGNAL_NAMES),
+            "base_state_feature_names": base_feature_names,
+            "sparse_signal_names": signal_names,
+            "signal_mean": signal_mean,
+            "signal_std": signal_std,
+            "candidate_steps": candidate_steps,
+            "radius": args.radius,
+            "margin_temperature": args.margin_temperature,
+            "best_epoch": best_epoch,
+            "best_validation_soft_margin_loss": best_margin_loss,
+            "checkpoint_selection_metric": "validation_soft_margin_loss",
+            "policy_diagnostic_threshold": args.policy_diagnostic_threshold,
+            "b4_ensemble_inputs": b4_inputs,
+        }
         checkpoint_path = out_dir / f"{model_type}_verifier.pt"
         torch.save(
             {
-                "schema": CHECKPOINT_SCHEMA,
-                "evaluation_protocol": base.EVALUATION_PROTOCOL,
-                "model_type": model_type,
+                **checkpoint_common,
+                "checkpoint_role": "best_validation_soft_margin",
                 "state_dict": model.state_dict(),
-                "input_dim": training_inputs.shape[1],
-                "state_dim": len(BASE_STATE_FEATURES) * len(SIGNAL_NAMES),
-                "base_state_feature_names": base_feature_names,
-                "sparse_signal_names": sparse_signal_names(base_feature_names),
-                "signal_mean": signal_mean,
-                "signal_std": signal_std,
-                "candidate_steps": candidate_steps,
-                "radius": args.radius,
-                "margin_temperature": args.margin_temperature,
-                "best_epoch": best_epoch,
-                "checkpoint_risk_threshold": args.checkpoint_risk_threshold,
-                "b4_ensemble_inputs": b4_inputs,
             },
             checkpoint_path,
+        )
+        last_checkpoint_path = out_dir / f"{model_type}_last_epoch_verifier.pt"
+        torch.save(
+            {
+                **checkpoint_common,
+                "checkpoint_role": "last_epoch_diagnostic",
+                "last_epoch": args.epochs,
+                "state_dict": last_weights,
+            },
+            last_checkpoint_path,
         )
         checkpoints[model_type] = {
             "path": checkpoint_path.name,
             "sha256": base.sha256_file(checkpoint_path),
+        }
+        checkpoints[f"{model_type}_last_epoch"] = {
+            "path": last_checkpoint_path.name,
+            "sha256": base.sha256_file(last_checkpoint_path),
         }
 
     shuffled_signals = shuffled_validation_signals(
@@ -891,7 +1108,7 @@ def main() -> None:
         "primary_lambda": args.primary_lambda,
         "harm_epsilon": args.harm_epsilon,
         "risk_thresholds": args.risk_thresholds,
-        "checkpoint_risk_threshold": args.checkpoint_risk_threshold,
+        "policy_diagnostic_threshold": args.policy_diagnostic_threshold,
         "max_validation_harm_rate": args.max_validation_harm_rate,
         "source_candidate_steps": source_steps.tolist(),
         "candidate_steps": candidate_steps.tolist(),
@@ -919,6 +1136,7 @@ def main() -> None:
             "margin_temperature": args.margin_temperature,
             "loss": "equal_weight_soft_target_binary_cross_entropy",
             "output_initialization": "zero_weight_bias_minus_2_fallback_b4",
+            "checkpoint_selection": "minimum_validation_soft_margin_loss",
         },
         "validation_shuffle": {
             "method": "cross_trajectory_independent_per_absolute_step",
@@ -946,6 +1164,14 @@ def main() -> None:
             },
             "checkpoints": checkpoints,
             "training_histories": histories,
+            "margin_target_audit": {
+                "path": target_audit_path.name,
+                "sha256": base.sha256_file(target_audit_path),
+            },
+            "state_feature_audit": {
+                "path": state_audit_path.name,
+                "sha256": base.sha256_file(state_audit_path),
+            },
         },
     }
     report_path = out_dir / "run_summary.json"
