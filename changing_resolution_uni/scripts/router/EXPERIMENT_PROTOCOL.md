@@ -621,3 +621,28 @@ Every seed also writes `margin_target_audit.csv` and
 and the fraction crossing each registered threshold. The default output is
 `outputs/router_steps40_50_b4_preemption_verifier_v2`, leaving V1 immutable as
 the failed checkpoint-selection diagnostic.
+
+## Frozen B4 preemption score geometry
+
+When a trained V2 verifier keeps every validation logit below zero, do not
+retrain or choose a negative deployment threshold before checking whether its
+scores retain ranking information:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_steps40_50_b4_preemption_score_geometry_audit.sh
+```
+
+The audit loads the five frozen best-margin checkpoints and never updates
+weights. It exports train and validation candidate scores for the control,
+sparse state, and step-wise shuffled-state inputs. Primary diagnostics are
+AUROC/AUPRC for positive and material-positive restricted margins, Spearman
+correlation with raw utility margin, train-selected balanced-accuracy
+thresholds, prompt-cluster bootstrap deltas, equal-count calibration bins, and
+per-checkpoint consistency.
+
+Top-1/2/5/10/15-percent score thresholds are fitted only from train score
+quantiles and then applied unchanged to validation. Negative logit thresholds
+from `-1.5` through `0.0` are diagnostic curves only and cannot select a
+deployable policy. Anchor-at-step-40 cases remain in every policy denominator
+as unchanged B4 decisions. The audit is selection-stage diagnostic evidence,
+does not access test, and writes no model checkpoint.
