@@ -577,3 +577,36 @@ two, three, and unrestricted. It separates an undeployable per-generation-seed
 oracle from one-common-action, majority-positive, and all-three-positive upper
 bounds. The output is validation-only diagnostic evidence; it does not select a
 verifier or access test.
+
+## 40--50 sparse B4 preemption verifier
+
+After the B4-relative audit establishes seed-consistent lower-direction
+headroom, run the first learned verifier with:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_steps40_50_b4_preemption_verifier.sh
+```
+
+The experiment freezes the exact five-checkpoint B4 probability ensemble and
+only permits sequential actions at `B4-3`, `B4-2`, `B4-1`, with B4 as the
+mandatory fallback. It does not predict an oracle step. Each causal state is
+supervised by the soft restricted suffix-best margin between stopping now and
+the best remaining action through B4. The margin temperature is fixed to the
+material-harm epsilon (`0.001`), and all three preemption locations receive
+equal training weight.
+
+The state input is restricted to value, one-step backward difference, and
+two-step backward slope for the residual and x0 temporal gradient/second
+statistics. Normalization is fitted on train only and separately for every
+absolute candidate step. The matched control has the identical network and B4
+context but receives zero state. A frozen validation state shuffle is
+diagnostic only.
+
+Threshold selection is validation-only and defaults to B4 unless one sparse
+state threshold passes every pre-registered gate: positive paired 95% intervals
+versus B4, the matched control, and shuffled state; at most 2% material harm
+versus B4; positive utility gain for at least four of five training seeds;
+nonzero selected checkpoints for at least four seeds; and nonnegative point
+gain for at least eight of ten lambdas with worst gain at least `-0.0002`.
+Generation and training seeds are averaged inside each prompt before the macro
+bootstrap. This experiment must not access the locked test split.
