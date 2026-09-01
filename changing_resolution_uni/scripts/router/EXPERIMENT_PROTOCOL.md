@@ -561,3 +561,19 @@ finite differences, two-step slopes, or trajectory change points identify the
 validation oracle boundary. The single-factor threshold is diagnostic only;
 the audit is validation-only, does not access test, and does not train or select
 a deployable router.
+
+## 40--50 B4-relative correction headroom
+
+Before fitting a sparse temporal verifier, measure whether one-sided B4
+corrections have seed-consistent oracle headroom:
+
+```bash
+bash changing_resolution_uni/scripts/router/run_steps40_50_b4_preemption_headroom.sh
+```
+
+The audit freezes the five-seed B4 probability ensemble and evaluates lower
+(earlier HR, slower) and higher (later HR, faster) corrections with radii one,
+two, three, and unrestricted. It separates an undeployable per-generation-seed
+oracle from one-common-action, majority-positive, and all-three-positive upper
+bounds. The output is validation-only diagnostic evidence; it does not select a
+verifier or access test.
