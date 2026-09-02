@@ -1,0 +1,32 @@
+{
+  "infer_steps": 50,
+  "target_video_length": 81,
+  "text_len": 512,
+  "target_height": 720,
+  "target_width": 1248,
+  "self_attn_1_type": "flash_attn3",
+  "cross_attn_1_type": "flash_attn3",
+  "cross_attn_2_type": "flash_attn3",
+  "sample_guide_scale": 6,
+  "sample_shift": 8,
+  "enable_cfg": true,
+  "cpu_offload": false,
+  "feature_caching": "NoCaching",
+  "univ_action": {
+    "spatial_ratio": 0.512,
+    "temporal_ratio": 0.5,
+    "lr_nfe_ratio": 0.5,
+    "switch_ratio": 0.6
+  },
+  "univ_cache_mode": "residual",
+  "univ_transition_baseline": "rgb_sr_vae",
+  "univ_native_hr_state_path": "",
+  "univ_native_hr_state_key": "state",
+  "wan_rgb_sr_backend": "realesrgan",
+  "wan_rgb_sr_checkpoint": "/path/to/RealESRGAN_x2plus.pth",
+  "wan_rgb_sr_tile": 0,
+  "wan_rgb_sr_tile_pad": 10,
+  "wan_rgb_sr_pre_pad": 0,
+  "wan_rgb_sr_half": true,
+  "wan_rgb_sr_gpu_id": 0
+}

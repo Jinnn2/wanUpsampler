@@ -1154,3 +1154,22 @@ runtime_accountant.finalize(video)
 
 > 在相同预算下，不同视频的最优计算分配是否真的显著不同，并且这种差异是否能够由 Prompt prior 与统一 probe 后的在线 evidence 共同预测？
 
+---
+
+## 16. 当前可执行 Pipeline
+
+第一版 Wan2.1 50-step 生成链已经实现在本目录中。它支持：
+
+- LR 空间比例、时间比例和精确 full-DiT NFE 比例；
+- `0.6 / 0.8 / 1.0` 三个 reference-trajectory 切换点；
+- 未重计算 LR step 的 residual cache reuse；
+- 两个互斥 transition baseline：严格按 DVG 式 (11)-(12) 在 latent T/H/W
+  上恢复的 `dvg_latent_anchor`，以及旧 Stage 2 的 Wan VAE decode、
+  Real-ESRGAN x2、像素域时间插值、Wan VAE encode 的 `rgb_sr_vae`；
+- coordinate-hash HR 重加噪；
+- 清空 LR cache/solver history 后的 full-compute HR suffix；
+- Wan flow clean/re-noise 解析公式测试；
+- mean/std、频谱、temporal difference，以及可选 native HR state distance 诊断；
+- 每次运行的 action、实际 shape、step mask、boundary sigma 和阶段耗时 sidecar。
+
+具体运行契约、配置和命令见 [`PIPELINE.md`](PIPELINE.md)。
