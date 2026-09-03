@@ -13,7 +13,7 @@ esac
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 WAN_PYTHON="${WAN_PYTHON:-/opt/conda/bin/python}"
-VBENCH_PYTHON="${VBENCH_PYTHON:-/opt/conda/envs/vbench/bin/python}"
+VBENCH_PYTHON="${VBENCH_PYTHON:-}"
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 REALESRGAN_REPO="${REALESRGAN_REPO:-/mnt/afs_2/houze/Real-ESRGAN}"
 REALESRGAN_X2_CKPT="${REALESRGAN_X2_CKPT:-${REALESRGAN_REPO}/weights/RealESRGAN_x2plus.pth}"
@@ -39,6 +39,36 @@ NEGATIVE_PROMPT="${NEGATIVE_PROMPT:-camera shake, overexposed, static image, blu
 DRIVER="${PROJECT_ROOT}/UNIV_adaptor/scripts/validation/run_univ_validation.py"
 FFMPEG="${FFMPEG:-ffmpeg}"
 
+resolve_vbench_python() {
+  if [[ -n "${VBENCH_PYTHON}" ]]; then
+    [[ -x "${VBENCH_PYTHON}" ]] || {
+      echo "VBENCH_PYTHON is not executable: ${VBENCH_PYTHON}" >&2
+      exit 1
+    }
+    return
+  fi
+
+  local candidate
+  for candidate in \
+    /opt/conda/envs/vbench/bin/python \
+    /opt/conda/bin/python \
+    "$(command -v python 2>/dev/null || true)"; do
+    [[ -n "${candidate}" && -x "${candidate}" ]] || continue
+    if (
+      cd "${VBENCH_ROOT}"
+      "${candidate}" -c "import torch, vbench" >/dev/null 2>&1
+    ); then
+      VBENCH_PYTHON="${candidate}"
+      echo "Auto-selected VBENCH_PYTHON=${VBENCH_PYTHON}"
+      return
+    fi
+  done
+
+  echo "No Python environment can import torch and vbench from ${VBENCH_ROOT}." >&2
+  echo "Set VBENCH_PYTHON explicitly after installing VBench dependencies." >&2
+  exit 1
+}
+
 [[ -x "${WAN_PYTHON}" ]] || { echo "Python is not executable: ${WAN_PYTHON}" >&2; exit 1; }
 [[ -f "${DRIVER}" ]] || { echo "Required file not found: ${DRIVER}" >&2; exit 1; }
 if [[ "${MODE}" == "check" || "${MODE}" == "prepare" || "${MODE}" == "generate" || "${MODE}" == "all" ]]; then
@@ -51,10 +81,11 @@ if [[ "${MODE}" == "check" || "${MODE}" == "generate" || "${MODE}" == "all" ]]; 
   [[ -f "${REALESRGAN_X2_CKPT}" ]] || { echo "Required file not found: ${REALESRGAN_X2_CKPT}" >&2; exit 1; }
 fi
 if [[ "${MODE}" == "check" || "${MODE}" == "vbench" || "${MODE}" == "all" ]]; then
-  [[ -x "${VBENCH_PYTHON}" ]] || { echo "Python is not executable: ${VBENCH_PYTHON}" >&2; exit 1; }
   [[ -d "${VBENCH_ROOT}" ]] || { echo "Required directory not found: ${VBENCH_ROOT}" >&2; exit 1; }
   [[ -f "${VBENCH_ROOT}/evaluate.py" ]] || { echo "Required file not found: ${VBENCH_ROOT}/evaluate.py" >&2; exit 1; }
+  resolve_vbench_python
 fi
+VBENCH_PYTHON="${VBENCH_PYTHON:-${WAN_PYTHON}}"
 if [[ "${MODE}" == "check" || "${MODE}" == "visualize" || "${MODE}" == "all" ]]; then
   command -v "${FFMPEG}" >/dev/null 2>&1 || { echo "ffmpeg not found: ${FFMPEG}" >&2; exit 1; }
 fi

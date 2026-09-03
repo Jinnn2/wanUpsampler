@@ -19,8 +19,11 @@ LightX2V:      /mnt/afs_2/houze/LightX2V
 Real-ESRGAN:   /mnt/afs_2/houze/Real-ESRGAN
 VBench:        /mnt/afs_2/houze/VBench
 Wan Python:    /opt/conda/bin/python
-VBench Python: /opt/conda/envs/vbench/bin/python
+VBench Python: auto-detect isolated vbench env, then /opt/conda/bin/python
 ```
+
+The launcher tests actual `torch` and `vbench` imports before selecting an
+interpreter. `VBENCH_PYTHON=/custom/env/bin/python` overrides auto-detection.
 
 ## Profiles
 
