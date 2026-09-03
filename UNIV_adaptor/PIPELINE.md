@@ -111,10 +111,16 @@ cd /mnt/afs_2/houze/wanUpsampler
 
 LIGHTX2V_REPO=/mnt/afs_2/houze/LightX2V \
 REALESRGAN_REPO=/mnt/afs_2/houze/Real-ESRGAN \
-MODEL_ROOT=/path/to/Wan2.1-T2V-1.3B \
+MODEL_ROOT=/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B \
 REALESRGAN_X2_CKPT=/path/to/RealESRGAN_x2plus.pth \
 bash UNIV_adaptor/scripts/run_wan_univ_rgb_pipeline.sh check
 ```
+
+The launcher validates the official Wan2.1 T2V 1.3B model contract before
+constructing the scheduler. The default root must contain `config.json`,
+`diffusion_pytorch_model.safetensors`, `Wan2.1_VAE.pth`, and
+`models_t5_umt5-xxl-enc-bf16.pth`; the config must define the transformer
+architecture fields including `dim` and `num_heads`.
 
 Run one sample:
 

@@ -12,7 +12,7 @@ PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 REALESRGAN_REPO="${REALESRGAN_REPO:-/mnt/afs_2/houze/Real-ESRGAN}"
 WAN_PYTHON="${WAN_PYTHON:-/opt/conda/bin/python}"
-MODEL_ROOT="${MODEL_ROOT:-${PROJECT_ROOT}/models/Wan-AI/Wan2.1-T2V-1.3B}"
+MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 TEMPLATE_CONFIG="${TEMPLATE_CONFIG:-${PROJECT_ROOT}/UNIV_adaptor/configs/wan21_t2v_univ_rgb_720p.example.json}"
 REALESRGAN_X2_CKPT="${REALESRGAN_X2_CKPT:-/mnt/afs_2/houze/Real-ESRGAN/weights/RealESRGAN_x2plus.pth}"
 OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/univ_adaptor_smoke}"
@@ -78,14 +78,16 @@ export LIGHTX2V_REPO
 export DTYPE="${DTYPE:-BF16}"
 export CUDA_VISIBLE_DEVICES="${GPU_ID}"
 
-"${WAN_PYTHON}" - "${RESOLVED_CONFIG}" <<'PY'
+"${WAN_PYTHON}" - "${RESOLVED_CONFIG}" "${MODEL_ROOT}" <<'PY'
 import json
 import sys
 from pathlib import Path
 
+from UNIV_adaptor.model_contract import validate_wan21_t2v_model_root
 from UNIV_adaptor.schedule import action_from_config, resolve_schedule
 
 config = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+model_config = validate_wan21_t2v_model_root(sys.argv[2])
 action = action_from_config(config)
 schedule = resolve_schedule(
     action,
@@ -96,6 +98,10 @@ schedule = resolve_schedule(
         int(config["target_height"]) // 8,
         int(config["target_width"]) // 8,
     ),
+)
+print(
+    "Wan model contract passed: "
+    f"dim={model_config['dim']}, num_heads={model_config['num_heads']}"
 )
 print(json.dumps(schedule.as_dict(), indent=2))
 PY
