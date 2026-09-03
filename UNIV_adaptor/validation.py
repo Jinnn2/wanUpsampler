@@ -8,9 +8,8 @@ import json
 import os
 import statistics
 import subprocess
-import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 from .core import UniversalAction
 from .schedule import resolve_schedule
@@ -315,6 +314,24 @@ def case_generation_complete(root: Path, manifest: dict[str, Any], case: dict[st
     return True
 
 
+def selected_manifest_cases(
+    manifest: Mapping[str, Any], case_names: Sequence[str] | None
+) -> list[dict[str, Any]]:
+    cases = list(manifest["cases"])
+    requested = list(case_names or [])
+    if not requested:
+        return cases
+    if len(requested) != len(set(requested)):
+        raise ValueError("--case-name values must be unique")
+    by_name = {case["name"]: case for case in cases}
+    missing = [name for name in requested if name not in by_name]
+    if missing:
+        raise ValueError(
+            f"Requested cases are absent from the immutable manifest: {missing}"
+        )
+    return [by_name[name] for name in requested]
+
+
 def generate_suite(args: argparse.Namespace, manifest: dict[str, Any]) -> None:
     root = Path(args.out_root).resolve()
     batch_runner = REPO_ROOT / "UNIV_adaptor/scripts/bridge/run_wan_univ_batch.py"
@@ -332,7 +349,7 @@ def generate_suite(args: argparse.Namespace, manifest: dict[str, Any]) -> None:
 
     if sha256_file(Path(manifest["prompts_file"])) != manifest["prompts_sha256"]:
         raise RuntimeError("Prompts file changed after suite preparation")
-    for case in manifest["cases"]:
+    for case in selected_manifest_cases(manifest, args.case_name):
         config_payload = load_json(Path(case["config_path"]))
         if canonical_sha256(config_payload) != case["config_payload_sha256"]:
             raise RuntimeError(f"Case config changed after suite preparation: {case['config_path']}")
@@ -768,6 +785,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--profile", choices=["smoke", "core", "full"], default="core")
     parser.add_argument(
+        "--case-name",
+        action="append",
+        default=[],
+        help="Generate only this immutable-manifest case; repeat for multiple cases.",
+    )
+    parser.add_argument(
         "--case-spec",
         default=str(REPO_ROOT / "UNIV_adaptor/configs/univ_validation_cases.json"),
     )
@@ -811,6 +834,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     args = parser.parse_args(argv)
     if args.limit < 2 or args.prompt_offset < 0 or args.gpu < 0 or args.vbench_ngpus < 1:
         parser.error("limit must be >=2; prompt_offset/gpu >=0; vbench_ngpus >=1")
+    if args.case_name and args.action != "generate":
+        parser.error("--case-name is supported only with the generate action")
     return args
 
 

@@ -1,0 +1,53 @@
+{
+  "schema": "univ_sparse_data_protocol_v1",
+  "reference_nfe": 50,
+  "target_latent_shape": [16, 21, 90, 156],
+  "split_seed": 42,
+  "transitions": ["dvg_latent_anchor"],
+  "action_space": {
+    "spatial_ratios": [0.5, 0.625, 0.75, 0.875, 1.0],
+    "temporal_ratios": [0.5, 0.67, 0.8, 1.0],
+    "lr_nfe_ratios": [0.4, 0.55, 0.7, 0.85, 1.0],
+    "switch_ratios": [0.6, 0.8, 1.0]
+  },
+  "budgets": {
+    "target_densities": [0.3, 0.5, 0.7],
+    "proxy_tolerance": 0.04,
+    "formal_feasibility_source": "measured_cost_profile_required_at_collection"
+  },
+  "common_probe": {
+    "selection_status": "pending_e2",
+    "selected": null,
+    "candidates": [
+      {"id": "p02_s10", "spatial_ratio": 0.5, "temporal_ratio": 0.5, "stop_step": 10, "full_compute_steps": 2},
+      {"id": "p03_s10", "spatial_ratio": 0.5, "temporal_ratio": 0.5, "stop_step": 10, "full_compute_steps": 3},
+      {"id": "p04_s10", "spatial_ratio": 0.5, "temporal_ratio": 0.5, "stop_step": 10, "full_compute_steps": 4},
+      {"id": "p06_s10", "spatial_ratio": 0.5, "temporal_ratio": 0.5, "stop_step": 10, "full_compute_steps": 6},
+      {"id": "p04_s15", "spatial_ratio": 0.5, "temporal_ratio": 0.5, "stop_step": 15, "full_compute_steps": 4}
+    ]
+  },
+  "probe_selection": {
+    "prompt_offset": 0,
+    "prompt_count": 30,
+    "base_seeds": [42, 100, 2024],
+    "downstream_candidate_count": 2
+  },
+  "splits": [
+    {"name": "train", "prompt_count": 300, "base_seeds": [42], "collection_mode": "sparse_train", "candidate_count": 2},
+    {"name": "validation", "prompt_count": 100, "base_seeds": [42, 100, 2024], "collection_mode": "dense_oracle", "candidate_count": 8},
+    {"name": "test", "prompt_count": 100, "base_seeds": [42, 100, 2024], "collection_mode": "dense_oracle", "candidate_count": 8}
+  ],
+  "quality_dimensions": [
+    "subject_consistency",
+    "background_consistency",
+    "motion_smoothness",
+    "aesthetic_quality",
+    "imaging_quality",
+    "native_fidelity"
+  ],
+  "notes": [
+    "Run E2 probe selection before setting common_probe.selected.",
+    "Proxy density is for planning only; collection requires a measured CostProfile.",
+    "Keep rgb_sr_vae in a separate protocol until E3 selects a transition baseline."
+  ]
+}

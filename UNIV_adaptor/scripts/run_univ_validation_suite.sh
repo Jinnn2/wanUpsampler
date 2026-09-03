@@ -33,6 +33,7 @@ RESUME="${RESUME:-1}"
 FORCE_VBENCH="${FORCE_VBENCH:-0}"
 SKIP_VBENCH_WARMUP="${SKIP_VBENCH_WARMUP:-0}"
 ENABLE_TRANSITION_DIAGNOSTICS="${ENABLE_TRANSITION_DIAGNOSTICS:-0}"
+CASE_NAME="${CASE_NAME:-}"
 PROMPTS_FILE="${PROMPTS_FILE:-${PROJECT_ROOT}/changing_resolution/configs/wan_t2v_stage3_compare_10_prompts.txt}"
 OUT_ROOT="${OUT_ROOT:-${PROJECT_ROOT}/outputs/univ_validation_${PROFILE}_${LIMIT}p}"
 NEGATIVE_PROMPT="${NEGATIVE_PROMPT:-camera shake, overexposed, static image, blurry details, subtitles, text, watermark, low quality, jpeg artifacts, distorted hands, distorted face, malformed body, duplicate limbs}"
@@ -130,6 +131,9 @@ else
 fi
 if [[ -n "${VBENCH_COMMIT}" ]]; then
   common_args+=(--vbench-commit "${VBENCH_COMMIT}")
+fi
+if [[ -n "${CASE_NAME}" ]]; then
+  common_args+=(--case-name "${CASE_NAME}")
 fi
 
 run_prepare() {

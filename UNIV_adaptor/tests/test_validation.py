@@ -11,11 +11,29 @@ from UNIV_adaptor.validation import (
     comparison_groups,
     prepare_suite,
     resolve_cases,
+    selected_manifest_cases,
     summarize_suite,
 )
 
 
 class ValidationSuiteTest(unittest.TestCase):
+    def test_case_filter_preserves_requested_order_and_rejects_unknown(self):
+        manifest = {
+            "cases": [
+                {"name": "native"},
+                {"name": "dvg"},
+                {"name": "rgb"},
+            ]
+        }
+        self.assertEqual(
+            [row["name"] for row in selected_manifest_cases(manifest, ["rgb", "native"])],
+            ["rgb", "native"],
+        )
+        with self.assertRaisesRegex(ValueError, "absent"):
+            selected_manifest_cases(manifest, ["missing"])
+        with self.assertRaisesRegex(ValueError, "unique"):
+            selected_manifest_cases(manifest, ["dvg", "dvg"])
+
     def test_profiles_have_one_native_and_expected_baselines(self):
         spec = json.loads(
             (REPO_ROOT / "UNIV_adaptor/configs/univ_validation_cases.json").read_text(

@@ -1173,3 +1173,11 @@ runtime_accountant.finalize(video)
 - 每次运行的 action、实际 shape、step mask、boundary sigma 和阶段耗时 sidecar。
 
 具体运行契约、配置和命令见 [`PIPELINE.md`](PIPELINE.md)。
+
+## 17. Controller 数据生成协议
+
+Prompt + common-probe latent controller 的数据契约、稀疏反事实采样、
+sampled-Oracle split、质量/成本标签和恢复门禁见
+[`DATA_GENERATION.md`](DATA_GENERATION.md)。当前 fixed-action runner 不能生成
+训练所需的同源 common-probe 分叉数据，因此协议入口暂时只开放 immutable
+`plan/check`；common-probe branch runner 完成后才会开放正式采集。

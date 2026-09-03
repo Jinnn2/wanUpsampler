@@ -104,6 +104,29 @@ OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_validation_core_10p \
 bash UNIV_adaptor/scripts/run_univ_validation_suite.sh summarize
 ```
 
+The `core` profile contains exactly eight independent cases and can run one
+resident model per GPU:
+
+```bash
+GPU_IDS=0,1,2,3,4,5,6,7 \
+PROFILE=core \
+LIMIT=10 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_validation_core_10p_8gpu \
+bash UNIV_adaptor/scripts/run_univ_validation_8gpu.sh plan
+
+GPU_IDS=0,1,2,3,4,5,6,7 \
+PROFILE=core \
+LIMIT=10 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_validation_core_10p_8gpu \
+bash UNIV_adaptor/scripts/run_univ_validation_8gpu.sh all
+```
+
+The launcher writes one log per case under `logs/8gpu_generation`, rejects a
+second concurrent writer through an atomic output-root lock, and preserves
+completed lanes for `RESUME=1`. VBench and report generation run only after all
+eight lanes finish. This is fixed-action E3/E7 discovery evidence, not the
+common-probe controller training dataset defined in `DATA_GENERATION.md`.
+
 ## Staged and resumed execution
 
 Each phase can run independently:
