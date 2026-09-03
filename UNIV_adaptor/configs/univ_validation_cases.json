@@ -1,0 +1,107 @@
+{
+  "schema": "univ_validation_cases_v1",
+  "profiles": {
+    "smoke": [
+      "native_hr50",
+      "dvg_joint_sw060",
+      "rgb_joint_sw060"
+    ],
+    "core": [
+      "native_hr50",
+      "dvg_identity_sw060",
+      "dvg_joint_sw060",
+      "dvg_joint_sw080",
+      "dvg_joint_sw100",
+      "rgb_joint_sw060",
+      "rgb_joint_sw080",
+      "rgb_joint_sw100"
+    ],
+    "full": [
+      "native_hr50",
+      "dvg_identity_sw060",
+      "dvg_spatial_sw060",
+      "dvg_temporal_sw060",
+      "dvg_cache_sw060",
+      "dvg_joint_sw060",
+      "dvg_joint_sw080",
+      "dvg_joint_sw100",
+      "rgb_spatial_sw060",
+      "rgb_temporal_sw060",
+      "rgb_cache_sw060",
+      "rgb_joint_sw060",
+      "rgb_joint_sw080",
+      "rgb_joint_sw100"
+    ]
+  },
+  "cases": {
+    "native_hr50": {
+      "kind": "native",
+      "description": "Native Wan2.1 720p, 81 frames, 50 full HR steps, paired coordinate noise"
+    },
+    "dvg_identity_sw060": {
+      "kind": "univ",
+      "transition": "dvg_latent_anchor",
+      "action": {"spatial_ratio": 1.0, "temporal_ratio": 1.0, "lr_nfe_ratio": 1.0, "switch_ratio": 0.6}
+    },
+    "dvg_spatial_sw060": {
+      "kind": "univ",
+      "transition": "dvg_latent_anchor",
+      "action": {"spatial_ratio": 0.512, "temporal_ratio": 1.0, "lr_nfe_ratio": 1.0, "switch_ratio": 0.6}
+    },
+    "dvg_temporal_sw060": {
+      "kind": "univ",
+      "transition": "dvg_latent_anchor",
+      "action": {"spatial_ratio": 1.0, "temporal_ratio": 0.5, "lr_nfe_ratio": 1.0, "switch_ratio": 0.6}
+    },
+    "dvg_cache_sw060": {
+      "kind": "univ",
+      "transition": "dvg_latent_anchor",
+      "action": {"spatial_ratio": 1.0, "temporal_ratio": 1.0, "lr_nfe_ratio": 0.5, "switch_ratio": 0.6}
+    },
+    "dvg_joint_sw060": {
+      "kind": "univ",
+      "transition": "dvg_latent_anchor",
+      "action": {"spatial_ratio": 0.512, "temporal_ratio": 0.5, "lr_nfe_ratio": 0.5, "switch_ratio": 0.6}
+    },
+    "dvg_joint_sw080": {
+      "kind": "univ",
+      "transition": "dvg_latent_anchor",
+      "action": {"spatial_ratio": 0.512, "temporal_ratio": 0.5, "lr_nfe_ratio": 0.5, "switch_ratio": 0.8}
+    },
+    "dvg_joint_sw100": {
+      "kind": "univ",
+      "transition": "dvg_latent_anchor",
+      "action": {"spatial_ratio": 0.512, "temporal_ratio": 0.5, "lr_nfe_ratio": 0.5, "switch_ratio": 1.0}
+    },
+    "rgb_spatial_sw060": {
+      "kind": "univ",
+      "transition": "rgb_sr_vae",
+      "action": {"spatial_ratio": 0.512, "temporal_ratio": 1.0, "lr_nfe_ratio": 1.0, "switch_ratio": 0.6}
+    },
+    "rgb_temporal_sw060": {
+      "kind": "univ",
+      "transition": "rgb_sr_vae",
+      "action": {"spatial_ratio": 1.0, "temporal_ratio": 0.5, "lr_nfe_ratio": 1.0, "switch_ratio": 0.6}
+    },
+    "rgb_cache_sw060": {
+      "kind": "univ",
+      "transition": "rgb_sr_vae",
+      "action": {"spatial_ratio": 1.0, "temporal_ratio": 1.0, "lr_nfe_ratio": 0.5, "switch_ratio": 0.6}
+    },
+    "rgb_joint_sw060": {
+      "kind": "univ",
+      "transition": "rgb_sr_vae",
+      "action": {"spatial_ratio": 0.512, "temporal_ratio": 0.5, "lr_nfe_ratio": 0.5, "switch_ratio": 0.6}
+    },
+    "rgb_joint_sw080": {
+      "kind": "univ",
+      "transition": "rgb_sr_vae",
+      "action": {"spatial_ratio": 0.512, "temporal_ratio": 0.5, "lr_nfe_ratio": 0.5, "switch_ratio": 0.8}
+    },
+    "rgb_joint_sw100": {
+      "kind": "univ",
+      "transition": "rgb_sr_vae",
+      "action": {"spatial_ratio": 0.512, "temporal_ratio": 0.5, "lr_nfe_ratio": 0.5, "switch_ratio": 1.0}
+    }
+  }
+}

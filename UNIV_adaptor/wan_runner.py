@@ -68,6 +68,36 @@ class WanUniversalScheduler(WanScheduler):
         self.lower_order_nums = 0
 
 
+class WanCoordinateNativeScheduler(WanScheduler):
+    """Native Wan scheduler initialized with the UNIV coordinate noise field."""
+
+    def prepare_latents(self, seed, latent_shape, dtype=torch.float32):
+        target_shape = tuple(int(value) for value in latent_shape)
+        self.latents = coordinate_gaussian_tensor(
+            target_shape,
+            seed=int(seed),
+            device=torch.device(AI_DEVICE),
+            dtype=dtype,
+        )
+        logger.info(f"UNIV validation native coordinate noise: shape={target_shape}")
+
+
+@RUNNER_REGISTER("wan2.1_univ_native")
+class WanCoordinateNativeRunner(WanRunner):
+    """Unmodified 50-step HR Wan execution with coordinate-aligned noise."""
+
+    def init_scheduler(self):
+        self.scheduler = WanCoordinateNativeScheduler(self.config)
+
+    def load_transformer(self):
+        return WanModel(
+            model_path=self.config["model_path"],
+            config=self.config,
+            device=self.init_device,
+            model_type="wan2.1",
+        )
+
+
 @RUNNER_REGISTER("wan2.1_univ_pipeline")
 @RUNNER_REGISTER("wan2.1_univ_rgb_pipeline")
 class WanUniversalRGBPipelineRunner(WanRunner):
@@ -76,6 +106,7 @@ class WanUniversalRGBPipelineRunner(WanRunner):
     def __init__(self, config):
         super().__init__(config)
         self._validate_univ_config()
+        self._univ_transition = None
         self.univ_runtime_record: dict[str, object] = {}
 
     def _validate_univ_config(self) -> None:
@@ -135,9 +166,12 @@ class WanUniversalRGBPipelineRunner(WanRunner):
         )
 
     def _build_transition(self, *, spatial_needed: bool):
+        if self._univ_transition is not None:
+            return self._univ_transition
         baseline = str(self.config.get("univ_transition_baseline", RGB_SR_VAE))
         if baseline == DVG_LATENT_ANCHOR:
-            return WanDVGAnchorTransition()
+            self._univ_transition = WanDVGAnchorTransition()
+            return self._univ_transition
 
         resolver = None
         if spatial_needed:
@@ -146,12 +180,13 @@ class WanUniversalRGBPipelineRunner(WanRunner):
             )
 
             resolver = build_univ_rgb_super_resolver(self.config)
-        return WanRGBSRTransition(
+        self._univ_transition = WanRGBSRTransition(
             vae_codec=self.vae_decoder,
             spatial_resolver=resolver,
             target_height=int(self.config["target_height"]),
             target_width=int(self.config["target_width"]),
         )
+        return self._univ_transition
 
     @staticmethod
     def _renoise(clean_hr, hr_noise, sigma):
@@ -310,21 +345,32 @@ class WanUniversalRGBPipelineRunner(WanRunner):
         scheduler.reset_solver_history()
         transition_seconds = time.perf_counter() - transition_start
 
-        diagnostics_start = time.perf_counter()
-        native_hr_state, native_hr_reference = self._load_native_hr_state(
-            expected_shape=schedule.target_latent_shape,
-            device=scheduler.latents.device,
-            boundary_step=schedule.switch_step,
-            boundary_sigma=float(boundary_sigma),
+        diagnostics_enabled = bool(
+            self.config.get("univ_enable_transition_diagnostics", True)
         )
-        diagnostics = transition_state_diagnostics(
-            clean_lr=clean_lr,
-            clean_hr=transition_result.clean_hr,
-            renoised_hr=scheduler.latents,
-            native_hr_state=native_hr_state,
-        )
-        del native_hr_state
-        diagnostics_seconds = time.perf_counter() - diagnostics_start
+        native_hr_reference = None
+        if diagnostics_enabled:
+            diagnostics_start = time.perf_counter()
+            native_hr_state, native_hr_reference = self._load_native_hr_state(
+                expected_shape=schedule.target_latent_shape,
+                device=scheduler.latents.device,
+                boundary_step=schedule.switch_step,
+                boundary_sigma=float(boundary_sigma),
+            )
+            diagnostics = transition_state_diagnostics(
+                clean_lr=clean_lr,
+                clean_hr=transition_result.clean_hr,
+                renoised_hr=scheduler.latents,
+                native_hr_state=native_hr_state,
+            )
+            del native_hr_state
+            diagnostics_seconds = time.perf_counter() - diagnostics_start
+        else:
+            diagnostics = {
+                "schema": "univ_transition_diagnostics_v1",
+                "enabled": False,
+                "reason": "disabled_for_unbiased_timing",
+            }
         transition_record = {
             "baseline": transition_result.baseline,
             "source_latent_shape": list(transition_result.source_latent_shape),

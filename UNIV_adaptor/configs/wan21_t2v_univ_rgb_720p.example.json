@@ -20,6 +20,7 @@
   },
   "univ_cache_mode": "residual",
   "univ_transition_baseline": "rgb_sr_vae",
+  "univ_enable_transition_diagnostics": true,
   "univ_native_hr_state_path": "",
   "univ_native_hr_state_key": "state",
   "wan_rgb_sr_backend": "realesrgan",

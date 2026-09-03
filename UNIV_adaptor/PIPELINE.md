@@ -165,3 +165,6 @@ python -m py_compile UNIV_adaptor/*.py
 Full runtime validation requires the Linux CUDA environment, Wan weights,
 LightX2V, and the full Wan VAE. The `rgb_sr_vae` baseline additionally requires
 Real-ESRGAN/BasicSR and the x2 checkpoint.
+
+For paired video generation, synchronized timing, native-relative speedup, and
+strict VBench scoring, use [`VALIDATION.md`](VALIDATION.md).
