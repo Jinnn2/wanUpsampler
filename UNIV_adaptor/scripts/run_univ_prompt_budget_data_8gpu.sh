@@ -27,6 +27,7 @@ RESUME="${RESUME:-1}"
 ALLOW_PILOT_PRESETS="${ALLOW_PILOT_PRESETS:-0}"
 NEGATIVE_PROMPT="${NEGATIVE_PROMPT:-camera shake, overexposed, static image, blurry details, subtitles, text, watermark, low quality, jpeg artifacts, distorted hands, distorted face, malformed body, duplicate limbs}"
 export DTYPE="${DTYPE:-BF16}"
+GENERATION_LOCK_DIR=""
 
 IFS=',' read -r -a GPU_ARRAY <<< "${GPU_IDS}"
 IFS=',' read -r -a SPLIT_ARRAY <<< "${SPLITS}"
@@ -86,6 +87,18 @@ prepare_manifest() {
     --worker-count 8
 }
 
+list_worker_jobs() {
+  local slot="$1"
+  local -a list_args=(
+    "${DRIVER}" list-jobs
+    --manifest "${MANIFEST}"
+    --splits "${SPLIT_ARRAY[@]}"
+    --worker-slot "${slot}"
+  )
+  (( MAX_JOBS_PER_WORKER > 0 )) && list_args+=(--limit "${MAX_JOBS_PER_WORKER}")
+  "${WAN_PYTHON}" "${list_args[@]}"
+}
+
 print_plan() {
   [[ -f "${MANIFEST}" ]] || { echo "Manifest not found: ${MANIFEST}" >&2; exit 1; }
   echo "UNIV prompt-budget data plan"
@@ -93,7 +106,7 @@ print_plan() {
   echo "  output: ${OUT_ROOT}"
   for slot in 0 1 2 3 4 5 6 7; do
     local count
-    count="$("${WAN_PYTHON}" "${DRIVER}" list-jobs --manifest "${MANIFEST}" --splits "${SPLIT_ARRAY[@]}" --worker-slot "${slot}" | wc -l)"
+    count="$(list_worker_jobs "${slot}" | wc -l)"
     echo "  GPU ${GPU_ARRAY[${slot}]}: ${count} jobs"
   done
 }
@@ -103,13 +116,17 @@ generate_parallel() {
   validate_gpus
   [[ -f "${MANIFEST}" ]] || { echo "Manifest not found: ${MANIFEST}" >&2; exit 1; }
   mkdir -p "${OUT_ROOT}/logs/8gpu_data"
-  local lock_dir="${OUT_ROOT}/.prompt_budget_generation.lock"
-  if ! mkdir "${lock_dir}" 2>/dev/null; then
-    echo "Generation lock exists: ${lock_dir}" >&2
+  GENERATION_LOCK_DIR="${OUT_ROOT}/.prompt_budget_generation.lock"
+  if ! mkdir "${GENERATION_LOCK_DIR}" 2>/dev/null; then
+    echo "Generation lock exists: ${GENERATION_LOCK_DIR}" >&2
     exit 1
   fi
   local -a pids=()
-  cleanup() { rmdir "${lock_dir}" 2>/dev/null || true; }
+  cleanup() {
+    if [[ -n "${GENERATION_LOCK_DIR:-}" ]]; then
+      rmdir "${GENERATION_LOCK_DIR}" 2>/dev/null || true
+    fi
+  }
   stop_children() {
     trap - INT TERM
     for pid in "${pids[@]:-}"; do kill "${pid}" 2>/dev/null || true; done
@@ -138,14 +155,7 @@ generate_parallel() {
         CUDA_VISIBLE_DEVICES="${gpu}" PYTHONPATH="${LIGHTX2V_REPO}:${PROJECT_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" \
           "${WAN_PYTHON}" "${args[@]}"
       done < <(
-        list_args=(
-          "${DRIVER}" list-jobs
-          --manifest "${MANIFEST}"
-          --splits "${SPLIT_ARRAY[@]}"
-          --worker-slot "${slot}"
-        )
-        (( MAX_JOBS_PER_WORKER > 0 )) && list_args+=(--limit "${MAX_JOBS_PER_WORKER}")
-        "${WAN_PYTHON}" "${list_args[@]}"
+        list_worker_jobs "${slot}"
       )
     ) >>"${log}" 2>&1 &
     pids+=("$!")
@@ -153,6 +163,9 @@ generate_parallel() {
   done
   local failed=0
   for pid in "${pids[@]}"; do wait "${pid}" || failed=1; done
+  cleanup
+  GENERATION_LOCK_DIR=""
+  trap - EXIT INT TERM
   (( failed == 0 )) || { echo "At least one worker failed; inspect logs." >&2; exit 1; }
 }
 
