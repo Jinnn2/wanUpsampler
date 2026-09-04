@@ -1,316 +1,199 @@
-# UNIV Sparse Data Generation Protocol
+# UNIV Prompt-Budget Data Generation v2
 
-This document defines the data required to train the prompt-and-latent compute
-utility controller described in `README.md`. It is deliberately separate from
-`VALIDATION.md`: the validation suite tests fixed actions, while this protocol
-collects counterfactual trajectories from one content-independent common probe.
+This protocol trains one prompt-conditioned budget quality curve. It does not
+train a four-axis action controller. Each budget id is frozen to one concrete
+space/time/NFE/switch action before video collection.
 
-## 1. Scientific contract
+## Scientific contract
 
-The controller predicts action quality, not a pre-combined utility:
-
-```text
-Q_hat(prompt feature, common-probe observation, candidate action)
-```
-
-The deterministic selector applies measured cost afterward:
+The learned model predicts quality for five fixed budget presets:
 
 ```text
-argmax_a Q_hat(state, a) - lambda * C(a) / C(full)
-subject to C(a) <= remaining budget
+Q_hat(prompt feature, budget id)
 ```
 
-Consequently:
-
-- quality labels are stored without a fixed `lambda`;
-- every record keeps raw quality dimensions and measured cost;
-- budget feasibility comes from a hardware-specific measured CostProfile;
-- the cheap proxy density is used only to design and balance collection;
-- prompt, probe observation, and action are separate fields;
-- train/validation/test are split by prompt before generation.
-
-## 2. Why the current fixed-action runner is insufficient
-
-`WanUniversalRGBPipelineRunner` chooses spatial, temporal, NFE, and switch at
-step zero. A controller cannot inspect a latent and then retroactively choose
-the grid on which that latent was generated. Controller data therefore needs a
-new branchable execution path:
+The runtime selector applies the measured cost and user preference afterward:
 
 ```text
-coordinate-aligned native noise
-  -> fixed common probe
-  -> save probe state and extract DVG/learned observation
-  -> select candidate slots
-  -> clone the same probe state for every candidate
-  -> reshape probe state to the candidate working grid at the same sigma
-  -> candidate LR/cache suffix
-  -> selected transition to native HR
-  -> HR suffix
-  -> decode and score
+argmax_j Q_hat(prompt, B_j) - lambda * C(B_j) / C(native)
+subject to C(B_j) <= user hard budget
 ```
 
-This introduces two explicit reshapes:
+Quality labels never contain a fixed lambda. Raw quality dimensions and actual
+latency remain separate so the same model can be evaluated under different
+preferences.
+
+## Scope boundary
+
+The executable v2 protocol is explicitly:
 
 ```text
-common probe grid -> candidate LR grid -> native HR grid
+observation_mode = prompt_only
+trajectory_origin = independent_step0
 ```
 
-Fixed-action validation videos remain useful baselines, but they are not valid
-controller training rows because their pre-decision histories differ.
+The existing Wan runner fixes space, time, NFE, and switch before latent
+initialization. Consequently, every budget trajectory starts independently
+from step zero but uses the same prompt, seed, target shape, and coordinate
+Gaussian field. This is valid for the prompt-budget model because no generated
+latent is an input to that model.
 
-## 3. Collection phases
+These records must not be used to train or claim a Prompt+latent common-probe
+controller. That extension requires a branchable runner that clones one exact
+probe tensor before candidate execution and must use a new protocol schema.
 
-### E2-A: probe feasibility
+## Fixed budget curve
 
-Run a small technical set over the configured probe candidates. Check that:
-
-- every probe ends before reference step 30;
-- its last position is a fresh full DiT evaluation;
-- clean extrapolation and DVG demand features are finite;
-- at least one legal future action remains at every budget;
-- probe cost leaves a useful acceleration margin;
-- repeated seeds have stable feature scales.
-
-The checked-in pilot protocol proposes, but does not select, probes with
-`2/3/4/6` full DiT evaluations at reference step 10 and an additional
-four-evaluation probe at step 15.
-
-### E2-B: probe information value
-
-For each surviving probe, train the same small action-conditioned predictor on
-the same prompt split and sparse action observations. Select one probe using
-validation policy regret minus probe cost. Do not select a probe by latent
-reconstruction error alone.
-
-Write the selected immutable probe object into `common_probe.selected`. Only
-then may the controller collection planner run.
-
-### Sparse controller training
-
-Each train trajectory contains:
+The calibration action grid is:
 
 ```text
-one Native-HR teacher
-one runtime DVG action
-one deterministic space-filling exploration action
+space:  0.50, 0.625, 0.75, 0.875, 1.00
+time:   0.50, 0.67,  0.80, 1.00
+NFE:    0.40, 0.55,  0.70, 0.85, 1.00
+switch: 0.80, 0.90,  1.00
 ```
 
-Later active-learning rounds may append one uncertainty or hard-negative action
-to an existing trajectory. They must never overwrite the original candidates.
+`configs/univ_prompt_budget_pilot.json` freezes five initial
+DVG-inspired balanced presets. Their `target_cost_ratio` values are design
+targets, not measured facts. Before a formal full run, use a small pilot to
+measure warm end-to-end latency and revise the concrete actions if their costs
+do not form the intended B30/B40/B50/B60/B70 curve.
 
-### Dense sampled-Oracle audit
-
-Validation and test use a deterministic spread-out subset of the budget-feasible
-action pool. This is a sampled Oracle, not an exhaustive global Oracle. Test is
-generated and scored only after all probe, model, loss, and threshold choices
-are frozen on validation.
-
-## 4. Action and budget representation
-
-The initial legal grid is:
+Every prompt-seed trajectory contains exactly:
 
 ```text
-spatial:  0.50, 0.625, 0.75, 0.875, 1.00
-temporal: 0.50, 0.67,  0.80, 1.00
-LR NFE:   0.40, 0.55,  0.70, 0.85, 1.00
-switch:   0.60, 0.80,  1.00
+Native-HR50 teacher
+B30
+B40
+B50
+B60
+B70
 ```
 
-Requested ratios and resolved Wan shapes/step masks are both stored. The
-planning-only density is:
+The transition is fixed to `dvg_latent_anchor`. Transition comparison remains
+a separate E3 experiment; transition identity is not a hidden action axis in
+this dataset.
+
+## Splits and scale
+
+Prompts are split before generation and must be unique:
 
 ```text
-rho_proxy(a) = switch * spatial^2 * temporal * LR_NFE + (1 - switch)
+train:      300 prompts x 1 seed x 6 videos = 1800
+validation: 100 prompts x 3 seeds x 6 videos = 1800
+test:       100 prompts x 3 seeds x 6 videos = 1800
+total:                                          5400
 ```
 
-It excludes cache updates, transition, VAE, SR, decode, and controller costs.
-Formal feasibility must use synchronized measurements from the deployment GPU,
-precision, kernels, model, and transition implementation.
+The actual generator seed is `base_seed + prompt_id`. Test generation is not
+part of the default launcher selection and should run only after preset,
+transition, scoring, and model choices are frozen on validation.
 
-Use one transition per formal protocol. Compare `dvg_latent_anchor` and
-`rgb_sr_vae` under E3, then lock the selected baseline. Pooling both transitions
-would double data and make transition identity an undeclared action axis.
+## Planning and execution
 
-## 5. Runtime DVG slot
-
-The DVG candidate is deferred until the common probe exists. Runtime extraction
-computes at least:
+Default remote paths:
 
 ```text
-spatial demand: normalized high-frequency latent energy
-temporal demand: latent motion / temporal-difference energy
-NFE demand: velocity curvature and cache residual drift
-switch demand: clean-estimate stabilization across probe checkpoints
+project:    /mnt/afs_2/houze/wanUpsampler
+Wan:        /mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B
+LightX2V:   /mnt/afs_2/houze/LightX2V
+Python:     /opt/conda/bin/python
+prompts:    <project>/prompts/univ_controller_pilot_500.txt
 ```
 
-The original DVG spatial-temporal matching rule selects the first candidate.
-UNIV-specific NFE and switch extensions must be named `univ_dvg_heuristic`, not
-paper DVG. The record stores raw features, normalization version, selected
-action, feasible set hash, and tie-breaking rule.
+Preflight and inspect the immutable 8-GPU plan:
 
-## 6. Required trajectory record
+```bash
+cd /mnt/afs_2/houze/wanUpsampler
 
-Every completed `univ_sparse_trajectory_record_v1` contains:
+bash UNIV_adaptor/scripts/run_univ_prompt_budget_data_8gpu.sh check
 
-```text
-identity
-  plan hash, trajectory key, split, prompt id/text/hash, seed, budget id
-
-common probe
-  probe id/config, x_sigma, velocity, predicted-clean state, feature vector
-  boundary step/sigma/logSNR, elapsed time, artifact hashes
-
-native teacher
-  final video, video hash, warm latency, quality vector
-  optional HR states at reference boundaries 30/40/50
-
-candidates[]
-  selection source and propensity
-  requested action and resolved schedule
-  transition id and implementation hash
-  switch clean state, transition clean HR, re-noised HR
-  final video and hash
-  quality vector and transition diagnostics
-  warm full-pipeline and per-stage timings
-
-provenance
-  Git commit, dirty state, model/config/checkpoint hashes
-  CUDA/GPU/PyTorch/LightX2V/VBench versions
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_pilot_v2 \
+bash UNIV_adaptor/scripts/run_univ_prompt_budget_data_8gpu.sh plan
 ```
 
-Large tensors use fp16 or bf16 storage, while diagnostics and quality values use
-float32/float64. Tensor files are content-addressed; JSON records store paths,
-shape, dtype, and SHA256 rather than embedding tensors.
+The full protocol resolves to 54 jobs with the default 100-prompt chunk. Jobs
+are greedily assigned to eight worker slots using native cost or preset proxy
+density as a load estimate. The immutable manifest fixes the prompt file,
+plan, generated configs, job boundaries, and worker assignment.
 
-## 7. Quality labels
+Run a separate eight-video execution smoke with one prompt per job and one job
+per worker:
 
-The primary model predicts a vector:
+```bash
+SPLITS=train,validation \
+JOB_CHUNK_SIZE=1 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_smoke_v2 \
+bash UNIV_adaptor/scripts/run_univ_prompt_budget_data_8gpu.sh plan
 
-```text
-subject consistency
-background consistency
-motion smoothness
-aesthetic quality
-imaging quality
-paired native fidelity
+SPLITS=train,validation \
+JOB_CHUNK_SIZE=1 \
+MAX_JOBS_PER_WORKER=1 \
+ALLOW_PILOT_PRESETS=1 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_smoke_v2 \
+bash UNIV_adaptor/scripts/run_univ_prompt_budget_data_8gpu.sh generate
 ```
 
-`dynamic_degree` remains diagnostic and is not averaged into VBench-5. Paired
-native fidelity must use the same prompt, seed, coordinate noise, target shape,
-and frame count. Keep individual metrics so later experiments can change their
-weights without regenerating videos.
+Generate train and validation after inspecting smoke videos and measured cost:
 
-Use three fidelity levels:
-
-```text
-L0: transition/native HR state distance and spectral/temporal diagnostics
-L1: fixed decoded keyframes with paired perceptual/semantic metrics
-L2: complete MP4, VBench-5, and synchronized warm latency
+```bash
+# First update preset actions and set preset_status=frozen_after_measured_cost.
+SPLITS=train,validation \
+JOB_CHUNK_SIZE=100 \
+RESUME=1 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_pilot_v2 \
+bash UNIV_adaptor/scripts/run_univ_prompt_budget_data_8gpu.sh all
 ```
 
-L0 may reject numerically broken candidates. It must not silently replace L2
-for candidates used as formal quality labels.
+After every design choice is frozen, generate test into the same immutable
+root:
 
-## 8. Sparse sampling and propensity
-
-The checked-in pilot uses two candidates for each train trajectory:
-
-1. runtime DVG action;
-2. deterministic space-filling exploration within the assigned budget tier.
-
-Across prompts, budget tiers are assigned deterministically and approximately
-balanced. Future randomized collection should use a logged mixture such as:
-
-```text
-0.40 DVG-neighbor perturbation
-0.30 uniform/LHS feasible exploration
-0.20 one-axis counterfactual
-0.10 uncertainty or hard-negative action
+```bash
+SPLITS=test \
+JOB_CHUNK_SIZE=100 \
+RESUME=1 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_pilot_v2 \
+bash UNIV_adaptor/scripts/run_univ_prompt_budget_data_8gpu.sh all
 ```
 
-The exact selection probability must be logged. Without action overlap and
-propensity, off-policy comparison of collection policies is not defensible.
+Changing `JOB_CHUNK_SIZE`, prompts, protocol, template, model path, or generated
+case config under an existing output root is rejected. Use a new output root.
+The launcher also refuses full generation while the protocol remains
+`frozen_for_pilot_cost_calibration`; `ALLOW_PILOT_PRESETS=1` is reserved for a
+bounded smoke run.
 
-## 9. Split and seed policy
-
-The pilot protocol contains 500 prompt-disjoint sources:
-
-```text
-train:      300 prompts, base seed 42, sparse two-action collection
-validation: 100 prompts, base seeds 42/100/2024, 8-action Oracle subset
-test:       100 prompts, base seeds 42/100/2024, 8-action Oracle subset
-```
-
-This resolves to 900 prompt-seed trajectories: 600 sparse-train candidate runs,
-4,800 validation/test candidate runs, and 900 shared Native-HR teachers, for a
-maximum of 6,300 complete videos before L0/L1 screening. Probe selection uses
-30 prompts, three seeds, five probe candidates, and two matched downstream
-actions: at most 900 candidate videos plus 90 shared teachers.
-
-The actual sampling seed is `base_seed + prompt_id`. Prompt order, text hashes,
-split assignment, budget assignment, action slots, and the complete protocol
-are frozen in an immutable collection plan before generation.
-
-## 10. Output layout and resume rules
+## Output layout
 
 ```text
 <OUT_ROOT>/
   collection_plan.json
-  cost_profile.json
-  prompts/
-  probe/
-    states/
-    features/
-  native/
-    states/
-    videos/
-  candidates/
-    <action_key>/states/
-    <action_key>/videos/
+  generation_manifest.json
+  configs/
+    native_hr50.json
+    B30.json ... B70.json
+  videos/
+    train|validation|test/
+      native_hr50/
+      B30/ ... B70/
+  timings/
+    <job_id>.jsonl
+  logs/8gpu_data/
+    gpu_<id>.log
   records/
-    <trajectory_key>.json
-  metrics/
-  logs/
-  coverage.json
+    train|validation|test/
+      <trajectory_key>.json
 ```
 
-Generation is append-only. A candidate is complete only when its video, sidecar,
-metrics, and declared tensor artifacts exist, are non-empty, and match hashes.
-Resume skips only complete candidates. A changed prompt, probe, action space,
-transition, model, or cost profile requires a new output root.
+Generation records are finalized as `generated_unscored`. They contain video
+and sidecar SHA256 hashes, concrete requested/resolved actions, synchronized
+pipeline timing, segment timing, and peak GPU memory. VBench and paired native
+fidelity are a separate scoring phase; a record is not train-ready until all
+six videos have the declared quality vector.
 
-## 11. Planning commands
+## Resume and failure semantics
 
-The checked-in protocol intentionally has `common_probe.selected=null`:
-
-```bash
-python UNIV_adaptor/scripts/data/plan_univ_sparse_dataset.py \
-  check-protocol \
-  --protocol UNIV_adaptor/configs/univ_sparse_controller_pilot.json \
-  --allow-pending-probe
-```
-
-Create the immutable E2 plan before selecting a probe:
-
-```bash
-PROMPTS_FILE=/path/to/500_prompts.txt \
-PLAN_PATH=/path/to/output/probe_selection_plan.json \
-bash UNIV_adaptor/scripts/run_univ_data_plan.sh plan-probes
-```
-
-After E2 selects a probe, copy its exact object into `common_probe.selected`
-and freeze a new protocol file. Then create the immutable plan:
-
-```bash
-python UNIV_adaptor/scripts/data/plan_univ_sparse_dataset.py plan \
-  --protocol /path/to/selected_protocol.json \
-  --prompts /path/to/500_prompts.txt \
-  --output /path/to/output/collection_plan.json
-
-python UNIV_adaptor/scripts/data/plan_univ_sparse_dataset.py check \
-  --plan /path/to/output/collection_plan.json
-```
-
-There is intentionally no `generate` command yet. It will be enabled only after
-the common-probe branch runner, runtime DVG selector, measured CostProfile gate,
-and append-only trajectory writer satisfy this contract.
+The launcher uses one output-root lock and one log per GPU. Completed jobs are
+skipped only when their timing file has exactly one initialization row, every
+expected prompt/seed is present, every MP4 is non-empty, and every budget video
+has a UNIV runtime sidecar. A partial job is regenerated as a whole; completed
+jobs on other GPUs remain reusable.

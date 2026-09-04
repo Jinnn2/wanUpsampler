@@ -16,7 +16,7 @@
     "spatial_ratio": 0.512,
     "temporal_ratio": 0.5,
     "lr_nfe_ratio": 0.5,
-    "switch_ratio": 0.6
+    "switch_ratio": 0.8
   },
   "univ_cache_mode": "residual",
   "univ_transition_baseline": "rgb_sr_vae",

@@ -481,20 +481,20 @@ def run_vbench(args: argparse.Namespace, manifest: dict[str, Any]) -> dict[str, 
 def comparison_groups(manifest: dict[str, Any]) -> dict[str, list[str]]:
     available = {case["name"] for case in manifest["cases"]}
     candidates = {
-        "joint_sw060": ["native_hr50", "dvg_joint_sw060", "rgb_joint_sw060"],
         "joint_sw080": ["native_hr50", "dvg_joint_sw080", "rgb_joint_sw080"],
+        "joint_sw090": ["native_hr50", "dvg_joint_sw090", "rgb_joint_sw090"],
         "joint_sw100": ["native_hr50", "dvg_joint_sw100", "rgb_joint_sw100"],
         "dvg_axis_ablation": [
             "native_hr50",
-            "dvg_spatial_sw060",
-            "dvg_temporal_sw060",
-            "dvg_cache_sw060",
+            "dvg_spatial_sw080",
+            "dvg_temporal_sw080",
+            "dvg_cache_sw080",
         ],
         "rgb_axis_ablation": [
             "native_hr50",
-            "rgb_spatial_sw060",
-            "rgb_temporal_sw060",
-            "rgb_cache_sw060",
+            "rgb_spatial_sw080",
+            "rgb_temporal_sw080",
+            "rgb_cache_sw080",
         ],
     }
     return {

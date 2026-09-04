@@ -34,9 +34,9 @@ class UniversalAction:
             raise ValueError(
                 f"lr_nfe_ratio must be in (0, 1], got {self.lr_nfe_ratio}"
             )
-        if self.switch_ratio not in {0.6, 0.8, 1.0}:
+        if not 0.8 <= self.switch_ratio <= 1.0:
             raise ValueError(
-                "switch_ratio must be one of 0.6, 0.8, or 1.0, "
+                "switch_ratio must be in [0.8, 1.0], "
                 f"got {self.switch_ratio}"
             )
 

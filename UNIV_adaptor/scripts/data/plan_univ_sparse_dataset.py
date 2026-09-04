@@ -13,7 +13,6 @@ if repo_root not in sys.path:
 
 from UNIV_adaptor.data_protocol import (  # noqa: E402
     build_collection_plan,
-    build_probe_selection_plan,
     load_prompts,
     validate_collection_plan,
     validate_protocol,
@@ -23,7 +22,7 @@ from UNIV_adaptor.data_protocol import (  # noqa: E402
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Plan or validate sparse UNIV controller data collection."
+        description="Plan or validate UNIV prompt-budget curve collection."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -32,25 +31,16 @@ def main() -> None:
     plan_parser.add_argument("--prompts", required=True)
     plan_parser.add_argument("--output", required=True)
 
-    probe_parser = subparsers.add_parser("plan-probes")
-    probe_parser.add_argument("--protocol", required=True)
-    probe_parser.add_argument("--prompts", required=True)
-    probe_parser.add_argument("--output", required=True)
-
     check_parser = subparsers.add_parser("check")
     check_parser.add_argument("--plan", required=True)
 
     protocol_parser = subparsers.add_parser("check-protocol")
     protocol_parser.add_argument("--protocol", required=True)
-    protocol_parser.add_argument("--allow-pending-probe", action="store_true")
 
     args = parser.parse_args()
     if args.command == "check-protocol":
         protocol = _load_json(args.protocol)
-        validate_protocol(
-            protocol,
-            require_selected_probe=not args.allow_pending_probe,
-        )
+        validate_protocol(protocol)
         print(f"Protocol check passed: {Path(args.protocol).resolve()}")
         return
     if args.command == "check":
@@ -62,10 +52,7 @@ def main() -> None:
 
     protocol = _load_json(args.protocol)
     prompts = load_prompts(args.prompts)
-    if args.command == "plan-probes":
-        plan = build_probe_selection_plan(protocol, prompts)
-    else:
-        plan = build_collection_plan(protocol, prompts)
+    plan = build_collection_plan(protocol, prompts)
     output = Path(args.output).resolve()
     if output.is_file():
         previous = _load_json(output)
@@ -90,14 +77,7 @@ def _print_summary(plan: dict) -> None:
     splits = Counter(
         row["split"] for row in assignments if "split" in row
     )
-    budgets = Counter(row["budget_id"] for row in assignments)
-    if plan["schema"] == "univ_probe_selection_plan_v1":
-        candidate_slots = sum(
-            sum(len(branch["downstream_candidates"]) for branch in row["probe_branches"])
-            for row in assignments
-        )
-    else:
-        candidate_slots = sum(len(row["candidate_slots"]) for row in assignments)
+    candidate_slots = sum(len(row["budget_candidates"]) for row in assignments)
     print(
         json.dumps(
             {
@@ -105,9 +85,8 @@ def _print_summary(plan: dict) -> None:
                 "prompt_count": plan["prompt_count"],
                 "trajectory_count": len(assignments),
                 "candidate_slot_count": candidate_slots,
-                "action_pool_size": plan["action_pool_size"],
+                "budget_count": plan["budget_count"],
                 "trajectories_by_split": dict(sorted(splits.items())) if splits else {},
-                "trajectories_by_budget": dict(sorted(budgets.items())),
             },
             indent=2,
         )

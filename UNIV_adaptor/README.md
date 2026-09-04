@@ -463,7 +463,7 @@ r_{\mathrm{NFE}}\in\{0.40,0.55,0.70,0.85,1.0\}
 \]
 
 \[
-t_{\mathrm{switch}}\in\{0.65,0.50,0.35\}
+t_{\mathrm{switch}}\in\{0.80,0.90,1.00\}
 \]
 
 \[
@@ -1161,7 +1161,8 @@ runtime_accountant.finalize(video)
 第一版 Wan2.1 50-step 生成链已经实现在本目录中。它支持：
 
 - LR 空间比例、时间比例和精确 full-DiT NFE 比例；
-- `0.6 / 0.8 / 1.0` 三个 reference-trajectory 切换点；
+- `[0.8,1.0]` reference-trajectory 切换区间；首个 pilot 使用
+  `0.8 / 0.9 / 1.0`；
 - 未重计算 LR step 的 residual cache reuse；
 - 两个互斥 transition baseline：严格按 DVG 式 (11)-(12) 在 latent T/H/W
   上恢复的 `dvg_latent_anchor`，以及旧 Stage 2 的 Wan VAE decode、
@@ -1179,5 +1180,9 @@ runtime_accountant.finalize(video)
 Prompt + common-probe latent controller 的数据契约、稀疏反事实采样、
 sampled-Oracle split、质量/成本标签和恢复门禁见
 [`DATA_GENERATION.md`](DATA_GENERATION.md)。当前 fixed-action runner 不能生成
-训练所需的同源 common-probe 分叉数据，因此协议入口暂时只开放 immutable
-`plan/check`；common-probe branch runner 完成后才会开放正式采集。
+当前可执行的 v2 数据协议把学习问题收缩为 Prompt x Budget quality curve：
+每个 prompt/seed 生成五个固定 budget preset 和一个 Native-HR50 teacher。
+该版本明确使用 `prompt_only / independent_step0`，不是同源 common-probe
+latent 数据。八卡生成、断点续跑和未评分 trajectory record 聚合见
+`DATA_GENERATION.md`；未来 Prompt+latent 版本必须使用新 schema 和真正的
+common-probe branch runner。

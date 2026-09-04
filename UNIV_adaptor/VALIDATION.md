@@ -29,7 +29,7 @@ interpreter. `VBENCH_PYTHON=/custom/env/bin/python` overrides auto-detection.
 
 - `smoke`: native, DVG joint compression, and RGB joint compression.
 - `core`: native, DVG identity control, and DVG/RGB joint compression at
-  switch ratios 0.6, 0.8, and 1.0.
+  switch ratios 0.8, 0.9, and 1.0.
 - `full`: core plus isolated spatial, temporal, and LR-NFE/cache ablations.
 
 The exact actions are versioned in

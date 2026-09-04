@@ -426,8 +426,7 @@ d_{\mathrm{NFE}}=\Delta Q/\Delta C_{\mathrm{NFE}}
 使用 normalized sigma/logSNR，而不是绝对 step：
 
 \[
-t_{\mathrm{switch}}\in
-\{s_{0.65},s_{0.50},s_{0.35},\ldots\}
+t_{\mathrm{switch}}\in\{0.80,0.90,1.00\}
 \]
 
 ### 控制

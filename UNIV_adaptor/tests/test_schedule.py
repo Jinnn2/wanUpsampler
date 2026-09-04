@@ -9,18 +9,18 @@ from UNIV_adaptor.schedule import resolve_schedule, uniform_topk_steps
 class ScheduleTest(unittest.TestCase):
     def test_expected_720p_half_grid_schedule(self):
         schedule = resolve_schedule(
-            UniversalAction(0.512, 0.5, 0.5, 0.6),
+            UniversalAction(0.512, 0.5, 0.5, 0.8),
             reference_nfe=50,
             target_latent_shape=(16, 21, 90, 156),
         )
         self.assertEqual(schedule.low_latent_shape, (16, 11, 46, 80))
-        self.assertEqual(schedule.switch_step, 30)
-        self.assertEqual(len(schedule.lr_compute_steps), 15)
+        self.assertEqual(schedule.switch_step, 40)
+        self.assertEqual(len(schedule.lr_compute_steps), 20)
         self.assertEqual(schedule.lr_compute_steps[0], 0)
-        self.assertEqual(schedule.lr_compute_steps[-1], 29)
-        self.assertEqual(len(schedule.lr_cache_steps), 15)
-        self.assertEqual(schedule.hr_compute_steps, tuple(range(30, 50)))
-        self.assertEqual(schedule.total_full_dit_evaluations, 35)
+        self.assertEqual(schedule.lr_compute_steps[-1], 39)
+        self.assertEqual(len(schedule.lr_cache_steps), 20)
+        self.assertEqual(schedule.hr_compute_steps, tuple(range(40, 50)))
+        self.assertEqual(schedule.total_full_dit_evaluations, 30)
         self.assertEqual(schedule.low_video_frames, 41)
         self.assertEqual(schedule.target_video_frames, 81)
 

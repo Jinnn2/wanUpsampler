@@ -1,0 +1,42 @@
+{
+  "schema": "univ_prompt_budget_data_protocol_v2",
+  "controller_factorization": "prompt_x_budget_quality_curve",
+  "observation_mode": "prompt_only",
+  "trajectory_origin": "independent_step0",
+  "reference_nfe": 50,
+  "target_latent_shape": [16, 21, 90, 156],
+  "transition": "dvg_latent_anchor",
+  "preset_status": "frozen_for_pilot_cost_calibration",
+  "calibration_action_space": {
+    "spatial_ratios": [0.5, 0.625, 0.75, 0.875, 1.0],
+    "temporal_ratios": [0.5, 0.67, 0.8, 1.0],
+    "lr_nfe_ratios": [0.4, 0.55, 0.7, 0.85, 1.0],
+    "switch_ratios": [0.8, 0.9, 1.0]
+  },
+  "budget_presets": [
+    {"id": "B30", "target_cost_ratio": 0.3, "allocation_source": "dvg_inspired_balanced_proxy_v1", "action": {"spatial_ratio": 0.625, "temporal_ratio": 0.67, "lr_nfe_ratio": 0.85, "switch_ratio": 0.9}},
+    {"id": "B40", "target_cost_ratio": 0.4, "allocation_source": "dvg_inspired_balanced_proxy_v1", "action": {"spatial_ratio": 0.75, "temporal_ratio": 0.8, "lr_nfe_ratio": 0.55, "switch_ratio": 0.8}},
+    {"id": "B50", "target_cost_ratio": 0.5, "allocation_source": "dvg_inspired_balanced_proxy_v1", "action": {"spatial_ratio": 0.75, "temporal_ratio": 0.8, "lr_nfe_ratio": 0.85, "switch_ratio": 0.8}},
+    {"id": "B60", "target_cost_ratio": 0.6, "allocation_source": "dvg_inspired_balanced_proxy_v1", "action": {"spatial_ratio": 1.0, "temporal_ratio": 0.8, "lr_nfe_ratio": 0.7, "switch_ratio": 0.9}},
+    {"id": "B70", "target_cost_ratio": 0.7, "allocation_source": "dvg_inspired_balanced_proxy_v1", "action": {"spatial_ratio": 0.875, "temporal_ratio": 0.8, "lr_nfe_ratio": 1.0, "switch_ratio": 0.8}}
+  ],
+  "splits": [
+    {"name": "train", "prompt_count": 300, "base_seeds": [42], "collection_mode": "full_budget_curve"},
+    {"name": "validation", "prompt_count": 100, "base_seeds": [42, 100, 2024], "collection_mode": "full_budget_curve"},
+    {"name": "test", "prompt_count": 100, "base_seeds": [42, 100, 2024], "collection_mode": "full_budget_curve"}
+  ],
+  "quality_dimensions": [
+    "subject_consistency",
+    "background_consistency",
+    "motion_smoothness",
+    "aesthetic_quality",
+    "imaging_quality",
+    "native_fidelity"
+  ],
+  "notes": [
+    "Every prompt-seed trajectory contains native HR50 plus all five budget presets.",
+    "Target cost ratios must be checked against measured warm latency after the pilot.",
+    "This executable v2 protocol is prompt-only and starts every branch independently at step zero.",
+    "A future prompt-plus-latent protocol requires a common-probe branch runner and a new schema."
+  ]
+}

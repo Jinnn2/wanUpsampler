@@ -54,8 +54,8 @@ class ValidationSuiteTest(unittest.TestCase):
         )
         groups = comparison_groups({"cases": smoke})
         self.assertEqual(
-            groups["joint_sw060"],
-            ["native_hr50", "dvg_joint_sw060", "rgb_joint_sw060"],
+            groups["joint_sw080"],
+            ["native_hr50", "dvg_joint_sw080", "rgb_joint_sw080"],
         )
 
     def test_changed_protocol_refuses_to_overwrite_existing_suite(self):

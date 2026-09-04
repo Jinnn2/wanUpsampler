@@ -12,8 +12,9 @@ The action is:
 (spatial_ratio, temporal_ratio, lr_nfe_ratio, switch_ratio)
 ```
 
-`switch_ratio` is restricted to `0.6`, `0.8`, and `1.0`, corresponding to
-reference boundaries 30, 40, and 50. `lr_nfe_ratio` controls the exact number
+`switch_ratio` is restricted to `[0.8, 1.0]`. The first pilot uses `0.8`,
+`0.9`, and `1.0`, corresponding to reference boundaries 40, 45, and 50.
+`lr_nfe_ratio` controls the exact number
 of LR positions that run a full DiT recomputation. All other LR positions keep
 the reference scheduler trajectory but reuse a cached model-output residual.
 The first and final LR positions are always recomputed.
@@ -43,16 +44,16 @@ coordinate-aligned LR noise
   the Wan VAE. This is the old Stage 2 bridge and is not labeled as DVG.
 
 For a target of `720x1248x81`, the example action
-`(0.512, 0.5, 0.5, 0.6)` resolves to:
+`(0.512, 0.5, 0.5, 0.8)` resolves to:
 
 ```text
 target latent: 16x21x90x156
 LR latent:     16x11x46x80
 LR RGB frames: 41
-LR solver positions: 30
-LR full DiT recomputations: 15
-HR full DiT suffix: 20
-total full-compute positions: 35
+LR solver positions: 40
+LR full DiT recomputations: 20
+HR full DiT suffix: 10
+total full-compute positions: 30
 ```
 
 With CFG enabled, each full-compute position invokes conditional and
@@ -129,7 +130,7 @@ TRANSITION_BASELINE=rgb_sr_vae \
 SPATIAL_RATIO=0.512 \
 TEMPORAL_RATIO=0.5 \
 LR_NFE_RATIO=0.5 \
-SWITCH_RATIO=0.6 \
+SWITCH_RATIO=0.8 \
 PROMPT='A cinematic shot of a red fox walking through a snowy forest.' \
 bash UNIV_adaptor/scripts/run_wan_univ_rgb_pipeline.sh run
 ```
