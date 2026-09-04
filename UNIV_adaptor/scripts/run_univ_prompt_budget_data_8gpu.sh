@@ -13,6 +13,10 @@ WAN_PYTHON="${WAN_PYTHON:-/opt/conda/bin/python}"
 LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 REALESRGAN_REPO="${REALESRGAN_REPO:-/mnt/afs_2/houze/Real-ESRGAN}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
+if [[ "${PROTOCOL+x}" == "x" && -z "${PROTOCOL:-}" ]]; then
+  echo "PROTOCOL was explicitly set to an empty value." >&2
+  exit 2
+fi
 PROTOCOL="${PROTOCOL:-${PROJECT_ROOT}/UNIV_adaptor/configs/univ_prompt_budget_pilot.json}"
 PROMPTS_FILE="${PROMPTS_FILE:-${PROJECT_ROOT}/prompts/univ_controller_pilot_500.txt}"
 TEMPLATE_CONFIG="${TEMPLATE_CONFIG:-${PROJECT_ROOT}/UNIV_adaptor/configs/wan21_t2v_univ_rgb_720p.example.json}"
