@@ -197,3 +197,71 @@ skipped only when their timing file has exactly one initialization row, every
 expected prompt/seed is present, every MP4 is non-empty, and every budget video
 has a UNIV runtime sidecar. A partial job is regenerated as a whole; completed
 jobs on other GPUs remain reusable.
+
+## Independent reserve shard and zero-copy merge
+
+A second eight-GPU machine should generate a separate 500-prompt shard. Do not
+duplicate the primary prompt file and do not write into the primary output
+root. Select a deterministic reserve shard from the same source corpus while
+excluding all primary prompts:
+
+```bash
+cd /mnt/afs_2/houze/wanUpsampler
+
+python UNIV_adaptor/scripts/data/select_prompt_shard.py \
+  --source /mnt/afs_2/houze/wanUpsampler/prompts/vidprom_filtered_extended.txt \
+  --exclude /mnt/afs_2/houze/wanUpsampler/prompts/univ_controller_pilot_500.txt \
+  --output /mnt/afs_2/houze/wanUpsampler/prompts/univ_controller_reserve_500.txt \
+  --count 500 \
+  --seed univ-prompt-budget-reserve-v1
+```
+
+The selector removes exact duplicates, selects by stable SHA256 rank rather
+than source order, reshuffles deterministically for split assignment, writes a
+metadata sidecar, and refuses to replace a different existing selection.
+
+Use the exact same frozen protocol as the primary shard. The reserve machine
+can use local GPU ids 0-7:
+
+```bash
+PROTOCOL=/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_protocols/frozen_after_smoke_v1.json \
+PROMPTS_FILE=/mnt/afs_2/houze/wanUpsampler/prompts/univ_controller_reserve_500.txt \
+SPLITS=train,validation \
+JOB_CHUNK_SIZE=25 \
+MAX_JOBS_PER_WORKER=0 \
+RESUME=1 \
+GPU_IDS=0,1,2,3,4,5,6,7 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_reserve_v1 \
+bash UNIV_adaptor/scripts/run_univ_prompt_budget_data_8gpu.sh all
+```
+
+Once both roots have finalized trajectory records, create a merged index. This
+operation does not copy MP4 files:
+
+```bash
+python UNIV_adaptor/scripts/data/merge_prompt_budget_datasets.py \
+  --shard primary=/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_full_v3 \
+  --shard reserve=/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_reserve_v1 \
+  --splits train validation \
+  --output /mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_merged/merged_train_validation.json
+```
+
+The expected train/validation merge contains 800 unique prompts, 1200
+prompt-seed trajectories, and 7200 videos. After both test splits are generated
+and frozen, create a new all-split index:
+
+```bash
+python UNIV_adaptor/scripts/data/merge_prompt_budget_datasets.py \
+  --shard primary=/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_full_v3 \
+  --shard reserve=/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_reserve_v1 \
+  --splits train validation test \
+  --output /mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_merged/merged_all.json
+```
+
+The full merge contains 1000 unique prompts, 1800 trajectories, and 10800
+videos. The merger requires identical frozen protocols, budget presets, model
+path, generated case configs, and hashes of all code that participates in
+generation. It rejects prompt overlap, missing records, plan-record mismatch,
+missing artifacts, and incompatible shards. Add `--verify-artifact-hashes` for
+a full MP4/sidecar rehash audit. Add `--require-scores` only after all six
+videos in every record have their final quality vector.

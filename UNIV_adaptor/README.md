@@ -1186,3 +1186,9 @@ sampled-Oracle split、质量/成本标签和恢复门禁见
 latent 数据。八卡生成、断点续跑和未评分 trajectory record 聚合见
 `DATA_GENERATION.md`；未来 Prompt+latent 版本必须使用新 schema 和真正的
 common-probe branch runner。
+
+多个独立 8 卡机器生成的 Prompt-Budget 数据不直接拼接目录。使用
+`scripts/data/select_prompt_shard.py` 产生与主集合无重叠的确定性 prompt
+分片，再由 `scripts/data/merge_prompt_budget_datasets.py` 校验协议、preset、
+生成实现、prompt 和 trajectory 后建立零拷贝统一索引；详细命令见
+`DATA_GENERATION.md`。
