@@ -9,7 +9,11 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from UNIV_adaptor.hr_refinement import direct_hr_sigmas, install_direct_hr_grid
+from UNIV_adaptor.hr_refinement import (
+    direct_hr_sigmas,
+    install_direct_hr_grid,
+    quantize_float32_timesteps,
+)
 from UNIV_adaptor.scripts.validation.run_mrflow_refinement_ablation import (
     CONTROL_ID,
     DEFAULT_HR_STEPS,
@@ -81,6 +85,13 @@ class DirectSigmaPlanTest(unittest.TestCase):
         self.assertEqual(case_id(.12, 4), "S0120_HR04")
         self.assertEqual(direct_hr_sigmas(start_sigma=.12, hr_steps=4),
                          (.12, .09, .06, .03, 0.0))
+        self.assertEqual(
+            quantize_float32_timesteps(
+                direct_hr_sigmas(start_sigma=.3, hr_steps=4)[:-1],
+                num_train_timesteps=1000,
+            ),
+            (300, 225, 150, 75),
+        )
         self.assertEqual(parse_sigmas(".12, .2,.3"), DEFAULT_SIGMAS)
         self.assertEqual(parse_hr_steps("1,2,4"), DEFAULT_HR_STEPS)
         for sigma, steps in ((0, 1), (1, 1), (.1, 0)):

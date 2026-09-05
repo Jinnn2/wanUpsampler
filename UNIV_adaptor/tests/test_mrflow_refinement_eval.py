@@ -87,6 +87,11 @@ class MrFlowRefinementEvaluationTest(unittest.TestCase):
             self.assertEqual(len(cases), 10)
             self.assertEqual(cases[0]["id"], CONTROL_ID)
             self.assertEqual(cases[0]["hr_seconds"], 0)
+            sigma_030_hr04 = next(row for row in cases if row["id"] == "S0300_HR04")
+            self.assertEqual(
+                sigma_030_hr04["hr_schedule"]["model_timesteps"],
+                [300, 225, 150, 75],
+            )
             for sigma in summary["sigmas"]:
                 self.assertEqual(len({
                     row["branch_start_sha256"]

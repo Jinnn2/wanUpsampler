@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import struct
 from collections.abc import Sequence
 
 
@@ -46,6 +47,20 @@ def direct_hr_sigmas(*, start_sigma: float, hr_steps: int) -> tuple[float, ...]:
     if type(hr_steps) is not int or hr_steps < 1:
         raise ValueError("hr_steps must be a positive integer")
     return tuple(sigma * (hr_steps - index) / hr_steps for index in range(hr_steps + 1))
+
+
+def quantize_float32_timesteps(
+    sigmas: Sequence[float], *, num_train_timesteps: int
+) -> tuple[int, ...]:
+    """Match torch float32 multiplication followed by integer conversion."""
+    if type(num_train_timesteps) is not int or num_train_timesteps < 1:
+        raise ValueError("num_train_timesteps must be a positive integer")
+
+    def float32(value: float) -> float:
+        return struct.unpack("=f", struct.pack("=f", float(value)))[0]
+
+    scale = float32(num_train_timesteps)
+    return tuple(int(float32(float32(value) * scale)) for value in sigmas)
 
 
 def install_hr_grid(scheduler, *, reference_sigmas, boundary_step: int, hr_steps: int):

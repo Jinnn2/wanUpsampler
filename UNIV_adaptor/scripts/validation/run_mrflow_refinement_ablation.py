@@ -15,7 +15,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from UNIV_adaptor.data_protocol import canonical_sha256, sha256_file, write_json_atomic
-from UNIV_adaptor.hr_refinement import direct_hr_sigmas
+from UNIV_adaptor.hr_refinement import direct_hr_sigmas, quantize_float32_timesteps
 from UNIV_adaptor.schedule import action_from_config, resolve_schedule
 
 DEFAULT_SIGMAS = (0.12, 0.20, 0.30)
@@ -72,7 +72,9 @@ def build_cases(sigmas, hr_steps, out: Path):
             planned_sigmas = list(direct_hr_sigmas(
                 start_sigma=float(sigma), hr_steps=int(steps)
             ))
-            planned_timesteps = [int(value * 1000) for value in planned_sigmas[:-1]]
+            planned_timesteps = list(quantize_float32_timesteps(
+                planned_sigmas[:-1], num_train_timesteps=1000
+            ))
             if planned_timesteps[-1] <= 0 or any(
                 left <= right for left, right in zip(planned_timesteps, planned_timesteps[1:])
             ):
