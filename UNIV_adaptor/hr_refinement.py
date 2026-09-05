@@ -38,6 +38,16 @@ def resample_hr_sigmas(
     return (*result, 0.0)
 
 
+def direct_hr_sigmas(*, start_sigma: float, hr_steps: int) -> tuple[float, ...]:
+    """Build a MrFlow-style linear grid from an explicit sigma to zero."""
+    sigma = float(start_sigma)
+    if not math.isfinite(sigma) or not 0.0 < sigma < 1.0:
+        raise ValueError("start_sigma must be finite and in (0, 1)")
+    if type(hr_steps) is not int or hr_steps < 1:
+        raise ValueError("hr_steps must be a positive integer")
+    return tuple(sigma * (hr_steps - index) / hr_steps for index in range(hr_steps + 1))
+
+
 def install_hr_grid(scheduler, *, reference_sigmas, boundary_step: int, hr_steps: int):
     """Install actual adjacent solver intervals, with fresh multistep history.
 
@@ -71,4 +81,29 @@ def install_hr_grid(scheduler, *, reference_sigmas, boundary_step: int, hr_steps
         "sigmas": sigmas[boundary_step:].tolist(),
         "model_timesteps": timesteps[boundary_step:].cpu().tolist(),
         "compute_indices": list(range(boundary_step, len(timesteps))),
+    }
+
+
+def install_direct_hr_grid(scheduler, *, start_sigma: float, hr_steps: int):
+    """Install an independent linear HR grid and clear all LR solver history."""
+    import torch
+
+    values = direct_hr_sigmas(start_sigma=start_sigma, hr_steps=hr_steps)
+    sigmas = torch.tensor(values, dtype=torch.float32, device="cpu")
+    timesteps = (sigmas[:-1] * scheduler.num_train_timesteps).to(
+        device=scheduler.timesteps.device, dtype=scheduler.timesteps.dtype
+    )
+    if bool((timesteps[1:] >= timesteps[:-1]).any()) or int(timesteps[-1]) <= 0:
+        raise ValueError("direct HR grid collapses after model timestep quantization")
+    scheduler.sigmas = sigmas
+    scheduler.timesteps = timesteps
+    scheduler.infer_steps = hr_steps
+    scheduler.reset_solver_history()
+    return {
+        "grid_policy": "direct_sigma_linear",
+        "start_sigma": float(sigmas[0]),
+        "hr_steps": hr_steps,
+        "sigmas": sigmas.tolist(),
+        "model_timesteps": timesteps.cpu().tolist(),
+        "compute_indices": list(range(hr_steps)),
     }

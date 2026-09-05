@@ -8,6 +8,9 @@ For a separate fixed-boundary 10/6/4/2-step HR comparison on one prompt, see
 [`HR_REFINEMENT_ABLATION.md`](HR_REFINEMENT_ABLATION.md). The existing reference
 suffix behavior below remains the default.
 
+For the independent LR50-clean-endpoint plus direct-sigma HR restart matrix,
+see [`MRFLOW_REFINEMENT_ABLATION.md`](MRFLOW_REFINEMENT_ABLATION.md).
+
 ## Runtime contract
 
 The action is:

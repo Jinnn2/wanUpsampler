@@ -1,0 +1,24 @@
+{
+  "infer_steps": 50,
+  "target_video_length": 81,
+  "text_len": 512,
+  "target_height": 720,
+  "target_width": 1248,
+  "self_attn_1_type": "flash_attn3",
+  "cross_attn_1_type": "flash_attn3",
+  "cross_attn_2_type": "flash_attn3",
+  "sample_guide_scale": 6,
+  "sample_shift": 8,
+  "enable_cfg": true,
+  "cpu_offload": false,
+  "feature_caching": "NoCaching",
+  "univ_action": {
+    "spatial_ratio": 0.75,
+    "temporal_ratio": 0.8,
+    "lr_nfe_ratio": 1.0,
+    "switch_ratio": 1.0
+  },
+  "univ_cache_mode": "residual",
+  "univ_transition_baseline": "dvg_latent_anchor",
+  "univ_enable_transition_diagnostics": false
+}
