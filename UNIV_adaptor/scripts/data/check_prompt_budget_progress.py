@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Quickly inspect progress of UNIV prompt-budget 8-GPU data generation."""
+"""Quickly inspect progress of UNIV prompt-budget multi-GPU / multi-machine data generation."""
 from __future__ import annotations
 
 import argparse
@@ -11,6 +12,12 @@ import time
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
+
+
+DEFAULT_ROOTS = [
+    "/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_full_v3",
+    "/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_reserve_v1",
+]
 
 
 def format_duration(seconds: float) -> str:
@@ -25,22 +32,26 @@ def format_duration(seconds: float) -> str:
 
 
 def inspect_progress(out_root: Path, detail: bool = False) -> None:
+def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | None:
     manifest_path = out_root / "generation_manifest.json"
     if not manifest_path.is_file():
         print(f"[Error] Manifest not found at: {manifest_path}")
         print("The generation may not have started or the prepare step failed.")
         return
+        return None
 
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except Exception as exc:
         print(f"[Error] Failed to parse manifest {manifest_path}: {exc}")
         return
+        return None
 
     jobs = manifest.get("jobs", [])
     if not jobs:
         print("[Warning] No jobs found in manifest.")
         return
+        return None
 
     lock_path = out_root / ".prompt_budget_generation.lock"
     is_running = lock_path.is_dir() or lock_path.is_file()
@@ -125,6 +136,11 @@ def inspect_progress(out_root: Path, detail: bool = False) -> None:
         if gpu_log.is_file():
             try:
                 lines = [line.strip() for line in gpu_log.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip()]
+                lines = [
+                    line.strip()
+                    for line in gpu_log.read_text(encoding="utf-8", errors="ignore").splitlines()
+                    if line.strip()
+                ]
                 if lines:
                     worker_stats[slot]["last_log_line"] = lines[-1]
             except Exception:
@@ -141,15 +157,18 @@ def inspect_progress(out_root: Path, detail: bool = False) -> None:
 
     print("=" * 72)
     print("  UNIV 8-GPU Prompt Budget Generation Status")
+    print(f"  Shard: {out_root.name}  ({'[RUNNING]' if is_running else '[IDLE/FINISHED]'})")
     print("=" * 72)
     print(f"Output Root : {out_root}")
     print(f"Run State   : {'[RUNNING] (lock active)' if is_running else '[IDLE/FINISHED] (no active lock)'}")
+    print(f"Path        : {out_root}")
     print(f"Jobs Done   : {completed_jobs}/{total_jobs} ({job_pct:.1f}%) | In-progress: {in_progress_jobs}")
     print(f"Videos Done : {total_generated_videos}/{total_videos} ({vid_pct:.1f}%)")
 
     if finalized_count > 0:
         print(f"Final Records: {finalized_count} finalized trajectory records written")
 
+    avg_s = 0.0
     if total_generated_videos > 0:
         avg_s = total_video_latency / total_generated_videos
         remaining_vids = total_videos - total_generated_videos
@@ -171,6 +190,11 @@ def inspect_progress(out_root: Path, detail: bool = False) -> None:
             status = f"BUSY: {w['current_job_done']}/{w['current_job_total']} vids in chunk"
         elif w["last_log_line"]:
             short_log = (w["last_log_line"][:40] + "...") if len(w["last_log_line"]) > 40 else w["last_log_line"]
+            short_log = (
+                (w["last_log_line"][:40] + "...")
+                if len(w["last_log_line"]) > 40
+                else w["last_log_line"]
+            )
             status = f"RUNNING: {short_log}"
         else:
             status = "PENDING / IDLE"
@@ -182,24 +206,106 @@ def inspect_progress(out_root: Path, detail: bool = False) -> None:
         print("Breakdown by Split & Case:")
         for split, cases in sorted(split_case_stats.items()):
             case_summaries = [f"{case}: {data['done']}/{data['total']}" for case, data in sorted(cases.items())]
+            case_summaries = [
+                f"{case}: {data['done']}/{data['total']}"
+                for case, data in sorted(cases.items())
+            ]
             print(f"  [{split}]: {', '.join(case_summaries)}")
 
     print("=" * 72)
+    return {
+        "out_root": str(out_root),
+        "is_running": is_running,
+        "total_jobs": total_jobs,
+        "completed_jobs": completed_jobs,
+        "total_videos": total_videos,
+        "generated_videos": total_generated_videos,
+        "total_video_latency": total_video_latency,
+        "finalized_count": finalized_count,
+        "avg_s": avg_s,
+    }
+
+
+def print_multi_machine_summary(summaries: list[dict[str, Any]]) -> None:
+    if len(summaries) <= 1:
+        return
+
+    print("\n" + "#" * 72)
+    print("  MULTI-MACHINE / MULTI-SHARD AGGREGATE SUMMARY")
+    print("#" * 72)
+
+    total_shards = len(summaries)
+    running_shards = sum(1 for s in summaries if s["is_running"])
+    total_jobs = sum(s["total_jobs"] for s in summaries)
+    completed_jobs = sum(s["completed_jobs"] for s in summaries)
+    total_videos = sum(s["total_videos"] for s in summaries)
+    generated_videos = sum(s["generated_videos"] for s in summaries)
+    total_latency = sum(s["total_video_latency"] for s in summaries)
+    total_finalized = sum(s["finalized_count"] for s in summaries)
+
+    job_pct = (completed_jobs / total_jobs * 100) if total_jobs > 0 else 0.0
+    vid_pct = (generated_videos / total_videos * 100) if total_videos > 0 else 0.0
+
+    print(f"Active Shards / Machines : {running_shards}/{total_shards} running ({total_shards * 8} GPUs total)")
+    print(f"Global Jobs Completed    : {completed_jobs}/{total_jobs} ({job_pct:.1f}%)")
+    print(f"Global Videos Generated  : {generated_videos}/{total_videos} ({vid_pct:.1f}%)")
+
+    if total_finalized > 0:
+        print(f"Global Finalized Records : {total_finalized}")
+
+    if generated_videos > 0:
+        avg_s = total_latency / generated_videos
+        remaining_vids = total_videos - generated_videos
+        active_gpus = max(8, running_shards * 8)
+        global_eta = (remaining_vids * avg_s) / float(active_gpus) if remaining_vids > 0 else 0
+        print(f"Average Video Latency    : ~{avg_s:.1f}s")
+        print(f"Global Combined ETA      : ~{format_duration(global_eta)} (across {active_gpus} GPUs)")
+
+    print("#" * 72 + "\n")
+
+
+def resolve_roots(raw_roots: list[str]) -> list[Path]:
+    if raw_roots:
+        return [Path(r).resolve() for r in raw_roots]
+    # Check default paths
+    existing = [Path(r).resolve() for r in DEFAULT_ROOTS if Path(r).exists()]
+    if existing:
+        return existing
+    return [Path(DEFAULT_ROOTS[0]).resolve()]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Check progress of UNIV prompt-budget generation.")
+    parser = argparse.ArgumentParser(
+        description="Check progress of UNIV prompt-budget generation (single or multi-machine)."
+    )
     parser.add_argument(
         "out_root",
         nargs="?",
         default="/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_full_v3",
         help="Path to OUT_ROOT (default: /mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_full_v3)",
+        "out_roots",
+        nargs="*",
+        default=[],
+        help="One or more OUT_ROOT paths (defaults to primary and reserve shards if present)",
     )
     parser.add_argument("--watch", type=int, default=0, help="Refresh interval in seconds (e.g. --watch 10)")
+    parser.add_argument(
+        "--watch", type=int, default=0, help="Refresh interval in seconds (e.g. --watch 10)"
+    )
     parser.add_argument("--detail", action="store_true", help="Show breakdown by split and case")
     args = parser.parse_args()
 
     out_root = Path(args.out_root).resolve()
+    targets = resolve_roots(args.out_roots)
+
+    def run_check() -> None:
+        summaries = []
+        for target in targets:
+            summary = inspect_progress(target, detail=args.detail)
+            if summary:
+                summaries.append(summary)
+        print_multi_machine_summary(summaries)
 
     if args.watch > 0:
         try:
@@ -207,11 +313,16 @@ def main() -> None:
                 os.system("clear" if os.name != "nt" else "cls")
                 print(f"Refreshing every {args.watch}s (Ctrl+C to quit)... Time: {dt.datetime.now().strftime('%H:%M:%S')}")
                 inspect_progress(out_root, detail=args.detail)
+                print(
+                    f"Refreshing every {args.watch}s (Ctrl+C to quit)... Time: {dt.datetime.now().strftime('%H:%M:%S')}"
+                )
+                run_check()
                 time.sleep(args.watch)
         except KeyboardInterrupt:
             print("\nExiting watch mode.")
     else:
         inspect_progress(out_root, detail=args.detail)
+        run_check()
 
 
 if __name__ == "__main__":
