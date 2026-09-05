@@ -395,22 +395,7 @@ class WanUniversalRGBPipelineRunner(WanRunner):
             f"sigma={float(boundary_sigma)}, shape={tuple(scheduler.latents.shape)}"
         )
 
-        for step_index in schedule.hr_compute_steps:
-            if self.video_segment_num == 1:
-                self.check_stop()
-            start = time.perf_counter()
-            scheduler.step_pre(step_index=step_index)
-            self.model.infer(self.inputs)
-            scheduler.step_post()
-            hr_compute_seconds += time.perf_counter() - start
-            logger.info(
-                f"==> UNIV HR full compute {step_index + 1}/{schedule.reference_nfe}"
-            )
-            if self.progress_callback:
-                self.progress_callback(((step_index + 1) / schedule.reference_nfe) * 100, 100)
-
-        if not schedule.hr_compute_steps and self.progress_callback:
-            self.progress_callback(100, 100)
+        hr_compute_seconds = self._run_hr_suffix(schedule)
 
         self.univ_runtime_record = {
             "schema": "wan_univ_pipeline_v2",
@@ -441,3 +426,24 @@ class WanUniversalRGBPipelineRunner(WanRunner):
             del self.inputs
             getattr(torch, AI_DEVICE).empty_cache()
         return scheduler.latents
+
+    def _run_hr_suffix(self, schedule):
+        """Run the reference suffix; experiments may override this boundary hook."""
+        scheduler = self.model.scheduler
+        elapsed = 0.0
+        for step_index in schedule.hr_compute_steps:
+            if self.video_segment_num == 1:
+                self.check_stop()
+            start = time.perf_counter()
+            scheduler.step_pre(step_index=step_index)
+            self.model.infer(self.inputs)
+            scheduler.step_post()
+            elapsed += time.perf_counter() - start
+            logger.info(
+                f"==> UNIV HR full compute {step_index + 1}/{schedule.reference_nfe}"
+            )
+            if self.progress_callback:
+                self.progress_callback(((step_index + 1) / schedule.reference_nfe) * 100, 100)
+        if not schedule.hr_compute_steps and self.progress_callback:
+            self.progress_callback(100, 100)
+        return elapsed

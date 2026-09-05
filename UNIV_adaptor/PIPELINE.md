@@ -4,6 +4,10 @@ This is the first executable implementation of the research design in
 `README.md`. It targets Wan2.1 T2V with the canonical 50-step trajectory and a
 single GPU.
 
+For a separate fixed-boundary 10/6/4/2-step HR comparison on one prompt, see
+[`HR_REFINEMENT_ABLATION.md`](HR_REFINEMENT_ABLATION.md). The existing reference
+suffix behavior below remains the default.
+
 ## Runtime contract
 
 The action is:
