@@ -104,6 +104,52 @@ Compare fur/branch detail, footprints, motion continuity, flicker and semantic
 drift against HR10. A successful single-prompt run demonstrates execution and a
 local quality tradeoff; it does not establish a universal optimal HR step count.
 
+## Lightweight evaluation of existing videos
+
+Run the six-dimension VBench comparison without loading Wan or regenerating
+videos. It evaluates all four originals in a single custom-input batch, using
+the prompt and hashes from comparison_summary.json. A private hard-link/copy
+input directory excludes any montage videos in the output root.
+
+```bash
+cd /mnt/afs_2/houze/wanUpsampler
+GPU_ID=0 bash UNIV_adaptor/scripts/run_univ_hr_refinement_eval.sh run
+```
+
+For a custom generation directory or VBench environment:
+
+```bash
+OUT_DIR=/mnt/afs_2/houze/wanUpsampler/outputs/univ_hr_fox_custom_v1 \
+VBENCH_ROOT=/mnt/afs_2/houze/VBench \
+VBENCH_PYTHON=/opt/conda/envs/vbench/bin/python \
+GPU_ID=0 bash UNIV_adaptor/scripts/run_univ_hr_refinement_eval.sh run
+```
+
+The launcher auto-detects the isolated VBench Python, then the base Conda Python,
+then PATH Python using actual imports. `check` validates the environment and
+completed inputs without loading metric weights. The default VBench checkout is
+/mnt/afs_2/houze/VBench. As with the existing scorer, the checkout must be clean
+and Git-backed; its commit and input content hashes are recorded with results.
+Existing metric weights are reused; VBench may download missing weights on its
+first run. No separate pre-download/warmup or LPIPS pass is performed.
+
+Outputs under `<OUT_DIR>/metrics/hr_refinement/`:
+
+- `comparison.md`: readable metric table and HR timing comparison.
+- `comparison.csv`: raw per-video scores, signed deltas against HR10 in
+  percentage points, and HR-stage speedup.
+- `vbench_scores.json`: the same rows with generation and evaluator provenance.
+- `vbench/runs/`: official raw VBench results and content-bound cache manifests.
+
+Quality dimensions: subject_consistency, background_consistency,
+motion_smoothness, aesthetic_quality, imaging_quality. dynamic_degree is a
+separate motion diagnostic; there is no combined total that rewards more motion.
+The evaluator uses the existing `longer` imaging-quality preprocessing. This is
+a custom-input comparison, not an official full-benchmark overall score.
+Repeating the same command reuses matching verified scores; set FORCE_VBENCH=1
+to rescore. Missing videos, differing boundary hashes, changed video contents,
+or incomplete metric coverage fail explicitly rather than filling in scores.
+
 ## Local validation
 
 ```bash
