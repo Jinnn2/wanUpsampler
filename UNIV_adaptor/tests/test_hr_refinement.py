@@ -8,6 +8,7 @@ import os
 import tempfile
 import time
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -28,6 +29,30 @@ LIGHTX2V = Path(os.environ.get("LIGHTX2V_REPO", REPO_ROOT.parent / "LightX2V"))
 def reference_sigmas():
     raw = [0.999 * (1 - i / 50) for i in range(50)]
     return [8 * s / (1 + 7 * s) for s in raw] + [0.0]
+
+
+class GuardedConfig(dict):
+    """Minimal production-like config that rejects writes while locked."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.locked = True
+        self.unlock_count = 0
+
+    def __setitem__(self, key, value):
+        if self.locked:
+            raise TypeError("Dictionary is locked, current operation not allowed.")
+        super().__setitem__(key, value)
+
+    @contextmanager
+    def temporarily_unlocked(self):
+        previous = self.locked
+        self.locked = False
+        self.unlock_count += 1
+        try:
+            yield self
+        finally:
+            self.locked = previous
 
 
 def load_source_class(path, name, namespace):
@@ -64,6 +89,33 @@ def cpu_scheduler():
 
 
 class HRGridTest(unittest.TestCase):
+    def test_fixed_total_runtime_update_supports_locked_shared_config(self):
+        config = GuardedConfig({
+            "univ_action": dict(spatial_ratio=.5, temporal_ratio=.5,
+                                lr_nfe_ratio=1., switch_ratio=.8),
+            "univ_hr_boundary_path": "/old.pt",
+        })
+        scheduler = SimpleNamespace(config=config)
+        runner = SimpleNamespace(
+            config=config, scheduler=scheduler,
+            model=SimpleNamespace(config=config, scheduler=scheduler),
+            shared_boundary=object(), shared_identity=object(), shared_record=object(),
+        )
+        action = dict(spatial_ratio=.5, temporal_ratio=.5,
+                      lr_nfe_ratio=1., switch_ratio=.92)
+
+        configure_fixed_total_case(runner, {
+            "config": {"univ_action": action}, "boundary_path": "/HR04_boundary.pt",
+        })
+
+        self.assertTrue(config.locked)
+        self.assertEqual(config.unlock_count, 1)
+        self.assertEqual(config["univ_action"], action)
+        self.assertEqual(config["univ_hr_boundary_path"], "/HR04_boundary.pt")
+        self.assertIsNone(runner.shared_boundary)
+        self.assertIsNone(runner.shared_identity)
+        self.assertIsNone(runner.shared_record)
+
     def test_fixed_total_plan_keeps_reference_suffix_and_moves_boundary(self):
         args = SimpleNamespace(
             template_config=str(REPO_ROOT / "UNIV_adaptor/configs/univ_hr_refinement_ablation.json"),

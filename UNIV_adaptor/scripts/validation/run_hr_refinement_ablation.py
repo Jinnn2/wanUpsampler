@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -221,9 +222,19 @@ def configure_fixed_total_case(runner, case):
     """Keep resident weights but discard all reusable experiment boundary state."""
     runner.shared_boundary = runner.shared_identity = runner.shared_record = None
     # LightX2V versions may copy configs, so update each consumer explicitly.
+    seen = set()
     for owner in (runner, runner.scheduler, runner.model, runner.model.scheduler):
-        owner.config["univ_action"] = copy.deepcopy(case["config"]["univ_action"])
-        owner.config["univ_hr_boundary_path"] = case["boundary_path"]
+        config = owner.config
+        if id(config) in seen:
+            continue
+        seen.add(id(config))
+        temporarily_unlocked = getattr(config, "temporarily_unlocked", None)
+        context = temporarily_unlocked() if callable(temporarily_unlocked) else nullcontext()
+        with context:
+            # Preserve the nested LockableDict so recursive locking is restored on exit.
+            config["univ_action"].clear()
+            config["univ_action"].update(copy.deepcopy(case["config"]["univ_action"]))
+            config["univ_hr_boundary_path"] = case["boundary_path"]
 
 
 def main():
