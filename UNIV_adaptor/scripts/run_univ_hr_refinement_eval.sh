@@ -7,7 +7,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 VBENCH_ROOT="${VBENCH_ROOT:-/mnt/afs_2/houze/VBench}"
 VBENCH_PYTHON="${VBENCH_PYTHON:-}"
-OUT_DIR="${OUT_DIR:-${PROJECT_ROOT}/outputs/univ_hr_refinement_ablation_v1}"
+DEFAULT_OUT="${PROJECT_ROOT}/outputs/univ_hr_refinement_ablation_v1"
+[[ "${COMPARISON:-fixed-boundary}" == "fixed-total" ]] && DEFAULT_OUT="${PROJECT_ROOT}/outputs/univ_hr_fixed_total_v1"
+OUT_DIR="${OUT_DIR:-${DEFAULT_OUT}}"
 [[ -f "${OUT_DIR}/comparison_summary.json" ]] || { echo "Missing comparison_summary.json under ${OUT_DIR}" >&2; exit 1; }
 [[ -f "${VBENCH_ROOT}/evaluate.py" ]] || { echo "Missing VBench evaluate.py under ${VBENCH_ROOT}" >&2; exit 1; }
 export CUDA_VISIBLE_DEVICES="${GPU_ID:-0}"

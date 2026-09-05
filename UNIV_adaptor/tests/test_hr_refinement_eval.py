@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from UNIV_adaptor.data_protocol import sha256_file, write_json_atomic
 from UNIV_adaptor.scripts.validation.score_hr_refinement_ablation import (
-    CASES, DIMENSIONS, comparison_rows, evaluate, load_inputs, stage_inputs,
+    CASES, DIMENSIONS, comparison_rows, evaluate, load_inputs, stage_inputs, write_reports,
 )
 
 
@@ -38,6 +38,39 @@ def scores():
 
 
 class HRRefinementEvaluationTest(unittest.TestCase):
+    def test_fixed_total_accepts_distinct_boundaries_but_rejects_resampled_grid(self):
+        from UNIV_adaptor import UniversalAction, resolve_schedule
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            summary = fixture(root)
+            summary["schema"] = "univ_hr_fixed_total_results_v1"
+            base = summary["cases"][0]["hr_schedule"]["sigmas"]
+            for index, row in enumerate(summary["cases"]):
+                boundary = 50 - row["hr_steps"]
+                row["lr_steps"] = boundary
+                row["denoise_seconds"] = 50.
+                row["boundary_sha256"] = str(index) * 64
+                row["reference_schedule"] = resolve_schedule(
+                    UniversalAction(.75, .8, 1., boundary/50), reference_nfe=50,
+                    target_latent_shape=(16, 21, 90, 156),
+                ).as_dict()
+                row["hr_schedule"].update(sigmas=base[-(row["hr_steps"]+1):],
+                                          boundary_step=boundary, compute_indices=list(range(boundary, 50)))
+            write_json_atomic(root / "comparison_summary.json", summary)
+            _, cases = load_inputs(root)
+            rows = comparison_rows(cases, scores())
+            self.assertEqual([r["lr_steps"] for r in rows], [40, 44, 46, 48])
+            self.assertEqual([r["denoise_speedup_vs_hr10"] for r in rows], [1.] * 4)
+            write_reports(root, {"rows": rows, "comparison": "fixed-total", "prompt": "fox", "seed": 42})
+            report = (root / "comparison.md").read_text(encoding="utf-8")
+            self.assertIn("48 + 2", report)
+            self.assertIn("independent transitions", report)
+            self.assertNotIn("shared HR boundary", report)
+            summary["cases"][-1]["hr_schedule"]["sigmas"][0] += .001
+            write_json_atomic(root / "comparison_summary.json", summary)
+            with self.assertRaisesRegex(ValueError, "reference suffix"):
+                load_inputs(root)
+
     def test_relocated_outputs_and_extra_montage_are_handled(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

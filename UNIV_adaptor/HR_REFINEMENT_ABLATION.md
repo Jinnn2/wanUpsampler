@@ -1,4 +1,51 @@
-# Fixed-boundary HR refinement: 10 / 6 / 4 / 2 steps
+# HR refinement: fixed boundary or fixed total steps
+
+## Fixed-total follow-up: 40+10 / 44+6 / 46+4 / 48+2
+
+Set `COMPARISON=fixed-total` to compare delayed resolution switches on the
+original 50-step grid. All settings, including prompt and seed, retain the
+defaults below. Each case independently runs its LR prefix and DVG transition;
+the model weights load once. HR sigmas and model timesteps retain the original
+suffix exactly, with fresh solver history at each switch. No larger HR intervals
+are introduced in this mode.
+
+| Video | LR + HR steps | Switch ratio | Approximate HR starting sigma |
+| --- | ---: | ---: | ---: |
+| HR10 | 40 + 10 | 0.80 | 0.666389 |
+| HR06 | 44 + 6 | 0.88 | 0.521455 |
+| HR04 | 46 + 4 | 0.92 | 0.409993 |
+| HR02 | 48 + 2 | 0.96 | 0.249805 |
+
+```bash
+cd /mnt/afs_2/houze/wanUpsampler
+COMPARISON=fixed-total GPU_ID=0 bash UNIV_adaptor/scripts/run_univ_hr_refinement_ablation.sh run
+COMPARISON=fixed-total GPU_ID=0 bash UNIV_adaptor/scripts/run_univ_hr_refinement_eval.sh run
+```
+
+Use `plan` or `check` in the generation command for planning or environment
+validation. The separate default output is `outputs/univ_hr_fixed_total_v1/`.
+It contains four videos, per-case configs and boundary checkpoints, a plan and
+summary, followed by `metrics/hr_refinement/comparison.md` after evaluation.
+If the earlier run used custom `PROMPT`, `NEGATIVE_PROMPT`, `SEED` or
+`TEMPLATE_CONFIG`, pass the same values here. Any exported `OUT_DIR` overrides
+the default; select a fresh directory for this comparison.
+
+The evaluator recognizes this experiment's schema and checks 50 full evaluation
+positions per case, the requested split and nested original HR suffixes. It
+reports individual boundary hashes instead of requiring a shared boundary.
+Alongside the six existing dimensions and HR timings, the report adds full
+denoising time (LR + transition + HR, excluding encoders, decoder and boundary
+checkpoint I/O). Equal total steps do not imply equal compute cost because LR
+and HR evaluations have different costs. Timings remain single-pass estimates.
+
+The two modes answer different questions: fixed-boundary tests coarser HR
+integration; fixed-total tests later resolution switching. Compare HR06 in the
+new run with HR06 in the earlier run to assess whether four additional LR steps
+and a later transition improve the result. This changes both the transition
+state and its noise level, so improvement cannot be attributed solely to step
+count. The regenerated 40+10 baseline also helps check repeatability.
+
+## Fixed-boundary experiment
 
 This is a four-video quality ablation for one prompt and seed. It asks whether
 larger HR solver steps can replace the original 10-step refinement suffix.

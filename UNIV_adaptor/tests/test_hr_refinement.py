@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 from UNIV_adaptor.hr_refinement import install_hr_grid, resample_hr_sigmas
 from UNIV_adaptor.scripts.validation.run_hr_refinement_ablation import (
-    DEFAULT_PROMPT, REPO_ROOT, build_plan, prepare,
+    DEFAULT_PROMPT, REPO_ROOT, build_plan, prepare, configure_fixed_total_case,
 )
 
 try:
@@ -64,6 +64,21 @@ def cpu_scheduler():
 
 
 class HRGridTest(unittest.TestCase):
+    def test_fixed_total_plan_keeps_reference_suffix_and_moves_boundary(self):
+        args = SimpleNamespace(
+            template_config=str(REPO_ROOT / "UNIV_adaptor/configs/univ_hr_refinement_ablation.json"),
+            out_dir="/fixed-total", model_root="/model", prompt=DEFAULT_PROMPT,
+            negative_prompt="", seed=42, comparison="fixed-total",
+        )
+        plan = build_plan(args)
+        base = plan["cases"][0]["planned_sigmas"]
+        for case in plan["cases"]:
+            self.assertEqual(case["lr_steps"] + case["hr_steps"], 50)
+            self.assertEqual(case["planned_sigmas"], base[-(case["hr_steps"] + 1):])
+            self.assertEqual(case["reference_schedule"]["lr_compute_steps"], list(range(case["lr_steps"])))
+            self.assertEqual(case["reference_schedule"]["hr_compute_steps"], list(range(case["lr_steps"], 50)))
+        self.assertEqual(len({c["boundary_path"] for c in plan["cases"]}), 4)
+
     def test_reference_preserved_and_reduced_grids_cover_same_interval(self):
         reference = reference_sigmas()
         self.assertEqual(resample_hr_sigmas(reference, boundary_step=40, hr_steps=10), tuple(reference[40:]))
@@ -146,6 +161,12 @@ class HRActualWanSolverTest(unittest.TestCase):
             torch.testing.assert_close(result[-1], clean, rtol=1e-5, atol=1e-6)
 
     def test_real_runner_branches_reuse_one_transition_and_only_run_requested_hr_nfe(self):
+        self.check_runner_branches(fixed_total=False)
+
+    def test_fixed_total_runner_executes_all_prefixes_and_original_suffixes(self):
+        self.check_runner_branches(fixed_total=True)
+
+    def check_runner_branches(self, *, fixed_total):
         from UNIV_adaptor import UniversalAction, resolve_schedule
         from UNIV_adaptor.flow import wan_clean_from_velocity, wan_renoise
         from UNIV_adaptor.transition import WanDVGAnchorTransition
@@ -183,10 +204,20 @@ class HRActualWanSolverTest(unittest.TestCase):
             }
             for count in (10, 6, 4, 2):
                 scheduler = cpu_scheduler()
+                if fixed_total:
+                    action = UniversalAction(.5, .5, 1.0, (50 - count) / 50)
                 scheduler.univ_schedule = resolve_schedule(action, reference_nfe=50, target_latent_shape=(1, 3, 4, 4))
                 scheduler.univ_seed = 42
                 scheduler.univ_hr_noise = torch.zeros((1, 3, 4, 4))
-                runner.model = SimpleNamespace(scheduler=scheduler)
+                runner.model = SimpleNamespace(scheduler=scheduler, config={})
+                runner.scheduler = scheduler
+                reference = scheduler.sigmas.clone()
+                if fixed_total:
+                    configure_fixed_total_case(runner, {
+                        "config": {"univ_action": dict(spatial_ratio=.5, temporal_ratio=.5,
+                                                        lr_nfe_ratio=1., switch_ratio=(50-count)/50)},
+                        "boundary_path": str(Path(directory) / f"boundary{count}.pt"),
+                    })
                 def infer(inputs):
                     calls.append(scheduler.step_index)
                     scheduler.noise_pred = .15 * scheduler.latents + .05 * torch.sin(3 * scheduler.sigmas[scheduler.step_index])
@@ -197,13 +228,17 @@ class HRActualWanSolverTest(unittest.TestCase):
                 runner.hr_steps = count
                 before = len(calls)
                 result = runner.run_segment(None)
-                self.assertEqual(len(calls) - before, 50 if count == 10 else count)
+                self.assertEqual(len(calls) - before, 50 if fixed_total or count == 10 else count)
                 self.assertEqual(scheduler.infer_steps, 50)
                 self.assertEqual(tuple(result.shape), (1, 3, 4, 4))
                 self.assertEqual(runner.univ_runtime_record["hr_schedule"]["hr_steps"], count)
-                self.assertEqual(runner.univ_runtime_record["shared_boundary"]["reused"], count != 10)
+                self.assertEqual(runner.univ_runtime_record["shared_boundary"]["reused"], not fixed_total and count != 10)
+                if fixed_total:
+                    self.assertEqual(calls[before:], list(range(50)))
+                    self.assertTrue(torch.equal(scheduler.sigmas, reference))
+                    self.assertEqual(runner.hr_grid["boundary_step"], 50 - count)
                 self.assertEqual(tensor_digest(runner.shared_boundary), runner.boundary_sha256)
-            saved = torch.load(Path(directory) / "boundary.pt", weights_only=True)
+            saved = torch.load(Path(runner.config["univ_hr_boundary_path"]), weights_only=True)
             self.assertEqual(tensor_digest(saved["state"]), runner.boundary_sha256)
             runner.input_info.prompt = "different prompt"
             with self.assertRaisesRegex(ValueError, "different request"):

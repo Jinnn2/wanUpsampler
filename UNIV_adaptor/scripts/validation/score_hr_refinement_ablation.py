@@ -29,7 +29,8 @@ def load_inputs(out_dir: Path):
     """Validate the completed experiment without importing any scoring models."""
     summary_path = out_dir / "comparison_summary.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
-    if summary.get("schema") != "univ_hr_refinement_ablation_results_v1":
+    fixed_total = summary.get("schema") == "univ_hr_fixed_total_results_v1"
+    if not fixed_total and summary.get("schema") != "univ_hr_refinement_ablation_results_v1":
         raise ValueError("expected an HR refinement ablation comparison_summary.json")
     if summary.get("complete") is not True:
         raise ValueError("comparison is incomplete; all four generation branches are required")
@@ -63,10 +64,29 @@ def load_inputs(out_dir: Path):
             raise ValueError(f"HR grid must be finite and strictly decreasing: {case_id}")
         row["video_path"] = str(video)
         row["hr_seconds"] = seconds
+        if fixed_total:
+            boundary = 50 - steps
+            schedule = row.get("reference_schedule", {})
+            hr_grid = row["hr_schedule"]
+            if (row.get("lr_steps") != boundary or schedule.get("switch_step") != boundary
+                    or schedule.get("reference_nfe") != 50
+                    or schedule.get("lr_compute_steps") != list(range(boundary))
+                    or schedule.get("lr_cache_steps") != []
+                    or schedule.get("hr_compute_steps") != list(range(boundary, 50))
+                    or hr_grid.get("compute_indices") != list(range(boundary, 50))
+                    or hr_grid.get("boundary_step") != boundary):
+                raise ValueError(f"invalid fixed-total schedule for {case_id}")
+            denoise = float(row.get("denoise_seconds", 0))
+            if not math.isfinite(denoise) or denoise < seconds:
+                raise ValueError(f"invalid denoising timing for {case_id}")
         cases.append(row)
-    if len({row["boundary_sha256"] for row in cases}) != 1:
+    if fixed_total:
+        base = cases[0]["hr_schedule"]["sigmas"]
+        if any(row["hr_schedule"]["sigmas"] != base[-(row["hr_steps"] + 1):] for row in cases):
+            raise ValueError("fixed-total branches must retain the original reference suffix")
+    if not fixed_total and len({row["boundary_sha256"] for row in cases}) != 1:
         raise ValueError("videos did not share one HR transition state")
-    if len({row["hr_schedule"]["sigmas"][0] for row in cases}) != 1:
+    if not fixed_total and len({row["hr_schedule"]["sigmas"][0] for row in cases}) != 1:
         raise ValueError("videos did not start at the same HR sigma")
     return summary, cases
 
@@ -113,6 +133,11 @@ def comparison_rows(cases, scores):
             "case": name, "hr_steps": case["hr_steps"], "hr_seconds": case["hr_seconds"],
             "hr_speedup_vs_hr10": base_seconds / case["hr_seconds"],
         }
+        if "lr_steps" in case:
+            base = next(c for c in cases if c["id"] == "HR10")
+            row.update(lr_steps=case["lr_steps"], total_steps=case["lr_steps"] + case["hr_steps"],
+                       denoise_seconds=case["denoise_seconds"],
+                       denoise_speedup_vs_hr10=base["denoise_seconds"] / case["denoise_seconds"])
         for dimension in DIMENSIONS:
             row[dimension] = float(scores[name][dimension])
             row[f"delta_{dimension}_pp"] = 100 * (float(scores[name][dimension]) - float(scores["HR10"][dimension]))
@@ -123,6 +148,7 @@ def comparison_rows(cases, scores):
 def write_reports(metrics_dir: Path, payload):
     write_json_atomic(metrics_dir / "vbench_scores.json", payload)
     rows = payload["rows"]
+    fixed_total = payload.get("comparison") == "fixed-total"
     csv_path = metrics_dir / "comparison.csv"
     temporary = csv_path.with_suffix(".csv.tmp")
     with temporary.open("w", encoding="utf-8-sig", newline="") as handle:
@@ -133,7 +159,8 @@ def write_reports(metrics_dir: Path, payload):
     lines = [
         "# HR refinement VBench comparison", "",
         f"Prompt: {payload['prompt']}", f"Seed: {payload['seed']}", "",
-        "One prompt/seed, shared HR boundary. HR10 is the reference, not ground truth.",
+        ("One prompt/seed, original 50-step grid, independent transitions. HR10 = LR40+HR10 is the reference, not ground truth."
+         if fixed_total else "One prompt/seed, shared HR boundary. HR10 is the reference, not ground truth."),
         "Scores are raw [0,1]; deltas are percentage points (100 x score difference).",
         "Dynamic degree measures motion magnitude and is reported separately; higher is not necessarily better.",
         "No official VBench overall score or significance claim is computed.", "",
@@ -141,6 +168,11 @@ def write_reports(metrics_dir: Path, payload):
         "| --- | ---: | ---: | ---: |",
     ]
     lines += [f"| {r['case']} | {r['hr_steps']} | {r['hr_seconds']:.3f} | {r['hr_speedup_vs_hr10']:.3f}x |" for r in rows]
+    if fixed_total:
+        lines += ["", "| Case | LR + HR steps | Denoising seconds | Denoising speedup vs 40+10 |",
+                  "| --- | ---: | ---: | ---: |"]
+        lines += [f"| {r['case']} | {r['lr_steps']} + {r['hr_steps']} | {r['denoise_seconds']:.3f} | {r['denoise_speedup_vs_hr10']:.3f}x |" for r in rows]
+        lines += ["", "Denoising includes LR, transition and HR; excludes encoding, decoding and boundary checkpoint I/O. Equal step counts do not imply equal compute cost."]
     lines += ["", "Times are exploratory single-pass HR timings; they exclude VBench evaluation time.",
               "The original first branch may include cold HR kernel overhead. Whole-pipeline speedup is not inferred.", "",
               "| Dimension | HR10 | HR06 (delta pp) | HR04 (delta pp) | HR02 (delta pp) |",
@@ -167,7 +199,7 @@ def evaluate(args):
     )
     vbench_root = Path(args.vbench_root).resolve()
     identity = inspect_vbench_checkout(vbench_root, expected_commit=args.vbench_commit or None)
-    print(f"Verified four videos and shared boundary; VBench commit: {identity['git_commit']}")
+    print(f"Verified four videos and experiment schedules; VBench commit: {identity['git_commit']}")
     if args.mode == "check":
         return
     inputs, prompt_map = stage_inputs(cases, summary["prompt"], metrics_dir)
@@ -183,9 +215,11 @@ def evaluate(args):
         raise RuntimeError("experiment changed during scoring")
     payload = {
         "schema": "univ_hr_refinement_vbench_v1",
+        "comparison": "fixed-total" if summary["schema"] == "univ_hr_fixed_total_results_v1" else "fixed-boundary",
         "prompt": summary["prompt"], "seed": summary["seed"],
         "generation_summary_sha256": sha256_file(out_dir / "comparison_summary.json"),
-        "boundary_sha256": cases[0]["boundary_sha256"],
+        "boundary_sha256": ({row["id"]: row["boundary_sha256"] for row in cases}
+                            if summary["schema"] == "univ_hr_fixed_total_results_v1" else cases[0]["boundary_sha256"]),
         "quality_dimensions": QUALITY_DIMENSIONS,
         "diagnostic_dimensions": DIAGNOSTIC_DIMENSIONS,
         "video_sha256": {row["id"]: row["video_sha256"] for row in cases},
