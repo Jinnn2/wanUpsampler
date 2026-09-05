@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Quickly inspect progress of UNIV prompt-budget 8-GPU data generation."""
 """Quickly inspect progress of UNIV prompt-budget multi-GPU / multi-machine data generation."""
 from __future__ import annotations
 
@@ -31,26 +30,22 @@ def format_duration(seconds: float) -> str:
     return f"{minutes:02d}m {secs:02d}s"
 
 
-def inspect_progress(out_root: Path, detail: bool = False) -> None:
 def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | None:
     manifest_path = out_root / "generation_manifest.json"
     if not manifest_path.is_file():
         print(f"[Error] Manifest not found at: {manifest_path}")
         print("The generation may not have started or the prepare step failed.")
-        return
         return None
 
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except Exception as exc:
         print(f"[Error] Failed to parse manifest {manifest_path}: {exc}")
-        return
         return None
 
     jobs = manifest.get("jobs", [])
     if not jobs:
         print("[Warning] No jobs found in manifest.")
-        return
         return None
 
     lock_path = out_root / ".prompt_budget_generation.lock"
@@ -123,7 +118,6 @@ def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | N
             worker_stats[slot]["current_job_done"] = done_in_job
             worker_stats[slot]["current_job_total"] = prompt_count
         elif worker_stats[slot]["current_job"] is None:
-            # Check if this could be the job currently starting
             worker_stats[slot]["current_job"] = job.get("job_id")
             worker_stats[slot]["current_job_done"] = 0
             worker_stats[slot]["current_job_total"] = prompt_count
@@ -131,11 +125,9 @@ def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | N
     # Fetch last log line for each worker
     log_dir = out_root / "logs" / "8gpu_data"
     for slot in range(8):
-        # By default GPU index matches slot in 0..7
         gpu_log = log_dir / f"gpu_{slot}.log"
         if gpu_log.is_file():
             try:
-                lines = [line.strip() for line in gpu_log.read_text(encoding="utf-8", errors="ignore").splitlines() if line.strip()]
                 lines = [
                     line.strip()
                     for line in gpu_log.read_text(encoding="utf-8", errors="ignore").splitlines()
@@ -146,7 +138,6 @@ def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | N
             except Exception:
                 pass
 
-    # Check finalized records if any
     records_dir = out_root / "records"
     finalized_count = 0
     if records_dir.is_dir():
@@ -156,11 +147,8 @@ def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | N
     vid_pct = (total_generated_videos / total_videos * 100) if total_videos > 0 else 0.0
 
     print("=" * 72)
-    print("  UNIV 8-GPU Prompt Budget Generation Status")
     print(f"  Shard: {out_root.name}  ({'[RUNNING]' if is_running else '[IDLE/FINISHED]'})")
     print("=" * 72)
-    print(f"Output Root : {out_root}")
-    print(f"Run State   : {'[RUNNING] (lock active)' if is_running else '[IDLE/FINISHED] (no active lock)'}")
     print(f"Path        : {out_root}")
     print(f"Jobs Done   : {completed_jobs}/{total_jobs} ({job_pct:.1f}%) | In-progress: {in_progress_jobs}")
     print(f"Videos Done : {total_generated_videos}/{total_videos} ({vid_pct:.1f}%)")
@@ -189,7 +177,6 @@ def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | N
         elif w["current_job_done"] > 0:
             status = f"BUSY: {w['current_job_done']}/{w['current_job_total']} vids in chunk"
         elif w["last_log_line"]:
-            short_log = (w["last_log_line"][:40] + "...") if len(w["last_log_line"]) > 40 else w["last_log_line"]
             short_log = (
                 (w["last_log_line"][:40] + "...")
                 if len(w["last_log_line"]) > 40
@@ -205,14 +192,12 @@ def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | N
         print("-" * 72)
         print("Breakdown by Split & Case:")
         for split, cases in sorted(split_case_stats.items()):
-            case_summaries = [f"{case}: {data['done']}/{data['total']}" for case, data in sorted(cases.items())]
             case_summaries = [
                 f"{case}: {data['done']}/{data['total']}"
                 for case, data in sorted(cases.items())
             ]
             print(f"  [{split}]: {', '.join(case_summaries)}")
 
-    print("=" * 72)
     return {
         "out_root": str(out_root),
         "is_running": is_running,
@@ -275,28 +260,21 @@ def resolve_roots(raw_roots: list[str]) -> list[Path]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Check progress of UNIV prompt-budget generation.")
     parser = argparse.ArgumentParser(
         description="Check progress of UNIV prompt-budget generation (single or multi-machine)."
     )
     parser.add_argument(
-        "out_root",
-        nargs="?",
-        default="/mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_full_v3",
-        help="Path to OUT_ROOT (default: /mnt/afs_2/houze/wanUpsampler/outputs/univ_prompt_budget_full_v3)",
         "out_roots",
         nargs="*",
         default=[],
         help="One or more OUT_ROOT paths (defaults to primary and reserve shards if present)",
     )
-    parser.add_argument("--watch", type=int, default=0, help="Refresh interval in seconds (e.g. --watch 10)")
     parser.add_argument(
         "--watch", type=int, default=0, help="Refresh interval in seconds (e.g. --watch 10)"
     )
     parser.add_argument("--detail", action="store_true", help="Show breakdown by split and case")
     args = parser.parse_args()
 
-    out_root = Path(args.out_root).resolve()
     targets = resolve_roots(args.out_roots)
 
     def run_check() -> None:
@@ -311,8 +289,6 @@ def main() -> None:
         try:
             while True:
                 os.system("clear" if os.name != "nt" else "cls")
-                print(f"Refreshing every {args.watch}s (Ctrl+C to quit)... Time: {dt.datetime.now().strftime('%H:%M:%S')}")
-                inspect_progress(out_root, detail=args.detail)
                 print(
                     f"Refreshing every {args.watch}s (Ctrl+C to quit)... Time: {dt.datetime.now().strftime('%H:%M:%S')}"
                 )
@@ -321,10 +297,8 @@ def main() -> None:
         except KeyboardInterrupt:
             print("\nExiting watch mode.")
     else:
-        inspect_progress(out_root, detail=args.detail)
         run_check()
 
 
 if __name__ == "__main__":
     main()
-

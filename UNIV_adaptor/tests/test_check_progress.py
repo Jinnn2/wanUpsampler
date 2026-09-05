@@ -4,9 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-import io
 
-from UNIV_adaptor.scripts.data.check_prompt_budget_progress import inspect_progress
 from UNIV_adaptor.scripts.data.check_prompt_budget_progress import (
     inspect_progress,
     print_multi_machine_summary,
@@ -55,11 +53,9 @@ class TestCheckPromptBudgetProgress(unittest.TestCase):
 
             buf = io.StringIO()
             with patch("sys.stdout", buf):
-                inspect_progress(out_root, detail=True)
                 summary = inspect_progress(out_root, detail=True)
 
             output = buf.getvalue()
-            self.assertIn("UNIV 8-GPU Prompt Budget Generation Status", output)
             self.assertIn("Shard:", output)
             self.assertIn("1/2 (50.0%)", output)
             self.assertIn("GPU 0", output)
@@ -99,4 +95,3 @@ class TestCheckPromptBudgetProgress(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
