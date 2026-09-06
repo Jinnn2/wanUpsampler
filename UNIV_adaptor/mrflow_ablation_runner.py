@@ -11,13 +11,13 @@ from lightx2v.utils.envs import GET_DTYPE
 from lightx2v.utils.registry_factory import RUNNER_REGISTER
 
 from .hr_ablation_runner import synchronize, tensor_sha256
-from .hr_refinement import install_direct_hr_grid
+from .hr_refinement import install_direct_hr_grid, install_lr_grid
 from .wan_runner import WanUniversalRGBPipelineRunner
 
 
 @RUNNER_REGISTER("wan2.1_univ_mrflow_ablation")
 class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
-    """Run LR50 once, then reuse one clean HR transition for all branches."""
+    """Run one true LR grid, then reuse its clean HR transition across branches."""
 
     def __init__(self, config):
         super().__init__(config)
@@ -25,11 +25,22 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
             raise ValueError("MrFlow ablation requires resident, uncompiled model weights")
         self.refine_sigma = 0.0
         self.hr_steps = 0
+        self.lr_steps = 50
         self.shared_clean_lr = None
         self.shared_clean_hr = None
         self.shared_hr_noise = None
         self.shared_identity = None
         self.shared_record = None
+        self.shared_lr_grid = None
+
+    def reset_shared_endpoint(self) -> None:
+        """Discard one LR-grid endpoint before starting a different LR schedule."""
+        self.shared_clean_lr = None
+        self.shared_clean_hr = None
+        self.shared_hr_noise = None
+        self.shared_identity = None
+        self.shared_record = None
+        self.shared_lr_grid = None
 
     def _identity(self, schedule):
         return (
@@ -37,29 +48,41 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
             str(getattr(self.input_info, "negative_prompt", "")),
             int(self.input_info.seed),
             tuple(schedule.target_latent_shape),
+            int(self.lr_steps),
         )
 
     def _complete_lr_and_transition(self, scheduler, schedule):
         if schedule.switch_step != schedule.reference_nfe or schedule.hr_compute_steps:
-            raise ValueError("MrFlow ablation requires switch_ratio=1.0 and a full LR50 run")
+            raise ValueError("MrFlow ablation requires switch_ratio=1.0 before LR resampling")
         if tuple(schedule.lr_compute_steps) != tuple(range(schedule.reference_nfe)):
-            raise ValueError("MrFlow ablation requires all 50 LR positions to run the DiT")
+            raise ValueError(
+                "disable LR prediction caching; reduced-LR grids fully compute retained positions"
+            )
+
+        lr_steps = int(self.lr_steps)
+        if not 1 <= lr_steps <= schedule.reference_nfe:
+            raise ValueError("MrFlow LR steps must be in [1, reference_nfe]")
+        lr_grid = install_lr_grid(
+            scheduler,
+            reference_sigmas=scheduler.sigmas.tolist(),
+            lr_steps=lr_steps,
+        )
 
         synchronize(scheduler.latents)
         lr_started = time.perf_counter()
-        for step_index in schedule.lr_solver_steps:
+        for position, step_index in enumerate(lr_grid["compute_indices"]):
             self.check_stop()
             scheduler.step_pre(step_index=step_index)
             self.model.infer(self.inputs)
             # Unlike the normal handoff runner, include the final solver update to sigma=0.
             scheduler.step_post()
-            logger.info(f"MrFlow ablation LR endpoint: {step_index + 1}/{schedule.reference_nfe}")
+            logger.info(f"MrFlow ablation LR endpoint: {position + 1}/{lr_steps}")
             if self.progress_callback:
-                self.progress_callback(80 * (step_index + 1) / schedule.reference_nfe, 100)
+                self.progress_callback(80 * (position + 1) / lr_steps, 100)
         synchronize(scheduler.latents)
         lr_seconds = time.perf_counter() - lr_started
-        if float(scheduler.sigmas[schedule.reference_nfe]) != 0.0:
-            raise RuntimeError("LR50 did not terminate at sigma=0")
+        if float(scheduler.sigmas[lr_steps]) != 0.0:
+            raise RuntimeError(f"LR{lr_steps} did not terminate at sigma=0")
 
         clean_lr = scheduler.latents.detach().clone()
         transition_started = time.perf_counter()
@@ -78,6 +101,7 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
         self.clean_hr_sha256 = tensor_sha256(self.shared_clean_hr)
         self.hr_noise_sha256 = tensor_sha256(self.shared_hr_noise)
         self.shared_lr_seconds = lr_seconds
+        self.shared_lr_grid = lr_grid
         self.shared_transition_seconds = transition_seconds
         self.shared_transition_record = {
             "baseline": result.baseline,
@@ -106,7 +130,9 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
                 "clean_lr_sha256": self.clean_lr_sha256,
                 "clean_hr_sha256": self.clean_hr_sha256,
                 "hr_noise_sha256": self.hr_noise_sha256,
-                "lr_steps": schedule.reference_nfe,
+                "lr_steps": lr_steps,
+                "reference_nfe": schedule.reference_nfe,
+                "lr_schedule": lr_grid,
                 "lr_endpoint_sigma": 0.0,
                 "prompt": self.shared_identity[0],
                 "negative_prompt": self.shared_identity[1],
@@ -190,10 +216,12 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
                 "action": dict(self.config["univ_action"]),
                 "reference_schedule": schedule.as_dict(),
                 "lr_endpoint": {
-                    "steps": schedule.reference_nfe,
+                    "steps": int(self.lr_steps),
+                    "reference_nfe": schedule.reference_nfe,
                     "sigma": 0.0,
                     "final_step_post_completed": True,
                     "clean_lr_sha256": self.clean_lr_sha256,
+                    "lr_schedule": copy.deepcopy(self.shared_lr_grid),
                 },
                 "transition": copy.deepcopy(self.shared_transition_record),
                 "shared_clean_hr": {

@@ -21,6 +21,29 @@ zero. All branches share the exact clean LR endpoint, clean HR transition and
 coordinate-noise tensor. Branches with the same sigma also share an identical
 re-noised starting tensor.
 
+## True reduced-LR endpoint sweep
+
+The separate endpoint-grid launcher keeps the same prompt, seed, low latent
+shape, DVG transition, sigma matrix and HR-step matrix, while replacing the
+dense LR50 solve with 25, 16 or 12 true solver intervals. Every retained LR
+position recomputes the DiT; this is schedule reduction, not prediction-cache
+reuse. Each LR grid owns one transition-only control and shares its endpoint,
+transition and noise tensor only within that LR-step group.
+
+```bash
+cd /mnt/afs_2/houze/wanUpsampler
+bash UNIV_adaptor/scripts/run_univ_mrflow_lr_endpoint_ablation.sh plan
+GPU_ID=0 bash UNIV_adaptor/scripts/run_univ_mrflow_lr_endpoint_ablation.sh check
+GPU_ID=0 bash UNIV_adaptor/scripts/run_univ_mrflow_lr_endpoint_ablation.sh run
+GPU_ID=0 bash UNIV_adaptor/scripts/run_univ_mrflow_lr_endpoint_eval.sh run
+```
+
+The default output is `outputs/univ_mrflow_lr_endpoint_v1/` and contains 30
+videos: three LR grids times one control plus nine direct-sigma branches. The
+VBench report computes each quality delta against the transition-only control
+from the same LR-step group. Override `LR_STEPS`, `SIGMAS`, `HR_STEPS`,
+`PROMPT`, `SEED` or `OUT_DIR` only with a fresh output directory.
+
 ## Server commands
 
 ```bash

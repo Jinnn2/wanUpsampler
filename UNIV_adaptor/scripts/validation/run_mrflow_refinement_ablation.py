@@ -1,4 +1,4 @@
-"""Run LR50 once, then compare explicit HR sigma and step-count combinations."""
+"""Compare true LR endpoint grids followed by explicit-sigma HR refinement."""
 from __future__ import annotations
 
 import argparse
@@ -7,6 +7,7 @@ import math
 import os
 import sys
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -15,11 +16,17 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from UNIV_adaptor.data_protocol import canonical_sha256, sha256_file, write_json_atomic
-from UNIV_adaptor.hr_refinement import direct_hr_sigmas, quantize_float32_timesteps
+from UNIV_adaptor.hr_refinement import (
+    direct_hr_sigmas,
+    quantize_float32_timesteps,
+    resample_hr_sigmas,
+    wan_reference_sigmas,
+)
 from UNIV_adaptor.schedule import action_from_config, resolve_schedule
 
 DEFAULT_SIGMAS = (0.12, 0.20, 0.30)
 DEFAULT_HR_STEPS = (1, 2, 4)
+DEFAULT_LR_STEPS = (50,)
 CONTROL_ID = "S0000_HR00"
 DEFAULT_PROMPT = (
     "A cinematic tracking shot of a red fox walking steadily through a snowy forest. "
@@ -50,6 +57,17 @@ def parse_hr_steps(value: str) -> tuple[int, ...]:
     return result
 
 
+def parse_lr_steps(value: str) -> tuple[int, ...]:
+    try:
+        result = tuple(int(item.strip()) for item in value.split(",") if item.strip())
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("lr_steps must be comma-separated integers") from exc
+    if not result or any(not 1 <= value <= 50 for value in result) \
+            or len(set(result)) != len(result):
+        raise argparse.ArgumentTypeError("lr_steps must be unique integers in [1, 50]")
+    return result
+
+
 def case_id(sigma: float, steps: int) -> str:
     scaled = round(float(sigma) * 1000)
     if abs(scaled / 1000 - float(sigma)) > 1e-9:
@@ -57,7 +75,54 @@ def case_id(sigma: float, steps: int) -> str:
     return f"S{scaled:04d}_HR{steps:02d}"
 
 
-def build_cases(sigmas, hr_steps, out: Path):
+def lr_case_id(lr_steps: int, sigma: float, hr_steps: int) -> str:
+    return f"LR{int(lr_steps):02d}_{case_id(sigma, hr_steps)}"
+
+
+def build_cases(sigmas, hr_steps, out: Path, lr_steps=DEFAULT_LR_STEPS):
+    lr_steps = tuple(int(value) for value in lr_steps)
+    if lr_steps != DEFAULT_LR_STEPS:
+        cases = []
+        for lr_count in lr_steps:
+            boundary = str(out / f"LR{lr_count:02d}_shared_clean_transition.pt")
+            cases.append({
+                "id": lr_case_id(lr_count, 0.0, 0),
+                "lr_steps": lr_count,
+                "refine_sigma": 0.0,
+                "hr_steps": 0,
+                "planned_sigmas": [0.0],
+                "planned_model_timesteps": [],
+                "boundary_path": boundary,
+                "video_path": str(out / f"{lr_case_id(lr_count, 0.0, 0)}.mp4"),
+            })
+            for sigma in sigmas:
+                for steps in hr_steps:
+                    identifier = lr_case_id(lr_count, sigma, steps)
+                    planned_sigmas = list(direct_hr_sigmas(
+                        start_sigma=float(sigma), hr_steps=int(steps)
+                    ))
+                    planned_timesteps = list(quantize_float32_timesteps(
+                        planned_sigmas[:-1], num_train_timesteps=1000
+                    ))
+                    if planned_timesteps[-1] <= 0 or any(
+                        left <= right
+                        for left, right in zip(planned_timesteps, planned_timesteps[1:])
+                    ):
+                        raise ValueError(
+                            f"direct HR grid collapses after Wan timestep quantization: {identifier}"
+                        )
+                    cases.append({
+                        "id": identifier,
+                        "lr_steps": lr_count,
+                        "refine_sigma": float(sigma),
+                        "hr_steps": int(steps),
+                        "planned_sigmas": planned_sigmas,
+                        "planned_model_timesteps": planned_timesteps,
+                        "boundary_path": boundary,
+                        "video_path": str(out / f"{identifier}.mp4"),
+                    })
+        return cases
+
     cases = [{
         "id": CONTROL_ID,
         "refine_sigma": 0.0,
@@ -94,6 +159,21 @@ def build_cases(sigmas, hr_steps, out: Path):
     return cases
 
 
+def build_lr_grids(lr_steps, *, sample_shift: float):
+    reference = wan_reference_sigmas(reference_nfe=50, sample_shift=sample_shift)
+    grids = []
+    for steps in lr_steps:
+        sigmas = list(resample_hr_sigmas(reference, boundary_step=0, hr_steps=steps))
+        grids.append({
+            "lr_steps": int(steps),
+            "planned_sigmas": sigmas,
+            "planned_model_timesteps": list(quantize_float32_timesteps(
+                sigmas[:-1], num_train_timesteps=1000
+            )),
+        })
+    return grids
+
+
 def build_plan(args):
     config = json.loads(Path(args.template_config).read_text(encoding="utf-8"))
     if int(config["infer_steps"]) != 50:
@@ -120,10 +200,21 @@ def build_plan(args):
         raise ValueError("prompt must not be empty")
 
     out = Path(args.out_dir).resolve()
-    config["univ_mrflow_boundary_path"] = str(out / "shared_clean_transition.pt")
+    lr_steps = tuple(getattr(args, "lr_steps", DEFAULT_LR_STEPS))
+    reduced_lr = lr_steps != DEFAULT_LR_STEPS
+    cases = build_cases(args.sigmas, args.hr_steps, out, lr_steps)
+    config["univ_mrflow_boundary_path"] = (
+        cases[0]["boundary_path"] if reduced_lr else str(out / "shared_clean_transition.pt")
+    )
     plan = {
-        "schema": "univ_mrflow_refinement_plan_v1",
-        "method": "MrFlow-style direct-sigma refinement over dvg_latent_anchor",
+        "schema": (
+            "univ_mrflow_lr_endpoint_plan_v1"
+            if reduced_lr else "univ_mrflow_refinement_plan_v1"
+        ),
+        "method": (
+            "true reduced-LR endpoint grids plus MrFlow-style direct-sigma refinement"
+            if reduced_lr else "MrFlow-style direct-sigma refinement over dvg_latent_anchor"
+        ),
         "prompt": args.prompt,
         "negative_prompt": args.negative_prompt,
         "seed": args.seed,
@@ -132,12 +223,21 @@ def build_plan(args):
         "reference_schedule": schedule.as_dict(),
         "sigmas": list(args.sigmas),
         "hr_steps": list(args.hr_steps),
-        "cases": build_cases(args.sigmas, args.hr_steps, out),
+        "cases": cases,
         "comparison": (
             "one completed LR50 endpoint, one clean HR transition and one HR noise tensor; "
             "branches vary only direct start sigma and HR solver evaluations"
         ),
     }
+    if reduced_lr:
+        plan["lr_steps"] = list(lr_steps)
+        plan["lr_grids"] = build_lr_grids(
+            lr_steps, sample_shift=float(config["sample_shift"])
+        )
+        plan["comparison"] = (
+            "each LR grid fully recomputes every retained position and reaches sigma zero; "
+            "each LR grid owns one clean transition and one shared HR noise tensor"
+        )
     plan["plan_sha256"] = canonical_sha256(plan)
     return plan
 
@@ -159,7 +259,8 @@ def prepare(args):
         write_json_atomic(config_path, plan["config"])
     print(f"Prompt: {plan['prompt']}\nSeed: {args.seed}\nOutput: {out}")
     for case in plan["cases"]:
-        print(f"{case['id']}: sigma grid = " + ", ".join(
+        prefix = f"LR{case['lr_steps']} " if "lr_steps" in case else ""
+        print(f"{case['id']}: {prefix}sigma grid = " + ", ".join(
             f"{value:.6f}" for value in case["planned_sigmas"]
         ))
     return plan, config_path
@@ -208,10 +309,15 @@ def run(args, plan, config_path):
         return
 
     out = Path(args.out_dir).resolve()
+    reduced_lr = plan["schema"] == "univ_mrflow_lr_endpoint_plan_v1"
     outputs = [Path(case["video_path"]) for case in plan["cases"]]
+    boundary_paths = (
+        {Path(case["boundary_path"]) for case in plan["cases"]}
+        if reduced_lr else {Path(config["univ_mrflow_boundary_path"])}
+    )
     protected = [
         *outputs,
-        Path(config["univ_mrflow_boundary_path"]),
+        *boundary_paths,
         out / "comparison_summary.json",
     ]
     if any(path.exists() for path in protected):
@@ -222,7 +328,10 @@ def run(args, plan, config_path):
     runner = WanMrFlowRefinementAblationRunner(config)
     runner.init_modules()
     summary = {
-        "schema": "univ_mrflow_refinement_results_v1",
+        "schema": (
+            "univ_mrflow_lr_endpoint_results_v1"
+            if reduced_lr else "univ_mrflow_refinement_results_v1"
+        ),
         "plan_sha256": plan["plan_sha256"],
         "method": plan["method"],
         "prompt": plan["prompt"],
@@ -239,8 +348,30 @@ def run(args, plan, config_path):
         "cases": [],
         "complete": False,
     }
+    if reduced_lr:
+        summary["lr_steps"] = plan["lr_steps"]
+        summary["lr_grids"] = plan["lr_grids"]
+        summary["shared_boundary_path"] = {
+            str(steps): str(out / f"LR{steps:02d}_shared_clean_transition.pt")
+            for steps in plan["lr_steps"]
+        }
+        summary["timing_note"] = (
+            "candidate_denoise_seconds adds the per-LR-grid endpoint and transition timings "
+            "to each branch HR timing; encoding, decoding and checkpoint I/O are excluded"
+        )
     summary_path = out / "comparison_summary.json"
+    current_lr_steps = None
+    group_index = 0
     for index, case in enumerate(plan["cases"]):
+        if reduced_lr and case["lr_steps"] != current_lr_steps:
+            current_lr_steps = case["lr_steps"]
+            group_index = 0
+            runner.reset_shared_endpoint()
+            runner.lr_steps = current_lr_steps
+            temporarily_unlocked = getattr(config, "temporarily_unlocked", None)
+            context = temporarily_unlocked() if callable(temporarily_unlocked) else nullcontext()
+            with context:
+                config["univ_mrflow_boundary_path"] = case["boundary_path"]
         runner.refine_sigma = case["refine_sigma"]
         runner.hr_steps = case["hr_steps"]
         input_info = init_empty_input_info("t2v", [])
@@ -264,19 +395,22 @@ def run(args, plan, config_path):
         endpoint = runtime["lr_endpoint"]
         grid = runtime["hr_schedule"]
         shared = runtime["shared_clean_hr"]
-        if endpoint.get("steps") != 50 or endpoint.get("sigma") != 0.0 \
+        expected_lr_steps = case.get("lr_steps", 50)
+        if endpoint.get("steps") != expected_lr_steps or endpoint.get("sigma") != 0.0 \
                 or endpoint.get("final_step_post_completed") is not True:
-            raise RuntimeError("branch did not use a completed LR50 solver endpoint")
-        if bool(shared.get("reused")) != (index > 0):
+            raise RuntimeError("branch did not use the requested completed LR solver endpoint")
+        expected_reuse = group_index > 0 if reduced_lr else index > 0
+        if bool(shared.get("reused")) != expected_reuse:
             raise RuntimeError("shared clean transition reuse does not match the run order")
         if grid.get("hr_steps") != case["hr_steps"] or len(grid.get("sigmas", [])) != case["hr_steps"] + 1:
             raise RuntimeError(f"wrong direct HR schedule for {case['id']}")
         timing = runtime["timing_seconds"]
         summary["cases"].append({
             "id": case["id"],
+            "lr_steps": expected_lr_steps,
             "refine_sigma": case["refine_sigma"],
             "hr_steps": case["hr_steps"],
-            "total_nfe": 50 + case["hr_steps"],
+            "total_nfe": expected_lr_steps + case["hr_steps"],
             "video_path": str(video),
             "video_sha256": sha256_file(video),
             "clean_lr_sha256": endpoint["clean_lr_sha256"],
@@ -284,23 +418,30 @@ def run(args, plan, config_path):
             "hr_noise_sha256": shared["hr_noise_sha256"],
             "branch_start_sha256": shared["branch_start_sha256"],
             "hr_schedule": grid,
+            "lr_schedule": endpoint["lr_schedule"],
             "hr_seconds": timing["hr_full_compute"],
             "candidate_denoise_seconds": timing["candidate_denoise"],
             "pipeline_seconds_this_branch": pipeline_seconds,
         })
         write_json_atomic(summary_path, summary)
+        group_index += 1
 
-    for key in ("clean_lr_sha256", "clean_hr_sha256", "hr_noise_sha256"):
-        if len({row[key] for row in summary["cases"]}) != 1:
-            raise RuntimeError(f"branches did not share one {key}")
-    for sigma in plan["sigmas"]:
-        hashes = {
-            row["branch_start_sha256"]
-            for row in summary["cases"]
-            if row["refine_sigma"] == sigma
-        }
-        if len(hashes) != 1:
-            raise RuntimeError(f"sigma={sigma} branches did not share one starting tensor")
+    groups = plan["lr_steps"] if reduced_lr else [50]
+    for lr_steps in groups:
+        group = [row for row in summary["cases"] if row["lr_steps"] == lr_steps]
+        for key in ("clean_lr_sha256", "clean_hr_sha256", "hr_noise_sha256"):
+            if len({row[key] for row in group}) != 1:
+                raise RuntimeError(f"LR{lr_steps} branches did not share one {key}")
+        for sigma in plan["sigmas"]:
+            hashes = {
+                row["branch_start_sha256"]
+                for row in group
+                if row["refine_sigma"] == sigma
+            }
+            if len(hashes) != 1:
+                raise RuntimeError(
+                    f"LR{lr_steps} sigma={sigma} branches did not share one starting tensor"
+                )
     summary["complete"] = True
     write_json_atomic(summary_path, summary)
     print(f"{len(plan['cases'])} comparison videos completed. Summary: {summary_path}")
@@ -332,6 +473,7 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--sigmas", type=parse_sigmas, default=DEFAULT_SIGMAS)
     parser.add_argument("--hr-steps", type=parse_hr_steps, default=DEFAULT_HR_STEPS)
+    parser.add_argument("--lr-steps", type=parse_lr_steps, default=DEFAULT_LR_STEPS)
     args = parser.parse_args()
     plan, config_path = prepare(args)
     if args.mode != "plan":

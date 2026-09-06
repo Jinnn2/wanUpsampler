@@ -1,4 +1,4 @@
-"""Score completed full-LR direct-sigma refinement videos with VBench."""
+"""Score completed full or reduced-LR direct-sigma refinement videos with VBench."""
 from __future__ import annotations
 
 import argparse
@@ -18,6 +18,7 @@ from UNIV_adaptor.hr_refinement import direct_hr_sigmas
 from UNIV_adaptor.scripts.validation.run_mrflow_refinement_ablation import (
     CONTROL_ID,
     build_cases,
+    lr_case_id,
 )
 from UNIV_adaptor.scripts.validation.score_hr_refinement_ablation import (
     DIAGNOSTIC_DIMENSIONS,
@@ -35,8 +36,13 @@ def _valid_digest(value) -> bool:
 def load_inputs(out_dir: Path):
     summary_path = out_dir / "comparison_summary.json"
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
-    if summary.get("schema") != "univ_mrflow_refinement_results_v1":
-        raise ValueError("expected a full-LR direct-sigma comparison summary")
+    schema = summary.get("schema")
+    if schema not in {
+        "univ_mrflow_refinement_results_v1",
+        "univ_mrflow_lr_endpoint_results_v1",
+    }:
+        raise ValueError("expected a direct-sigma comparison summary")
+    reduced_lr = schema == "univ_mrflow_lr_endpoint_results_v1"
     if summary.get("complete") is not True:
         raise ValueError("comparison is incomplete")
     if not isinstance(summary.get("prompt"), str) or not summary["prompt"].strip():
@@ -54,7 +60,24 @@ def load_inputs(out_dir: Path):
     ) or len(set(hr_steps)) != len(hr_steps):
         raise ValueError("comparison summary has invalid HR steps")
 
-    expected = build_cases(sigmas, hr_steps, out_dir)
+    lr_steps = summary.get("lr_steps", [50])
+    if not isinstance(lr_steps, list) or not lr_steps or any(
+        type(value) is not int or not 1 <= value <= 50 for value in lr_steps
+    ) or len(set(lr_steps)) != len(lr_steps):
+        raise ValueError("comparison summary has invalid LR steps")
+    if not reduced_lr and lr_steps != [50]:
+        raise ValueError("full-LR comparison must use LR50")
+    lr_grids = summary.get("lr_grids", []) if reduced_lr else []
+    if reduced_lr and (
+        not isinstance(lr_grids, list)
+        or {item.get("lr_steps") for item in lr_grids if isinstance(item, dict)}
+        != set(lr_steps)
+        or len(lr_grids) != len(lr_steps)
+    ):
+        raise ValueError("comparison summary has invalid LR grid plans")
+    lr_grid_by_steps = {item["lr_steps"]: item for item in lr_grids}
+
+    expected = build_cases(sigmas, hr_steps, out_dir, tuple(lr_steps))
     expected_by_id = {row["id"]: row for row in expected}
     entries = summary.get("cases", [])
     if len(entries) != len(expected) or {row.get("id") for row in entries} != set(expected_by_id):
@@ -68,9 +91,12 @@ def load_inputs(out_dir: Path):
         expected_row = expected_by_id[row["id"]]
         sigma = float(row.get("refine_sigma", -1))
         steps = int(row.get("hr_steps", -1))
+        lr_count = int(row.get("lr_steps", 50))
         if sigma != expected_row["refine_sigma"] or steps != expected_row["hr_steps"]:
             raise ValueError(f"wrong sigma or HR steps for {row['id']}")
-        if row.get("total_nfe") != 50 + steps:
+        if lr_count != expected_row.get("lr_steps", 50):
+            raise ValueError(f"wrong LR steps for {row['id']}")
+        if row.get("total_nfe") != lr_count + steps:
             raise ValueError(f"wrong total NFE for {row['id']}")
         for key in ("clean_lr_sha256", "clean_hr_sha256", "hr_noise_sha256", "branch_start_sha256"):
             if not _valid_digest(row.get(key)):
@@ -100,6 +126,22 @@ def load_inputs(out_dir: Path):
         if grid.get("model_timesteps") != expected_row["planned_model_timesteps"]:
             raise ValueError(f"invalid direct model timesteps for {row['id']}")
 
+        if reduced_lr:
+            lr_grid = row.get("lr_schedule", {})
+            planned = lr_grid_by_steps[lr_count]
+            actual_lr_sigmas = [float(value) for value in lr_grid.get("sigmas", [])]
+            expected_lr_sigmas = [float(value) for value in planned["planned_sigmas"]]
+            if len(actual_lr_sigmas) != len(expected_lr_sigmas) or any(
+                not math.isclose(actual, expected_value, rel_tol=0, abs_tol=1e-6)
+                for actual, expected_value in zip(actual_lr_sigmas, expected_lr_sigmas)
+            ):
+                raise ValueError(f"invalid reduced LR sigma grid for {row['id']}")
+            if lr_grid.get("lr_steps") != lr_count \
+                    or lr_grid.get("reference_nfe") != 50 \
+                    or lr_grid.get("compute_indices") != list(range(lr_count)) \
+                    or lr_grid.get("model_timesteps") != planned["planned_model_timesteps"]:
+                raise ValueError(f"invalid reduced LR schedule for {row['id']}")
+
         hr_seconds = float(row.get("hr_seconds", -1))
         candidate_seconds = float(row.get("candidate_denoise_seconds", -1))
         if not math.isfinite(hr_seconds) or hr_seconds < 0 or (steps > 0 and hr_seconds <= 0):
@@ -112,16 +154,24 @@ def load_inputs(out_dir: Path):
         row["candidate_denoise_seconds"] = candidate_seconds
         cases.append(row)
 
-    for key in ("clean_lr_sha256", "clean_hr_sha256", "hr_noise_sha256"):
-        if len({row[key] for row in cases}) != 1:
-            raise ValueError(f"branches did not share one {key}")
-    for sigma in summary["sigmas"]:
-        starts = {row["branch_start_sha256"] for row in cases if row["refine_sigma"] == sigma}
-        if len(starts) != 1:
-            raise ValueError(f"sigma={sigma} branches did not share one starting tensor")
-    control = next(row for row in cases if row["id"] == CONTROL_ID)
-    if control["branch_start_sha256"] != control["clean_hr_sha256"]:
-        raise ValueError("transition-only control does not start from clean HR")
+    for lr_count in lr_steps:
+        group = [row for row in cases if int(row.get("lr_steps", 50)) == lr_count]
+        for key in ("clean_lr_sha256", "clean_hr_sha256", "hr_noise_sha256"):
+            if len({row[key] for row in group}) != 1:
+                raise ValueError(f"LR{lr_count} branches did not share one {key}")
+        for sigma in summary["sigmas"]:
+            starts = {
+                row["branch_start_sha256"]
+                for row in group if row["refine_sigma"] == sigma
+            }
+            if len(starts) != 1:
+                raise ValueError(
+                    f"LR{lr_count} sigma={sigma} branches did not share one starting tensor"
+                )
+        control_id = CONTROL_ID if not reduced_lr else lr_case_id(lr_count, 0.0, 0)
+        control = next(row for row in group if row["id"] == control_id)
+        if control["branch_start_sha256"] != control["clean_hr_sha256"]:
+            raise ValueError("transition-only control does not start from clean HR")
     return summary, cases
 
 
@@ -136,12 +186,16 @@ def comparison_rows(cases, scores):
                for value in scores[case_id].values()):
             raise ValueError(f"invalid VBench score for {case_id}")
 
-    baseline = scores[CONTROL_ID]
     rows = []
     for case in cases:
         case_id = case["id"]
+        lr_steps = int(case.get("lr_steps", 50))
+        control_id = CONTROL_ID if case_id == CONTROL_ID or not case_id.startswith("LR") \
+            else lr_case_id(lr_steps, 0.0, 0)
+        baseline = scores[control_id]
         row = {
             "case": case_id,
+            "lr_steps": lr_steps,
             "refine_sigma": case["refine_sigma"],
             "hr_steps": case["hr_steps"],
             "total_nfe": case["total_nfe"],
@@ -168,18 +222,24 @@ def write_reports(metrics_dir: Path, payload):
         writer.writerows(rows)
     temporary.replace(csv_path)
 
+    reduced_lr = payload.get("comparison") == "reduced-lr-endpoint-direct-sigma"
     lines = [
-        "# Full-LR direct-sigma HR refinement", "",
+        ("# Reduced-LR endpoint and direct-sigma HR refinement"
+         if reduced_lr else "# Full-LR direct-sigma HR refinement"), "",
         f"Prompt: {payload['prompt']}", f"Seed: {payload['seed']}", "",
-        "All cases share one completed LR50 endpoint, DVG-anchor clean HR transition and HR noise tensor.",
-        f"Quality deltas are percentage points relative to {CONTROL_ID}, the transition-only control.",
+        ("Each LR grid fully computes every retained interval and owns one shared clean transition."
+         if reduced_lr else
+         "All cases share one completed LR50 endpoint, DVG-anchor clean HR transition and HR noise tensor."),
+        ("Quality deltas use the transition-only control from the same LR-step group."
+         if reduced_lr else
+         f"Quality deltas are percentage points relative to {CONTROL_ID}, the transition-only control."),
         "Dynamic degree is a motion diagnostic; higher is not necessarily better.",
         "No official VBench overall score or significance claim is computed.", "",
-        "| Case | Sigma | HR steps | Total NFE | HR seconds | Candidate denoise seconds |",
-        "| --- | ---: | ---: | ---: | ---: | ---: |",
+        "| Case | LR steps | Sigma | HR steps | Total NFE | HR seconds | Candidate denoise seconds |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     lines += [
-        f"| {row['case']} | {row['refine_sigma']:.3f} | {row['hr_steps']} | "
+        f"| {row['case']} | {row['lr_steps']} | {row['refine_sigma']:.3f} | {row['hr_steps']} | "
         f"{row['total_nfe']} | {row['hr_seconds']:.3f} | "
         f"{row['candidate_denoise_seconds']:.3f} |"
         for row in rows
@@ -234,13 +294,31 @@ def evaluate(args):
     if fresh_summary != summary or fresh_cases != cases:
         raise RuntimeError("experiment changed during scoring")
     payload = {
-        "schema": "univ_mrflow_refinement_vbench_v1",
-        "comparison": "full-lr-direct-sigma",
+        "schema": (
+            "univ_mrflow_lr_endpoint_vbench_v1"
+            if summary["schema"] == "univ_mrflow_lr_endpoint_results_v1"
+            else "univ_mrflow_refinement_vbench_v1"
+        ),
+        "comparison": (
+            "reduced-lr-endpoint-direct-sigma"
+            if summary["schema"] == "univ_mrflow_lr_endpoint_results_v1"
+            else "full-lr-direct-sigma"
+        ),
         "prompt": summary["prompt"],
         "seed": summary["seed"],
         "generation_summary_sha256": sha256_file(out_dir / "comparison_summary.json"),
-        "clean_hr_sha256": cases[0]["clean_hr_sha256"],
-        "hr_noise_sha256": cases[0]["hr_noise_sha256"],
+        "clean_hr_sha256": (
+            {str(step): next(row["clean_hr_sha256"] for row in cases if row["lr_steps"] == step)
+             for step in summary.get("lr_steps", [50])}
+            if summary["schema"] == "univ_mrflow_lr_endpoint_results_v1"
+            else cases[0]["clean_hr_sha256"]
+        ),
+        "hr_noise_sha256": (
+            {str(step): next(row["hr_noise_sha256"] for row in cases if row["lr_steps"] == step)
+             for step in summary.get("lr_steps", [50])}
+            if summary["schema"] == "univ_mrflow_lr_endpoint_results_v1"
+            else cases[0]["hr_noise_sha256"]
+        ),
         "quality_dimensions": QUALITY_DIMENSIONS,
         "diagnostic_dimensions": DIAGNOSTIC_DIMENSIONS,
         "video_sha256": {row["id"]: row["video_sha256"] for row in cases},

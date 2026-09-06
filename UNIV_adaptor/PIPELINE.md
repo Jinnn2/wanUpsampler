@@ -10,6 +10,7 @@ suffix behavior below remains the default.
 
 For the independent LR50-clean-endpoint plus direct-sigma HR restart matrix,
 see [`MRFLOW_REFINEMENT_ABLATION.md`](MRFLOW_REFINEMENT_ABLATION.md).
+The same document also defines the true LR25/LR16/LR12 endpoint-grid sweep.
 
 ## Runtime contract
 

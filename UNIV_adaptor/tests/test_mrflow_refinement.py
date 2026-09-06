@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import hashlib
-import json
 import os
 import tempfile
 import unittest
@@ -12,16 +11,21 @@ from types import SimpleNamespace
 from UNIV_adaptor.hr_refinement import (
     direct_hr_sigmas,
     install_direct_hr_grid,
+    install_lr_grid,
     quantize_float32_timesteps,
 )
 from UNIV_adaptor.scripts.validation.run_mrflow_refinement_ablation import (
     CONTROL_ID,
     DEFAULT_HR_STEPS,
+    DEFAULT_LR_STEPS,
     DEFAULT_PROMPT,
     DEFAULT_SIGMAS,
+    build_lr_grids,
     build_plan,
     case_id,
+    lr_case_id,
     parse_hr_steps,
+    parse_lr_steps,
     parse_sigmas,
     prepare,
 )
@@ -48,6 +52,7 @@ def args_for(out_dir):
         seed=42,
         sigmas=DEFAULT_SIGMAS,
         hr_steps=DEFAULT_HR_STEPS,
+        lr_steps=DEFAULT_LR_STEPS,
     )
 
 
@@ -68,6 +73,22 @@ def load_source_class(path, name, namespace):
 
 
 class DirectSigmaPlanTest(unittest.TestCase):
+    def test_reduced_lr_plan_has_three_independent_endpoint_groups(self):
+        args = args_for("/mrflow-lr")
+        args.lr_steps = (25, 16, 12)
+        plan = build_plan(args)
+        self.assertEqual(plan["schema"], "univ_mrflow_lr_endpoint_plan_v1")
+        self.assertEqual(len(plan["cases"]), 30)
+        self.assertEqual(
+            [row["id"] for row in plan["cases"] if row["hr_steps"] == 0],
+            [lr_case_id(steps, 0.0, 0) for steps in (25, 16, 12)],
+        )
+        self.assertEqual([row["lr_steps"] for row in plan["lr_grids"]], [25, 16, 12])
+        for grid in plan["lr_grids"]:
+            self.assertEqual(len(grid["planned_sigmas"]), grid["lr_steps"] + 1)
+            self.assertEqual(len(grid["planned_model_timesteps"]), grid["lr_steps"])
+            self.assertEqual(grid["planned_sigmas"][-1], 0.0)
+
     def test_default_plan_has_control_and_full_factorial(self):
         plan = build_plan(args_for("/mrflow"))
         self.assertEqual(plan["reference_schedule"]["switch_step"], 50)
@@ -94,6 +115,10 @@ class DirectSigmaPlanTest(unittest.TestCase):
         )
         self.assertEqual(parse_sigmas(".12, .2,.3"), DEFAULT_SIGMAS)
         self.assertEqual(parse_hr_steps("1,2,4"), DEFAULT_HR_STEPS)
+        self.assertEqual(parse_lr_steps("25,16,12"), (25, 16, 12))
+        self.assertEqual(
+            len(build_lr_grids((12,), sample_shift=8)[0]["planned_sigmas"]), 13
+        )
         for sigma, steps in ((0, 1), (1, 1), (.1, 0)):
             with self.assertRaises(ValueError):
                 direct_hr_sigmas(start_sigma=sigma, hr_steps=steps)
@@ -169,6 +194,23 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
                 scheduler.step_post()
             torch.testing.assert_close(scheduler.latents, clean, rtol=1e-5, atol=1e-6)
 
+    def test_true_lr_grids_recompute_each_interval_and_reach_clean(self):
+        for steps in (25, 16, 12):
+            scheduler = self.scheduler()
+            reference = scheduler.sigmas.tolist()
+            clean = torch.full_like(scheduler.latents, .25)
+            grid = install_lr_grid(
+                scheduler, reference_sigmas=reference, lr_steps=steps
+            )
+            self.assertEqual(grid["compute_indices"], list(range(steps)))
+            self.assertEqual(len(scheduler.timesteps), steps)
+            for index in grid["compute_indices"]:
+                scheduler.step_pre(index)
+                sigma = scheduler.sigmas[index]
+                scheduler.noise_pred = (scheduler.latents - clean) / sigma
+                scheduler.step_post()
+            torch.testing.assert_close(scheduler.latents, clean, rtol=1e-5, atol=1e-6)
+
     def test_runner_completes_lr50_once_then_reuses_clean_transition(self):
         from UNIV_adaptor import UniversalAction, resolve_schedule
         from UNIV_adaptor.flow import wan_renoise
@@ -199,6 +241,7 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
             "RUNNER_REGISTER": lambda name: lambda cls: cls,
             "WanUniversalRGBPipelineRunner": FakeBase,
             "install_direct_hr_grid": install_direct_hr_grid,
+            "install_lr_grid": install_lr_grid,
             "synchronize": lambda tensor: None,
             "tensor_sha256": tensor_sha256,
         }
@@ -210,6 +253,7 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
         runner = object.__new__(cls)
         runner.shared_clean_lr = runner.shared_clean_hr = runner.shared_hr_noise = None
         runner.shared_identity = runner.shared_record = None
+        runner.lr_steps = 50
         runner.progress_callback = None
         runner.check_stop = lambda: None
         runner.video_segment_num = 1

@@ -6,6 +6,18 @@ import struct
 from collections.abc import Sequence
 
 
+def wan_reference_sigmas(*, reference_nfe: int, sample_shift: float) -> tuple[float, ...]:
+    """Reproduce Wan's shifted inference sigma grid without importing LightX2V."""
+    if type(reference_nfe) is not int or reference_nfe < 1:
+        raise ValueError("reference_nfe must be a positive integer")
+    shift = float(sample_shift)
+    if not math.isfinite(shift) or shift <= 0:
+        raise ValueError("sample_shift must be finite and positive")
+    raw = (0.999 * (1.0 - index / reference_nfe) for index in range(reference_nfe))
+    shifted = tuple(shift * value / (1.0 + (shift - 1.0) * value) for value in raw)
+    return (*shifted, 0.0)
+
+
 def resample_hr_sigmas(
     reference_sigmas: Sequence[float], *, boundary_step: int, hr_steps: int
 ) -> tuple[float, ...]:
@@ -96,6 +108,35 @@ def install_hr_grid(scheduler, *, reference_sigmas, boundary_step: int, hr_steps
         "sigmas": sigmas[boundary_step:].tolist(),
         "model_timesteps": timesteps[boundary_step:].cpu().tolist(),
         "compute_indices": list(range(boundary_step, len(timesteps))),
+    }
+
+
+def install_lr_grid(scheduler, *, reference_sigmas, lr_steps: int):
+    """Replace the dense reference trajectory with true, fully-computed LR intervals."""
+    import torch
+
+    reference = tuple(float(value) for value in reference_sigmas)
+    values = resample_hr_sigmas(reference, boundary_step=0, hr_steps=lr_steps)
+    sigmas = torch.tensor(values, dtype=torch.float32, device="cpu")
+    if lr_steps == len(reference) - 1:
+        timesteps = scheduler.timesteps.clone()
+    else:
+        timesteps = (sigmas[:-1] * scheduler.num_train_timesteps).to(
+            device=scheduler.timesteps.device, dtype=scheduler.timesteps.dtype
+        )
+    if bool((timesteps[1:] >= timesteps[:-1]).any()) or int(timesteps[-1]) <= 0:
+        raise ValueError("LR grid collapses after model timestep quantization")
+    scheduler.sigmas = sigmas
+    scheduler.timesteps = timesteps
+    scheduler.infer_steps = lr_steps
+    scheduler.reset_solver_history()
+    return {
+        "grid_policy": "linear_interpolation_in_reference_index",
+        "reference_nfe": len(reference) - 1,
+        "lr_steps": lr_steps,
+        "sigmas": sigmas.tolist(),
+        "model_timesteps": timesteps.cpu().tolist(),
+        "compute_indices": list(range(lr_steps)),
     }
 
 
