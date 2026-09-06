@@ -23,6 +23,7 @@ from loguru import logger
 from lightx2v.common.ops import *  # noqa: F403
 from lightx2v.models.runners.wan.wan_runner import WanRunner  # noqa: F401
 import UNIV_adaptor.wan_runner  # noqa: F401,E402
+import UNIV_adaptor.mrflow_ablation_runner  # noqa: F401,E402
 from UNIV_adaptor.model_contract import validate_wan21_t2v_model_root
 from lightx2v.utils.input_info import init_empty_input_info, update_input_info_from_dict
 from lightx2v.utils.registry_factory import RUNNER_REGISTER

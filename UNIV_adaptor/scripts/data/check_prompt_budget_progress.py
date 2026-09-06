@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Quickly inspect progress of UNIV prompt-budget multi-GPU / multi-machine data generation."""
+
 from __future__ import annotations
 
 import argparse
 import datetime as dt
 import json
 import os
-import sys
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -33,7 +33,9 @@ def format_duration(seconds: float) -> str:
 def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | None:
     manifest_path = out_root / "generation_manifest.json"
     if not manifest_path.is_file():
-        print(f"[Error] Manifest not found at: {manifest_path}")
+        manifest_path = out_root / "extension_manifest.json"
+    if not manifest_path.is_file():
+        print(f"[Error] Generation or extension manifest not found under: {out_root}")
         print("The generation may not have started or the prepare step failed.")
         return None
 
@@ -48,8 +50,11 @@ def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | N
         print("[Warning] No jobs found in manifest.")
         return None
 
-    lock_path = out_root / ".prompt_budget_generation.lock"
-    is_running = lock_path.is_dir() or lock_path.is_file()
+    lock_paths = (
+        out_root / ".prompt_budget_generation.lock",
+        out_root / ".low_budget_generation.lock",
+    )
+    is_running = any(path.is_dir() or path.is_file() for path in lock_paths)
 
     total_jobs = len(jobs)
     total_videos = sum(j.get("prompt_count", 0) for j in jobs)
@@ -130,7 +135,9 @@ def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | N
             try:
                 lines = [
                     line.strip()
-                    for line in gpu_log.read_text(encoding="utf-8", errors="ignore").splitlines()
+                    for line in gpu_log.read_text(
+                        encoding="utf-8", errors="ignore"
+                    ).splitlines()
                     if line.strip()
                 ]
                 if lines:
@@ -147,21 +154,33 @@ def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | N
     vid_pct = (total_generated_videos / total_videos * 100) if total_videos > 0 else 0.0
 
     print("=" * 72)
-    print(f"  Shard: {out_root.name}  ({'[RUNNING]' if is_running else '[IDLE/FINISHED]'})")
+    print(
+        f"  Shard: {out_root.name}  ({'[RUNNING]' if is_running else '[IDLE/FINISHED]'})"
+    )
     print("=" * 72)
     print(f"Path        : {out_root}")
-    print(f"Jobs Done   : {completed_jobs}/{total_jobs} ({job_pct:.1f}%) | In-progress: {in_progress_jobs}")
+    print(
+        f"Jobs Done   : {completed_jobs}/{total_jobs} ({job_pct:.1f}%) | In-progress: {in_progress_jobs}"
+    )
     print(f"Videos Done : {total_generated_videos}/{total_videos} ({vid_pct:.1f}%)")
 
     if finalized_count > 0:
         print(f"Final Records: {finalized_count} finalized trajectory records written")
+    combined_dir = out_root / "combined_records"
+    combined_count = (
+        sum(1 for _ in combined_dir.glob("*/*.json")) if combined_dir.is_dir() else 0
+    )
+    if combined_count > 0:
+        print(f"Combined v3 Records: {combined_count}")
 
     avg_s = 0.0
     if total_generated_videos > 0:
         avg_s = total_video_latency / total_generated_videos
         remaining_vids = total_videos - total_generated_videos
         eta_seconds = (remaining_vids * avg_s) / 8.0 if remaining_vids > 0 else 0
-        print(f"Speed / Latency: ~{avg_s:.1f}s / video (wall ETA across 8 GPUs: ~{format_duration(eta_seconds)})")
+        print(
+            f"Speed / Latency: ~{avg_s:.1f}s / video (wall ETA across 8 GPUs: ~{format_duration(eta_seconds)})"
+        )
 
     print("-" * 72)
     print(f"{'Worker/GPU':<12}{'Jobs':<12}{'Videos':<15}{'Current Activity / Status'}")
@@ -175,7 +194,9 @@ def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | N
         if w["done_jobs"] == w["total_jobs"] and w["total_jobs"] > 0:
             status = "ALL JOBS DONE"
         elif w["current_job_done"] > 0:
-            status = f"BUSY: {w['current_job_done']}/{w['current_job_total']} vids in chunk"
+            status = (
+                f"BUSY: {w['current_job_done']}/{w['current_job_total']} vids in chunk"
+            )
         elif w["last_log_line"]:
             short_log = (
                 (w["last_log_line"][:40] + "...")
@@ -207,6 +228,7 @@ def inspect_progress(out_root: Path, detail: bool = False) -> dict[str, Any] | N
         "generated_videos": total_generated_videos,
         "total_video_latency": total_video_latency,
         "finalized_count": finalized_count,
+        "combined_count": combined_count,
         "avg_s": avg_s,
     }
 
@@ -231,9 +253,13 @@ def print_multi_machine_summary(summaries: list[dict[str, Any]]) -> None:
     job_pct = (completed_jobs / total_jobs * 100) if total_jobs > 0 else 0.0
     vid_pct = (generated_videos / total_videos * 100) if total_videos > 0 else 0.0
 
-    print(f"Active Shards / Machines : {running_shards}/{total_shards} running ({total_shards * 8} GPUs total)")
+    print(
+        f"Active Shards / Machines : {running_shards}/{total_shards} running ({total_shards * 8} GPUs total)"
+    )
     print(f"Global Jobs Completed    : {completed_jobs}/{total_jobs} ({job_pct:.1f}%)")
-    print(f"Global Videos Generated  : {generated_videos}/{total_videos} ({vid_pct:.1f}%)")
+    print(
+        f"Global Videos Generated  : {generated_videos}/{total_videos} ({vid_pct:.1f}%)"
+    )
 
     if total_finalized > 0:
         print(f"Global Finalized Records : {total_finalized}")
@@ -242,9 +268,13 @@ def print_multi_machine_summary(summaries: list[dict[str, Any]]) -> None:
         avg_s = total_latency / generated_videos
         remaining_vids = total_videos - generated_videos
         active_gpus = max(8, running_shards * 8)
-        global_eta = (remaining_vids * avg_s) / float(active_gpus) if remaining_vids > 0 else 0
+        global_eta = (
+            (remaining_vids * avg_s) / float(active_gpus) if remaining_vids > 0 else 0
+        )
         print(f"Average Video Latency    : ~{avg_s:.1f}s")
-        print(f"Global Combined ETA      : ~{format_duration(global_eta)} (across {active_gpus} GPUs)")
+        print(
+            f"Global Combined ETA      : ~{format_duration(global_eta)} (across {active_gpus} GPUs)"
+        )
 
     print("#" * 72 + "\n")
 
@@ -270,9 +300,14 @@ def main() -> None:
         help="One or more OUT_ROOT paths (defaults to primary and reserve shards if present)",
     )
     parser.add_argument(
-        "--watch", type=int, default=0, help="Refresh interval in seconds (e.g. --watch 10)"
+        "--watch",
+        type=int,
+        default=0,
+        help="Refresh interval in seconds (e.g. --watch 10)",
     )
-    parser.add_argument("--detail", action="store_true", help="Show breakdown by split and case")
+    parser.add_argument(
+        "--detail", action="store_true", help="Show breakdown by split and case"
+    )
     args = parser.parse_args()
 
     targets = resolve_roots(args.out_roots)

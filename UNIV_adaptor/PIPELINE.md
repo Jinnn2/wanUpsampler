@@ -12,6 +12,11 @@ For the independent LR50-clean-endpoint plus direct-sigma HR restart matrix,
 see [`MRFLOW_REFINEMENT_ABLATION.md`](MRFLOW_REFINEMENT_ABLATION.md).
 The same document also defines the true LR25/LR16/LR12 endpoint-grid sweep.
 
+For the train/validation extension that adds B10/B15/B20/B30 true-LR25
+MRFlow-style actions to the immutable prompt-budget shards while retaining
+endpoint states and seeds, see
+[`LOW_BUDGET_EXTENSION.md`](LOW_BUDGET_EXTENSION.md).
+
 ## Runtime contract
 
 The action is:

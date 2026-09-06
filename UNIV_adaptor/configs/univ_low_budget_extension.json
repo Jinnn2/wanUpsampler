@@ -1,0 +1,99 @@
+{
+  "schema": "univ_low_budget_extension_protocol_v1",
+  "base_protocol_schema": "univ_prompt_budget_data_protocol_v2",
+  "controller_factorization": "prompt_x_action_quality_curve",
+  "observation_mode": "prompt_plus_endpoint",
+  "trajectory_origin": "independent_step0",
+  "reference_nfe": 50,
+  "sample_shift": 8.0,
+  "target_latent_shape": [16, 21, 90, 156],
+  "endpoint_state": {
+    "enabled": true,
+    "archive_dtype": "fp16",
+    "tensors": ["clean_lr", "clean_hr", "hr_noise"]
+  },
+  "budget_presets": [
+    {
+      "artifact_id": "LB10_LR25_S0200_HR02",
+      "display_budget": "B10",
+      "target_cost_ratio": 0.10,
+      "allocation_source": "validated_lr25_mrflow_low_budget_v1",
+      "action": {
+        "spatial_ratio": 0.50,
+        "temporal_ratio": 0.50,
+        "true_lr_steps": 25,
+        "transition": "dvg_latent_anchor",
+        "renoise_sigma": 0.20,
+        "hr_steps": 2
+      }
+    },
+    {
+      "artifact_id": "LB15_LR25_S0300_HR04",
+      "display_budget": "B15",
+      "target_cost_ratio": 0.15,
+      "allocation_source": "validated_lr25_mrflow_low_budget_v1",
+      "action": {
+        "spatial_ratio": 0.50,
+        "temporal_ratio": 0.56,
+        "true_lr_steps": 25,
+        "transition": "dvg_latent_anchor",
+        "renoise_sigma": 0.30,
+        "hr_steps": 4
+      }
+    },
+    {
+      "artifact_id": "LB20_LR25_S0300_HR04",
+      "display_budget": "B20",
+      "target_cost_ratio": 0.20,
+      "allocation_source": "validated_lr25_mrflow_low_budget_v1",
+      "action": {
+        "spatial_ratio": 0.55,
+        "temporal_ratio": 0.80,
+        "true_lr_steps": 25,
+        "transition": "dvg_latent_anchor",
+        "renoise_sigma": 0.30,
+        "hr_steps": 4
+      }
+    },
+    {
+      "artifact_id": "LB30_LR25_S0300_HR04",
+      "display_budget": "B30",
+      "target_cost_ratio": 0.30,
+      "allocation_source": "validated_lr25_mrflow_low_budget_v1",
+      "action": {
+        "spatial_ratio": 0.75,
+        "temporal_ratio": 0.80,
+        "true_lr_steps": 25,
+        "transition": "dvg_latent_anchor",
+        "renoise_sigma": 0.30,
+        "hr_steps": 4
+      }
+    }
+  ],
+  "splits": [
+    {
+      "name": "train",
+      "prompt_count": 300,
+      "base_seeds": [42],
+      "collection_mode": "low_budget_extension"
+    },
+    {
+      "name": "validation",
+      "prompt_count": 100,
+      "base_seeds": [42, 100, 2024],
+      "collection_mode": "low_budget_extension"
+    },
+    {
+      "name": "test",
+      "prompt_count": 100,
+      "base_seeds": [42, 100, 2024],
+      "collection_mode": "low_budget_extension"
+    }
+  ],
+  "notes": [
+    "Artifact ids use LB prefixes so the new B30 cannot collide with the v2 B30 action.",
+    "Train and validation reuse the immutable v2 prompt and seed assignments.",
+    "Test remains excluded until the action family and controller are frozen on validation.",
+    "Target cost ratios are planning proxies and require measured warm-latency calibration."
+  ]
+}

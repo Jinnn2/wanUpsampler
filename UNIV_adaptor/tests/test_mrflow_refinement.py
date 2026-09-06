@@ -92,7 +92,9 @@ class DirectSigmaPlanTest(unittest.TestCase):
     def test_default_plan_has_control_and_full_factorial(self):
         plan = build_plan(args_for("/mrflow"))
         self.assertEqual(plan["reference_schedule"]["switch_step"], 50)
-        self.assertEqual(plan["reference_schedule"]["lr_compute_steps"], list(range(50)))
+        self.assertEqual(
+            plan["reference_schedule"]["lr_compute_steps"], list(range(50))
+        )
         self.assertEqual(plan["reference_schedule"]["hr_compute_steps"], [])
         self.assertEqual(len(plan["cases"]), 10)
         self.assertEqual(plan["cases"][0]["id"], CONTROL_ID)
@@ -103,12 +105,14 @@ class DirectSigmaPlanTest(unittest.TestCase):
         )
 
     def test_direct_grids_and_case_ids_are_stable(self):
-        self.assertEqual(case_id(.12, 4), "S0120_HR04")
-        self.assertEqual(direct_hr_sigmas(start_sigma=.12, hr_steps=4),
-                         (.12, .09, .06, .03, 0.0))
+        self.assertEqual(case_id(0.12, 4), "S0120_HR04")
+        self.assertEqual(
+            direct_hr_sigmas(start_sigma=0.12, hr_steps=4),
+            (0.12, 0.09, 0.06, 0.03, 0.0),
+        )
         self.assertEqual(
             quantize_float32_timesteps(
-                direct_hr_sigmas(start_sigma=.3, hr_steps=4)[:-1],
+                direct_hr_sigmas(start_sigma=0.3, hr_steps=4)[:-1],
                 num_train_timesteps=1000,
             ),
             (300, 225, 150, 75),
@@ -119,23 +123,25 @@ class DirectSigmaPlanTest(unittest.TestCase):
         self.assertEqual(
             len(build_lr_grids((12,), sample_shift=8)[0]["planned_sigmas"]), 13
         )
-        for sigma, steps in ((0, 1), (1, 1), (.1, 0)):
+        for sigma, steps in ((0, 1), (1, 1), (0.1, 0)):
             with self.assertRaises(ValueError):
                 direct_hr_sigmas(start_sigma=sigma, hr_steps=steps)
         with self.assertRaises(ValueError):
-            case_id(.1234, 1)
+            case_id(0.1234, 1)
 
     def test_plan_is_content_bound(self):
         with tempfile.TemporaryDirectory() as directory:
             args = args_for(directory)
             plan, _ = prepare(args)
             self.assertEqual(build_plan(args), plan)
-            args.sigmas = (.12, .25)
+            args.sigmas = (0.12, 0.25)
             with self.assertRaisesRegex(RuntimeError, "different comparison"):
                 prepare(args)
 
 
-@unittest.skipUnless(torch is not None and LIGHTX2V.is_dir(), "requires Torch and LightX2V")
+@unittest.skipUnless(
+    torch is not None and LIGHTX2V.is_dir(), "requires Torch and LightX2V"
+)
 class DirectSigmaWanSolverTest(unittest.TestCase):
     @staticmethod
     def scheduler():
@@ -150,22 +156,28 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
             "logger": SimpleNamespace(info=lambda *args, **kwargs: None),
         }
         load_source_class(
-            LIGHTX2V / "lightx2v/models/schedulers/scheduler.py", "BaseScheduler", namespace
+            LIGHTX2V / "lightx2v/models/schedulers/scheduler.py",
+            "BaseScheduler",
+            namespace,
         )
         cls = load_source_class(
-            LIGHTX2V / "lightx2v/models/schedulers/wan/scheduler.py", "WanScheduler", namespace
+            LIGHTX2V / "lightx2v/models/schedulers/wan/scheduler.py",
+            "WanScheduler",
+            namespace,
         )
-        scheduler = cls({
-            "infer_steps": 50,
-            "target_video_length": 81,
-            "sample_shift": 8,
-            "sample_guide_scale": 6,
-            "seq_parallel": False,
-            "dim": 12,
-            "num_heads": 3,
-            "task": "t2v",
-            "model_cls": "wan2.1",
-        })
+        scheduler = cls(
+            {
+                "infer_steps": 50,
+                "target_video_length": 81,
+                "sample_shift": 8,
+                "sample_guide_scale": 6,
+                "seq_parallel": False,
+                "dim": 12,
+                "num_heads": 3,
+                "task": "t2v",
+                "model_cls": "wan2.1",
+            }
+        )
         scheduler.prepare(42, (1, 2, 2, 2))
         scheduler.reset_solver_history = lambda: (
             setattr(scheduler, "model_outputs", [None] * scheduler.solver_order),
@@ -178,19 +190,19 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
         return scheduler
 
     def test_direct_grid_uses_explicit_sigmas_and_reaches_clean(self):
-        for sigma, steps in ((.12, 1), (.2, 2), (.3, 4)):
+        for sigma, steps in ((0.12, 1), (0.2, 2), (0.3, 4)):
             scheduler = self.scheduler()
-            clean = torch.full_like(scheduler.latents, .25)
+            clean = torch.full_like(scheduler.latents, 0.25)
             noise = scheduler.latents.clone()
             scheduler.latents = (1 - sigma) * clean + sigma * noise
-            grid = install_direct_hr_grid(
-                scheduler, start_sigma=sigma, hr_steps=steps
-            )
+            grid = install_direct_hr_grid(scheduler, start_sigma=sigma, hr_steps=steps)
             self.assertEqual(grid["compute_indices"], list(range(steps)))
             self.assertEqual(grid["model_timesteps"][0], int(sigma * 1000))
             for index in grid["compute_indices"]:
                 scheduler.step_pre(index)
-                scheduler.noise_pred = (scheduler.latents - clean) / scheduler.sigmas[index]
+                scheduler.noise_pred = (scheduler.latents - clean) / scheduler.sigmas[
+                    index
+                ]
                 scheduler.step_post()
             torch.testing.assert_close(scheduler.latents, clean, rtol=1e-5, atol=1e-6)
 
@@ -198,7 +210,7 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
         for steps in (25, 16, 12):
             scheduler = self.scheduler()
             reference = scheduler.sigmas.tolist()
-            clean = torch.full_like(scheduler.latents, .25)
+            clean = torch.full_like(scheduler.latents, 0.25)
             grid = install_lr_grid(
                 scheduler, reference_sigmas=reference, lr_steps=steps
             )
@@ -226,7 +238,9 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
 
             @staticmethod
             def _renoise(clean_hr, noise, sigma):
-                return wan_renoise(clean_hr.float(), noise.float(), sigma).to(clean_hr.dtype)
+                return wan_renoise(clean_hr.float(), noise.float(), sigma).to(
+                    clean_hr.dtype
+                )
 
             def _write_runtime_record(self):
                 pass
@@ -261,15 +275,19 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
         runner.input_info = SimpleNamespace(prompt="fox", negative_prompt="", seed=42)
         runner.inputs = {}
         calls = []
-        action = UniversalAction(.5, .5, 1.0, 1.0)
+        action = UniversalAction(0.5, 0.5, 1.0, 1.0)
 
         with tempfile.TemporaryDirectory() as directory:
             runner.config = {
-                "univ_action": dict(spatial_ratio=.5, temporal_ratio=.5,
-                                    lr_nfe_ratio=1.0, switch_ratio=1.0),
+                "univ_action": dict(
+                    spatial_ratio=0.5,
+                    temporal_ratio=0.5,
+                    lr_nfe_ratio=1.0,
+                    switch_ratio=1.0,
+                ),
                 "univ_mrflow_boundary_path": str(Path(directory) / "shared.pt"),
             }
-            for branch, (sigma, steps) in enumerate(((0.0, 0), (.12, 2), (.12, 4))):
+            for branch, (sigma, steps) in enumerate(((0.0, 0), (0.12, 2), (0.12, 4))):
                 scheduler = self.scheduler()
                 scheduler.univ_schedule = resolve_schedule(
                     action, reference_nfe=50, target_latent_shape=(1, 3, 4, 4)
@@ -286,7 +304,7 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
 
                 def infer(inputs):
                     calls.append(scheduler.step_index)
-                    scheduler.noise_pred = .1 * scheduler.latents
+                    scheduler.noise_pred = 0.1 * scheduler.latents
 
                 runner.model = SimpleNamespace(scheduler=scheduler, infer=infer)
                 runner.refine_sigma = sigma
@@ -296,8 +314,12 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
                 expected = 50 if branch == 0 else steps
                 self.assertEqual(len(calls) - before, expected)
                 self.assertEqual(len(post_calls), expected)
-                self.assertEqual(runner.univ_runtime_record["shared_clean_hr"]["reused"], branch > 0)
-                self.assertEqual(runner.univ_runtime_record["hr_schedule"]["hr_steps"], steps)
+                self.assertEqual(
+                    runner.univ_runtime_record["shared_clean_hr"]["reused"], branch > 0
+                )
+                self.assertEqual(
+                    runner.univ_runtime_record["hr_schedule"]["hr_steps"], steps
+                )
                 self.assertEqual(scheduler.infer_steps, 50)
             self.assertEqual(post_calls, [0, 1, 2, 3])
             self.assertTrue(Path(runner.config["univ_mrflow_boundary_path"]).is_file())
@@ -310,10 +332,46 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
             self.assertEqual(saved["schema"], "univ_mrflow_clean_transition_v1")
             self.assertEqual(tensor_sha256(saved["clean_hr"]), runner.clean_hr_sha256)
             starts = [
-                runner._renoise(runner.shared_clean_hr, runner.shared_hr_noise, .12)
+                runner._renoise(runner.shared_clean_hr, runner.shared_hr_noise, 0.12)
                 for _ in range(2)
             ]
             self.assertEqual(tensor_sha256(starts[0]), tensor_sha256(starts[1]))
+
+            runner.reset_shared_endpoint()
+            runner.reuse_shared_endpoint = False
+            runner.endpoint_state_dtype = "fp16"
+            runner.config.pop("univ_mrflow_boundary_path")
+            for prompt, seed in (("first", 43), ("second", 44)):
+                output = Path(directory) / f"{prompt}.mp4"
+                runner.input_info = SimpleNamespace(
+                    prompt=prompt,
+                    negative_prompt="",
+                    seed=seed,
+                    save_result_path=str(output),
+                )
+                scheduler = self.scheduler()
+                scheduler.univ_schedule = resolve_schedule(
+                    action, reference_nfe=50, target_latent_shape=(1, 3, 4, 4)
+                )
+                scheduler.univ_hr_noise = torch.zeros((1, 3, 4, 4))
+
+                def infer(inputs):
+                    scheduler.noise_pred = 0.1 * scheduler.latents
+
+                runner.model = SimpleNamespace(scheduler=scheduler, infer=infer)
+                runner.refine_sigma = 0.12
+                runner.hr_steps = 2
+                runner.run_segment(None)
+                endpoint = output.with_suffix(".mp4.endpoint.pt")
+                self.assertTrue(endpoint.is_file())
+                try:
+                    saved = torch.load(endpoint, weights_only=True)
+                except TypeError:
+                    saved = torch.load(endpoint)
+                self.assertEqual(saved["seed"], seed)
+                self.assertEqual(saved["archive_dtype"], "fp16")
+                self.assertEqual(saved["clean_lr"].dtype, torch.float16)
+                self.assertIsNone(runner.shared_clean_hr)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 """Full-LR endpoint followed by independent direct-sigma HR refinement branches."""
+
 from __future__ import annotations
 
 import copy
@@ -10,28 +11,52 @@ from loguru import logger
 from lightx2v.utils.envs import GET_DTYPE
 from lightx2v.utils.registry_factory import RUNNER_REGISTER
 
+from .data_protocol import canonical_sha256
 from .hr_ablation_runner import synchronize, tensor_sha256
 from .hr_refinement import install_direct_hr_grid, install_lr_grid
 from .wan_runner import WanUniversalRGBPipelineRunner
 
 
 @RUNNER_REGISTER("wan2.1_univ_mrflow_ablation")
+@RUNNER_REGISTER("wan2.1_univ_mrflow_budget")
 class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
     """Run one true LR grid, then reuse its clean HR transition across branches."""
 
     def __init__(self, config):
         super().__init__(config)
         if config.get("cpu_offload", False) or config.get("compile", False):
-            raise ValueError("MrFlow ablation requires resident, uncompiled model weights")
-        self.refine_sigma = 0.0
-        self.hr_steps = 0
-        self.lr_steps = 50
+            raise ValueError(
+                "MrFlow ablation requires resident, uncompiled model weights"
+            )
+        self.refine_sigma = float(config.get("univ_mrflow_refine_sigma", 0.0))
+        self.hr_steps = int(config.get("univ_mrflow_hr_steps", 0))
+        self.lr_steps = int(config.get("univ_mrflow_lr_steps", 50))
+        self.reuse_shared_endpoint = bool(
+            config.get("univ_mrflow_reuse_endpoint", True)
+        )
+        self.endpoint_state_dtype = str(
+            config.get("univ_mrflow_endpoint_state_dtype", "original")
+        )
+        if not 1 <= self.lr_steps <= 50:
+            raise ValueError("univ_mrflow_lr_steps must be in [1, 50]")
+        if self.hr_steps < 0:
+            raise ValueError("univ_mrflow_hr_steps must be non-negative")
+        if self.hr_steps == 0 and self.refine_sigma != 0.0:
+            raise ValueError("HR0 requires univ_mrflow_refine_sigma=0")
+        if self.hr_steps > 0 and not 0.0 < self.refine_sigma < 1.0:
+            raise ValueError("MRFlow refinement sigma must be in (0, 1)")
+        if self.endpoint_state_dtype not in {"original", "fp16", "bf16", "fp32"}:
+            raise ValueError(
+                "univ_mrflow_endpoint_state_dtype must be original, fp16, bf16, or fp32"
+            )
         self.shared_clean_lr = None
         self.shared_clean_hr = None
         self.shared_hr_noise = None
         self.shared_identity = None
         self.shared_record = None
         self.shared_lr_grid = None
+        self.shared_boundary_path = None
+        self.shared_archive_hashes = None
 
     def reset_shared_endpoint(self) -> None:
         """Discard one LR-grid endpoint before starting a different LR schedule."""
@@ -41,6 +66,30 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
         self.shared_identity = None
         self.shared_record = None
         self.shared_lr_grid = None
+        self.shared_boundary_path = None
+        self.shared_archive_hashes = None
+
+    def _boundary_path(self) -> Path:
+        configured = str(self.config.get("univ_mrflow_boundary_path", "")).strip()
+        if configured:
+            return Path(configured)
+        output = str(getattr(self.input_info, "save_result_path", "")).strip()
+        if not output:
+            raise ValueError(
+                "MRFlow endpoint saving requires univ_mrflow_boundary_path or save_result_path"
+            )
+        path = Path(output)
+        return path.with_suffix(path.suffix + ".endpoint.pt")
+
+    def _archive_tensor(self, value):
+        archive_dtype = getattr(self, "endpoint_state_dtype", "original")
+        dtype = {
+            "original": value.dtype,
+            "fp16": torch.float16,
+            "bf16": torch.bfloat16,
+            "fp32": torch.float32,
+        }[archive_dtype]
+        return value.detach().to(device="cpu", dtype=dtype).contiguous()
 
     def _identity(self, schedule):
         return (
@@ -53,7 +102,9 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
 
     def _complete_lr_and_transition(self, scheduler, schedule):
         if schedule.switch_step != schedule.reference_nfe or schedule.hr_compute_steps:
-            raise ValueError("MrFlow ablation requires switch_ratio=1.0 before LR resampling")
+            raise ValueError(
+                "MrFlow ablation requires switch_ratio=1.0 before LR resampling"
+            )
         if tuple(schedule.lr_compute_steps) != tuple(range(schedule.reference_nfe)):
             raise ValueError(
                 "disable LR prediction caching; reduced-LR grids fully compute retained positions"
@@ -117,31 +168,52 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
             "temporal_restore_applied": result.temporal_restore_applied,
         }
 
-        boundary = Path(self.config["univ_mrflow_boundary_path"])
+        boundary = self._boundary_path()
         boundary.parent.mkdir(parents=True, exist_ok=True)
-        if boundary.exists():
+        if boundary.exists() and getattr(self, "reuse_shared_endpoint", True):
             raise FileExistsError(f"MrFlow shared boundary already exists: {boundary}")
-        torch.save(
-            {
-                "schema": "univ_mrflow_clean_transition_v1",
-                "clean_lr": self.shared_clean_lr,
-                "clean_hr": self.shared_clean_hr,
-                "hr_noise": self.shared_hr_noise,
-                "clean_lr_sha256": self.clean_lr_sha256,
-                "clean_hr_sha256": self.clean_hr_sha256,
-                "hr_noise_sha256": self.hr_noise_sha256,
-                "lr_steps": lr_steps,
-                "reference_nfe": schedule.reference_nfe,
-                "lr_schedule": lr_grid,
-                "lr_endpoint_sigma": 0.0,
-                "prompt": self.shared_identity[0],
-                "negative_prompt": self.shared_identity[1],
-                "seed": self.shared_identity[2],
-                "action": dict(self.config["univ_action"]),
-                "transition": self.shared_transition_record,
+        archive_clean_lr = self._archive_tensor(self.shared_clean_lr)
+        archive_clean_hr = self._archive_tensor(self.shared_clean_hr)
+        archive_hr_noise = self._archive_tensor(self.shared_hr_noise)
+        archive_hashes = {
+            "clean_lr_sha256": tensor_sha256(archive_clean_lr),
+            "clean_hr_sha256": tensor_sha256(archive_clean_hr),
+            "hr_noise_sha256": tensor_sha256(archive_hr_noise),
+        }
+        endpoint_payload = {
+            "schema": "univ_mrflow_clean_transition_v1",
+            "archive_dtype": getattr(self, "endpoint_state_dtype", "original"),
+            "clean_lr": archive_clean_lr,
+            "clean_hr": archive_clean_hr,
+            "hr_noise": archive_hr_noise,
+            **archive_hashes,
+            "runtime_tensor_sha256": {
+                "clean_lr": self.clean_lr_sha256,
+                "clean_hr": self.clean_hr_sha256,
+                "hr_noise": self.hr_noise_sha256,
             },
-            boundary,
-        )
+            "lr_steps": lr_steps,
+            "reference_nfe": schedule.reference_nfe,
+            "lr_schedule": lr_grid,
+            "lr_endpoint_sigma": 0.0,
+            "prompt": self.shared_identity[0],
+            "prompt_sha256": canonical_sha256(self.shared_identity[0]),
+            "negative_prompt": self.shared_identity[1],
+            "seed": self.shared_identity[2],
+            "artifact_id": str(self.config.get("univ_low_budget_artifact_id", "")),
+            "action_key": str(self.config.get("univ_low_budget_action_key", "")),
+            "action": dict(self.config["univ_action"]),
+            "mrflow_refinement": {
+                "renoise_sigma": float(self.refine_sigma),
+                "hr_steps": int(self.hr_steps),
+            },
+            "transition": self.shared_transition_record,
+        }
+        temporary = boundary.with_name(f".{boundary.name}.tmp.{id(self)}")
+        torch.save(endpoint_payload, temporary)
+        temporary.replace(boundary)
+        self.shared_boundary_path = boundary
+        self.shared_archive_hashes = archive_hashes
         del clean_lr, result
 
     def _run_direct_refinement(self, scheduler):
@@ -149,7 +221,9 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
         clean_hr = self.shared_clean_hr.to(device=device)
         noise = scheduler.univ_hr_noise
         if tensor_sha256(noise) != self.hr_noise_sha256:
-            raise RuntimeError("prepared HR noise differs from the shared coordinate field")
+            raise RuntimeError(
+                "prepared HR noise differs from the shared coordinate field"
+            )
         sigma = float(self.refine_sigma)
         steps = int(self.hr_steps)
         if steps == 0:
@@ -171,9 +245,7 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
 
         scheduler.latents = self._renoise(clean_hr, noise, sigma)
         branch_start_sha256 = tensor_sha256(scheduler.latents)
-        grid = install_direct_hr_grid(
-            scheduler, start_sigma=sigma, hr_steps=steps
-        )
+        grid = install_direct_hr_grid(scheduler, start_sigma=sigma, hr_steps=steps)
         synchronize(scheduler.latents)
         started = time.perf_counter()
         for position, step_index in enumerate(grid["compute_indices"]):
@@ -189,7 +261,9 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
         synchronize(scheduler.latents)
         elapsed = time.perf_counter() - started
         if not bool(torch.isfinite(scheduler.latents).all()):
-            raise RuntimeError(f"non-finite direct-sigma output for sigma={sigma}, HR={steps}")
+            raise RuntimeError(
+                f"non-finite direct-sigma output for sigma={sigma}, HR={steps}"
+            )
         return grid, elapsed, branch_start_sha256
 
     def run_segment(self, segment_idx=0):
@@ -205,13 +279,19 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
                 self.shared_identity = identity
                 self._complete_lr_and_transition(scheduler, schedule)
             elif identity != self.shared_identity:
-                raise ValueError("shared MrFlow transition cannot be reused for a different request")
+                raise ValueError(
+                    "shared MrFlow transition cannot be reused for a different request"
+                )
 
-            grid, hr_seconds, branch_start_sha256 = self._run_direct_refinement(scheduler)
+            grid, hr_seconds, branch_start_sha256 = self._run_direct_refinement(
+                scheduler
+            )
             self.univ_runtime_record = {
                 "schema": "wan_univ_mrflow_ablation_v1",
                 "prompt": identity[0],
                 "seed": identity[2],
+                "artifact_id": str(self.config.get("univ_low_budget_artifact_id", "")),
+                "action_key": str(self.config.get("univ_low_budget_action_key", "")),
                 "model_path": str(self.config.get("model_path", "")),
                 "action": dict(self.config["univ_action"]),
                 "reference_schedule": schedule.as_dict(),
@@ -224,8 +304,21 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
                     "lr_schedule": copy.deepcopy(self.shared_lr_grid),
                 },
                 "transition": copy.deepcopy(self.shared_transition_record),
+                "endpoint_state": {
+                    "schema": "univ_mrflow_clean_transition_v1",
+                    "path": str(self.shared_boundary_path),
+                    "archive_dtype": getattr(self, "endpoint_state_dtype", "original"),
+                    "seed": identity[2],
+                    "prompt_sha256": canonical_sha256(identity[0]),
+                    **self.shared_archive_hashes,
+                    "runtime_tensor_sha256": {
+                        "clean_lr": self.clean_lr_sha256,
+                        "clean_hr": self.clean_hr_sha256,
+                        "hr_noise": self.hr_noise_sha256,
+                    },
+                },
                 "shared_clean_hr": {
-                    "path": str(self.config["univ_mrflow_boundary_path"]),
+                    "path": str(self.shared_boundary_path),
                     "clean_hr_sha256": self.clean_hr_sha256,
                     "hr_noise_sha256": self.hr_noise_sha256,
                     "branch_start_sha256": branch_start_sha256,
@@ -245,3 +338,5 @@ class WanMrFlowRefinementAblationRunner(WanUniversalRGBPipelineRunner):
             return scheduler.latents
         finally:
             scheduler.infer_steps = reference_infer_steps
+            if not getattr(self, "reuse_shared_endpoint", True):
+                self.reset_shared_endpoint()

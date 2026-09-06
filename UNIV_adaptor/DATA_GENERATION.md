@@ -1,5 +1,9 @@
 # UNIV Prompt-Budget Data Generation v2
 
+The completed v2 roots remain immutable. The separate B10/B15/B20/B30
+true-LR25 extension, including endpoint-state archives and combined v3 records,
+is documented in [`LOW_BUDGET_EXTENSION.md`](LOW_BUDGET_EXTENSION.md).
+
 This protocol trains one prompt-conditioned budget quality curve. It does not
 train a four-axis action controller. Each budget id is frozen to one concrete
 space/time/NFE/switch action before video collection.
