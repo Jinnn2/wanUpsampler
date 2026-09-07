@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from UNIV_adaptor.data_protocol import sha256_file, write_json_atomic
+from UNIV_adaptor.hr_refinement import DENOISE_TIMING_POLICY, synchronized_denoise_seconds
 from UNIV_adaptor.scripts.validation.score_hr_refinement_ablation import (
     CASES, DIMENSIONS, comparison_rows, evaluate, load_inputs, stage_inputs, write_reports,
 )
@@ -38,6 +39,22 @@ def scores():
 
 
 class HRRefinementEvaluationTest(unittest.TestCase):
+    def test_recovered_timing_includes_solver_work_and_rejects_invalid_intervals(self):
+        runtime = {"shared_boundary": {"prefix_and_transition_seconds": 100., "reused": False},
+                   "timing_seconds": {"lr_full_compute": 2., "transition": 1., "hr_full_compute": 20.}}
+        self.assertEqual(synchronized_denoise_seconds(runtime), 120.)
+        runtime["shared_boundary"]["reused"] = True
+        with self.assertRaisesRegex(ValueError, "independently"):
+            synchronized_denoise_seconds(runtime)
+        runtime["shared_boundary"]["reused"] = False
+        for invalid in (0., -1., float("nan"), float("inf")):
+            for section, key in (("shared_boundary", "prefix_and_transition_seconds"),
+                                 ("timing_seconds", "hr_full_compute")):
+                changed = copy.deepcopy(runtime)
+                changed[section][key] = invalid
+                with self.assertRaisesRegex(ValueError, "invalid synchronized"):
+                    synchronized_denoise_seconds(changed)
+
     def test_fixed_total_accepts_distinct_boundaries_but_rejects_resampled_grid(self):
         from UNIV_adaptor import UniversalAction, resolve_schedule
         with tempfile.TemporaryDirectory() as directory:
@@ -49,6 +66,7 @@ class HRRefinementEvaluationTest(unittest.TestCase):
                 boundary = 50 - row["hr_steps"]
                 row["lr_steps"] = boundary
                 row["denoise_seconds"] = 50.
+                row["denoise_timing_policy"] = DENOISE_TIMING_POLICY
                 row["boundary_sha256"] = str(index) * 64
                 row["reference_schedule"] = resolve_schedule(
                     UniversalAction(.75, .8, 1., boundary/50), reference_nfe=50,
@@ -66,6 +84,28 @@ class HRRefinementEvaluationTest(unittest.TestCase):
             self.assertIn("48 + 2", report)
             self.assertIn("independent transitions", report)
             self.assertNotIn("shared HR boundary", report)
+            # Backfill older summaries from existing synchronized sidecar timing.
+            legacy = copy.deepcopy(summary)
+            for row in legacy["cases"]:
+                row.pop("denoise_timing_policy")
+                row["denoise_seconds"] = 20.
+                write_json_atomic(root / f"{row['id']}.mp4.univ.json", {
+                    "schema": "wan_univ_hr_ablation_v1", "prompt": summary["prompt"], "seed": 42,
+                    "reference_schedule": row["reference_schedule"], "hr_schedule": row["hr_schedule"],
+                    "shared_boundary": {"tensor_sha256": row["boundary_sha256"], "reused": False,
+                                        "prefix_and_transition_seconds": 50. - row["hr_seconds"]},
+                    "timing_seconds": {"hr_full_compute": row["hr_seconds"]},
+                })
+            write_json_atomic(root / "comparison_summary.json", legacy)
+            _, restored = load_inputs(root)
+            self.assertEqual([r["denoise_seconds"] for r in restored], [50.] * 4)
+            self.assertTrue(all("timing_sidecar_sha256" in r for r in restored))
+            sidecar = root / "HR02.mp4.univ.json"
+            changed = json.loads(sidecar.read_text(encoding="utf-8"))
+            changed["seed"] = 43
+            write_json_atomic(sidecar, changed)
+            with self.assertRaisesRegex(ValueError, "sidecar does not match"):
+                load_inputs(root)
             summary["cases"][-1]["hr_schedule"]["sigmas"][0] += .001
             write_json_atomic(root / "comparison_summary.json", summary)
             with self.assertRaisesRegex(ValueError, "reference suffix"):

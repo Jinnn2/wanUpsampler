@@ -15,6 +15,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from UNIV_adaptor.data_protocol import sha256_file, write_json_atomic
+from UNIV_adaptor.hr_refinement import DENOISE_TIMING_POLICY, synchronized_denoise_seconds
 
 CASES = {"HR10": 10, "HR06": 6, "HR04": 4, "HR02": 2}
 QUALITY_DIMENSIONS = [
@@ -76,6 +77,23 @@ def load_inputs(out_dir: Path):
                     or hr_grid.get("compute_indices") != list(range(boundary, 50))
                     or hr_grid.get("boundary_step") != boundary):
                 raise ValueError(f"invalid fixed-total schedule for {case_id}")
+            if row.get("denoise_timing_policy") != DENOISE_TIMING_POLICY:
+                # Older fixed-total summaries omitted LR solver work. Their
+                # sidecars already contain the correctly synchronized interval.
+                sidecar = video.with_suffix(".mp4.univ.json")
+                runtime = json.loads(sidecar.read_text(encoding="utf-8"))
+                if (runtime.get("schema") != "wan_univ_hr_ablation_v1"
+                        or runtime.get("prompt") != summary["prompt"]
+                        or runtime.get("seed") != summary["seed"]
+                        or runtime.get("reference_schedule") != schedule
+                        or runtime.get("hr_schedule") != hr_grid
+                        or runtime.get("shared_boundary", {}).get("tensor_sha256") != digest
+                        or runtime.get("timing_seconds", {}).get("hr_full_compute") != seconds):
+                    raise ValueError(f"runtime sidecar does not match fixed-total case: {case_id}")
+                row["legacy_denoise_seconds"] = row.get("denoise_seconds")
+                row["denoise_seconds"] = synchronized_denoise_seconds(runtime)
+                row["denoise_timing_policy"] = DENOISE_TIMING_POLICY
+                row["timing_sidecar_sha256"] = sha256_file(sidecar)
             denoise = float(row.get("denoise_seconds", 0))
             if not math.isfinite(denoise) or denoise < seconds:
                 raise ValueError(f"invalid denoising timing for {case_id}")
@@ -223,6 +241,9 @@ def evaluate(args):
         "quality_dimensions": QUALITY_DIMENSIONS,
         "diagnostic_dimensions": DIAGNOSTIC_DIMENSIONS,
         "video_sha256": {row["id"]: row["video_sha256"] for row in cases},
+        "timing_provenance": {row["id"]: {key: row[key] for key in
+            ("denoise_timing_policy", "timing_sidecar_sha256", "legacy_denoise_seconds") if key in row}
+            for row in cases},
         "vbench_provenance": bundle.provenance,
         "rows": comparison_rows(cases, bundle.scores),
     }

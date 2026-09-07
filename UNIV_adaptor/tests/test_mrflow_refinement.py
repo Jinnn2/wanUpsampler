@@ -225,6 +225,7 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
 
     def test_runner_completes_lr50_once_then_reuses_clean_transition(self):
         from UNIV_adaptor import UniversalAction, resolve_schedule
+        from UNIV_adaptor.data_protocol import canonical_sha256
         from UNIV_adaptor.flow import wan_renoise
         from UNIV_adaptor.transition import WanDVGAnchorTransition
 
@@ -258,6 +259,7 @@ class DirectSigmaWanSolverTest(unittest.TestCase):
             "install_lr_grid": install_lr_grid,
             "synchronize": lambda tensor: None,
             "tensor_sha256": tensor_sha256,
+            "canonical_sha256": canonical_sha256,
         }
         cls = load_source_class(
             REPO_ROOT / "UNIV_adaptor/mrflow_ablation_runner.py",

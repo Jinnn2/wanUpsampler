@@ -261,7 +261,10 @@ class HRActualWanSolverTest(unittest.TestCase):
                 scheduler.univ_schedule = resolve_schedule(action, reference_nfe=50, target_latent_shape=(1, 3, 4, 4))
                 scheduler.univ_seed = 42
                 scheduler.univ_hr_noise = torch.zeros((1, 3, 4, 4))
-                runner.model = SimpleNamespace(scheduler=scheduler, config={})
+                scheduler.config["univ_action"] = dict(runner.config["univ_action"])
+                runner.model = SimpleNamespace(scheduler=scheduler, config={
+                    "univ_action": dict(runner.config["univ_action"]),
+                })
                 runner.scheduler = scheduler
                 reference = scheduler.sigmas.clone()
                 if fixed_total:

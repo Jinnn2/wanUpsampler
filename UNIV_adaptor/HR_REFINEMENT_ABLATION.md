@@ -45,6 +45,15 @@ and a later transition improve the result. This changes both the transition
 state and its noise level, so improvement cannot be attributed solely to step
 count. The regenerated 40+10 baseline also helps check repeatability.
 
+Evaluation of completed fixed-total runs: the original `denoise_seconds` sum
+omitted LR solver updates and did not consistently synchronize CUDA. Evaluation
+now recovers the synchronized prefix+transition interval plus HR interval from
+matching `.mp4.univ.json` sidecars, recording the old value and source hash.
+Re-run the existing evaluation command with the original `OUT_DIR`; videos need
+not be regenerated and matching VBench scores are reused. Keep the sidecars
+alongside the videos. This report correction leaves generation scripts and
+original summaries unchanged; it does not affect fixed-boundary HR timings.
+
 ## Fixed-boundary experiment
 
 This is a four-video quality ablation for one prompt and seed. It asks whether

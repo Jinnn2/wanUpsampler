@@ -6,6 +6,20 @@ import struct
 from collections.abc import Sequence
 
 
+DENOISE_TIMING_POLICY = "synchronized_prefix_plus_hr_v1"
+
+
+def synchronized_denoise_seconds(runtime):
+    """Recover complete denoising timing from an existing HR ablation sidecar."""
+    prefix = float(runtime["shared_boundary"]["prefix_and_transition_seconds"])
+    hr = float(runtime["timing_seconds"]["hr_full_compute"])
+    if any(not math.isfinite(v) or v <= 0 for v in (prefix, hr)):
+        raise ValueError("invalid synchronized prefix/HR timing")
+    if runtime["shared_boundary"].get("reused") is not False:
+        raise ValueError("full denoising timing requires an independently executed prefix")
+    return prefix + hr
+
+
 def wan_reference_sigmas(*, reference_nfe: int, sample_shift: float) -> tuple[float, ...]:
     """Reproduce Wan's shifted inference sigma grid without importing LightX2V."""
     if type(reference_nfe) is not int or reference_nfe < 1:
