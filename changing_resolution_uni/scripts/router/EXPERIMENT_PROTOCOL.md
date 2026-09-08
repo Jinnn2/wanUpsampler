@@ -78,6 +78,37 @@ quality representation. Estimated-latency results remain development evidence.
 Use `selection/multiseed_reference_paired_deltas.csv` for the direct B4-Q
 minus B4 comparison; positive values always mean B4-Q is better.
 
+## Experiment 1b-budget: continuous prompt budget projection
+
+This development experiment reuses the legacy 500-prompt scored oracle data and
+the five frozen B4 checkpoints. It does not generate or score video. Candidate
+handoff steps are mapped to a scalar budget by the train-only median of
+`candidate latency / Native-HR latency`; validation latency never calibrates the
+budget coordinates or selects the fixed baseline.
+
+The scalar model predicts one normalized cost in `[0, 1]` from the frozen pooled
+T5 prompt embedding. Its default target is the expected train oracle budget
+under the existing soft utility distribution. `TARGET_TYPE=hard_oracle` changes
+only this supervision target. Both predictions are executed by nearest-neighbor
+matching against the train-calibrated candidate budgets.
+
+```bash
+PRIMARY_LAMBDA=0.08 \
+TARGET_TYPE=soft_expected \
+DATASET_DIR=/mnt/afs_2/houze/wanUpsampler/data/changing_resolution_uni/oracle_dataset_500_quality_valid \
+B4_RUN_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/router_selection_500_quality_valid_lambda008 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/continuous_budget_prior_legacy_lambda008 \
+ALLOW_ESTIMATED_LATENCY=1 \
+bash changing_resolution_uni/scripts/router/run_multiseed_continuous_budget_prior.sh
+```
+
+The comparison contains the prompt oracle, train-selected fixed budget, frozen
+B4 argmax, frozen B4 probability-to-expected-budget projection, and the learned
+continuous-budget nearest-neighbor policy. The launcher evaluates validation
+only and writes prompt-bootstrap intervals plus paired deltas against fixed and
+B4. Because the legacy data permits estimated latency, this run validates the
+one-dimensional prompt-budget hypothesis but is not formal speed evidence.
+
 ## Experiment 1c: utility-aligned relative quality curves
 
 B4-QA keeps the B4-Q architecture and relative quality output, but aligns it
