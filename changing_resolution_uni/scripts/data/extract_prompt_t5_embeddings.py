@@ -3,6 +3,7 @@
 Extract frozen T5 prompt embeddings, attention-masked mean pooled features,
 and token strings for downstream optimal-stopping router training and token attribution.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -15,6 +16,7 @@ from typing import Any
 
 import logging
 import numpy as np
+
 try:
     import torch
 except ImportError:
@@ -37,8 +39,18 @@ if LIGHTX2V_REPO and LIGHTX2V_REPO not in sys.path:
     sys.path.insert(0, LIGHTX2V_REPO)
 
 
+def sha256_file(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Extract T5 text embeddings for prompts.")
+    parser = argparse.ArgumentParser(
+        description="Extract T5 text embeddings for prompts."
+    )
     parser.add_argument(
         "--prompts_file",
         type=str,
@@ -101,6 +113,12 @@ def parse_args() -> argparse.Namespace:
         help="Inference precision for text encoder.",
     )
     parser.add_argument(
+        "--required_backend",
+        choices=["wan_native", "hf_transformers"],
+        default=None,
+        help="Fail instead of silently changing encoder backend.",
+    )
+    parser.add_argument(
         "--skip_existing",
         action="store_true",
         default=True,
@@ -114,7 +132,9 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_prompts(file_path: Path, offset: int = 0, limit: int | None = None) -> list[tuple[int, str]]:
+def load_prompts(
+    file_path: Path, offset: int = 0, limit: int | None = None
+) -> list[tuple[int, str]]:
     """Load prompts from .txt or .json, returning list of (global_index, prompt_text)."""
     if not file_path.is_file():
         raise FileNotFoundError(f"Prompts file not found: {file_path}")
@@ -159,22 +179,29 @@ def init_tokenizer_and_encoder(
         from transformers import AutoTokenizer, T5EncoderModel
 
         tok_id = tokenizer_path or model_path
-        if not (Path(tok_id).exists() and (Path(tok_id) / "tokenizer_config.json").exists()):
+        if not (
+            Path(tok_id).exists() and (Path(tok_id) / "tokenizer_config.json").exists()
+        ):
             tok_id = "google/umt5-xxl"
         logger.info(f"Loading tokenizer from: {tok_id}")
         tokenizer = AutoTokenizer.from_pretrained(tok_id)
 
         # Check for standard T5 encoder weights
-        enc_path = text_encoder_ckpt or os.path.join(model_path, "models_t5_umt5-xxl-enc-bf16.pth")
+        enc_path = text_encoder_ckpt or os.path.join(
+            model_path, "models_t5_umt5-xxl-enc-bf16.pth"
+        )
         if os.path.isfile(enc_path):
             logger.info(f"Loading Wan native T5 weights from: {enc_path}")
             # Native Wan T5 encoder structure or transformers T5
             try:
                 from lightx2v.models.text_encoders.wan.text_encoder import WanT5Encoder
+
                 encoder = WanT5Encoder(enc_path, dtype=torch_dtype, device=str(device))
                 return tokenizer, encoder, "wan_native"
             except Exception as e:
-                logger.warning(f"Failed to load WanT5Encoder ({e}), trying standard T5EncoderModel...")
+                logger.warning(
+                    f"Failed to load WanT5Encoder ({e}), trying standard T5EncoderModel..."
+                )
 
         logger.info(f"Loading HuggingFace T5EncoderModel from: {tok_id}")
         encoder = T5EncoderModel.from_pretrained(tok_id, torch_dtype=torch_dtype)
@@ -208,16 +235,18 @@ def encode_prompt_tokens(
         ids = ids.to(device)
         mask = mask.to(device)
         emb = encoder(ids, mask)  # [1, L, 4096]
-        
+
         # Token strings
         tokens = tokenizer.convert_ids_to_tokens(ids[0].cpu().tolist())
         seq_len = int(mask[0].gt(0).sum().item())
         emb_valid = emb[0, :seq_len]  # [valid_L, 4096]
         mask_valid = mask[0, :seq_len]  # [valid_L]
-        
+
         # Attention-masked mean pooling: sum(m_i * h_i) / sum(m_i)
-        pooled = (emb_valid * mask_valid.unsqueeze(-1)).sum(dim=0) / mask_valid.sum().clamp(min=1)
-        
+        pooled = (emb_valid * mask_valid.unsqueeze(-1)).sum(
+            dim=0
+        ) / mask_valid.sum().clamp(min=1)
+
         return {
             "tokens": tokens[:seq_len],
             "input_ids": ids[0, :seq_len].cpu().numpy().astype(np.int64),
@@ -237,17 +266,19 @@ def encode_prompt_tokens(
         )
         input_ids = inputs["input_ids"].to(device)
         attention_mask = inputs["attention_mask"].to(device)
-        
+
         outputs = encoder(input_ids=input_ids, attention_mask=attention_mask)
         emb = outputs.last_hidden_state  # [1, L, 4096]
-        
+
         seq_len = int(attention_mask[0].sum().item())
         tokens = tokenizer.convert_ids_to_tokens(input_ids[0].cpu().tolist())[:seq_len]
         emb_valid = emb[0, :seq_len]
         mask_valid = attention_mask[0, :seq_len]
-        
-        pooled = (emb_valid * mask_valid.unsqueeze(-1)).sum(dim=0) / mask_valid.sum().clamp(min=1)
-        
+
+        pooled = (emb_valid * mask_valid.unsqueeze(-1)).sum(
+            dim=0
+        ) / mask_valid.sum().clamp(min=1)
+
         return {
             "tokens": tokens,
             "input_ids": input_ids[0, :seq_len].cpu().numpy().astype(np.int64),
@@ -264,7 +295,9 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     prompts = load_prompts(prompts_file, offset=args.prompt_offset, limit=args.limit)
-    logger.info(f"Loaded {len(prompts)} prompts from {prompts_file} (offset={args.prompt_offset})")
+    logger.info(
+        f"Loaded {len(prompts)} prompts from {prompts_file} (offset={args.prompt_offset})"
+    )
 
     device = torch.device(args.device)
     dtype_map = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}
@@ -277,6 +310,10 @@ def main() -> None:
         device=device,
         torch_dtype=torch_dtype,
     )
+    if args.required_backend and backend != args.required_backend:
+        raise RuntimeError(
+            f"Required T5 backend {args.required_backend!r}, observed {backend!r}"
+        )
 
     manifest_entries: list[dict[str, Any]] = []
     num_skipped = 0
@@ -287,13 +324,42 @@ def main() -> None:
         meta_path = out_dir / f"prompt_{global_idx:06d}.json"
 
         if args.skip_existing and save_path.is_file() and meta_path.is_file():
+            existing_meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            expected_prompt_sha256 = hashlib.sha256(
+                prompt_text.encode("utf-8")
+            ).hexdigest()
+            if (
+                existing_meta.get("prompt_id") != global_idx
+                or existing_meta.get("prompt_text") != prompt_text
+                or existing_meta.get("prompt_sha256") != expected_prompt_sha256
+            ):
+                raise RuntimeError(
+                    f"Existing embedding metadata does not match prompt {global_idx}: "
+                    f"{meta_path}"
+                )
+            with np.load(save_path, allow_pickle=False) as existing_npz:
+                required = {
+                    "pooled_embedding",
+                    "seq_embedding",
+                    "input_ids",
+                    "attention_mask",
+                }
+                if not required.issubset(existing_npz.files):
+                    raise RuntimeError(f"Incomplete existing embedding: {save_path}")
+                if existing_npz["pooled_embedding"].shape != (4096,):
+                    raise RuntimeError(f"Invalid pooled embedding shape: {save_path}")
             num_skipped += 1
-            manifest_entries.append({
-                "prompt_id": global_idx,
-                "prompt_text": prompt_text,
-                "npz_file": str(save_path),
-                "json_file": str(meta_path),
-            })
+            manifest_entries.append(
+                {
+                    "prompt_id": global_idx,
+                    "prompt_text": prompt_text,
+                    "prompt_sha256": expected_prompt_sha256,
+                    "npz_file": str(save_path),
+                    "npz_sha256": sha256_file(save_path),
+                    "json_file": str(meta_path),
+                    "json_sha256": sha256_file(meta_path),
+                }
+            )
             continue
 
         try:
@@ -320,37 +386,88 @@ def main() -> None:
             meta = {
                 "prompt_id": global_idx,
                 "prompt_text": prompt_text,
-                "prompt_sha256": hashlib.sha256(prompt_text.encode("utf-8")).hexdigest(),
+                "prompt_sha256": hashlib.sha256(
+                    prompt_text.encode("utf-8")
+                ).hexdigest(),
                 "num_tokens": len(encoded["tokens"]),
                 "tokens": encoded["tokens"],
                 "npz_file": save_path.name,
             }
-            meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+            meta_path.write_text(
+                json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
 
-            manifest_entries.append({
-                "prompt_id": global_idx,
-                "prompt_text": prompt_text,
-                "npz_file": str(save_path),
-                "json_file": str(meta_path),
-            })
+            manifest_entries.append(
+                {
+                    "prompt_id": global_idx,
+                    "prompt_text": prompt_text,
+                    "prompt_sha256": meta["prompt_sha256"],
+                    "npz_file": str(save_path),
+                    "npz_sha256": sha256_file(save_path),
+                    "json_file": str(meta_path),
+                    "json_sha256": sha256_file(meta_path),
+                }
+            )
             num_processed += 1
             if num_processed % 50 == 0 or num_processed == len(prompts):
-                logger.info(f"Progress: [{num_processed}/{len(prompts)}] prompts embedded.")
+                logger.info(
+                    f"Progress: [{num_processed}/{len(prompts)}] prompts embedded."
+                )
         except Exception as err:
             logger.error(f"Error encoding prompt {global_idx}: {err}")
             raise
 
     # Write summary manifest
     manifest_path = out_dir / "t5_manifest.json"
-    manifest_payload = {
-        "schema": "prompt_t5_embeddings_manifest_v1",
+    encoder_path = Path(
+        args.text_encoder_ckpt
+        or Path(args.model_path) / "models_t5_umt5-xxl-enc-bf16.pth"
+    ).resolve()
+    manifest_body = {
+        "prompts_file": str(prompts_file),
+        "prompts_file_sha256": sha256_file(prompts_file),
+        "model_path": str(Path(args.model_path).resolve()),
+        "text_encoder_checkpoint": str(encoder_path)
+        if encoder_path.is_file()
+        else None,
+        "text_encoder_checkpoint_sha256": (
+            sha256_file(encoder_path) if encoder_path.is_file() else None
+        ),
+        "tokenizer_path": args.tokenizer_path,
+        "backend": backend,
+        "required_backend": args.required_backend,
+        "extractor_sha256": sha256_file(Path(__file__).resolve()),
+        "precision": args.precision,
+        "max_seq_len": args.max_seq_len,
+        "prompt_offset": args.prompt_offset,
+        "limit": args.limit,
         "total_prompts": len(manifest_entries),
-        "processed": num_processed,
-        "skipped": num_skipped,
+        "complete": len(manifest_entries) == len(prompts),
         "prompts": manifest_entries,
     }
-    manifest_path.write_text(json.dumps(manifest_payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    logger.info(f"Done! {num_processed} processed, {num_skipped} skipped. Manifest: {manifest_path}")
+    manifest_payload = {
+        "schema": "prompt_t5_embeddings_manifest_v2",
+        "manifest_sha256": hashlib.sha256(
+            json.dumps(
+                manifest_body,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest(),
+        **manifest_body,
+    }
+    temporary = manifest_path.with_name(f".{manifest_path.name}.tmp")
+    temporary.write_text(
+        json.dumps(manifest_payload, ensure_ascii=False, indent=2, allow_nan=False)
+        + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(manifest_path)
+    logger.info(
+        f"Done! {num_processed} processed, {num_skipped} skipped. Manifest: {manifest_path}"
+    )
 
 
 if __name__ == "__main__":

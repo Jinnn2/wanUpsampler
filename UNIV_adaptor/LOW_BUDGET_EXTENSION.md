@@ -128,3 +128,7 @@ The extension record contains four low-budget candidates. The combined v3
 record references the original Native-HR50, the five v2 candidates, and the
 four new candidates, for nine unique `artifact_id` values. The old and new B30
 remain distinct as `V2_B30` and `LB30_LR25_S0300_HR04`.
+
+After both Primary and Reserve report 600 combined records, continue with the
+strict scoring, cross-shard merge, embedding, and validation-only prompt-prior
+pipeline in [COMBINED_V3_PIPELINE.md](COMBINED_V3_PIPELINE.md).
