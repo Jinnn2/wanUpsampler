@@ -6,7 +6,8 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 
@@ -23,6 +24,9 @@ from UNIV_adaptor.scripts.data.score_combined_v3_dataset import (
     materialize_case,
     prepare,
     validate_score_manifest,
+)
+from changing_resolution_uni.scripts.data.extract_prompt_t5_embeddings import (
+    init_tokenizer_and_encoder,
 )
 
 try:
@@ -41,6 +45,53 @@ except ModuleNotFoundError as exc:
 
 
 class CombinedV3PipelineTest(unittest.TestCase):
+    def test_current_lightx2v_native_t5_api_is_used(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            checkpoint = root / "models_t5_umt5-xxl-enc-bf16.pth"
+            checkpoint.write_bytes(b"weights")
+            tokenizer_root = root / "google" / "umt5-xxl"
+            tokenizer_root.mkdir(parents=True)
+            captured = {}
+
+            class FakeT5EncoderModel:
+                def __init__(self, **kwargs):
+                    captured.update(kwargs)
+                    self.tokenizer = "native-tokenizer"
+                    self.model = "native-model"
+
+            module_names = (
+                "lightx2v",
+                "lightx2v.models",
+                "lightx2v.models.input_encoders",
+                "lightx2v.models.input_encoders.hf",
+                "lightx2v.models.input_encoders.hf.wan",
+                "lightx2v.models.input_encoders.hf.wan.t5",
+            )
+            modules = {name: ModuleType(name) for name in module_names}
+            model_module_name = "lightx2v.models.input_encoders.hf.wan.t5.model"
+            model_module = ModuleType(model_module_name)
+            model_module.T5EncoderModel = FakeT5EncoderModel
+            modules[model_module_name] = model_module
+            with patch.dict("sys.modules", modules):
+                tokenizer, model, backend = init_tokenizer_and_encoder(
+                    model_path=str(root),
+                    text_encoder_ckpt=None,
+                    tokenizer_path=None,
+                    max_seq_len=512,
+                    device="cuda:0",
+                    torch_dtype="bf16",
+                    required_backend="wan_native",
+                )
+            self.assertEqual(backend, "wan_native")
+            self.assertEqual(tokenizer, "native-tokenizer")
+            self.assertEqual(model, "native-model")
+            self.assertEqual(captured["text_len"], 512)
+            self.assertEqual(captured["checkpoint_path"], str(checkpoint.resolve()))
+            self.assertEqual(captured["tokenizer_path"], str(tokenizer_root.resolve()))
+            self.assertEqual(captured["device"], "cuda:0")
+            self.assertFalse(captured["t5_quantized"])
+
     def _make_shard(self, root: Path, shard_name: str, prompts: list[str]) -> None:
         extension_body = {
             "shard": shard_name,

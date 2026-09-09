@@ -93,6 +93,8 @@ check_inputs() {
   require_dir "${VBENCH_ROOT}"
   require_file "${VBENCH_ROOT}/evaluate.py"
   require_dir "${MODEL_ROOT}"
+  require_file "${MODEL_ROOT}/models_t5_umt5-xxl-enc-bf16.pth"
+  require_dir "${MODEL_ROOT}/google/umt5-xxl"
   require_dir "${LIGHTX2V_REPO}"
   resolve_vbench_python
   resolve_vbench_commit
@@ -103,7 +105,7 @@ check_inputs() {
     "${VBENCH_PYTHON}" -c 'import torch, vbench; assert torch.cuda.is_available()'
   )
   PYTHONPATH="${LIGHTX2V_REPO}:${PROJECT_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" \
-    "${WAN_PYTHON}" -c 'import numpy, torch; import UNIV_adaptor.combined_v3'
+    "${WAN_PYTHON}" -c 'import numpy, torch; import UNIV_adaptor.combined_v3; from lightx2v.models.input_encoders.hf.wan.t5.model import T5EncoderModel; print("LightX2V native T5 import passed:", T5EncoderModel.__module__)'
   echo "Combined-v3 inputs passed"
   echo "VBench commit: ${EXPECTED_VBENCH_COMMIT}"
   echo "Selection splits: train validation (test excluded)"
