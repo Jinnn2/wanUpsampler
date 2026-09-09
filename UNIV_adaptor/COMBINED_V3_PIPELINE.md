@@ -139,3 +139,37 @@ This completes the prompt-prior selection stage. It does not yet claim that the
 stored action-specific endpoints provide a common online branch observation;
 an endpoint-conditioned correction model remains a separate experiment after
 the prompt prior is validated.
+
+## True B4 control
+
+The quality-curve prior above is not the original B4 objective. After it has
+finished, run the isolated B4 control with:
+
+```bash
+DATASET_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_combined_v3_trainval_v1 \
+QUALITY_CURVE_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_combined_v3_quality_curve_prior_v1 \
+B4_OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_combined_v3_b4_control_v1 \
+HARDWARE_LABEL=H100 \
+bash UNIV_adaptor/scripts/run_univ_combined_v3_pipeline.sh train-b4
+```
+
+This trains two validation-only controls:
+
+- `b4_fixed_lambda_bank`: one original-style B4 soft-utility classifier per
+  lambda and training seed. This is the closest comparison with the old B4,
+  but it is a bank of ten controllers rather than one variable-lambda policy.
+- `b4_variable_lambda`: one B4 soft-utility classifier per seed with normalized
+  lambda appended to the prompt embedding. This is the deployable shared-model
+  extension for the combined-v3 lambda grid.
+
+Both use the B4 `4096 -> 256 -> 128 -> 9` hidden backbone, soft targets
+`softmax((Q - lambda*C) / tau)`, and KL plus `0.5 * Wasserstein` loss. The
+Wasserstein term orders the nine non-ordinal actions by the locked train cost
+profile. Validation decisions use probability ensembles across training seeds;
+individual-seed metrics are retained as stability diagnostics. The report also
+reloads the prior quality-curve checkpoints and compares all learned methods
+with the same prompt oracle and train-selected fixed action.
+
+The B4 output root includes per-action predicted probabilities and soft targets,
+per-lambda and macro prompt-bootstrap comparisons, and every seed/lambda
+training history. It does not read a test split.
