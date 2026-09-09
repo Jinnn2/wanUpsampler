@@ -18,9 +18,15 @@ if HAS_TORCH:
         b4_temperature_compatibility,
         budget_targets,
         calibrate_budget_grid,
+        continuous_budget_loss,
         evaluate_all_policies,
+        matched_fixed_mixture_spec,
         nearest_budget_index,
+        scalar_action_distribution,
         train_selected_fixed_index,
+    )
+    from changing_resolution_uni.scripts.router.model_router import (
+        SoftDistillationMLPRouter,
     )
 
 
@@ -61,11 +67,58 @@ class ContinuousBudgetPriorTest(unittest.TestCase):
         self.assertGreaterEqual(high, point)
 
     def test_model_outputs_one_bounded_budget_per_prompt(self) -> None:
-        model = ContinuousBudgetRegressor(in_dim=8, hidden_dims=(4,), dropout=0.0)
+        model = ContinuousBudgetRegressor(
+            in_dim=8,
+            hidden_dims=(4,),
+            dropout=0.0,
+            output_min=0.2,
+            output_max=0.6,
+        )
         output = model(torch.randn(3, 8))
         self.assertEqual(tuple(output.shape), (3,))
-        self.assertTrue(torch.all(output >= 0))
-        self.assertTrue(torch.all(output <= 1))
+        self.assertTrue(torch.all(output >= 0.2))
+        self.assertTrue(torch.all(output <= 0.6))
+
+    def test_scalar_backbone_matches_b4_hidden_parameter_shapes(self) -> None:
+        scalar = ContinuousBudgetRegressor(in_dim=8, hidden_dims=(6, 4), dropout=0.0)
+        b4 = SoftDistillationMLPRouter(
+            in_dim=8, hidden_dims=[6, 4], num_classes=3, dropout=0.0
+        )
+        self.assertEqual(
+            [tuple(value.shape) for value in scalar.mlp.parameters()],
+            [tuple(value.shape) for value in b4.mlp.parameters()],
+        )
+
+    def test_utility_loss_moves_scalar_toward_higher_utility_budget(self) -> None:
+        predicted = torch.tensor([0.5], requires_grad=True)
+        grid = torch.tensor([0.2, 0.4, 0.6])
+        batch = {
+            "utilities": torch.tensor([[0.9, 0.5, 0.1]]),
+            "target_step_idx": torch.tensor([0]),
+            "soft_utility_target": torch.tensor([[1.0, 0.0, 0.0]]),
+        }
+        probabilities = scalar_action_distribution(predicted, grid, 0.04)
+        self.assertTrue(torch.allclose(probabilities.sum(dim=1), torch.ones(1)))
+        loss, components = continuous_budget_loss(
+            predicted,
+            batch,
+            grid,
+            loss_type="utility_expected",
+            target_type="hard_oracle",
+            huber_beta=0.02,
+            budget_temperature=0.04,
+            utility_temperature=0.02,
+            regression_weight=0.1,
+        )
+        loss.backward()
+        self.assertGreater(float(predicted.grad), 0.0)
+        self.assertGreater(float(components["expected_regret"]), 0.0)
+
+    def test_matched_fixed_mixture_brackets_mean_cost(self) -> None:
+        spec = matched_fixed_mixture_spec(35.0, torch.tensor([70.0, 40.0, 20.0]))
+        self.assertEqual(spec["lower_index"], 2)
+        self.assertEqual(spec["upper_index"], 1)
+        self.assertAlmostEqual(spec["upper_weight"], 0.75)
 
     def test_nearest_budget_uses_nonuniform_cost_coordinates(self) -> None:
         grid = torch.tensor([0.72, 0.51, 0.33, 0.20])
@@ -147,7 +200,7 @@ class ContinuousBudgetPriorTest(unittest.TestCase):
                 "vbench_dimensions": dimensions,
             }
         ]
-        summaries, rows = evaluate_all_policies(
+        summaries, rows, mixture, fixed_curve = evaluate_all_policies(
             continuous_model=FixedBudget(),
             b4_model=FixedB4(),
             loader=loader,
@@ -158,14 +211,21 @@ class ContinuousBudgetPriorTest(unittest.TestCase):
             device=torch.device("cpu"),
             split="validation",
         )
-        self.assertEqual(len(summaries), 5)
-        self.assertEqual(len(rows), 10)
+        self.assertEqual(len(summaries), 6)
+        self.assertEqual(len(rows), 12)
+        self.assertEqual(len(fixed_curve), 3)
         continuous = [
             row for row in rows if row["model_type"] == "continuous_budget_nearest"
         ]
         self.assertEqual([row["chosen_step"] for row in continuous], [50, 40])
         projected = [row for row in rows if row["model_type"] == "b4_projected_nearest"]
         self.assertEqual([row["chosen_step"] for row in projected], [45, 40])
+        self.assertAlmostEqual(mixture["target_mean_latency_seconds"], 45.0)
+        matched = [row for row in rows if row["model_type"] == "matched_fixed_mixture"]
+        self.assertAlmostEqual(
+            sum(row["realized_latency_sec"] for row in matched) / len(matched),
+            45.0,
+        )
 
 
 if __name__ == "__main__":

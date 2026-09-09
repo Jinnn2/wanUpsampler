@@ -81,6 +81,10 @@ def load_runs(root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     expected_prompts: tuple[int, ...] | None = None
     for summary_path in summary_paths:
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        if summary.get("schema") != "continuous_prompt_budget_validation_v2":
+            raise ValueError(
+                f"Run does not use the utility-aware v2 protocol: {summary_path}"
+            )
         if summary.get("evaluation_split") != "validation" or summary.get(
             "test_accessed"
         ):
@@ -89,6 +93,9 @@ def load_runs(root: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         current_signature = (
             summary.get("primary_lambda"),
             summary.get("target_type"),
+            summary.get("loss_type"),
+            json.dumps(summary.get("loss"), sort_keys=True),
+            summary.get("architecture"),
             tuple(summary.get("candidate_steps", [])),
             tuple(summary.get("budget_grid", [])),
             meta.get("split_seed"),
@@ -245,11 +252,19 @@ def main() -> None:
         samples=args.bootstrap_samples,
         rng=rng,
     )
+    vs_matched_fixed = paired_intervals(
+        rows,
+        reference_model="matched_fixed_mixture",
+        candidate_models=["continuous_budget_nearest"],
+        samples=args.bootstrap_samples,
+        rng=rng,
+    )
     write_csv(out_dir / "validation_intervals.csv", intervals)
     write_csv(out_dir / "paired_vs_fixed.csv", vs_fixed)
     write_csv(out_dir / "paired_vs_b4.csv", vs_b4)
+    write_csv(out_dir / "paired_vs_matched_fixed.csv", vs_matched_fixed)
     summary = {
-        "schema": "continuous_prompt_budget_multiseed_selection_v1",
+        "schema": "continuous_prompt_budget_multiseed_selection_v2",
         "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "selection_scope": "validation_only_diagnostic",
         "test_accessed": False,
@@ -265,6 +280,7 @@ def main() -> None:
             "intervals": "validation_intervals.csv",
             "paired_vs_fixed": "paired_vs_fixed.csv",
             "paired_vs_b4": "paired_vs_b4.csv",
+            "paired_vs_matched_fixed": "paired_vs_matched_fixed.csv",
         },
     }
     summary_path.write_text(

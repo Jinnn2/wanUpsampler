@@ -51,34 +51,47 @@ METHODS = (
         "continuous_budget_nearest",
     ),
 )
+MATCHED_FIXED_METHOD = (
+    "Prompt-Independent Fixed Mixture (Matched Cost)",
+    "matched_fixed",
+    "matched_fixed_mixture",
+)
 
 
 class ContinuousBudgetRegressor(nn.Module):
-    """Map one frozen pooled prompt embedding to a normalized cost in [0, 1]."""
+    """B4-matched backbone with one normalized budget output in [0, 1]."""
 
     def __init__(
         self,
         in_dim: int = 4096,
         hidden_dims: tuple[int, ...] = (256, 128),
         dropout: float = 0.1,
+        output_min: float = 0.0,
+        output_max: float = 1.0,
     ) -> None:
         super().__init__()
-        layers: list[nn.Module] = [nn.LayerNorm(in_dim)]
+        if not 0.0 <= output_min < output_max <= 1.0:
+            raise ValueError("output range must satisfy 0 <= min < max <= 1")
+        layers: list[nn.Module] = []
         previous = in_dim
         for hidden in hidden_dims:
             layers.extend(
                 [
                     nn.Linear(previous, hidden),
+                    nn.LayerNorm(hidden),
                     nn.SiLU(),
                     nn.Dropout(dropout),
                 ]
             )
             previous = hidden
-        self.backbone = nn.Sequential(*layers)
+        self.mlp = nn.Sequential(*layers)
         self.head = nn.Linear(previous, 1)
+        self.register_buffer("output_min", torch.tensor(float(output_min)))
+        self.register_buffer("output_max", torch.tensor(float(output_max)))
 
     def forward(self, pooled_t5: torch.Tensor) -> torch.Tensor:
-        return torch.sigmoid(self.head(self.backbone(pooled_t5))).squeeze(-1)
+        unit_budget = torch.sigmoid(self.head(self.mlp(pooled_t5))).squeeze(-1)
+        return self.output_min + unit_budget * (self.output_max - self.output_min)
 
 
 def parse_args() -> argparse.Namespace:
@@ -89,7 +102,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--target-type",
         choices=("soft_expected", "hard_oracle"),
-        default="soft_expected",
+        default="hard_oracle",
+    )
+    parser.add_argument(
+        "--loss-type",
+        choices=("hard_huber", "utility_expected", "hybrid"),
+        default="hybrid",
     )
     parser.add_argument("--primary-lambda", type=float, default=0.08)
     parser.add_argument("--soft-target-tau", type=float, default=0.02)
@@ -101,6 +119,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--huber-beta", type=float, default=0.02)
+    parser.add_argument("--budget-temperature", type=float, default=0.04)
+    parser.add_argument("--utility-temperature", type=float, default=0.02)
+    parser.add_argument("--regression-weight", type=float, default=1.0)
     parser.add_argument("--allow-estimated-latency", action="store_true")
     parser.add_argument("--require-measured-latency", action="store_true")
     parser.add_argument(
@@ -126,6 +147,10 @@ def parse_args() -> argparse.Namespace:
         )
     if args.soft_target_tau <= 0:
         parser.error("soft-target-tau must be positive")
+    if args.budget_temperature <= 0 or args.utility_temperature <= 0:
+        parser.error("budget-temperature and utility-temperature must be positive")
+    if args.regression_weight < 0:
+        parser.error("regression-weight must be non-negative")
     if args.allow_estimated_latency and args.require_measured_latency:
         parser.error(
             "allow-estimated-latency and require-measured-latency are mutually exclusive"
@@ -187,6 +212,55 @@ def nearest_budget_index(
     return distances.argmin(dim=1)
 
 
+def scalar_action_distribution(
+    predicted_budget: torch.Tensor,
+    budget_grid: torch.Tensor,
+    temperature: float,
+) -> torch.Tensor:
+    """Differentiable train-time relaxation of budget nearest-neighbor lookup."""
+    if temperature <= 0:
+        raise ValueError("temperature must be positive")
+    grid = budget_grid.to(predicted_budget.device)
+    logits = -(predicted_budget.unsqueeze(1) - grid.unsqueeze(0)).abs() / temperature
+    return torch.softmax(logits, dim=1)
+
+
+def continuous_budget_loss(
+    predicted_budget: torch.Tensor,
+    batch: dict[str, Any],
+    budget_grid: torch.Tensor,
+    *,
+    loss_type: str,
+    target_type: str,
+    huber_beta: float,
+    budget_temperature: float,
+    utility_temperature: float,
+    regression_weight: float,
+) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    target = budget_targets(batch, budget_grid, target_type).to(predicted_budget.device)
+    regression = nn.functional.smooth_l1_loss(predicted_budget, target, beta=huber_beta)
+    utilities = batch["utilities"].to(predicted_budget.device)
+    action_probs = scalar_action_distribution(
+        predicted_budget, budget_grid, budget_temperature
+    )
+    regret = utilities.max(dim=1, keepdim=True).values - utilities
+    expected_regret = (action_probs * regret).sum(dim=1).mean()
+    scaled_utility = expected_regret / utility_temperature
+    if loss_type == "hard_huber":
+        total = regression
+    elif loss_type == "utility_expected":
+        total = scaled_utility
+    elif loss_type == "hybrid":
+        total = scaled_utility + regression_weight * regression
+    else:
+        raise ValueError(f"Unsupported loss type: {loss_type}")
+    return total, {
+        "regression": regression.detach(),
+        "expected_regret": expected_regret.detach(),
+        "scaled_utility": scaled_utility.detach(),
+    }
+
+
 def train_selected_fixed_index(loader: torch.utils.data.DataLoader) -> int:
     utility_sum: torch.Tensor | None = None
     count = 0
@@ -197,6 +271,63 @@ def train_selected_fixed_index(loader: torch.utils.data.DataLoader) -> int:
     if utility_sum is None or count == 0:
         raise ValueError("Cannot select a fixed budget from an empty train loader")
     return int(torch.argmax(utility_sum / count))
+
+
+def budget_target_diagnostics(
+    loader: torch.utils.data.DataLoader,
+    budget_grid: torch.Tensor,
+    target_type: str,
+    candidate_steps: list[int],
+) -> dict[str, Any]:
+    targets = []
+    hard_indices = []
+    for batch in loader:
+        targets.append(budget_targets(batch, budget_grid, target_type))
+        hard_indices.append(batch["target_step_idx"])
+    values = torch.cat(targets).float()
+    indices = torch.cat(hard_indices).long()
+    histogram = {
+        str(step): int((indices == index).sum())
+        for index, step in enumerate(candidate_steps)
+    }
+    return {
+        "sample_count": int(values.numel()),
+        "target_type": target_type,
+        "mean": float(values.mean()),
+        "std": float(values.std(unbiased=False)),
+        "min": float(values.min()),
+        "max": float(values.max()),
+        "hard_oracle_step_histogram": histogram,
+    }
+
+
+def matched_fixed_mixture_spec(
+    target_cost: float,
+    candidate_costs: torch.Tensor,
+) -> dict[str, Any]:
+    """Bracket one mean cost with a prompt-independent two-action mixture."""
+    if candidate_costs.ndim != 1 or candidate_costs.numel() < 1:
+        raise ValueError("candidate_costs must be a non-empty vector")
+    if not torch.isfinite(candidate_costs).all():
+        raise ValueError("candidate_costs must be finite")
+    order = torch.argsort(candidate_costs)
+    ordered = candidate_costs[order]
+    if target_cost <= float(ordered[0]):
+        index = int(order[0])
+        return {"lower_index": index, "upper_index": index, "upper_weight": 0.0}
+    if target_cost >= float(ordered[-1]):
+        index = int(order[-1])
+        return {"lower_index": index, "upper_index": index, "upper_weight": 0.0}
+    upper_position = int(torch.searchsorted(ordered, torch.tensor(target_cost)))
+    lower_position = upper_position - 1
+    lower_cost = float(ordered[lower_position])
+    upper_cost = float(ordered[upper_position])
+    upper_weight = (target_cost - lower_cost) / (upper_cost - lower_cost)
+    return {
+        "lower_index": int(order[lower_position]),
+        "upper_index": int(order[upper_position]),
+        "upper_weight": float(upper_weight),
+    }
 
 
 def b4_temperature_compatibility(
@@ -325,13 +456,10 @@ def train_model(
     args: argparse.Namespace,
     device: torch.device,
 ) -> tuple[dict[str, torch.Tensor], int, list[dict[str, float]]]:
-    criterion = nn.SmoothL1Loss(beta=args.huber_beta)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=args.lr,
         weight_decay=args.weight_decay,
-        betas=(0.9, 0.95),
-        eps=1e-10,
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer,
@@ -345,17 +473,32 @@ def train_model(
     for epoch in range(1, args.epochs + 1):
         model.train()
         loss_sum = 0.0
+        regression_sum = 0.0
+        expected_regret_sum = 0.0
         sample_count = 0
         for batch in train_loader:
             pooled = batch["pooled_t5"].to(device)
-            target = budget_targets(batch, budget_grid, args.target_type).to(device)
             optimizer.zero_grad(set_to_none=True)
             predicted = model(pooled)
-            loss = criterion(predicted, target)
+            loss, components = continuous_budget_loss(
+                predicted,
+                batch,
+                budget_grid,
+                loss_type=args.loss_type,
+                target_type=args.target_type,
+                huber_beta=args.huber_beta,
+                budget_temperature=args.budget_temperature,
+                utility_temperature=args.utility_temperature,
+                regression_weight=args.regression_weight,
+            )
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             loss_sum += loss.detach().item() * pooled.shape[0]
+            regression_sum += components["regression"].item() * pooled.shape[0]
+            expected_regret_sum += (
+                components["expected_regret"].item() * pooled.shape[0]
+            )
             sample_count += int(pooled.shape[0])
         scheduler.step()
         val = continuous_validation_metrics(
@@ -365,6 +508,8 @@ def train_model(
             {
                 "epoch": epoch,
                 "train_loss": loss_sum / max(sample_count, 1),
+                "train_regression_loss": regression_sum / max(sample_count, 1),
+                "train_expected_regret": expected_regret_sum / max(sample_count, 1),
                 "validation_policy_regret": val["policy_regret"],
                 "validation_budget_mae": val["budget_mae"],
                 "learning_rate": scheduler.get_last_lr()[0],
@@ -379,9 +524,11 @@ def train_model(
             }
         if epoch == 1 or epoch % 10 == 0 or epoch == args.epochs:
             LOGGER.info(
-                "epoch=%d train_loss=%.6f val_regret=%.6f val_budget_mae=%.6f",
+                "epoch=%d train_loss=%.6f train_expected_regret=%.6f "
+                "val_regret=%.6f val_budget_mae=%.6f",
                 epoch,
                 history[-1]["train_loss"],
+                history[-1]["train_expected_regret"],
                 val["policy_regret"],
                 val["budget_mae"],
             )
@@ -403,10 +550,16 @@ def evaluate_all_policies(
     target_type: str,
     device: torch.device,
     split: str,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    dict[str, Any],
+    list[dict[str, Any]],
+]:
     continuous_model.eval()
     b4_model.eval()
     rows: list[dict[str, Any]] = []
+    examples: list[dict[str, Any]] = []
     steps = torch.tensor(candidate_steps, dtype=torch.long)
     for batch in loader:
         pooled = batch["pooled_t5"].to(device)
@@ -436,6 +589,23 @@ def evaluate_all_policies(
         target_budget = budget_targets(batch, budget_grid, target_type)
         batch_rows = torch.arange(batch["utilities"].shape[0])
         oracle_utility = batch["utilities"].max(dim=1).values
+        for index, prompt_id in enumerate(batch["prompt_id"].tolist()):
+            examples.append(
+                {
+                    "prompt_id": int(prompt_id),
+                    "target_index": int(batch["target_step_idx"][index]),
+                    "target_budget": float(target_budget[index]),
+                    "utilities": batch["utilities"][index].float(),
+                    "vbench5": batch["vbench5"][index].float(),
+                    "latencies": batch["latencies"][index].float(),
+                    "native_latency": float(batch["native_latency"][index]),
+                    "seed_oracle_utility": float(batch["seed_oracle_utility"][index]),
+                    "dimensions": {
+                        name: values[index].float()
+                        for name, values in batch["vbench_dimensions"].items()
+                    },
+                }
+            )
         for method, role, model_type in METHODS:
             chosen = choices[model_type]
             realized_utility = batch["utilities"][batch_rows, chosen]
@@ -478,8 +648,121 @@ def evaluate_all_policies(
                     row[f"realized_{name}"] = float(values[index])
                 rows.append(row)
 
+    continuous_rows = [
+        row for row in rows if row["model_type"] == "continuous_budget_nearest"
+    ]
+    target_latency = float(
+        np.mean([float(row["realized_latency_sec"]) for row in continuous_rows])
+    )
+    candidate_mean_latencies = torch.stack(
+        [example["latencies"] for example in examples]
+    ).mean(dim=0)
+    mixture = matched_fixed_mixture_spec(target_latency, candidate_mean_latencies)
+    lower = int(mixture["lower_index"])
+    upper = int(mixture["upper_index"])
+    upper_weight = float(mixture["upper_weight"])
+    lower_weight = 1.0 - upper_weight
+    mixed_budget = lower_weight * float(budget_grid[lower]) + upper_weight * float(
+        budget_grid[upper]
+    )
+    method, role, model_type = MATCHED_FIXED_METHOD
+    for example in examples:
+        utilities = example["utilities"]
+        quality = example["vbench5"]
+        latencies = example["latencies"]
+        realized_utility = lower_weight * float(
+            utilities[lower]
+        ) + upper_weight * float(utilities[upper])
+        realized_quality = lower_weight * float(quality[lower]) + upper_weight * float(
+            quality[upper]
+        )
+        realized_latency = lower_weight * float(
+            latencies[lower]
+        ) + upper_weight * float(latencies[upper])
+        oracle_utility = float(utilities.max())
+        row = {
+            "split": split,
+            "Method": method,
+            "method_role": role,
+            "model_type": model_type,
+            "prompt_id": example["prompt_id"],
+            "target_step": candidate_steps[example["target_index"]],
+            "chosen_step": (
+                str(candidate_steps[lower])
+                if lower == upper
+                else (
+                    f"{candidate_steps[lower]}@{lower_weight:.6f}|"
+                    f"{candidate_steps[upper]}@{upper_weight:.6f}"
+                )
+            ),
+            "target_budget": example["target_budget"],
+            "predicted_budget": mixed_budget,
+            "chosen_budget": mixed_budget,
+            "budget_abs_error": abs(mixed_budget - example["target_budget"]),
+            "policy_regret": max(0.0, oracle_utility - realized_utility),
+            "realized_utility": realized_utility,
+            "oracle_utility": oracle_utility,
+            "seed_oracle_utility": example["seed_oracle_utility"],
+            "realized_vbench5": realized_quality,
+            "realized_latency_sec": realized_latency,
+            "native_latency_sec": example["native_latency"],
+            "speedup_vs_native": example["native_latency"]
+            / max(realized_latency, 1e-6),
+        }
+        for name, values in example["dimensions"].items():
+            row[f"realized_{name}"] = lower_weight * float(
+                values[lower]
+            ) + upper_weight * float(values[upper])
+        rows.append(row)
+
+    mixture.update(
+        {
+            "matching_metric": "validation_mean_pipeline_seconds",
+            "target_mean_latency_seconds": target_latency,
+            "lower_step": candidate_steps[lower],
+            "upper_step": candidate_steps[upper],
+            "lower_weight": lower_weight,
+            "lower_mean_latency_seconds": float(candidate_mean_latencies[lower]),
+            "upper_mean_latency_seconds": float(candidate_mean_latencies[upper]),
+            "mixed_budget": mixed_budget,
+            "prompt_conditioned": False,
+        }
+    )
+
+    fixed_curve = []
+    for index, step in enumerate(candidate_steps):
+        realized_utility = np.asarray(
+            [float(example["utilities"][index]) for example in examples]
+        )
+        oracle_utility = np.asarray(
+            [float(example["utilities"].max()) for example in examples]
+        )
+        realized_latency = np.asarray(
+            [float(example["latencies"][index]) for example in examples]
+        )
+        native_latency = np.asarray(
+            [float(example["native_latency"]) for example in examples]
+        )
+        fixed_curve.append(
+            {
+                "step": step,
+                "budget": float(budget_grid[index]),
+                "policy_regret": float(
+                    np.maximum(oracle_utility - realized_utility, 0.0).mean()
+                ),
+                "realized_utility": float(realized_utility.mean()),
+                "realized_vbench5": float(
+                    np.mean([float(example["vbench5"][index]) for example in examples])
+                ),
+                "realized_latency_sec": float(realized_latency.mean()),
+                "speedup_vs_native": float(
+                    native_latency.mean() / max(realized_latency.mean(), 1e-6)
+                ),
+            }
+        )
+
     summaries = []
-    for method, role, model_type in METHODS:
+    for method, role, model_type in (*METHODS, MATCHED_FIXED_METHOD):
         selected = [row for row in rows if row["model_type"] == model_type]
         summary: dict[str, Any] = {
             "Method": method,
@@ -522,7 +805,7 @@ def evaluate_all_policies(
             if denominator > 1e-12
             else 0.0
         )
-    return summaries, rows
+    return summaries, rows, mixture, fixed_curve
 
 
 def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -562,6 +845,12 @@ def main() -> None:
     candidate_steps = [int(value) for value in meta["candidate_steps"]]
     budget_grid = calibrate_budget_grid(train_loader)
     fixed_index = train_selected_fixed_index(train_loader)
+    train_target_diagnostics = budget_target_diagnostics(
+        train_loader, budget_grid, args.target_type, candidate_steps
+    )
+    validation_target_diagnostics = budget_target_diagnostics(
+        val_loader, budget_grid, args.target_type, candidate_steps
+    )
     b4_model, b4_payload, b4_temperature = load_frozen_b4(
         Path(args.b4_checkpoint).resolve(),
         candidate_steps=candidate_steps,
@@ -575,7 +864,12 @@ def main() -> None:
         device=device,
     )
 
-    continuous_model = ContinuousBudgetRegressor().to(device)
+    # Data audits above must not perturb initialization across otherwise matched runs.
+    seed_everything(args.seed)
+    continuous_model = ContinuousBudgetRegressor(
+        output_min=float(budget_grid.min()),
+        output_max=float(budget_grid.max()),
+    ).to(device)
     state, best_epoch, history = train_model(
         continuous_model,
         train_loader,
@@ -584,7 +878,7 @@ def main() -> None:
         args,
         device,
     )
-    summaries, predictions = evaluate_all_policies(
+    summaries, predictions, matched_fixed_mixture, fixed_curve = evaluate_all_policies(
         continuous_model=continuous_model,
         b4_model=b4_model,
         loader=val_loader,
@@ -597,13 +891,22 @@ def main() -> None:
     )
 
     checkpoint = {
-        "schema": "continuous_prompt_budget_checkpoint_v1",
+        "schema": "continuous_prompt_budget_checkpoint_v2",
         "model_type": "continuous_budget_nearest",
         "state_dict": state,
         "candidate_steps": candidate_steps,
         "budget_grid": budget_grid,
         "budget_definition": "train_median_candidate_latency_over_native_latency",
         "target_type": args.target_type,
+        "loss_type": args.loss_type,
+        "loss": {
+            "huber_beta": args.huber_beta,
+            "budget_temperature": args.budget_temperature,
+            "utility_temperature": args.utility_temperature,
+            "regression_weight": args.regression_weight,
+        },
+        "architecture": "b4_matched_mlp_4096_256_128_scalar_sigmoid",
+        "output_range": [float(budget_grid.min()), float(budget_grid.max())],
         "primary_lambda": args.primary_lambda,
         "soft_target_tau": args.soft_target_tau,
         "b4_temperature_compatibility": b4_temperature,
@@ -614,18 +917,31 @@ def main() -> None:
     write_csv(out_dir / "training_history.csv", history)
     write_csv(out_dir / "continuous_budget_validation_predictions.csv", predictions)
     write_csv(out_dir / "continuous_budget_validation_results.csv", summaries)
+    write_csv(out_dir / "fixed_candidate_validation_curve.csv", fixed_curve)
     summary = {
-        "schema": "continuous_prompt_budget_validation_v1",
+        "schema": "continuous_prompt_budget_validation_v2",
         "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "evaluation_stage": "selection",
         "evaluation_split": "validation",
         "test_accessed": False,
         "primary_lambda": args.primary_lambda,
         "target_type": args.target_type,
+        "loss_type": args.loss_type,
+        "loss": {
+            "huber_beta": args.huber_beta,
+            "budget_temperature": args.budget_temperature,
+            "utility_temperature": args.utility_temperature,
+            "regression_weight": args.regression_weight,
+        },
+        "architecture": "b4_matched_mlp_4096_256_128_scalar_sigmoid",
+        "output_range": [float(budget_grid.min()), float(budget_grid.max())],
         "budget_definition": "train_median_candidate_latency_over_native_latency",
         "candidate_steps": candidate_steps,
         "budget_grid": budget_grid.tolist(),
         "train_selected_fixed_step": candidate_steps[fixed_index],
+        "train_target_diagnostics": train_target_diagnostics,
+        "validation_target_diagnostics": validation_target_diagnostics,
+        "matched_fixed_mixture": matched_fixed_mixture,
         "best_epoch": best_epoch,
         "meta": {**meta, "train_seed": args.seed},
         "dataset": {
@@ -650,6 +966,7 @@ def main() -> None:
             "training_history": "training_history.csv",
             "predictions": "continuous_budget_validation_predictions.csv",
             "results": "continuous_budget_validation_results.csv",
+            "fixed_candidate_curve": "fixed_candidate_validation_curve.csv",
         },
     }
     summary_path.write_text(
