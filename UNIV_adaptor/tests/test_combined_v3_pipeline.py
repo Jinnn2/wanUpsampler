@@ -250,6 +250,16 @@ class CombinedV3PipelineTest(unittest.TestCase):
         model_root.mkdir(parents=True, exist_ok=True)
         checkpoint = model_root / "t5.pt"
         checkpoint.write_bytes(b"native-t5")
+        tokenizer_root = model_root / "google" / "umt5-xxl"
+        tokenizer_root.mkdir(parents=True)
+        tokenizer_config = tokenizer_root / "tokenizer_config.json"
+        tokenizer_config.write_text("{}", encoding="utf-8")
+        tokenizer_files = [
+            {
+                "relative_path": "tokenizer_config.json",
+                "sha256": sha256_file(tokenizer_config),
+            }
+        ]
         entries = []
         for prompt in dataset["prompts"]:
             prompt_id = prompt["global_prompt_id"]
@@ -290,7 +300,9 @@ class CombinedV3PipelineTest(unittest.TestCase):
             "model_path": dataset["model_root"],
             "text_encoder_checkpoint": str(checkpoint),
             "text_encoder_checkpoint_sha256": sha256_file(checkpoint),
-            "tokenizer_path": None,
+            "tokenizer_path": str(tokenizer_root),
+            "tokenizer_files": tokenizer_files,
+            "tokenizer_files_sha256": canonical_sha256(tokenizer_files),
             "backend": "wan_native",
             "required_backend": "wan_native",
             "extractor_sha256": sha256_file(

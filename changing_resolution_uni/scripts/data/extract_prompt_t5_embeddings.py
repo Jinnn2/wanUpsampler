@@ -47,6 +47,22 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def directory_file_inventory(path: str | Path) -> list[dict[str, Any]]:
+    root = Path(path).resolve()
+    if not root.is_dir():
+        raise FileNotFoundError(f"Directory is missing: {root}")
+    files = [item for item in sorted(root.rglob("*")) if item.is_file()]
+    if not files:
+        raise RuntimeError(f"Directory contains no files: {root}")
+    return [
+        {
+            "relative_path": item.relative_to(root).as_posix(),
+            "sha256": sha256_file(item),
+        }
+        for item in files
+    ]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Extract T5 text embeddings for prompts."
@@ -168,42 +184,74 @@ def init_tokenizer_and_encoder(
     model_path: str,
     text_encoder_ckpt: str | None,
     tokenizer_path: str | None,
+    max_seq_len: int,
     device: torch.device,
     torch_dtype: torch.dtype,
+    required_backend: str | None,
 ):
     """
     Initialize Wan T5 tokenizer and encoder.
     Falls back gracefully to transformers or native LightX2V text encoder.
     """
+    enc_path = Path(
+        text_encoder_ckpt
+        or Path(model_path) / "models_t5_umt5-xxl-enc-bf16.pth"
+    ).resolve()
+    local_tokenizer = Path(
+        tokenizer_path or Path(model_path) / "google" / "umt5-xxl"
+    ).resolve()
+    native_error: Exception | None = None
+    if enc_path.is_file():
+        if not local_tokenizer.is_dir():
+            native_error = FileNotFoundError(
+                f"Wan tokenizer directory is missing: {local_tokenizer}"
+            )
+        else:
+            logger.info(f"Loading tokenizer from: {local_tokenizer}")
+            logger.info(f"Loading Wan native T5 weights from: {enc_path}")
+            try:
+                from lightx2v.models.input_encoders.hf.wan.t5.model import (
+                    T5EncoderModel as LightX2VT5EncoderModel,
+                )
+
+                native = LightX2VT5EncoderModel(
+                    text_len=max_seq_len,
+                    dtype=torch_dtype,
+                    device=device,
+                    checkpoint_path=str(enc_path),
+                    tokenizer_path=str(local_tokenizer),
+                    shard_fn=None,
+                    cpu_offload=False,
+                    t5_quantized=False,
+                    t5_quantized_ckpt=None,
+                    quant_scheme=None,
+                    lazy_load=False,
+                    load_from_rank0=False,
+                    dummy_model=False,
+                )
+                return native.tokenizer, native.model, "wan_native"
+            except Exception as exc:
+                native_error = exc
+    else:
+        native_error = FileNotFoundError(f"Wan T5 checkpoint is missing: {enc_path}")
+
+    if required_backend == "wan_native":
+        raise RuntimeError(
+            "Could not initialize the required LightX2V Wan native T5 encoder: "
+            f"{native_error}"
+        ) from native_error
+
     try:
         from transformers import AutoTokenizer, T5EncoderModel
 
-        tok_id = tokenizer_path or model_path
-        if not (
-            Path(tok_id).exists() and (Path(tok_id) / "tokenizer_config.json").exists()
-        ):
-            tok_id = "google/umt5-xxl"
-        logger.info(f"Loading tokenizer from: {tok_id}")
-        tokenizer = AutoTokenizer.from_pretrained(tok_id)
-
-        # Check for standard T5 encoder weights
-        enc_path = text_encoder_ckpt or os.path.join(
-            model_path, "models_t5_umt5-xxl-enc-bf16.pth"
+        tok_id = tokenizer_path or "google/umt5-xxl"
+        logger.warning(
+            "Wan native T5 initialization failed (%s); using explicitly permitted "
+            "Hugging Face fallback %s",
+            native_error,
+            tok_id,
         )
-        if os.path.isfile(enc_path):
-            logger.info(f"Loading Wan native T5 weights from: {enc_path}")
-            # Native Wan T5 encoder structure or transformers T5
-            try:
-                from lightx2v.models.text_encoders.wan.text_encoder import WanT5Encoder
-
-                encoder = WanT5Encoder(enc_path, dtype=torch_dtype, device=str(device))
-                return tokenizer, encoder, "wan_native"
-            except Exception as e:
-                logger.warning(
-                    f"Failed to load WanT5Encoder ({e}), trying standard T5EncoderModel..."
-                )
-
-        logger.info(f"Loading HuggingFace T5EncoderModel from: {tok_id}")
+        tokenizer = AutoTokenizer.from_pretrained(tok_id)
         encoder = T5EncoderModel.from_pretrained(tok_id, torch_dtype=torch_dtype)
         encoder.to(device)
         encoder.eval()
@@ -237,7 +285,8 @@ def encode_prompt_tokens(
         emb = encoder(ids, mask)  # [1, L, 4096]
 
         # Token strings
-        tokens = tokenizer.convert_ids_to_tokens(ids[0].cpu().tolist())
+        raw_tokenizer = getattr(tokenizer, "tokenizer", tokenizer)
+        tokens = raw_tokenizer.convert_ids_to_tokens(ids[0].cpu().tolist())
         seq_len = int(mask[0].gt(0).sum().item())
         emb_valid = emb[0, :seq_len]  # [valid_L, 4096]
         mask_valid = mask[0, :seq_len]  # [valid_L]
@@ -307,8 +356,10 @@ def main() -> None:
         model_path=args.model_path,
         text_encoder_ckpt=args.text_encoder_ckpt,
         tokenizer_path=args.tokenizer_path,
+        max_seq_len=args.max_seq_len,
         device=device,
         torch_dtype=torch_dtype,
+        required_backend=args.required_backend,
     )
     if args.required_backend and backend != args.required_backend:
         raise RuntimeError(
@@ -423,6 +474,16 @@ def main() -> None:
         args.text_encoder_ckpt
         or Path(args.model_path) / "models_t5_umt5-xxl-enc-bf16.pth"
     ).resolve()
+    resolved_tokenizer_path = (
+        Path(args.tokenizer_path).resolve()
+        if args.tokenizer_path
+        else (Path(args.model_path) / "google" / "umt5-xxl").resolve()
+    )
+    tokenizer_files = (
+        directory_file_inventory(resolved_tokenizer_path)
+        if backend == "wan_native"
+        else []
+    )
     manifest_body = {
         "prompts_file": str(prompts_file),
         "prompts_file_sha256": sha256_file(prompts_file),
@@ -433,7 +494,21 @@ def main() -> None:
         "text_encoder_checkpoint_sha256": (
             sha256_file(encoder_path) if encoder_path.is_file() else None
         ),
-        "tokenizer_path": args.tokenizer_path,
+        "tokenizer_path": (
+            str(resolved_tokenizer_path)
+            if backend == "wan_native"
+            else args.tokenizer_path or "google/umt5-xxl"
+        ),
+        "tokenizer_files": tokenizer_files,
+        "tokenizer_files_sha256": hashlib.sha256(
+            json.dumps(
+                tokenizer_files,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest(),
         "backend": backend,
         "required_backend": args.required_backend,
         "extractor_sha256": sha256_file(Path(__file__).resolve()),

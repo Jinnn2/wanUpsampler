@@ -104,6 +104,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--allow-estimated-latency", action="store_true")
     parser.add_argument("--require-measured-latency", action="store_true")
     parser.add_argument(
+        "--require-b4-temperature-match",
+        action="store_true",
+        help=(
+            "Fail when the frozen B4 checkpoint has a missing or different "
+            "soft-target temperature. This is optional because hard_oracle "
+            "budget labels do not use that temperature."
+        ),
+    )
+    parser.add_argument(
         "--device", default="cuda" if torch.cuda.is_available() else "cpu"
     )
     args = parser.parse_args()
@@ -190,6 +199,40 @@ def train_selected_fixed_index(loader: torch.utils.data.DataLoader) -> int:
     return int(torch.argmax(utility_sum / count))
 
 
+def b4_temperature_compatibility(
+    checkpoint_meta: dict[str, Any],
+    *,
+    requested_tau: float,
+    target_type: str,
+    require_match: bool,
+) -> dict[str, Any]:
+    raw_tau = checkpoint_meta.get("soft_target_tau")
+    checkpoint_tau = None if raw_tau is None else float(raw_tau)
+    matches = (
+        checkpoint_tau is not None
+        and math.isfinite(checkpoint_tau)
+        and math.isclose(
+            checkpoint_tau,
+            requested_tau,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        )
+    )
+    result = {
+        "checkpoint_soft_target_tau": checkpoint_tau,
+        "requested_soft_target_tau": requested_tau,
+        "matches": matches,
+        "match_required": require_match,
+        "continuous_target_uses_temperature": target_type == "soft_expected",
+    }
+    if require_match and not matches:
+        raise ValueError(
+            "B4 soft-target temperature differs from this run: "
+            f"checkpoint={checkpoint_tau!r}, requested={requested_tau!r}"
+        )
+    return result
+
+
 def load_frozen_b4(
     path: Path,
     *,
@@ -198,9 +241,11 @@ def load_frozen_b4(
     soft_target_tau: float,
     split_seed: int,
     train_seed: int,
+    target_type: str,
+    require_temperature_match: bool,
     dataset_meta: dict[str, Any],
     device: torch.device,
-) -> tuple[SoftDistillationMLPRouter, dict[str, Any]]:
+) -> tuple[SoftDistillationMLPRouter, dict[str, Any], dict[str, Any]]:
     payload = torch.load(path, map_location="cpu", weights_only=False)
     if payload.get("model_type") != "mlp_distill":
         raise ValueError(f"Expected an mlp_distill B4 checkpoint: {path}")
@@ -219,13 +264,20 @@ def load_frozen_b4(
             raise ValueError(f"B4 metadata mismatch for {field}")
     if int(checkpoint_meta.get("train_seed", -1)) != train_seed:
         raise ValueError("B4 training seed differs from the continuous-budget run")
-    if not math.isclose(
-        float(checkpoint_meta.get("soft_target_tau", float("nan"))),
-        soft_target_tau,
-        rel_tol=0.0,
-        abs_tol=1e-12,
-    ):
-        raise ValueError("B4 soft-target temperature differs from this run")
+    temperature = b4_temperature_compatibility(
+        checkpoint_meta,
+        requested_tau=soft_target_tau,
+        target_type=target_type,
+        require_match=require_temperature_match,
+    )
+    if not temperature["matches"]:
+        log = LOGGER.warning if target_type == "soft_expected" else LOGGER.info
+        log(
+            "Frozen B4 temperature is not matched (%s); continuing because "
+            "strict matching was not requested. target_type=%s",
+            temperature,
+            target_type,
+        )
     model = SoftDistillationMLPRouter(
         in_dim=4096,
         hidden_dims=[256, 128],
@@ -236,7 +288,7 @@ def load_frozen_b4(
     model.to(device).eval()
     for parameter in model.parameters():
         parameter.requires_grad_(False)
-    return model, payload
+    return model, payload, temperature
 
 
 @torch.no_grad()
@@ -510,13 +562,15 @@ def main() -> None:
     candidate_steps = [int(value) for value in meta["candidate_steps"]]
     budget_grid = calibrate_budget_grid(train_loader)
     fixed_index = train_selected_fixed_index(train_loader)
-    b4_model, b4_payload = load_frozen_b4(
+    b4_model, b4_payload, b4_temperature = load_frozen_b4(
         Path(args.b4_checkpoint).resolve(),
         candidate_steps=candidate_steps,
         primary_lambda=args.primary_lambda,
         soft_target_tau=args.soft_target_tau,
         split_seed=args.split_seed,
         train_seed=args.seed,
+        target_type=args.target_type,
+        require_temperature_match=args.require_b4_temperature_match,
         dataset_meta=meta,
         device=device,
     )
@@ -552,6 +606,7 @@ def main() -> None:
         "target_type": args.target_type,
         "primary_lambda": args.primary_lambda,
         "soft_target_tau": args.soft_target_tau,
+        "b4_temperature_compatibility": b4_temperature,
         "best_epoch": best_epoch,
         "meta": {**meta, "train_seed": args.seed},
     }
@@ -587,6 +642,7 @@ def main() -> None:
             "sha256": sha256_file(Path(args.b4_checkpoint).resolve()),
             "best_epoch": b4_payload.get("best_epoch"),
             "model_type": b4_payload.get("model_type"),
+            "temperature_compatibility": b4_temperature,
         },
         "results": summaries,
         "artifacts": {

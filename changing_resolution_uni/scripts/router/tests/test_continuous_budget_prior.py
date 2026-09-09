@@ -15,6 +15,7 @@ if HAS_TORCH:
     )
     from changing_resolution_uni.scripts.router.train_continuous_budget_prior import (
         ContinuousBudgetRegressor,
+        b4_temperature_compatibility,
         budget_targets,
         calibrate_budget_grid,
         evaluate_all_policies,
@@ -25,6 +26,26 @@ if HAS_TORCH:
 
 @unittest.skipUnless(HAS_TORCH, "torch is not installed")
 class ContinuousBudgetPriorTest(unittest.TestCase):
+    def test_hard_target_allows_legacy_b4_without_temperature_metadata(self) -> None:
+        result = b4_temperature_compatibility(
+            {},
+            requested_tau=0.02,
+            target_type="hard_oracle",
+            require_match=False,
+        )
+        self.assertIsNone(result["checkpoint_soft_target_tau"])
+        self.assertFalse(result["matches"])
+        self.assertFalse(result["continuous_target_uses_temperature"])
+
+    def test_strict_temperature_check_reports_both_values(self) -> None:
+        with self.assertRaisesRegex(ValueError, r"checkpoint=0\.01, requested=0\.02"):
+            b4_temperature_compatibility(
+                {"soft_target_tau": 0.01},
+                requested_tau=0.02,
+                target_type="soft_expected",
+                require_match=True,
+            )
+
     def test_summary_delta_direction_is_positive_when_candidate_is_better(self) -> None:
         self.assertAlmostEqual(metric_delta(0.01, 0.03, "policy_regret"), 0.02)
         self.assertAlmostEqual(metric_delta(0.84, 0.82, "realized_vbench5"), 0.02)

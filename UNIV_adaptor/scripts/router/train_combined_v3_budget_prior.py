@@ -99,6 +99,26 @@ def validate_embedding_manifest(
         value["text_encoder_checkpoint_sha256"],
         label="native T5 encoder checkpoint",
     )
+    tokenizer_root = Path(value.get("tokenizer_path", "")).resolve()
+    expected_tokenizer_root = (
+        Path(dataset["model_root"]) / "google" / "umt5-xxl"
+    ).resolve()
+    if tokenizer_root != expected_tokenizer_root or not tokenizer_root.is_dir():
+        raise ValueError("T5 manifest does not use the generation model tokenizer")
+    tokenizer_files = value.get("tokenizer_files")
+    if not isinstance(tokenizer_files, list) or not tokenizer_files:
+        raise ValueError("T5 manifest has no tokenizer file inventory")
+    if canonical_sha256(tokenizer_files) != value.get("tokenizer_files_sha256"):
+        raise ValueError("T5 tokenizer inventory hash mismatch")
+    for item in tokenizer_files:
+        relative = Path(str(item["relative_path"]))
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ValueError("T5 tokenizer inventory path escapes tokenizer root")
+        verify_file(
+            tokenizer_root / relative,
+            item["sha256"],
+            label="T5 tokenizer file",
+        )
     extractor = (
         REPO_ROOT
         / "changing_resolution_uni/scripts/data/extract_prompt_t5_embeddings.py"

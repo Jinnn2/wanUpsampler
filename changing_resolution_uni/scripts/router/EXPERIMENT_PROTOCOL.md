@@ -92,6 +92,12 @@ under the existing soft utility distribution. `TARGET_TYPE=hard_oracle` changes
 only this supervision target. Both predictions are executed by nearest-neighbor
 matching against the train-calibrated candidate budgets.
 
+Legacy B4 checkpoints may predate the `soft_target_tau` metadata field. A
+missing or different B4 temperature is recorded but does not block the default
+run, and it is irrelevant to `TARGET_TYPE=hard_oracle`. Set
+`REQUIRE_B4_TEMPERATURE_MATCH=1` only for a controlled soft-target comparison
+whose B4 checkpoint records the same temperature.
+
 ```bash
 PRIMARY_LAMBDA=0.08 \
 TARGET_TYPE=soft_expected \

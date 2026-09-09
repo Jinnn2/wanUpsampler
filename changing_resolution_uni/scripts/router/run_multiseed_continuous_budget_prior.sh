@@ -21,6 +21,7 @@ BOOTSTRAP_SAMPLES="${BOOTSTRAP_SAMPLES:-10000}"
 BOOTSTRAP_SEED="${BOOTSTRAP_SEED:-2027}"
 DEVICE="${DEVICE:-cuda}"
 ALLOW_ESTIMATED_LATENCY="${ALLOW_ESTIMATED_LATENCY:-1}"
+REQUIRE_B4_TEMPERATURE_MATCH="${REQUIRE_B4_TEMPERATURE_MATCH:-0}"
 
 export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
 read -r -a seed_array <<< "${TRAIN_SEEDS}"
@@ -61,6 +62,9 @@ for train_seed in "${seed_array[@]}"; do
     args+=(--allow-estimated-latency)
   else
     args+=(--require-measured-latency)
+  fi
+  if [[ "${REQUIRE_B4_TEMPERATURE_MATCH}" == "1" ]]; then
+    args+=(--require-b4-temperature-match)
   fi
   python "${SCRIPT_DIR}/train_continuous_budget_prior.py" "${args[@]}"
 done
