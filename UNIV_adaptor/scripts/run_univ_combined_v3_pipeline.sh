@@ -3,9 +3,9 @@ set -euo pipefail
 
 MODE="${1:-all}"
 case "${MODE}" in
-  check|prepare|score|status|finalize|merge|embed|train|train-b4|all) ;;
+  check|prepare|score|status|finalize|merge|embed|train|train-b4|train-prior-v2|all) ;;
   *)
-    echo "Usage: $0 [check|prepare|score|status|finalize|merge|embed|train|train-b4|all]" >&2
+    echo "Usage: $0 [check|prepare|score|status|finalize|merge|embed|train|train-b4|train-prior-v2|all]" >&2
     exit 2
     ;;
 esac
@@ -23,6 +23,7 @@ SCORE_ROOT="${SCORE_ROOT:-${PROJECT_ROOT}/outputs/univ_combined_v3_scoring_v1}"
 DATASET_ROOT="${DATASET_ROOT:-${PROJECT_ROOT}/outputs/univ_combined_v3_trainval_v1}"
 TRAIN_OUT_ROOT="${TRAIN_OUT_ROOT:-${PROJECT_ROOT}/outputs/univ_combined_v3_budget_prior_v1}"
 B4_OUT_ROOT="${B4_OUT_ROOT:-${PROJECT_ROOT}/outputs/univ_combined_v3_b4_control_v1}"
+PRIOR_V2_OUT_ROOT="${PRIOR_V2_OUT_ROOT:-${PROJECT_ROOT}/outputs/univ_combined_v3_prompt_prior_v2}"
 QUALITY_CURVE_ROOT="${QUALITY_CURVE_ROOT:-${TRAIN_OUT_ROOT}}"
 VBENCH_NGPUS="${VBENCH_NGPUS:-8}"
 GPU_IDS="${GPU_IDS:-0,1,2,3,4,5,6,7}"
@@ -40,6 +41,10 @@ B4_LR="${B4_LR:-0.001}"
 B4_WEIGHT_DECAY="${B4_WEIGHT_DECAY:-0.0001}"
 B4_SOFT_TARGET_TAU="${B4_SOFT_TARGET_TAU:-0.02}"
 B4_EMD_WEIGHT="${B4_EMD_WEIGHT:-0.5}"
+PRIOR_V2_TRAIN_SEEDS="${PRIOR_V2_TRAIN_SEEDS:-42 100 2024 31415 27182}"
+PRIOR_V2_MAX_EPOCHS="${PRIOR_V2_MAX_EPOCHS:-30}"
+PRIOR_V2_BATCH_SIZE="${PRIOR_V2_BATCH_SIZE:-32}"
+PRIOR_V2_CV_FOLDS="${PRIOR_V2_CV_FOLDS:-5}"
 HARDWARE_LABEL="${HARDWARE_LABEL:-unspecified_generation_device}"
 
 SCORER="${PROJECT_ROOT}/UNIV_adaptor/scripts/data/score_combined_v3_dataset.py"
@@ -47,6 +52,7 @@ MERGER="${PROJECT_ROOT}/UNIV_adaptor/scripts/data/merge_scored_combined_v3.py"
 EMBEDDER="${PROJECT_ROOT}/changing_resolution_uni/scripts/data/extract_prompt_t5_embeddings.py"
 TRAINER="${PROJECT_ROOT}/UNIV_adaptor/scripts/router/train_combined_v3_budget_prior.py"
 B4_TRAINER="${PROJECT_ROOT}/UNIV_adaptor/scripts/router/train_combined_v3_b4_control.py"
+PRIOR_V2_TRAINER="${PROJECT_ROOT}/UNIV_adaptor/scripts/router/train_combined_v3_prompt_prior_v2.py"
 SCORE_MANIFEST="${SCORE_ROOT}/score_manifest.json"
 SCORED_MANIFEST="${SCORE_ROOT}/scored_dataset_manifest.json"
 
@@ -85,7 +91,7 @@ resolve_vbench_commit() {
 
 check_inputs() {
   [[ -x "${WAN_PYTHON}" ]] || { echo "Python is not executable: ${WAN_PYTHON}" >&2; exit 1; }
-  for path in "${SCORER}" "${MERGER}" "${EMBEDDER}" "${TRAINER}" "${B4_TRAINER}"; do
+  for path in "${SCORER}" "${MERGER}" "${EMBEDDER}" "${TRAINER}" "${B4_TRAINER}" "${PRIOR_V2_TRAINER}"; do
     require_file "${path}"
   done
   for root in "${PRIMARY_ROOT}" "${RESERVE_ROOT}"; do
@@ -250,6 +256,26 @@ train_b4_control() {
       --device cuda
 }
 
+train_prompt_prior_v2() {
+  require_file "${DATASET_ROOT}/t5_embeddings/t5_manifest.json"
+  require_file "${B4_OUT_ROOT}/selection_summary.json"
+  read -r -a train_seed_args <<< "${PRIOR_V2_TRAIN_SEEDS}"
+  read -r -a lambda_args <<< "${LAMBDAS}"
+  CUDA_VISIBLE_DEVICES="${GPU_IDS%%,*}" \
+    PYTHONPATH="${PROJECT_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" \
+    "${WAN_PYTHON}" "${PRIOR_V2_TRAINER}" \
+      --dataset-root "${DATASET_ROOT}" \
+      --b4-root "${B4_OUT_ROOT}" \
+      --out-root "${PRIOR_V2_OUT_ROOT}" \
+      --train-seeds "${train_seed_args[@]}" \
+      --lambdas "${lambda_args[@]}" \
+      --cv-folds "${PRIOR_V2_CV_FOLDS}" \
+      --max-epochs "${PRIOR_V2_MAX_EPOCHS}" \
+      --batch-size "${PRIOR_V2_BATCH_SIZE}" \
+      --hardware-label "${HARDWARE_LABEL}" \
+      --device cuda
+}
+
 case "${MODE}" in
   check) check_inputs ;;
   prepare) prepare_scoring ;;
@@ -260,6 +286,7 @@ case "${MODE}" in
   embed) embed_prompts ;;
   train) train_prior ;;
   train-b4) train_b4_control ;;
+  train-prior-v2) train_prompt_prior_v2 ;;
   all)
     check_inputs
     prepare_scoring
@@ -275,3 +302,4 @@ echo "Score root   : ${SCORE_ROOT}"
 echo "Dataset root : ${DATASET_ROOT}"
 echo "Training root: ${TRAIN_OUT_ROOT}"
 echo "B4 root      : ${B4_OUT_ROOT}"
+echo "Prior V2 root: ${PRIOR_V2_OUT_ROOT}"

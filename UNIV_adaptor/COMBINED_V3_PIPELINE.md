@@ -173,3 +173,50 @@ with the same prompt oracle and train-selected fixed action.
 The B4 output root includes per-action predicted probabilities and soft targets,
 per-lambda and macro prompt-bootstrap comparisons, and every seed/lambda
 training history. It does not read a test split.
+
+## Structured prompt prior V2
+
+Run the stronger prompt-prior experiment independently of the earlier controls:
+
+```bash
+cd /mnt/afs_2/houze/wanUpsampler
+
+DATASET_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_combined_v3_trainval_v1 \
+B4_OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_combined_v3_b4_control_v1 \
+PRIOR_V2_OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_combined_v3_prompt_prior_v2 \
+HARDWARE_LABEL=H100 \
+bash UNIV_adaptor/scripts/run_univ_combined_v3_pipeline.sh train-prior-v2
+```
+
+V2 predicts an absolute action-quality curve using a fixed train-set action
+mean plus a bounded prompt residual. The residual combines a 64-dimensional
+prompt representation with an action encoder over spatial ratio, temporal
+ratio, LR allocation, switch, HR refinement, re-noise, proxy compute, and the
+measured train-normalized cost. Lambda is not an input feature: policy scores
+always use the known expression `predicted_quality - lambda * cost`.
+
+The default run performs the following locked protocol:
+
+1. Compare frozen pooled UMT5 features with attention pooling over the stored
+   UMT5 token sequence.
+2. Select architecture and epoch using five-fold cross-validation on the 600
+   training prompts only.
+3. Train five initialization seeds on all training prompts.
+4. Train a deranged prompt-label control for the train-selected architecture.
+5. Evaluate validation once after all choices are frozen; test is never read.
+6. Compare with the train-quality bias-only policy and a train-frontier global
+   mixture matched to the learned policy's mean validation cost. The frozen,
+   provenance-matched fixed-lambda and variable-lambda B4 ensembles are also
+   re-evaluated for a direct paired comparison; they are not retrained.
+
+The objective averages all configured lambdas and combines soft-utility KL,
+cost-ordered EMD, pairwise utility ranking, and quality Huber regression. The
+output summary reports the predeclared gates: 20% macro oracle-gap closure,
+positive paired CI against the cost-matched mixture, four of five stable seeds,
+seven of ten non-worse lambdas, a failed shuffled control, and at most 5%
+material harm at utility loss greater than `.001`.
+
+Large prompt-level tables are gzip-compressed. Download
+`prompt_prior_v2_portable_results.tar.gz` for analysis; it contains the summary,
+CV history, complete compressed validation tables, bootstrap results, harm
+rates, latency profile, and a SHA-256 manifest, but omits checkpoints.
