@@ -1,0 +1,84 @@
+{
+  "schema": "univ_online_policy_existence_v1",
+  "reference_nfe": 50,
+  "decision_step": 12,
+  "initial_group": "balanced",
+  "reference_case": "bal_lr38_hr04",
+  "lambda_values": [0.0, 0.01, 0.03, 0.05],
+  "primary_lambda": 0.01,
+  "near_tie_utility": 0.002,
+  "cases": [
+    {
+      "name": "bal_lr08_hr00",
+      "role": "continue",
+      "initial_group": "balanced",
+      "initial_action": {"spatial_ratio": 0.625, "temporal_ratio": 0.67},
+      "remaining_lr_full_compute": 8,
+      "hr_refine_sigma": 0.0,
+      "hr_steps": 0
+    },
+    {
+      "name": "bal_lr08_hr04",
+      "role": "continue",
+      "initial_group": "balanced",
+      "initial_action": {"spatial_ratio": 0.625, "temporal_ratio": 0.67},
+      "remaining_lr_full_compute": 8,
+      "hr_refine_sigma": 0.3,
+      "hr_steps": 4
+    },
+    {
+      "name": "bal_lr20_hr00",
+      "role": "continue",
+      "initial_group": "balanced",
+      "initial_action": {"spatial_ratio": 0.625, "temporal_ratio": 0.67},
+      "remaining_lr_full_compute": 20,
+      "hr_refine_sigma": 0.0,
+      "hr_steps": 0
+    },
+    {
+      "name": "bal_lr20_hr04",
+      "role": "continue",
+      "initial_group": "balanced",
+      "initial_action": {"spatial_ratio": 0.625, "temporal_ratio": 0.67},
+      "remaining_lr_full_compute": 20,
+      "hr_refine_sigma": 0.3,
+      "hr_steps": 4
+    },
+    {
+      "name": "bal_lr38_hr00",
+      "role": "continue",
+      "initial_group": "balanced",
+      "initial_action": {"spatial_ratio": 0.625, "temporal_ratio": 0.67},
+      "remaining_lr_full_compute": 38,
+      "hr_refine_sigma": 0.0,
+      "hr_steps": 0
+    },
+    {
+      "name": "bal_lr38_hr04",
+      "role": "continue",
+      "initial_group": "balanced",
+      "initial_action": {"spatial_ratio": 0.625, "temporal_ratio": 0.67},
+      "remaining_lr_full_compute": 38,
+      "hr_refine_sigma": 0.3,
+      "hr_steps": 4
+    },
+    {
+      "name": "restart_spatial_lr20_hr04",
+      "role": "restart",
+      "initial_group": "spatial_heavy",
+      "initial_action": {"spatial_ratio": 0.72, "temporal_ratio": 0.5},
+      "remaining_lr_full_compute": 20,
+      "hr_refine_sigma": 0.3,
+      "hr_steps": 4
+    },
+    {
+      "name": "restart_temporal_lr20_hr04",
+      "role": "restart",
+      "initial_group": "temporal_heavy",
+      "initial_action": {"spatial_ratio": 0.5, "temporal_ratio": 1.0},
+      "remaining_lr_full_compute": 20,
+      "hr_refine_sigma": 0.3,
+      "hr_steps": 4
+    }
+  ]
+}
