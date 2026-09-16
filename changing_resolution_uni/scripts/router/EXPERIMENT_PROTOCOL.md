@@ -78,6 +78,55 @@ quality representation. Estimated-latency results remain development evidence.
 Use `selection/multiseed_reference_paired_deltas.csv` for the direct B4-Q
 minus B4 comparison; positive values always mean B4-Q is better.
 
+## Experiment 1b-budget: continuous prompt budget projection
+
+This development experiment reuses the legacy 500-prompt scored oracle data and
+the five frozen B4 checkpoints. It does not generate or score video. Candidate
+handoff steps are mapped to a scalar budget by the train-only median of
+`candidate latency / Native-HR latency`; validation latency never calibrates the
+budget coordinates or selects the fixed baseline.
+
+The scalar model predicts one normalized cost in `[0, 1]` from the frozen pooled
+T5 prompt embedding. Its backbone and AdamW configuration match B4; only the
+13-way output head is replaced with one sigmoid budget. Inference always uses
+nearest-neighbor matching against the train-calibrated candidate budgets.
+
+The primary `LOSS_TYPE=hybrid` run uses a differentiable relaxation of
+nearest-neighbor selection, minimizes expected regret over the complete
+13-point utility curve, and keeps a Huber budget anchor so the scalar remains a
+calibrated cost rather than only an action code. The output is restricted to the
+train candidate budget range. `LOSS_TYPE=hard_huber` reproduces hard-oracle
+budget regression with the matched architecture, while `utility_expected`
+removes the calibration anchor as an ablation. `TARGET_TYPE` controls the
+regression target and diagnostics.
+
+Legacy B4 checkpoints may predate the `soft_target_tau` metadata field. A
+missing or different B4 temperature is recorded but does not block the default
+run, and it is irrelevant to `TARGET_TYPE=hard_oracle`. Set
+`REQUIRE_B4_TEMPERATURE_MATCH=1` only for a controlled soft-target comparison
+whose B4 checkpoint records the same temperature.
+
+```bash
+PRIMARY_LAMBDA=0.08 \
+TARGET_TYPE=hard_oracle \
+LOSS_TYPE=hybrid \
+DATASET_DIR=/mnt/afs_2/houze/wanUpsampler/data/changing_resolution_uni/oracle_dataset_500_quality_valid \
+B4_RUN_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/router_selection_500_quality_valid_lambda008 \
+OUT_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/continuous_budget_prior_utility_lambda008 \
+ALLOW_ESTIMATED_LATENCY=1 \
+bash changing_resolution_uni/scripts/router/run_multiseed_continuous_budget_prior.sh
+```
+
+The comparison contains the prompt oracle, train-selected fixed budget, frozen
+B4 argmax, frozen B4 probability-to-expected-budget projection, and the learned
+continuous-budget nearest-neighbor policy. It also exports all 13 fixed points
+and a prompt-independent mixture of the two adjacent fixed actions whose mean
+validation latency exactly matches the learned policy. The launcher evaluates
+validation only and writes prompt-bootstrap intervals plus paired deltas against
+the train-selected fixed action, matched-cost fixed mixture, and B4. Because the
+legacy data permits estimated latency, this run validates the one-dimensional
+prompt-budget hypothesis but is not formal speed evidence.
+
 ## Experiment 1c: utility-aligned relative quality curves
 
 B4-QA keeps the B4-Q architecture and relative quality output, but aligns it
