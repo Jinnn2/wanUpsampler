@@ -497,17 +497,19 @@ def finalize(args: argparse.Namespace) -> None:
     if out_root != Path(manifest["out_root"]).resolve():
         raise ValueError("finalize out root does not match the extension manifest")
     base_identity = manifest["base_dataset"]
-    if out_root == Path(base_identity["root"]).resolve():
+    phase1_mode = base_identity is None
+    if not phase1_mode and out_root == Path(base_identity["root"]).resolve():
         raise ValueError("extension output cannot overwrite the immutable base root")
-    for path_field, hash_field in (
-        ("generation_manifest_path", "generation_manifest_file_sha256"),
-        ("plan_path", "plan_file_sha256"),
-    ):
-        source_path = Path(base_identity[path_field])
-        if sha256_file(source_path) != base_identity[hash_field]:
-            raise RuntimeError(
-                f"base dataset changed after extension planning: {source_path}"
-            )
+    if not phase1_mode:
+        for path_field, hash_field in (
+            ("generation_manifest_path", "generation_manifest_file_sha256"),
+            ("plan_path", "plan_file_sha256"),
+        ):
+            source_path = Path(base_identity[path_field])
+            if sha256_file(source_path) != base_identity[hash_field]:
+                raise RuntimeError(
+                    f"base dataset changed after extension planning: {source_path}"
+                )
     jobs = selected_jobs(manifest, args.splits)
     incomplete = [job["job_id"] for job in jobs if not job_complete(job)]
     if incomplete:
@@ -530,7 +532,7 @@ def finalize(args: argparse.Namespace) -> None:
                 timing[key] = row
     plan = validate_plan(load_json(manifest["plan_path"]))
     selected = set(args.splits)
-    base_root = Path(base_identity["root"])
+    base_root = Path(base_identity["root"]) if not phase1_mode else None
     count = 0
     for assignment in plan["assignments"]:
         if assignment["split"] not in selected:
@@ -544,6 +546,33 @@ def finalize(args: argparse.Namespace) -> None:
                 assignment["seed"],
             )
             candidates.append({**candidate, **artifact_payload(timing[key])})
+        if phase1_mode:
+            extension_record = {
+                "schema": RECORD_SCHEMA,
+                "generation_status": "generated_unscored",
+                "plan_sha256": plan["plan_sha256"],
+                **{key: assignment[key] for key in ("trajectory_key", "split", "prompt_id", "prompt", "prompt_sha256", "base_seed", "seed")},
+                "base_record": None,
+                "low_budget_candidates": candidates,
+                "provenance": {"extension_manifest_sha256": manifest["manifest_sha256"], "protocol_sha256": manifest["protocol_sha256"], "observation_mode": "prompt_plus_endpoint", "trajectory_origin": "independent_step0", "phase1_standalone": True},
+            }
+            extension_path = out_root / "records" / assignment["split"] / f"{assignment['trajectory_key']}.json"
+            write_json_atomic(extension_path, extension_record)
+            combined_candidates = [{**candidate, "budget_id": candidate["artifact_id"], "action_schema": "univ_execution_action_v3", "source_record_path": str(extension_path.resolve())} for candidate in candidates]
+            combined_body = {
+                "generation_status": "generated_unscored",
+                **{key: assignment[key] for key in ("trajectory_key", "split", "prompt_id", "prompt", "prompt_sha256", "base_seed", "seed")},
+                "native_teacher": None,
+                "budget_candidates": combined_candidates,
+                "candidate_count": len(combined_candidates),
+                "source_records": {"extension": str(extension_path.resolve())},
+                "provenance": {"base_plan_sha256": None, "extension_plan_sha256": plan["plan_sha256"], "extension_manifest_sha256": manifest["manifest_sha256"], "phase1_standalone": True},
+            }
+            combined = {"schema": COMBINED_RECORD_SCHEMA, "record_sha256": canonical_sha256(combined_body), **combined_body}
+            combined_path = out_root / "combined_records" / assignment["split"] / f"{assignment['trajectory_key']}.json"
+            write_json_atomic(combined_path, combined)
+            count += 1
+            continue
         base_record_path = (
             base_root
             / "records"
