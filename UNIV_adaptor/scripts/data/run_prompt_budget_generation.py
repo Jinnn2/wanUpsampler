@@ -64,6 +64,9 @@ def validate_template(template: dict[str, Any], protocol: dict[str, Any]) -> Non
 def prepare(args: argparse.Namespace) -> dict[str, Any]:
     protocol = validate_protocol(load_json(args.protocol))
     prompts = load_prompts(args.prompts)
+    prompt_limit = int(getattr(args, "prompt_limit", 0))
+    if prompt_limit > 0:
+        prompts = prompts[:prompt_limit]
     plan = build_collection_plan(protocol, prompts)
     template = load_json(args.template_config)
     validate_template(template, protocol)
@@ -257,6 +260,15 @@ def selected_jobs(
     if missing:
         raise ValueError(f"unknown splits: {sorted(missing)}")
     return [job for job in manifest["jobs"] if job["split"] in requested]
+
+
+def rebalance_jobs(jobs: list[dict[str, Any]], *, worker_count: int) -> list[dict[str, Any]]:
+    loads = [0.0] * worker_count
+    for job in sorted(jobs, key=lambda row: (-float(row["expected_weight"]), row["job_id"])):
+        slot = min(range(worker_count), key=loads.__getitem__)
+        job["worker_slot"] = slot
+        loads[slot] += float(job["expected_weight"])
+    return sorted(jobs, key=lambda row: row["job_id"])
 
 
 def job_complete(manifest: dict[str, Any], job: dict[str, Any]) -> bool:
@@ -539,6 +551,7 @@ def parse_args() -> argparse.Namespace:
     prepare_parser.add_argument("--out-root", required=True)
     prepare_parser.add_argument("--job-chunk-size", type=int, default=100)
     prepare_parser.add_argument("--worker-count", type=int, default=8)
+    prepare_parser.add_argument("--prompt-limit", type=int, default=0)
 
     list_parser = subparsers.add_parser("list-jobs")
     list_parser.add_argument("--manifest", required=True)
@@ -573,7 +586,7 @@ def main() -> None:
         prepare(args)
     elif args.command == "list-jobs":
         manifest = validate_manifest(load_json(args.manifest))
-        jobs = selected_jobs(manifest, args.splits)
+        jobs = rebalance_jobs(selected_jobs(manifest, args.splits), worker_count=8)
         if args.worker_slot is not None:
             jobs = [job for job in jobs if job["worker_slot"] == args.worker_slot]
         if args.limit > 0:

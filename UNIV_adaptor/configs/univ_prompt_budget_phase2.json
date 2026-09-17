@@ -1,0 +1,141 @@
+{
+  "schema": "univ_prompt_budget_data_protocol_v2",
+  "controller_factorization": "prompt_x_budget_quality_curve",
+  "observation_mode": "prompt_only",
+  "trajectory_origin": "independent_step0",
+  "reference_nfe": 50,
+  "target_latent_shape": [
+    16,
+    21,
+    90,
+    156
+  ],
+  "transition": "dvg_latent_anchor",
+  "preset_status": "frozen_for_pilot_cost_calibration",
+  "calibration_action_space": {
+    "spatial_ratios": [
+      0.5,
+      0.625,
+      0.75,
+      0.875,
+      1.0
+    ],
+    "temporal_ratios": [
+      0.5,
+      0.67,
+      0.8,
+      1.0
+    ],
+    "lr_nfe_ratios": [
+      0.4,
+      0.55,
+      0.7,
+      0.85,
+      1.0
+    ],
+    "switch_ratios": [
+      0.8,
+      0.9,
+      1.0
+    ]
+  },
+  "budget_presets": [
+    {
+      "id": "P2_B30_CACHE",
+      "target_cost_ratio": 0.282,
+      "allocation_source": "phase2_cache_heavy_residual_v1",
+      "action": {
+        "spatial_ratio": 0.75,
+        "temporal_ratio": 0.8,
+        "lr_nfe_ratio": 0.45,
+        "switch_ratio": 0.9
+      }
+    },
+    {
+      "id": "P2_B25_SPATIAL",
+      "target_cost_ratio": 0.337,
+      "allocation_source": "phase2_spatial_heavy_v1",
+      "action": {
+        "spatial_ratio": 0.625,
+        "temporal_ratio": 0.8,
+        "lr_nfe_ratio": 0.55,
+        "switch_ratio": 0.8
+      }
+    },
+    {
+      "id": "P2_B25_SKIP",
+      "target_cost_ratio": 0.344,
+      "allocation_source": "phase2_step_skip_heavy_v1",
+      "action": {
+        "spatial_ratio": 0.75,
+        "temporal_ratio": 0.8,
+        "lr_nfe_ratio": 0.4,
+        "switch_ratio": 0.8
+      }
+    },
+    {
+      "id": "P2_B25_TEMPORAL",
+      "target_cost_ratio": 0.369,
+      "allocation_source": "phase2_temporal_heavy_v1",
+      "action": {
+        "spatial_ratio": 0.55,
+        "temporal_ratio": 1.0,
+        "lr_nfe_ratio": 0.7,
+        "switch_ratio": 0.8
+      }
+    },
+    {
+      "id": "P2_B30_SPATIAL",
+      "target_cost_ratio": 0.398,
+      "allocation_source": "phase2_spatial_heavy_v1",
+      "action": {
+        "spatial_ratio": 0.75,
+        "temporal_ratio": 0.8,
+        "lr_nfe_ratio": 0.55,
+        "switch_ratio": 0.8
+      }
+    }
+  ],
+  "splits": [
+    {
+      "name": "train",
+      "prompt_count": 140,
+      "base_seeds": [
+        42
+      ],
+      "collection_mode": "full_budget_curve"
+    },
+    {
+      "name": "validation",
+      "prompt_count": 20,
+      "base_seeds": [
+        42,
+        100,
+        2024
+      ],
+      "collection_mode": "full_budget_curve"
+    },
+    {
+      "name": "test",
+      "prompt_count": 1,
+      "base_seeds": [
+        42
+      ],
+      "collection_mode": "full_budget_curve"
+    }
+  ],
+  "quality_dimensions": [
+    "subject_consistency",
+    "background_consistency",
+    "motion_smoothness",
+    "aesthetic_quality",
+    "imaging_quality",
+    "native_fidelity"
+  ],
+  "notes": [
+    "Phase2 uses native_hr50 plus five joint allocation actions: 200 prompt-seed groups x 6 videos = 1200 videos for train and validation.",
+    "P2_B25/P2_B30 are planning bins; measured warm latency must be used for final budget matching.",
+    "Current executor represents step skip and residual cache through lr_nfe_ratio and switch_ratio; cache thresholds and nonuniform skip patterns are reserved for the next executor revision.",
+    "Prompt ids 0-79 belong to the completed phase1 shard; use prompt-limit 161 and a prompt file with at least 161 entries."
+  ]
+}
