@@ -18,6 +18,7 @@ from .transition import DVG_LATENT_ANCHOR
 
 
 PROTOCOL_SCHEMA = "univ_low_budget_extension_protocol_v1"
+PHASE1_PROTOCOL_SCHEMA = "univ_prompt_budget_phase1_plan_v1"
 PLAN_SCHEMA = "univ_low_budget_extension_plan_v1"
 RECORD_SCHEMA = "univ_low_budget_extension_record_v1"
 COMBINED_RECORD_SCHEMA = "univ_prompt_budget_trajectory_record_v3"
@@ -47,11 +48,18 @@ def action_key(action: Mapping[str, Any]) -> str:
 
 
 def validate_protocol(protocol: Mapping[str, Any]) -> dict[str, Any]:
-    if protocol.get("schema") != PROTOCOL_SCHEMA:
-        raise ValueError(f"protocol.schema must be {PROTOCOL_SCHEMA!r}")
+    schema = protocol.get("schema")
+    phase1 = schema == PHASE1_PROTOCOL_SCHEMA
+    if schema not in {PROTOCOL_SCHEMA, PHASE1_PROTOCOL_SCHEMA}:
+        raise ValueError(f"protocol.schema must be {PROTOCOL_SCHEMA!r} or {PHASE1_PROTOCOL_SCHEMA!r}")
     value = json.loads(json.dumps(protocol))
-    if value.get("base_protocol_schema") != "univ_prompt_budget_data_protocol_v2":
+    if not phase1 and value.get("base_protocol_schema") != "univ_prompt_budget_data_protocol_v2":
         raise ValueError("base_protocol_schema must name the immutable v2 dataset")
+    if phase1:
+        value.setdefault("base_protocol_schema", "univ_prompt_budget_data_protocol_v2")
+        value.setdefault("controller_factorization", "prompt_x_action_quality_curve")
+        value.setdefault("observation_mode", "prompt_plus_endpoint")
+        value.setdefault("trajectory_origin", "independent_step0")
     if value.get("controller_factorization") != "prompt_x_action_quality_curve":
         raise ValueError(
             "controller_factorization must be prompt_x_action_quality_curve"
@@ -84,12 +92,14 @@ def validate_protocol(protocol: Mapping[str, Any]) -> dict[str, Any]:
         )
 
     presets = value.get("budget_presets")
-    if not isinstance(presets, list) or len(presets) != 4:
-        raise ValueError("budget_presets must contain exactly four low-budget actions")
+    expected_count = 6 if phase1 else 4
+    if not isinstance(presets, list) or len(presets) != expected_count:
+        raise ValueError(f"budget_presets must contain exactly {expected_count} actions")
     display = [str(item.get("display_budget", "")) for item in presets]
-    if tuple(display) != EXPECTED_DISPLAY_BUDGETS:
+    expected_display = ("B15", "B20", "B25", "B30", "B35", "B40") if phase1 else EXPECTED_DISPLAY_BUDGETS
+    if tuple(display) != expected_display:
         raise ValueError(
-            f"display budgets must be ordered as {EXPECTED_DISPLAY_BUDGETS}"
+            f"display budgets must be ordered as {expected_display}"
         )
     artifact_ids: list[str] = []
     targets: list[float] = []
@@ -97,7 +107,10 @@ def validate_protocol(protocol: Mapping[str, Any]) -> dict[str, Any]:
     proxies: list[float] = []
     for preset in presets:
         artifact_id = str(preset.get("artifact_id", "")).strip()
-        if not artifact_id.startswith("LB"):
+        if phase1:
+            if not artifact_id.startswith("P1_"):
+                raise ValueError("phase1 artifact_id must use a P1_ prefix")
+        elif not artifact_id.startswith("LB"):
             raise ValueError("low-budget artifact_id must use an LB prefix")
         artifact_ids.append(artifact_id)
         target = float(preset.get("target_cost_ratio", 0.0))

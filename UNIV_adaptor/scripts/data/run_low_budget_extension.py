@@ -43,6 +43,9 @@ MANIFEST_SCHEMA = "univ_low_budget_extension_generation_manifest_v1"
 def prepare(args: argparse.Namespace) -> dict[str, Any]:
     protocol = validate_protocol(load_json(args.protocol))
     prompts = load_prompts(args.prompts)
+    prompt_limit = int(getattr(args, "prompt_limit", 0))
+    if prompt_limit > 0:
+        prompts = prompts[:prompt_limit]
     plan = build_plan(protocol, prompts)
     template = load_json(args.template_config)
     validate_template(template, protocol)
@@ -52,13 +55,15 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     base_root = Path(args.base_dataset_root).resolve()
     if out_root == base_root:
         raise ValueError("extension OUT_ROOT must differ from the immutable base root")
-    base_identity = validate_base_dataset(
-        base_root,
-        plan=plan,
-        prompts_file=Path(args.prompts).resolve(),
-        template_config=Path(args.template_config).resolve(),
-        model_root=Path(args.model_root).resolve(),
-    )
+    base_identity = None
+    if not getattr(args, "skip_base_validation", False):
+        base_identity = validate_base_dataset(
+            base_root,
+            plan=plan,
+            prompts_file=Path(args.prompts).resolve(),
+            template_config=Path(args.template_config).resolve(),
+            model_root=Path(args.model_root).resolve(),
+        )
 
     plan_path = out_root / "extension_plan.json"
     manifest_path = out_root / "extension_manifest.json"
@@ -730,6 +735,8 @@ def parse_args() -> argparse.Namespace:
     prepare_parser.add_argument("--out-root", required=True)
     prepare_parser.add_argument("--job-chunk-size", type=int, default=25)
     prepare_parser.add_argument("--worker-count", type=int, default=8)
+    prepare_parser.add_argument("--skip-base-validation", action="store_true")
+    prepare_parser.add_argument("--prompt-limit", type=int, default=0)
 
     list_parser = sub.add_parser("list-jobs")
     list_parser.add_argument("--manifest", required=True)

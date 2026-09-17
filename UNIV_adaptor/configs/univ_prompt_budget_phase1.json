@@ -1,0 +1,156 @@
+{
+  "schema": "univ_prompt_budget_phase1_plan_v1",
+  "purpose": "small_candidate_shard_for_prompt_guided_multi_axis_budget_allocation",
+  "reference_nfe": 50,
+  "target_latent_shape": [
+    16,
+    21,
+    90,
+    156
+  ],
+  "transition": "dvg_latent_anchor",
+  "selection_policy": "anchors_plus_single_axis_probes",
+  "do_not_treat_target_cost_as_measured_latency": true,
+  "per_prompt_policy": {
+    "anchor_count": 4,
+    "probe_count": 2,
+    "max_full_video_candidates": 6,
+    "validation_only_until_cost_calibration": true,
+    "recommended_splits": {
+      "pilot_train_prompts": 40,
+      "pilot_validation_prompts": 20
+    }
+  },
+  "notes": [
+    "This is a planning shard, not a replacement for the immutable v2 or low-budget extension protocols.",
+    "The B25/B35/B40 values deliberately probe spatial and HR allocation; they are not claimed Pareto-optimal.",
+    "Cache and timestep-skip probes are scheduled after the anchor shard identifies prompt-sensitive axes.",
+    "Measured warm latency must replace target_cost_ratio before reporting budget efficiency."
+  ],
+  "sample_shift": 8.0,
+  "endpoint_state": {
+    "enabled": true,
+    "archive_dtype": "fp16",
+    "tensors": [
+      "clean_lr",
+      "clean_hr",
+      "hr_noise"
+    ]
+  },
+  "splits": [
+    {
+      "name": "train",
+      "prompt_count": 40,
+      "base_seeds": [
+        42
+      ],
+      "collection_mode": "low_budget_extension"
+    },
+    {
+      "name": "validation",
+      "prompt_count": 20,
+      "base_seeds": [
+        42,
+        100,
+        2024
+      ],
+      "collection_mode": "low_budget_extension"
+    },
+    {
+      "name": "test",
+      "prompt_count": 20,
+      "base_seeds": [
+        42,
+        100,
+        2024
+      ],
+      "collection_mode": "low_budget_extension"
+    }
+  ],
+  "budget_presets": [
+    {
+      "display_budget": "B15",
+      "target_cost_ratio": 0.15,
+      "action": {
+        "spatial_ratio": 0.5,
+        "temporal_ratio": 0.56,
+        "true_lr_steps": 25,
+        "renoise_sigma": 0.3,
+        "hr_steps": 4,
+        "transition": "dvg_latent_anchor"
+      },
+      "allocation_source": "phase1_isolated_axis_probe_v1",
+      "artifact_id": "P1_B15_BASE"
+    },
+    {
+      "display_budget": "B20",
+      "target_cost_ratio": 0.2,
+      "action": {
+        "spatial_ratio": 0.55,
+        "temporal_ratio": 0.8,
+        "true_lr_steps": 25,
+        "renoise_sigma": 0.3,
+        "hr_steps": 4,
+        "transition": "dvg_latent_anchor"
+      },
+      "allocation_source": "phase1_isolated_axis_probe_v1",
+      "artifact_id": "P1_B20_BASE"
+    },
+    {
+      "display_budget": "B25",
+      "target_cost_ratio": 0.236,
+      "action": {
+        "spatial_ratio": 0.625,
+        "temporal_ratio": 0.8,
+        "true_lr_steps": 25,
+        "renoise_sigma": 0.3,
+        "hr_steps": 4,
+        "transition": "dvg_latent_anchor"
+      },
+      "allocation_source": "phase1_isolated_axis_probe_v1",
+      "artifact_id": "P1_B25_SPATIAL"
+    },
+    {
+      "display_budget": "B30",
+      "target_cost_ratio": 0.3,
+      "action": {
+        "spatial_ratio": 0.75,
+        "temporal_ratio": 0.8,
+        "true_lr_steps": 25,
+        "renoise_sigma": 0.3,
+        "hr_steps": 4,
+        "transition": "dvg_latent_anchor"
+      },
+      "allocation_source": "phase1_isolated_axis_probe_v1",
+      "artifact_id": "P1_B30_SPATIAL"
+    },
+    {
+      "display_budget": "B35",
+      "target_cost_ratio": 0.345,
+      "action": {
+        "spatial_ratio": 0.75,
+        "temporal_ratio": 0.8,
+        "true_lr_steps": 25,
+        "renoise_sigma": 0.3,
+        "hr_steps": 6,
+        "transition": "dvg_latent_anchor"
+      },
+      "allocation_source": "phase1_isolated_axis_probe_v1",
+      "artifact_id": "P1_B35_HR"
+    },
+    {
+      "display_budget": "B40",
+      "target_cost_ratio": 0.386,
+      "action": {
+        "spatial_ratio": 0.875,
+        "temporal_ratio": 0.8,
+        "true_lr_steps": 25,
+        "renoise_sigma": 0.3,
+        "hr_steps": 4,
+        "transition": "dvg_latent_anchor"
+      },
+      "allocation_source": "phase1_isolated_axis_probe_v1",
+      "artifact_id": "P1_B40_SPATIAL"
+    }
+  ]
+}
