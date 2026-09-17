@@ -44,8 +44,8 @@ def summarize(records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list
                 "proxy_compute_density": float(candidate.get("proxy_compute_density", 0.0)),
                 "pipeline_seconds": float(cost.get("pipeline_seconds", 0.0)),
                 "segment_seconds": float(cost.get("segment_seconds", 0.0)),
-                "dit_seconds": float(stage.get("dit", stage.get("DiT", 0.0)) or 0.0),
-                "vae_seconds": float(stage.get("vae_decode", stage.get("VAE Decoder", 0.0)) or 0.0),
+                "dit_seconds": (float(stage["lr_full_compute"]) + float(stage["hr_full_compute"])) if all(k in stage for k in ("lr_full_compute", "hr_full_compute")) else None,
+                "vae_seconds": float(stage["vae_decode"]) if "vae_decode" in stage else None,
                 "peak_allocated_gib": float(cost.get("peak_allocated_gib", 0.0)),
             }
             groups.setdefault((split, action_id), []).append(row)
@@ -54,10 +54,11 @@ def summarize(records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list
     for (split, action_id), rows in sorted(groups.items()):
         out = {"split": split, "action_id": action_id, "display_budget": rows[0]["display_budget"], "count": len(rows), "proxy_compute_density": rows[0]["proxy_compute_density"]}
         for field in ("pipeline_seconds", "segment_seconds", "dit_seconds", "vae_seconds", "peak_allocated_gib"):
-            values = [row[field] for row in rows]
-            out[f"{field}_mean"] = statistics.fmean(values)
-            out[f"{field}_median"] = statistics.median(values)
-            out[f"{field}_p95"] = percentile(values, 0.95)
+            values = [row[field] for row in rows if row[field] is not None]
+            out[f"{field}_available_count"] = len(values)
+            out[f"{field}_mean"] = statistics.fmean(values) if values else None
+            out[f"{field}_median"] = statistics.median(values) if values else None
+            out[f"{field}_p95"] = percentile(values, 0.95) if values else None
         summary.append(out)
     paired_rows = []
     for trajectory_key, actions in sorted(paired.items()):
