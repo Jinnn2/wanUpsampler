@@ -303,6 +303,16 @@ def selected_jobs(
     return [job for job in manifest["jobs"] if job["split"] in requested]
 
 
+def rebalance_jobs(jobs: list[dict[str, Any]], *, worker_count: int) -> list[dict[str, Any]]:
+    """Assign the selected subset by expected weight, independent of manifest slots."""
+    loads = [0.0] * worker_count
+    for job in sorted(jobs, key=lambda row: (-float(row["expected_weight"]), row["job_id"])):
+        slot = min(range(worker_count), key=loads.__getitem__)
+        job["worker_slot"] = slot
+        loads[slot] += float(job["expected_weight"])
+    return sorted(jobs, key=lambda row: row["job_id"])
+
+
 def endpoint_from_sidecar(
     sidecar: Path,
     *,
@@ -770,7 +780,7 @@ def main() -> None:
         prepare(args)
     elif args.command == "list-jobs":
         manifest = validate_manifest(load_json(args.manifest))
-        jobs = selected_jobs(manifest, args.splits)
+        jobs = rebalance_jobs(selected_jobs(manifest, args.splits), worker_count=8)
         if args.worker_slot is not None:
             jobs = [job for job in jobs if job["worker_slot"] == args.worker_slot]
         if args.limit > 0:
