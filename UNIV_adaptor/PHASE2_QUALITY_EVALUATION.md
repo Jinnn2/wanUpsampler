@@ -4,6 +4,14 @@ This evaluates the finalized v2 dataset: 140 train prompt/seed groups and 20 val
 
 ## Remote commands
 
+If the output directory is uncertain, or `check` reports missing records, first run this read-only inventory:
+
+```bash
+bash UNIV_adaptor/scripts/run_univ_phase2_eval_8gpu.sh locate
+```
+
+It inspects sibling output roots, validates Phase2 manifests/plans, and shows expected/found/missing/extra train and validation record counts. `OUT_ROOT`, if set, is marked as selected. `SEARCH_ROOT` optionally specifies the directory to scan; otherwise the selected root's parent (or `PROJECT_ROOT/outputs`) is scanned. Choose the intended completed run (normally train 140/140 and validation 60/60), then run `check` to verify actual artifact identities. Coverage alone does not prove video integrity. The inventory never switches roots, regenerates, finalizes, or moves records. Missing records in one root do not establish that videos are missing from all roots.
+
 Sync the new evaluation files to `/mnt/afs_2/houze/wanUpsampler` first. Set `OUT_ROOT` to the directory that actually completed finalize; if you used `_chunk25` or another suffix, use that directory instead. Do not create a new generation root.
 
 ```bash

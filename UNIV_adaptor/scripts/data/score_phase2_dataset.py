@@ -26,6 +26,54 @@ P2_IDS = {"P2_B30_CACHE", "P2_B25_SPATIAL", "P2_B25_SKIP",
           "P2_B25_TEMPORAL", "P2_B30_SPATIAL"}
 
 
+def locate_roots(search_root: Path, selected_root: Path | None = None):
+    """Read-only sibling inventory; coverage alone does not verify video contents."""
+    roots = {p for p in search_root.iterdir() if p.is_dir()} if search_root.is_dir() else set()
+    if selected_root is not None:
+        roots.add(selected_root)
+    results = []
+    for root in sorted(roots):
+        plan_path = root / "collection_plan.json"
+        if not plan_path.is_file() and root != selected_root:
+            continue
+        entry = {"root": str(root), "coverage_complete": False, "splits": {}}
+        try:
+            plan = load_json(plan_path)
+            ids = {p["id"] for p in plan.get("protocol", {}).get("budget_presets", [])}
+            if ids != P2_IDS and root != selected_root:
+                continue
+            if ids != P2_IDS:
+                raise ValueError("not a Phase2 five-candidate plan")
+            validate_collection_plan(plan)
+            manifest = validate_manifest(load_json(root / "generation_manifest.json"))
+            if any(manifest[k] != plan[k] for k in ("plan_sha256", "protocol_sha256")):
+                raise ValueError("manifest/plan mismatch")
+            complete = True
+            for split in ("train", "validation"):
+                expected = {a["trajectory_key"] for a in plan["assignments"] if a["split"] == split}
+                actual = {p.stem for p in (root / "records" / split).glob("*.json")}
+                entry["splits"][split] = {"expected": len(expected), "found": len(actual),
+                                          "missing": len(expected-actual), "extra": len(actual-expected)}
+                complete = complete and bool(expected) and expected == actual
+            entry["coverage_complete"] = complete
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            entry["error"] = str(exc)
+        results.append(entry)
+    print("Phase2 output inventory (read-only; coverage is not artifact verification):", flush=True)
+    for entry in results:
+        marker = " [selected]" if selected_root is not None and entry["root"] == str(selected_root) else ""
+        print(f"\n{entry['root']}{marker}")
+        if "error" in entry:
+            print(f"  ERROR: {entry['error']}")
+        for split, counts in entry["splits"].items():
+            print(f"  {split}: {counts['found']}/{counts['expected']} records; missing={counts['missing']}, extra={counts['extra']}")
+        print(f"  record coverage: {'COMPLETE (run check to verify artifacts)' if entry['coverage_complete'] else 'INCOMPLETE'}")
+    if not results:
+        print(f"No Phase2 plans found directly under {search_root}")
+    print("\nSelect the intended run with complete coverage using OUT_ROOT, then run check. No directories were modified or automatically selected.")
+    return results
+
+
 def collect(root: Path):
     manifest = validate_manifest(load_json(root / "generation_manifest.json"))
     # Use the immutable local copy; no dependency on today's config/git revision.
@@ -52,7 +100,12 @@ def collect(root: Path):
         expected = {a["trajectory_key"] for a in assignments if a["split"] == split}
         actual = {p.stem for p in (root / "records" / split).glob("*.json")}
         if actual != expected:
-            raise ValueError(f"record coverage mismatch in {split}: missing={sorted(expected-actual)[:5]}, extra={sorted(actual-expected)[:5]}")
+            raise ValueError(
+                f"record coverage mismatch at {root / 'records' / split}: "
+                f"found={len(actual)}, expected={len(expected)}, missing_count={len(expected-actual)}, "
+                f"extra_count={len(actual-expected)}; missing={sorted(expected-actual)[:5]}, extra={sorted(actual-expected)[:5]}. "
+                "Run run_univ_phase2_eval_8gpu.sh locate to inspect sibling output directories before retrying."
+            )
     rows = []
     seen_paths = set()
     for index, assignment in enumerate(assignments):
@@ -167,8 +220,9 @@ def output_lock(out):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("check", "score", "report", "all"))
-    parser.add_argument("--dataset-root", required=True)
+    parser.add_argument("mode", choices=("locate", "check", "score", "report", "all"))
+    parser.add_argument("--dataset-root")
+    parser.add_argument("--search-root", help="locate: parent directory containing candidate output roots")
     parser.add_argument("--out-dir", help="default: DATASET_ROOT/metrics/phase2_quality")
     parser.add_argument("--vbench-root", default="/mnt/afs_2/houze/VBench")
     parser.add_argument("--vbench-python", default=sys.executable)
@@ -177,6 +231,13 @@ def main():
     parser.add_argument("--budgets-seconds", type=float, nargs="+", help="optional absolute caps; default: train candidate mean latency knots")
     parser.add_argument("--tie-epsilon", type=float, default=0.001, help="quality tie threshold for preference diagnostics")
     args = parser.parse_args()
+    if args.mode == "locate":
+        selected = Path(args.dataset_root).resolve() if args.dataset_root else None
+        parent = Path(args.search_root).resolve() if args.search_root else (selected.parent if selected else ROOT / "outputs")
+        locate_roots(parent, selected)
+        return
+    if not args.dataset_root:
+        parser.error("--dataset-root is required except in locate mode")
     if args.ngpus < 1 or not math.isfinite(args.tie_epsilon) or args.tie_epsilon < 0:
         parser.error("ngpus must be positive and tie-epsilon finite/nonnegative")
     if args.budgets_seconds and any(not math.isfinite(x) or x <= 0 for x in args.budgets_seconds):

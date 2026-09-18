@@ -1,24 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 MODE="${1:-all}"
-case "$MODE" in check|score|report|all) ;; *) echo "Usage: $0 [check|score|report|all]" >&2; exit 2;; esac
+case "$MODE" in locate|check|score|report|all) ;; *) echo "Usage: $0 [locate|check|score|report|all]" >&2; exit 2;; esac
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
-# Several phase2 roots may coexist; never silently select a different run.
-: "${OUT_ROOT:?Set OUT_ROOT to the Phase2 directory whose finalize completed}"
-[[ -f "$OUT_ROOT/generation_manifest.json" && -f "$OUT_ROOT/collection_plan.json" ]] || {
-  echo "Missing finalized Phase2 inputs under OUT_ROOT=$OUT_ROOT" >&2; exit 1;
-}
 WAN_PYTHON="${WAN_PYTHON:-}"
 if [[ -z "$WAN_PYTHON" ]]; then
   if [[ -x /opt/conda/bin/python ]]; then WAN_PYTHON=/opt/conda/bin/python
   else WAN_PYTHON="$(command -v python || command -v python3)"; fi
 fi
+DRIVER="$PROJECT_ROOT/UNIV_adaptor/scripts/data/score_phase2_dataset.py"
+export PYTHONPATH="${PROJECT_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+if [[ "$MODE" == locate ]]; then
+  LOCATE_ARGS=(locate)
+  [[ -z "${OUT_ROOT:-}" ]] || LOCATE_ARGS+=(--dataset-root "$OUT_ROOT")
+  if [[ -n "${SEARCH_ROOT:-}" ]]; then LOCATE_ARGS+=(--search-root "$SEARCH_ROOT")
+  elif [[ -z "${OUT_ROOT:-}" ]]; then LOCATE_ARGS+=(--search-root "$PROJECT_ROOT/outputs"); fi
+  exec "$WAN_PYTHON" "$DRIVER" "${LOCATE_ARGS[@]}"
+fi
+# Several phase2 roots may coexist; never silently select a different run.
+: "${OUT_ROOT:?Set OUT_ROOT to the Phase2 directory whose finalize completed; run this script with locate to inspect candidates}"
+[[ -f "$OUT_ROOT/generation_manifest.json" && -f "$OUT_ROOT/collection_plan.json" ]] || {
+  echo "Missing Phase2 manifest/plan under OUT_ROOT=$OUT_ROOT. Run: bash $0 locate" >&2; exit 1;
+}
 VBENCH_ROOT="${VBENCH_ROOT:-/mnt/afs_2/houze/VBench}"
 VBENCH_PYTHON="${VBENCH_PYTHON:-}"
 EVAL_OUT="${EVAL_OUT:-$OUT_ROOT/metrics/phase2_quality}"
-DRIVER="$PROJECT_ROOT/UNIV_adaptor/scripts/data/score_phase2_dataset.py"
-export PYTHONPATH="${PROJECT_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 ARGS=("$MODE" --dataset-root "$OUT_ROOT" --out-dir "$EVAL_OUT" --tie-epsilon "${TIE_EPSILON:-0.001}")
 if [[ -n "${BUDGETS_SECONDS:-}" ]]; then
   read -r -a BUDGET_ARRAY <<< "$BUDGETS_SECONDS"

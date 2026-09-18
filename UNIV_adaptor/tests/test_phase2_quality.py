@@ -1,4 +1,6 @@
 import csv
+from contextlib import redirect_stdout
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -10,7 +12,7 @@ from UNIV_adaptor.data_protocol import (
     RECORD_SCHEMA, build_collection_plan, canonical_sha256, sha256_file, write_json_atomic,
 )
 from UNIV_adaptor.scripts.data.run_prompt_budget_generation import MANIFEST_SCHEMA
-from UNIV_adaptor.scripts.data.score_phase2_dataset import collect, output_lock, stage_inputs, score, main, SCORE_SCHEMA
+from UNIV_adaptor.scripts.data.score_phase2_dataset import collect, locate_roots, output_lock, stage_inputs, score, main, SCORE_SCHEMA
 from UNIV_adaptor.scripts.data.phase2_analysis import (
     DIMENSIONS, NATIVE, aggregate_prompts, budget_analysis, enrich, report, runtime_report,
 )
@@ -92,6 +94,33 @@ class Phase2QualityTests(unittest.TestCase):
         write_json_atomic(path.with_name("extra.json"), record)
         with self.assertRaisesRegex(ValueError, "coverage"):
             collect(self.root)
+
+    def test_locate_distinguishes_partial_and_complete_roots_without_writes(self):
+        parent = self.root / "outputs"
+        partial = parent / "phase2_old"
+        complete = parent / "phase2_chunk25"
+        fixture(partial)
+        fixture(complete)
+        next((partial / "records/train").glob("*.json")).unlink()
+        before = {str(p): p.stat().st_mtime_ns for p in parent.rglob("*")}
+        with redirect_stdout(io.StringIO()) as output:
+            entries = locate_roots(parent, partial)
+        by_root = {r["root"]: r for r in entries}
+        self.assertFalse(by_root[str(partial)]["coverage_complete"])
+        self.assertEqual(by_root[str(partial)]["splits"]["train"]["missing"], 1)
+        self.assertTrue(by_root[str(complete)]["coverage_complete"])
+        self.assertIn("[selected]", output.getvalue())
+        self.assertEqual(before, {str(p): p.stat().st_mtime_ns for p in parent.rglob("*")})
+
+    def test_locate_multiple_complete_roots_does_not_pick_one(self):
+        parent = self.root / "outputs"
+        for name in ("phase2_a", "phase2_b"):
+            fixture(parent/name)
+        with patch("sys.argv", ["score_phase2_dataset.py", "locate", "--search-root", str(parent)]), \
+             redirect_stdout(io.StringIO()) as output:
+            main()
+        self.assertEqual(output.getvalue().count("record coverage: COMPLETE"), 2)
+        self.assertIn("No directories were modified or automatically selected", output.getvalue())
 
     def test_wrong_schedule_rejected(self):
         path, record = self.read_record()
