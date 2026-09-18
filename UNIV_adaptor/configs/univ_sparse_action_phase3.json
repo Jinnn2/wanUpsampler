@@ -1,0 +1,140 @@
+{
+  "schema": "univ_sparse_action_protocol_v1",
+  "controller_factorization": "prompt_x_action_relative_quality",
+  "selection_scope": "development_train_only",
+  "lambda_binding": "none_score_quality_and_time_separately",
+  "reference_nfe": 50,
+  "target_latent_shape": [
+    16,
+    21,
+    90,
+    156
+  ],
+  "transition": "dvg_latent_anchor",
+  "action_dimensions": [
+    {
+      "id": "spatial_aggressive",
+      "field": "spatial_ratio",
+      "levels": [
+        0.75,
+        0.625
+      ]
+    },
+    {
+      "id": "temporal_aggressive",
+      "field": "temporal_ratio",
+      "levels": [
+        0.8,
+        0.67
+      ]
+    },
+    {
+      "id": "lr_compute_aggressive",
+      "field": "lr_nfe_ratio",
+      "levels": [
+        0.7,
+        0.4
+      ]
+    }
+  ],
+  "fixed_action_fields": {
+    "switch_ratio": 0.8
+  },
+  "reference_action": {
+    "spatial_ratio": 0.75,
+    "temporal_ratio": 0.8,
+    "lr_nfe_ratio": 0.55,
+    "switch_ratio": 0.8
+  },
+  "reference_source_action_id": "P2_B30_SPATIAL",
+  "probe_library": [
+    {
+      "id": "SA_000",
+      "levels": {
+        "spatial_aggressive": 0,
+        "temporal_aggressive": 0,
+        "lr_compute_aggressive": 0
+      }
+    },
+    {
+      "id": "SA_001",
+      "levels": {
+        "spatial_aggressive": 0,
+        "temporal_aggressive": 0,
+        "lr_compute_aggressive": 1
+      }
+    },
+    {
+      "id": "SA_010",
+      "levels": {
+        "spatial_aggressive": 0,
+        "temporal_aggressive": 1,
+        "lr_compute_aggressive": 0
+      }
+    },
+    {
+      "id": "SA_011",
+      "levels": {
+        "spatial_aggressive": 0,
+        "temporal_aggressive": 1,
+        "lr_compute_aggressive": 1
+      }
+    },
+    {
+      "id": "SA_100",
+      "levels": {
+        "spatial_aggressive": 1,
+        "temporal_aggressive": 0,
+        "lr_compute_aggressive": 0
+      }
+    },
+    {
+      "id": "SA_101",
+      "levels": {
+        "spatial_aggressive": 1,
+        "temporal_aggressive": 0,
+        "lr_compute_aggressive": 1
+      }
+    },
+    {
+      "id": "SA_110",
+      "levels": {
+        "spatial_aggressive": 1,
+        "temporal_aggressive": 1,
+        "lr_compute_aggressive": 0
+      }
+    },
+    {
+      "id": "SA_111",
+      "levels": {
+        "spatial_aggressive": 1,
+        "temporal_aggressive": 1,
+        "lr_compute_aggressive": 1
+      }
+    }
+  ],
+  "probes_per_prompt": 3,
+  "assignment_offsets": [
+    0,
+    3,
+    5
+  ],
+  "existing_train_prompt_count": 69,
+  "fresh_development_prompt_count": 20,
+  "base_seeds": [
+    42,
+    100,
+    2024
+  ],
+  "reuse_reference_base_seed": 42,
+  "fresh_seed_offset": 10000,
+  "selection_salt": "phase3_existing_train_hash_rank_v1",
+  "design_salt": "phase3_sparse_balanced_blocks_v1",
+  "notes": [
+    "Each prompt receives only three probes; the probe library is shared across prompts and is not exhaustively evaluated per prompt.",
+    "The same three probes are repeated across all seeds of a prompt.",
+    "Existing prompts are selected from Phase2 train using prompt-only hashes; Phase2 validation and test are never read for selection.",
+    "Quality and measured time are stored separately so lambda remains an online decision parameter.",
+    "Future dimensions extend the named action vector and active mask; library size is explicit and need not grow as 2^d."
+  ]
+}
