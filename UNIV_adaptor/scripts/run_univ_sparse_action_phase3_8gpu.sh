@@ -59,12 +59,24 @@ done
   exit 2
 }
 
-require_inputs() {
+require_driver() {
   [[ -x "${WAN_PYTHON}" ]] || { echo "Python is not executable: ${WAN_PYTHON}" >&2; exit 1; }
+  [[ -f "${DRIVER}" ]] || { echo "Required file not found: ${DRIVER}" >&2; exit 1; }
+}
+
+require_prepare_inputs() {
+  require_driver
   for path in "${PROTOCOL}" "${FRESH_PROMPTS_FILE}" "${TEMPLATE_CONFIG}" "${DRIVER}"; do
     [[ -f "${path}" ]] || { echo "Required file not found: ${path}" >&2; exit 1; }
   done
   for path in "${LIGHTX2V_REPO}" "${MODEL_ROOT}" "${SOURCE_PHASE2_ROOT}"; do
+    [[ -d "${path}" ]] || { echo "Required directory not found: ${path}" >&2; exit 1; }
+  done
+}
+
+require_generation_inputs() {
+  require_driver
+  for path in "${LIGHTX2V_REPO}" "${MODEL_ROOT}"; do
     [[ -d "${path}" ]] || { echo "Required directory not found: ${path}" >&2; exit 1; }
   done
 }
@@ -80,7 +92,7 @@ validate_gpus() {
 }
 
 prepare_manifest() {
-  require_inputs
+  require_prepare_inputs
   "${WAN_PYTHON}" "${DRIVER}" prepare \
     --protocol "${PROTOCOL}" \
     --source-phase2-root "${SOURCE_PHASE2_ROOT}" \
@@ -101,12 +113,22 @@ list_worker_jobs() {
 }
 
 print_plan() {
+  require_driver
   [[ -f "${MANIFEST}" ]] || { echo "Manifest not found: ${MANIFEST}" >&2; exit 1; }
-  echo "UNIV sparse prompt-action plan"
-  echo "  source Phase2: ${SOURCE_PHASE2_ROOT}"
-  echo "  fresh prompts: ${FRESH_PROMPTS_FILE}"
-  echo "  fresh prompt offset: ${FRESH_PROMPT_OFFSET}"
-  echo "  output: ${OUT_ROOT}"
+  "${WAN_PYTHON}" - "${MANIFEST}" "${OUT_ROOT}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+plan = json.loads(Path(manifest["plan_path"]).read_text(encoding="utf-8"))
+print("UNIV sparse prompt-action frozen plan")
+print(f"  source Phase2: {plan['source_phase2']['root']}")
+print(f"  fresh prompts: {plan['fresh_prompts_file']}")
+print(f"  fresh prompt offset: {plan['fresh_prompt_offset']}")
+print(f"  output: {Path(sys.argv[2]).resolve()}")
+print(f"  counts: {json.dumps(plan['counts'], sort_keys=True)}")
+PY
   for slot in 0 1 2 3 4 5 6 7; do
     local count
     count="$(list_worker_jobs "${slot}" | wc -l)"
@@ -115,7 +137,7 @@ print_plan() {
 }
 
 generate_parallel() {
-  require_inputs
+  require_generation_inputs
   validate_gpus
   [[ -f "${MANIFEST}" ]] || { echo "Manifest not found: ${MANIFEST}" >&2; exit 1; }
   mkdir -p "${OUT_ROOT}/logs/8gpu_sparse_action"
@@ -175,7 +197,7 @@ finalize_records() {
 
 case "${MODE}" in
   check)
-    require_inputs
+    require_prepare_inputs
     validate_gpus
     "${WAN_PYTHON}" - "${PROTOCOL}" "${FRESH_PROMPTS_FILE}" "${FRESH_PROMPT_OFFSET}" <<'PY'
 import json
