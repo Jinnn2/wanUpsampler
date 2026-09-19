@@ -18,6 +18,7 @@ import argparse
 import csv
 import json
 import math
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -830,6 +831,23 @@ def prepare_rows(
     return rows
 
 
+def lightx2v_python_env(lightx2v_repo: str | Path) -> dict[str, str]:
+    """Build an explicit import environment for the Wan-native T5 backend."""
+
+    repo = Path(lightx2v_repo).resolve()
+    package = repo / "lightx2v"
+    if not package.is_dir():
+        raise FileNotFoundError(
+            f"LightX2V Python package not found: {package}; set --lightx2v-repo"
+        )
+    environment = dict(os.environ)
+    python_roots = [str(repo), str(ROOT)]
+    if environment.get("PYTHONPATH"):
+        python_roots.append(environment["PYTHONPATH"])
+    environment["PYTHONPATH"] = os.pathsep.join(python_roots)
+    return environment
+
+
 def embed_prompts(args: argparse.Namespace) -> None:
     from changing_resolution_uni.scripts.data.extract_prompt_t5_embeddings import (
         directory_file_inventory,
@@ -886,6 +904,7 @@ def embed_prompts(args: argparse.Namespace) -> None:
                 "--device",
                 args.device,
             ],
+            env=lightx2v_python_env(args.lightx2v_repo),
             check=True,
         )
         load_t5(directory, samples)
@@ -1086,6 +1105,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model-root", default="/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B"
     )
+    parser.add_argument("--lightx2v-repo", default="/mnt/afs_2/houze/LightX2V")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--ffmpeg", default="ffmpeg")
     parser.add_argument("--proxy-size", type=int, default=64)

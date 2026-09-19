@@ -18,6 +18,7 @@ SCORED_DIR="${SCORED_DIR:-${PROJECT_ROOT}/outputs/univ_sparse_action_phase3_v1/m
 STATE_DIR="${STATE_DIR:-${SCORED_DIR}/reference_video_proxy}"
 T5_DIR="${T5_DIR:-${SCORED_DIR}/t5_sparse_prompt_state}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
+LIGHTX2V_REPO="${LIGHTX2V_REPO:-/mnt/afs_2/houze/LightX2V}"
 UTILITY_LAMBDA="${UTILITY_LAMBDA:-0.05}"
 OBSERVATION_COST_RATIO="${OBSERVATION_COST_RATIO:-0.0}"
 FFMPEG="${FFMPEG:-ffmpeg}"
@@ -59,10 +60,13 @@ extract_proxy() {
 embed_prompts() {
   require_common
   [[ -d "${MODEL_ROOT}" ]] || { echo "Wan model root not found: ${MODEL_ROOT}" >&2; exit 1; }
+  [[ -d "${LIGHTX2V_REPO}/lightx2v" ]] || { echo "LightX2V package not found: ${LIGHTX2V_REPO}/lightx2v" >&2; exit 1; }
+  PYTHONPATH="${LIGHTX2V_REPO}:${PROJECT_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" \
   "${PYTHON}" "${DRIVER}" embed \
     --scored-dir "${SCORED_DIR}" \
     --t5-dir "${T5_DIR}" \
     --model-root "${MODEL_ROOT}" \
+    --lightx2v-repo "${LIGHTX2V_REPO}" \
     --device "${DEVICE}"
 }
 

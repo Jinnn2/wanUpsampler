@@ -46,6 +46,12 @@ SCORED_DIR=/mnt/afs_2/houze/wanUpsampler/outputs/univ_sparse_action_phase3_v1/me
 bash UNIV_adaptor/scripts/run_univ_sparse_prompt_state_router.sh all-t5
 ```
 
+The launcher defaults `LIGHTX2V_REPO` to `/mnt/afs_2/houze/LightX2V` and
+prepends that checkout to `PYTHONPATH` for the Wan-native encoder. Override it
+when the checkout lives elsewhere. A failed import before embedding writes no
+labels or model outputs; after fixing the path, rerun `embed` or `all-t5` with
+the same `T5_DIR` to resume in place.
+
 The T5 mode needs one GPU only for embedding 89 unique prompts. Model fitting is
 CPU/NumPy. The default utility is
 `delta_vbench5 - 0.05 * (time_ratio_to_reference - 1)`.

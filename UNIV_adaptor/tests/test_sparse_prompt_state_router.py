@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+import tempfile
 import unittest
 
 import numpy as np
@@ -9,6 +12,7 @@ from UNIV_adaptor.scripts.router.train_sparse_prompt_state_router import (
     action_main_basis,
     fit_partial_ridge,
     interaction_features,
+    lightx2v_python_env,
     predict_partial_ridge,
     proxy_features,
     shuffled_state_map,
@@ -82,6 +86,17 @@ class SparsePromptStateRouterTest(unittest.TestCase):
                     for seed in (42, 100, 2024)
                 )
             )
+
+    def test_lightx2v_environment_prepends_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            (repo / "lightx2v").mkdir()
+            environment = lightx2v_python_env(repo)
+            self.assertEqual(
+                Path(environment["PYTHONPATH"].split(os.pathsep)[0]), repo.resolve()
+            )
+        with self.assertRaisesRegex(FileNotFoundError, "LightX2V Python package"):
+            lightx2v_python_env(repo / "missing")
 
 
 if __name__ == "__main__":
