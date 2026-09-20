@@ -156,6 +156,17 @@ def validate_sparse_protocol(value: Mapping[str, Any]) -> dict[str, Any]:
     if reuse_seed not in seeds:
         raise ValueError("reuse_reference_base_seed must be in base_seeds")
     protocol["reuse_reference_base_seed"] = reuse_seed
+    reuse_scope = str(
+        protocol.get("artifact_reuse_scope", "phase2_reference_seed_only")
+    ).strip()
+    if reuse_scope not in {
+        "phase2_reference_seed_only",
+        "bound_source_dataset_any_seed",
+    }:
+        raise ValueError("unsupported artifact_reuse_scope")
+    # Preserve hashes of v1 plans created before this optional field existed.
+    if "artifact_reuse_scope" in protocol:
+        protocol["artifact_reuse_scope"] = reuse_scope
     fresh_seed_offset = int(protocol.get("fresh_seed_offset", 0))
     if fresh_seed_offset < 1:
         raise ValueError("fresh_seed_offset must be positive")
@@ -406,7 +417,9 @@ def validate_sparse_plan(plan: Mapping[str, Any]) -> dict[str, Any]:
                 raise ValueError("group references an unknown action")
             observation_ids.append(str(row.get("observation_id", "")))
             mode = row.get("artifact_mode")
-            may_reuse = (
+            may_reuse = protocol.get(
+                "artifact_reuse_scope", "phase2_reference_seed_only"
+            ) == "bound_source_dataset_any_seed" or (
                 group["cohort"] == "existing_train"
                 and base_seed == protocol["reuse_reference_base_seed"]
             )

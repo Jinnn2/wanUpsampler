@@ -1,0 +1,121 @@
+{
+  "schema": "univ_sparse_action_protocol_v1",
+  "controller_factorization": "prompt_x_action_relative_quality",
+  "selection_scope": "development_train_only",
+  "lambda_binding": "none_score_quality_and_time_separately",
+  "artifact_reuse_scope": "bound_source_dataset_any_seed",
+  "reference_nfe": 50,
+  "target_latent_shape": [16, 21, 90, 156],
+  "transition": "dvg_latent_anchor",
+  "action_dimensions": [
+    {
+      "id": "spatial_aggressive",
+      "field": "spatial_ratio",
+      "levels": [0.75, 0.625]
+    },
+    {
+      "id": "temporal_aggressive",
+      "field": "temporal_ratio",
+      "levels": [0.8, 0.67]
+    },
+    {
+      "id": "lr_compute_aggressive",
+      "field": "lr_nfe_ratio",
+      "levels": [0.55, 0.4]
+    }
+  ],
+  "fixed_action_fields": {
+    "switch_ratio": 0.8
+  },
+  "reference_action": {
+    "spatial_ratio": 0.75,
+    "temporal_ratio": 0.8,
+    "lr_nfe_ratio": 0.55,
+    "switch_ratio": 0.8
+  },
+  "reference_source_action_id": "REFERENCE",
+  "probe_library": [
+    {
+      "id": "STAR_000",
+      "levels": {
+        "spatial_aggressive": 0,
+        "temporal_aggressive": 0,
+        "lr_compute_aggressive": 0
+      }
+    },
+    {
+      "id": "STAR_C",
+      "levels": {
+        "spatial_aggressive": 0,
+        "temporal_aggressive": 0,
+        "lr_compute_aggressive": 1
+      }
+    },
+    {
+      "id": "STAR_T",
+      "levels": {
+        "spatial_aggressive": 0,
+        "temporal_aggressive": 1,
+        "lr_compute_aggressive": 0
+      }
+    },
+    {
+      "id": "STAR_TC",
+      "levels": {
+        "spatial_aggressive": 0,
+        "temporal_aggressive": 1,
+        "lr_compute_aggressive": 1
+      }
+    },
+    {
+      "id": "STAR_S",
+      "levels": {
+        "spatial_aggressive": 1,
+        "temporal_aggressive": 0,
+        "lr_compute_aggressive": 0
+      }
+    },
+    {
+      "id": "STAR_SC",
+      "levels": {
+        "spatial_aggressive": 1,
+        "temporal_aggressive": 0,
+        "lr_compute_aggressive": 1
+      }
+    },
+    {
+      "id": "STAR_ST",
+      "levels": {
+        "spatial_aggressive": 1,
+        "temporal_aggressive": 1,
+        "lr_compute_aggressive": 0
+      }
+    },
+    {
+      "id": "STAR_STC",
+      "levels": {
+        "spatial_aggressive": 1,
+        "temporal_aggressive": 1,
+        "lr_compute_aggressive": 1
+      }
+    }
+  ],
+  "probes_per_prompt": 3,
+  "assignment_offsets": [1, 2, 4],
+  "existing_train_prompt_count": 93,
+  "fresh_development_prompt_count": 20,
+  "source_sparse_prompt_count": 89,
+  "new_train_prompt_count": 24,
+  "base_seeds": [42, 100, 2024],
+  "reuse_reference_base_seed": 42,
+  "fresh_seed_offset": 20000,
+  "selection_salt": "phase4_matched_star_source_identity_v1",
+  "design_salt": "phase4_fixed_reference_centered_star_v1",
+  "notes": [
+    "Every prompt uses exactly REFERENCE, STAR_S, STAR_T and STAR_C.",
+    "STAR_S and STAR_T hold lr_nfe_ratio at the true reference value 0.55; Phase3 SA_100 and SA_010 are not reusable because they use 0.7.",
+    "Exact Phase3 REFERENCE and STAR_C-equivalent artifacts are reused across all bound seeds.",
+    "Twenty-four new prompt-only selected training prompts add three seeds and all four star actions.",
+    "Quality and measured time remain separate; no lambda is bound during collection."
+  ]
+}
