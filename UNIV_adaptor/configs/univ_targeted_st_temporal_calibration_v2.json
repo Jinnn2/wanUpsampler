@@ -1,0 +1,23 @@
+{
+  "schema": "univ_targeted_st_temporal_calibration_protocol_v1",
+  "experiment_role": "development_measured_latency_calibration_followup",
+  "reference_nfe": 50,
+  "target_latent_shape": [16, 21, 90, 156],
+  "transition": "dvg_latent_anchor",
+  "source_spatial_case_id": "SPATIAL_ONLY_D050",
+  "temporal_case": {
+    "id": "TEMPORAL_ONLY_RT036_CAL",
+    "axis": "temporal",
+    "action": {
+      "spatial_ratio": 1.0,
+      "temporal_ratio": 0.36,
+      "lr_nfe_ratio": 1.0,
+      "switch_ratio": 0.8
+    }
+  },
+  "notes": [
+    "Reuse every spatial-only video from targeted S/T v1 and generate only 24 calibrated temporal videos.",
+    "Requested temporal ratio 0.36 resolves to low temporal latent length 8, actual temporal ratio 0.35, and actual token proxy density 0.48.",
+    "The primary validity gate remains measured temporal-versus-spatial latency within 5 percent."
+  ]
+}

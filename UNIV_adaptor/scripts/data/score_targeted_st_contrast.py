@@ -86,11 +86,13 @@ def collect(root: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
             raise ValueError(f"duplicate targeted group: {group_id}")
         group_ids.add(group_id)
         case_ids = set()
+        axes = set()
         for item in record["artifacts"]:
             case_id = item["case_id"]
             if case_id in case_ids:
                 raise ValueError(f"duplicate targeted case: {group_id}/{case_id}")
             case_ids.add(case_id)
+            axes.add(item["axis"])
             artifact = item["artifact"]
             video = Path(artifact["video_path"])
             if not video.is_file() or video.stat().st_size != artifact["video_bytes"]:
@@ -121,8 +123,10 @@ def collect(root: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
                     "pipeline_seconds": float(artifact["cost"]["pipeline_seconds"]),
                 }
             )
-        if case_ids != {SPATIAL, TEMPORAL}:
-            raise ValueError(f"targeted group lacks the exact S/T pair: {group_id}")
+        if len(case_ids) != 2 or axes != {"spatial", "temporal"}:
+            raise ValueError(
+                f"targeted group lacks one spatial and one temporal case: {group_id}"
+            )
     if len(rows) != dataset["counts"]["videos"]:
         raise ValueError("targeted collected video count differs from manifest")
     identity = {
@@ -303,16 +307,18 @@ def report(
 
     grouped = defaultdict(dict)
     for row in enriched:
-        grouped[row["group_id"]][row["case_id"]] = row
+        grouped[row["group_id"]][row["axis"]] = row
     pairs = []
     for group_id, pair in sorted(grouped.items()):
-        spatial = pair[SPATIAL]
-        temporal = pair[TEMPORAL]
+        spatial = pair["spatial"]
+        temporal = pair["temporal"]
         item = {
             "group_id": group_id,
             "prompt_index": spatial["prompt_index"],
             "prompt_group": spatial["prompt_group"],
             "expected_preference": spatial["expected_preference"],
+            "spatial_case_id": spatial["case_id"],
+            "temporal_case_id": temporal["case_id"],
             "prompt": spatial["prompt"],
             "prompt_sha256": spatial["prompt_sha256"],
             "base_seed": spatial["base_seed"],
@@ -330,7 +336,9 @@ def report(
                 temporal[dimension] - spatial[dimension]
             )
         item["observed_preference"] = (
-            TEMPORAL if item["delta_t_minus_s_vbench5"] > 0 else SPATIAL
+            temporal["case_id"]
+            if item["delta_t_minus_s_vbench5"] > 0
+            else spatial["case_id"]
         )
         item["matches_expected"] = (
             item["observed_preference"] == item["expected_preference"]
@@ -345,7 +353,14 @@ def report(
     for prompt_index, items in sorted(by_prompt.items()):
         deltas = [row["delta_t_minus_s_vbench5"] for row in items]
         expected = items[0]["expected_preference"]
-        expected_sign = 1 if expected == TEMPORAL else -1
+        if expected == items[0]["temporal_case_id"]:
+            expected_sign = 1
+        elif expected == items[0]["spatial_case_id"]:
+            expected_sign = -1
+        else:
+            raise ValueError(
+                f"unknown expected preference for prompt {prompt_index}: {expected}"
+            )
         prompt_rows.append(
             {
                 "prompt_index": prompt_index,
@@ -399,6 +414,16 @@ def report(
     ci_low, ci_high = bootstrap_contrast(prompt_rows)
     spatial_time = st.fmean(row["spatial_seconds"] for row in pairs)
     temporal_time = st.fmean(row["temporal_seconds"] for row in pairs)
+    spatial_densities = {
+        row["proxy_compute_density"] for row in enriched if row["axis"] == "spatial"
+    }
+    temporal_densities = {
+        row["proxy_compute_density"] for row in enriched if row["axis"] == "temporal"
+    }
+    if len(spatial_densities) != 1 or len(temporal_densities) != 1:
+        raise ValueError("each targeted axis must use one proxy density")
+    spatial_density = next(iter(spatial_densities))
+    temporal_density = next(iter(temporal_densities))
     time_relative_gap = abs(temporal_time - spatial_time) / st.fmean(
         (spatial_time, temporal_time)
     )
@@ -413,8 +438,12 @@ def report(
         "input_sha256": input_sha256,
         "score_payload_sha256": score_payload["payload_sha256"],
         "quality_definition": "arithmetic_mean_of_five_vbench_dimensions",
-        "primary_estimand": "Q_temporal_minus_Q_spatial_at_equal_proxy_density",
-        "target_proxy_compute_density": 0.5,
+        "primary_estimand": "Q_temporal_minus_Q_spatial_with_measured_latency_gate",
+        "spatial_proxy_compute_density": spatial_density,
+        "temporal_proxy_compute_density": temporal_density,
+        "proxy_densities_equal": math.isclose(
+            spatial_density, temporal_density, abs_tol=1e-12
+        ),
         "class_summary": class_rows,
         "difference_in_differences": contrast,
         "difference_in_differences_prompt_bootstrap_ci": [ci_low, ci_high],
@@ -433,9 +462,10 @@ def report(
     }
     write_json_atomic(out / "analysis.json", analysis)
     lines = [
-        "# Targeted equal-density spatial vs temporal contrast",
+        "# Targeted spatial vs temporal contrast",
         "",
-        "Development-only prompt-group existence test. Both methods use proxy density 0.5.",
+        "Development-only prompt-group existence test.",
+        f"Proxy density: spatial={spatial_density:.6f}, temporal={temporal_density:.6f}.",
         "",
         "| Prompt group | Prompts | Groups | Mean Q(T)-Q(S) | Seed accuracy | Prompt accuracy | Unanimous |",
         "|---|---:|---:|---:|---:|---:|---:|",

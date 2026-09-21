@@ -35,3 +35,21 @@ Important outputs are under
 - `class_summary.csv`: directional accuracy for the two controlled groups;
 - `analysis.json` and `report.md`: difference-in-differences, prompt bootstrap
   interval, and measured-latency gate.
+
+## Temporal latency calibration follow-up
+
+If the density-0.5 temporal arm is more than 5% slower than the spatial arm,
+reuse the 24 spatial videos and generate only a more aggressive temporal arm:
+
+```bash
+bash UNIV_adaptor/scripts/run_univ_targeted_st_temporal_calibration_8gpu.sh check
+bash UNIV_adaptor/scripts/run_univ_targeted_st_temporal_calibration_8gpu.sh plan
+bash UNIV_adaptor/scripts/run_univ_targeted_st_temporal_calibration_8gpu.sh generate
+bash UNIV_adaptor/scripts/run_univ_targeted_st_temporal_calibration_8gpu.sh finalize
+bash UNIV_adaptor/scripts/run_univ_targeted_st_temporal_calibration_8gpu.sh score
+```
+
+The follow-up uses requested temporal ratio 0.36, which resolves to actual
+temporal ratio 0.35 and actual token proxy density 0.48. It writes a new output
+root, reuses every source spatial artifact by content hash, and applies the same
+measured-latency gate to the resulting 48-video paired dataset.
