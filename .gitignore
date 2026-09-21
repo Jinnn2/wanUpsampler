@@ -16,6 +16,9 @@ venv/
 /runs/
 /logs/
 /prompts/
+!/prompts/
+/prompts/*
+!/prompts/univ_controlled_factor_v1.jsonl
 /wandb/
 *.safetensors
 *.ckpt

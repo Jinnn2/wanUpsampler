@@ -1,0 +1,40 @@
+{
+  "schema": "univ_controlled_factor_protocol_v1",
+  "experiment_role": "controlled_prompt_factor_train_validation_locked_test",
+  "reference_nfe": 50,
+  "target_latent_shape": [16, 21, 90, 156],
+  "transition": "dvg_latent_anchor",
+  "base_seeds": [42, 100, 2024],
+  "expected_prompt_count": 80,
+  "expected_split_counts": {"train": 48, "validation": 16, "test": 16},
+  "expected_family_counts": {"train": 12, "validation": 4, "test": 4},
+  "cases": [
+    {
+      "id": "FULL_NATIVE_50",
+      "axis": "full",
+      "action": {"spatial_ratio": 1.0, "temporal_ratio": 1.0, "lr_nfe_ratio": 1.0, "switch_ratio": 1.0}
+    },
+    {
+      "id": "SPATIAL_ONLY_D050",
+      "axis": "spatial",
+      "action": {"spatial_ratio": 0.6123724356957945, "temporal_ratio": 1.0, "lr_nfe_ratio": 1.0, "switch_ratio": 0.8}
+    },
+    {
+      "id": "TEMPORAL_ONLY_RT036_CAL",
+      "axis": "temporal",
+      "action": {"spatial_ratio": 1.0, "temporal_ratio": 0.36, "lr_nfe_ratio": 1.0, "switch_ratio": 0.8}
+    },
+    {
+      "id": "CACHE_ONLY_D050",
+      "axis": "cache",
+      "action": {"spatial_ratio": 1.0, "temporal_ratio": 1.0, "lr_nfe_ratio": 0.375, "switch_ratio": 0.8}
+    }
+  ],
+  "notes": [
+    "All 80 prompts are authored explicitly in JSONL; no prompt template is expanded at runtime.",
+    "Every semantic family contains the complete low/high motion by low/high detail 2x2 factorial and belongs to exactly one split.",
+    "FULL_NATIVE_50 is the uncompressed common reference; the other arms isolate one acceleration axis.",
+    "The first eight prompt texts and prompt ids match targeted S/T v2 so its 48 spatial/temporal videos can be imported exactly when requested.",
+    "Test prompt families remain unavailable to model selection until the explicit confirmation command."
+  ]
+}
