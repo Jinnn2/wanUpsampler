@@ -1,0 +1,49 @@
+{
+  "schema": "univ_targeted_st_contrast_protocol_v1",
+  "experiment_role": "development_prompt_group_existence_test",
+  "reference_nfe": 50,
+  "target_latent_shape": [16, 21, 90, 156],
+  "transition": "dvg_latent_anchor",
+  "switch_ratio": 0.8,
+  "target_proxy_compute_density": 0.5,
+  "base_seeds": [42, 100, 2024],
+  "prompt_groups": [
+    {
+      "id": "low_motion_high_detail_small_objects",
+      "prompt_indices": [0, 1, 2, 3],
+      "expected_preference": "TEMPORAL_ONLY_D050"
+    },
+    {
+      "id": "high_motion_large_subject",
+      "prompt_indices": [4, 5, 6, 7],
+      "expected_preference": "SPATIAL_ONLY_D050"
+    }
+  ],
+  "cases": [
+    {
+      "id": "SPATIAL_ONLY_D050",
+      "axis": "spatial",
+      "action": {
+        "spatial_ratio": 0.6123724356957945,
+        "temporal_ratio": 1.0,
+        "lr_nfe_ratio": 1.0,
+        "switch_ratio": 0.8
+      }
+    },
+    {
+      "id": "TEMPORAL_ONLY_D050",
+      "axis": "temporal",
+      "action": {
+        "spatial_ratio": 1.0,
+        "temporal_ratio": 0.375,
+        "lr_nfe_ratio": 1.0,
+        "switch_ratio": 0.8
+      }
+    }
+  ],
+  "notes": [
+    "Both cases have planning proxy density exactly 0.5; measured end-to-end latency remains a mandatory report field.",
+    "This is a bounded development existence test, not a formal prompt-distribution benchmark.",
+    "No Native-HR or accelerated anchor is generated because the primary estimand is the paired quality difference Q_T - Q_S."
+  ]
+}
