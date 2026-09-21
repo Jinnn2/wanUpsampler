@@ -82,9 +82,14 @@ DATASET_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_matched_star_phase4_v1 \
 bash UNIV_adaptor/scripts/run_univ_sparse_action_score_8gpu.sh check
 
 DATASET_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_matched_star_phase4_v1 \
-EXPECTED_VBENCH_COMMIT=<locked-commit> \
+EXPECTED_VBENCH_COMMIT="$(git -C /mnt/afs_2/houze/VBench rev-parse HEAD)" \
 bash UNIV_adaptor/scripts/run_univ_sparse_action_score_8gpu.sh all
 ```
+
+The command substitution pins scoring to the exact VBench checkout. Do not
+enter the documentation placeholder `<locked-commit>` literally: Bash treats
+angle brackets as redirection operators. Formal scoring also requires the
+tracked VBench checkout to be clean.
 
 Quality and measured pipeline time remain separate, so lambda is applied only
 during router training.

@@ -72,9 +72,12 @@ DATASET_ROOT=/path/to/univ_sparse_action_phase3_v1 \
 bash UNIV_adaptor/scripts/run_univ_sparse_action_score_8gpu.sh check
 
 DATASET_ROOT=/path/to/univ_sparse_action_phase3_v1 \
-EXPECTED_VBENCH_COMMIT=<locked-commit> \
+EXPECTED_VBENCH_COMMIT="$(git -C /mnt/afs_2/houze/VBench rev-parse HEAD)" \
 bash UNIV_adaptor/scripts/run_univ_sparse_action_score_8gpu.sh all
 ```
+
+This pins the run to the exact clean VBench checkout. Do not use a literal
+`<locked-commit>` value because Bash interprets angle brackets as redirection.
 
 The scorer verifies the frozen dataset and all video hashes before staging
 hardlinks/copies.  It runs the five quality dimensions plus Dynamic Degree and
