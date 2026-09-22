@@ -20,7 +20,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from UNIV_adaptor.data_protocol import canonical_sha256, sha256_file, write_json_atomic  # noqa: E402
-from UNIV_adaptor.scripts.data.score_controlled_factor_dataset import ACTIONS, FULL, csv_write  # noqa: E402
+from UNIV_adaptor.scripts.data.score_controlled_factor_dataset import (  # noqa: E402
+    ACTIONS,
+    ANALYSIS_SCHEMA,
+    FULL,
+    csv_write,
+    validate_hashed,
+)
 from UNIV_adaptor.scripts.data.score_phase2_dataset import output_lock  # noqa: E402
 
 NAMES = (FULL, *ACTIONS)
@@ -134,7 +140,15 @@ def pair_diagnostics(d):
 
 def run(args):
     scored = Path(args.scored_dir).resolve()
+    analysis_path = scored / "analysis.json"
     source = scored / "relative_to_full.csv"
+    if not analysis_path.is_file():
+        raise FileNotFoundError(
+            f"Controlled-factor analysis is missing: {analysis_path}; "
+            "set CONTROLLED_FACTOR_ROOT or CONTROLLED_FACTOR_SCORED_DIR"
+        )
+    analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
+    validate_hashed(analysis, ANALYSIS_SCHEMA, "analysis_sha256")
     if not source.is_file():
         raise FileNotFoundError(f"Need per-seed scores: {source}; prompt means cannot recover seed variation")
     meta, q, cost = load_cube(source)
@@ -232,7 +246,8 @@ def run(args):
                                 "family_ci_low": lo, "family_ci_high": hi})
     out = Path(args.out_dir).resolve() if args.out_dir else scored / "seed_value_audit"
     out.mkdir(parents=True, exist_ok=True)
-    request = {"source_csv_sha256": sha256_file(source), "script_sha256": sha256_file(__file__),
+    request = {"analysis_sha256": analysis["analysis_sha256"],
+               "source_csv_sha256": sha256_file(source), "script_sha256": sha256_file(__file__),
                "lambdas": args.lambdas, "epsilon": args.epsilon, "bootstrap": args.bootstrap, "seed": args.seed}
     with output_lock(out):
         previous = out / "audit_request.json"

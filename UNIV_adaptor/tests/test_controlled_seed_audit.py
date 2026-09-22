@@ -12,6 +12,7 @@ from UNIV_adaptor.data_protocol import canonical_sha256
 from UNIV_adaptor.scripts.data.audit_controlled_factor_seed_value import (
     ACTIONS, SEEDS, load_cube, oracle_values, pair_diagnostics, run,
 )
+from UNIV_adaptor.scripts.data.score_controlled_factor_dataset import ANALYSIS_SCHEMA
 
 
 class SeedValueTest(unittest.TestCase):
@@ -59,6 +60,23 @@ class SeedValueTest(unittest.TestCase):
             self.assertEqual(len(meta), 2)
             self.assertEqual(q.shape, (2, 3, 4))
             path.rename(Path(directory)/'relative_to_full.csv')
+            analysis_body = {
+                'input_sha256': 'synthetic',
+                'score_payload_sha256': 'synthetic',
+                'quality_definition': 'synthetic',
+                'target_definition': 'synthetic',
+                'prompt_count': 2,
+                'prompt_seed_groups': 6,
+                'video_count': 24,
+                'action_timing': {},
+                'test_labels_scored_but_not_authorized_for_model_selection': True,
+                'analysis_source_sha256': 'synthetic',
+            }
+            (Path(directory)/'analysis.json').write_text(json.dumps({
+                'schema': ANALYSIS_SCHEMA,
+                'analysis_sha256': canonical_sha256(analysis_body),
+                **analysis_body,
+            }), encoding='utf8')
             out = Path(directory)/'audit'
             run(argparse.Namespace(scored_dir=directory, out_dir=str(out),
                                    lambdas=[0., .05], epsilon=.001, bootstrap=100, seed=42))
