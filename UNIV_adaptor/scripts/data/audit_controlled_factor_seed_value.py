@@ -48,7 +48,18 @@ def load_cube(path):
                 raise ValueError("Unexpected seed/action")
             if int(row["seed"]) != seed + p:
                 raise ValueError("Actual seed does not match base_seed + prompt_id")
-            identity = {k: row[k] for k in ("split", "family_id", "prompt", "prompt_sha256")}
+            identity = {
+                k: row[k]
+                for k in (
+                    "split",
+                    "family_id",
+                    "motion_level",
+                    "detail_level",
+                    "factor_cell",
+                    "prompt",
+                    "prompt_sha256",
+                )
+            }
             if canonical_sha256(row["prompt"]) != row["prompt_sha256"]:
                 raise ValueError("Prompt hash mismatch")
             if p in metadata and identity != metadata[p]:
@@ -163,6 +174,22 @@ def run(args):
             u = q[:, :, subset] - lam*(profile[list(subset)]-1)
             fixed = int(np.argmax(u[tr].mean(axis=(0, 1))))
             values, pm, ins, cross = oracle_values(u[va], fixed)
+            factor_choice = np.empty(len(vm), dtype=int)
+            train_cells = [r["factor_cell"] for i, r in enumerate(meta) if tr[i]]
+            validation_cells = [r["factor_cell"] for r in vm]
+            cell_actions = {}
+            for cell in sorted(set(train_cells)):
+                cell_mask = np.asarray([value == cell for value in train_cells])
+                cell_actions[cell] = int(np.argmax(u[tr][cell_mask].mean(axis=(0, 1))))
+            missing_cells = set(validation_cells) - set(cell_actions)
+            if missing_cells:
+                raise ValueError(f"Validation factor cells absent from train: {sorted(missing_cells)}")
+            factor_choice[:] = [cell_actions[cell] for cell in validation_cells]
+            values["factor_rule_train"] = u[va][
+                np.arange(len(vm))[:, None],
+                np.arange(len(SEEDS))[None, :],
+                factor_choice[:, None],
+            ]
             base = values["fixed_train"]
             for name, value in values.items():
                 delta = value-base
@@ -193,6 +220,7 @@ def run(args):
                         "prompt_oracle_action": NAMES[subset[pm[i]]],
                         "instance_oracle_action": NAMES[subset[ins[i, s]]],
                         "cross_seed_action": NAMES[subset[cross[i, s]]],
+                        "factor_rule_action": NAMES[subset[factor_choice[i]]],
                         **{name: float(v[i, s]) for name, v in values.items()},
                         "top1_top2_margin": float(margin[i, s]),
                         "cross_seed_regret": float(values["instance_oracle_in_sample"][i, s]-values["cross_seed_selector"][i, s]),

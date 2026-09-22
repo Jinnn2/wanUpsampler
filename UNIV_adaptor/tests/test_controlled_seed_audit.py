@@ -43,6 +43,8 @@ class SeedValueTest(unittest.TestCase):
             for seed in SEEDS:
                 for action in ACTIONS:
                     rows.append(dict(prompt_id=p, split=split, family_id=split,
+                                     motion_level='low', detail_level='low',
+                                     factor_cell='motion_low__detail_low',
                                      prompt=split, prompt_sha256=canonical_sha256(split),
                                      base_seed=seed, seed=seed+p, action_id=action,
                                      full_vbench5=.8, action_vbench5=.7, delta_vbench5=-.1,
@@ -82,7 +84,9 @@ class SeedValueTest(unittest.TestCase):
                                    lambdas=[0., .05], epsilon=.001, bootstrap=100, seed=42))
             report = json.loads((out/'audit.json').read_text(encoding='utf8'))
             self.assertFalse(report['test_scores_analyzed'])
-            self.assertEqual(len(report['oracle_summary']), 20)
+            self.assertEqual(len(report['oracle_summary']), 25)
+            factors = [row for row in report['oracle_summary'] if row['policy'] == 'factor_rule_train']
+            self.assertEqual(len(factors), 5)
             rows.append(rows[0])
             save()
             with self.assertRaisesRegex(ValueError, 'Duplicate'):

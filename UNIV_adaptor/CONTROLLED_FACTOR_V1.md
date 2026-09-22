@@ -8,7 +8,7 @@ bash UNIV_adaptor/scripts/run_univ_controlled_factor_seed_audit.sh
 
 Requires the existing `metrics/controlled_factor_vbench/relative_to_full.csv`.
 The earlier compact download containing only prompt means is insufficient.
-Outputs and the return archive are in `metrics/controlled_factor_vbench/seed_value_audit`.
+Outputs and the return archive are in `metrics/controlled_factor_vbench/seed_value_audit_v2`.
 Test rows in the source CSV are skipped before numeric score parsing.
 
 The audit evaluates validation using a train-selected fixed action and train
