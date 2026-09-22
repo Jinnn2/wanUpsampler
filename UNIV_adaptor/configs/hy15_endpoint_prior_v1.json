@@ -1,0 +1,30 @@
+{
+  "schema": "hy15_endpoint_prior_v1",
+  "claim": "Prompt predicts cross-seed expected utility of method and main-stage budget under a fixed RGB recovery and sigma0.2 HR4 protocol.",
+  "experiment_role": "development_only_no_test",
+  "model_id": "hunyuanvideo-community/HunyuanVideo-1.5-Diffusers-480p_t2v",
+  "model_revision": "286be7ce72277246578a3e3cc2487e95ddae5bcf",
+  "diffusers_version": "0.36.0",
+  "height": 480,
+  "width": 832,
+  "frames": 121,
+  "fps": 24,
+  "main_steps": 50,
+  "shift": 5.0,
+  "cfg": 6.0,
+  "refine_sigmas": [0.2, 0.15, 0.1, 0.05, 0.0],
+  "base_seeds": [42, 100, 2024, 3407],
+  "families": ["watchmaking", "museum_insects", "circuit_board", "market_diorama"],
+  "negative_prompt": "",
+  "cache_definition": "hold_last_cfg_velocity_uniform_refresh_first_and_last",
+  "cases": [
+    {"id": "FULL50", "axis": "full", "budget": 1.0, "height": 480, "width": 832, "frames": 121, "refreshes": 50, "refine": false},
+    {"id": "FULL50_HR4", "axis": "control", "budget": 1.0, "height": 480, "width": 832, "frames": 121, "refreshes": 50, "refine": true},
+    {"id": "S_B050", "axis": "spatial", "budget": 0.5, "height": 336, "width": 592, "frames": 121, "refreshes": 50, "refine": true},
+    {"id": "S_B025", "axis": "spatial", "budget": 0.25, "height": 240, "width": 416, "frames": 121, "refreshes": 50, "refine": true},
+    {"id": "T_B050", "axis": "temporal", "budget": 0.5, "height": 480, "width": 832, "frames": 61, "refreshes": 50, "refine": true},
+    {"id": "T_B025", "axis": "temporal", "budget": 0.25, "height": 480, "width": 832, "frames": 29, "refreshes": 50, "refine": true},
+    {"id": "C_B050", "axis": "cache", "budget": 0.5, "height": 480, "width": 832, "frames": 121, "refreshes": 25, "refine": true},
+    {"id": "C_B025", "axis": "cache", "budget": 0.25, "height": 480, "width": 832, "frames": 121, "refreshes": 13, "refine": true}
+  ]
+}
