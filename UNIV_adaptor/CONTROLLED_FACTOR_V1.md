@@ -1,5 +1,25 @@
 # Controlled prompt-factor v1
 
+## Prompt versus seed diagnostic (no new GPU work)
+
+```bash
+bash UNIV_adaptor/scripts/run_univ_controlled_factor_seed_audit.sh
+```
+
+Requires the existing `metrics/controlled_factor_vbench/relative_to_full.csv`.
+The earlier compact download containing only prompt means is insufficient.
+Outputs and the return archive are in `metrics/controlled_factor_vbench/seed_value_audit`.
+Test rows in the source CSV are skipped before numeric score parsing.
+
+The audit evaluates validation using a train-selected fixed action and train
+mean timing profile. It compares the fixed policy, the optimistic same-sample
+prompt oracle, the instance oracle, and a two-seed selector on the third seed.
+It reports ST quality-only, FST, and FSTC utility comparisons, pairwise variance,
+winner margins, and actual regret of cross-seed choices. Existing T5/TF-IDF
+validation predictions are included when present. Family bootstrap intervals
+condition on the observed seeds and are exploratory with four validation families.
+Large instance-oracle gaps do not establish early-state predictability.
+
 This experiment tests whether prompt semantics predict the expected loss of
 spatial, temporal, and cache acceleration relative to an uncompressed common
 reference. It does not enumerate operation combinations.
