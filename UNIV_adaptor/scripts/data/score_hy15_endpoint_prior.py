@@ -31,17 +31,44 @@ def csv_write(path, rows):
         writer.writerows(rows)
 
 
-def collect(root):
+def collect(root, *, partial=False):
     plan = read(root / "plan.json")
     verify_plan(plan)
-    manifest = read(root / "dataset.json")
+    if partial:
+        environment = canonical_sha256(read(root / "environment.json"))
+        complete = defaultdict(dict)
+        missing = defaultdict(list)
+        for job in plan["jobs"]:
+            video, record = record_paths(root, job)
+            if not record.exists():
+                missing[job["group"]].append(job["case"]["id"])
+                continue
+            # A completion record is written last. If it exists, corruption must
+            # fail loudly rather than silently excluding an unfavorable action.
+            verified = verify_record(root, job, plan, environment)
+            complete[job["group"]][job["case"]["id"]] = verified
+        required = {case["id"] for case in plan["protocol"]["cases"]}
+        selected_groups = {group for group, cases in complete.items() if set(cases) == required}
+        jobs = [job for job in plan["jobs"] if job["group"] in selected_groups]
+        if not jobs:
+            raise ValueError("No complete eight-case prompt-seed groups yet")
+        manifest = {"schema": "hy15_partial_snapshot_v1", "plan_sha256": plan["plan_sha256"],
+                    "environment_sha256": environment,
+                    "records": [{"id": job["id"],
+                                 "record_sha256": sha256_file(record_paths(root, job)[1])} for job in jobs],
+                    "complete_groups": len(selected_groups),
+                    "excluded_incomplete_groups": len(missing),
+                    "expected_groups": len(plan["jobs"]) // len(required)}
+    else:
+        manifest = read(root / "dataset.json")
+        jobs = plan["jobs"]
     if manifest["plan_sha256"] != plan["plan_sha256"]:
         raise ValueError("Dataset/plan mismatch")
     expected = {item["id"]: item["record_sha256"] for item in manifest["records"]}
-    if set(expected) != {j["id"] for j in plan["jobs"]} or len(expected) != len(manifest["records"]):
+    if set(expected) != {j["id"] for j in jobs} or len(expected) != len(manifest["records"]):
         raise ValueError("Dataset has missing/duplicate/extra records")
     rows = []
-    for job in plan["jobs"]:
+    for job in jobs:
         video, record = record_paths(root, job)
         if sha256_file(record) != expected[job["id"]]:
             raise ValueError("Finalized record changed")
@@ -57,7 +84,39 @@ def collect(root):
                      "transition_seconds": r["timing_seconds"]["transition"],
                      "refine_seconds": r["timing_seconds"]["refine"],
                      "video_path": str(video.resolve()), "video_sha256": r["video_sha256"]})
-    return rows, canonical_sha256(manifest)
+    return rows, canonical_sha256(manifest), manifest
+
+
+def coverage_report(root):
+    """CPU-only live progress; completed records are checked for video identity."""
+    plan = read(root / "plan.json")
+    verify_plan(plan)
+    environment = canonical_sha256(read(root / "environment.json"))
+    by_group = defaultdict(dict)
+    by_case = defaultdict(list)
+    for job in plan["jobs"]:
+        _, path = record_paths(root, job)
+        if path.exists():
+            record = verify_record(root, job, plan, environment)
+            by_group[job["group"]][job["case"]["id"]] = record
+            by_case[job["case"]["id"]].append(record)
+    case_ids = {case["id"] for case in plan["protocol"]["cases"]}
+    complete = {group for group, cases in by_group.items() if set(cases) == case_ids}
+    prompts = {job["group"]: job["prompt"] for job in plan["jobs"]}
+    report = {"completed_videos": sum(map(len, by_case.values())),
+              "expected_videos": len(plan["jobs"]),
+              "complete_groups": len(complete),
+              "expected_groups": len(plan["jobs"]) // len(case_ids),
+              "complete_prompts": sorted({prompts[group]["prompt_id"] for group in complete}),
+              "complete_factor_cells": sorted({prompts[group]["motion_level"] + "/" +
+                                                 prompts[group]["detail_level"] for group in complete}),
+              "cases": {case: {"n": len(items),
+                                "mean_seconds": statistics.fmean(r["timing_seconds"]["candidate_total"] for r in items),
+                                "mean_main_seconds": statistics.fmean(r["timing_seconds"]["main"] for r in items),
+                                "mean_transition_seconds": statistics.fmean(r["timing_seconds"]["transition"] for r in items),
+                                "mean_refine_seconds": statistics.fmean(r["timing_seconds"]["refine"] for r in items)}
+                        for case, items in sorted(by_case.items()) if items}}
+    return report
 
 
 def report(rows, scores, out):
@@ -121,21 +180,29 @@ def report(rows, scores, out):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["check", "score", "report"])
+    parser.add_argument("mode", choices=["check", "score", "report", "partial-check", "partial-score", "partial-report"])
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--vbench-root", type=Path, required=True)
     parser.add_argument("--vbench-python", default=sys.executable)
     parser.add_argument("--expected-vbench-commit", default="")
     parser.add_argument("--ngpus", type=int, default=8)
     args = parser.parse_args()
-    rows, digest = collect(args.out)
+    if args.mode == "partial-check":
+        import json
+        print(json.dumps(coverage_report(args.out), ensure_ascii=False, indent=2))
+        return
+    partial = args.mode.startswith("partial-")
+    rows, digest, manifest = collect(args.out, partial=partial)
     print(f"Verified {len(rows)} videos; {len({r['group'] for r in rows})} matched groups")
     if args.mode == "check":
         return
-    out = args.out / "metrics" / "hy15_endpoint_vbench"
+    out = (args.out / "metrics" / "hy15_endpoint_vbench_partial" / digest[:16]) if partial else \
+        args.out / "metrics" / "hy15_endpoint_vbench"
     out.mkdir(parents=True, exist_ok=True)
     with output_lock(out):
-        if args.mode == "score":
+        if partial:
+            immutable_json(out / "snapshot.json", manifest)
+        if args.mode in {"score", "partial-score"}:
             from changing_resolution_uni.scripts.data.batch_vbench_score_dataset import inspect_vbench_checkout, score_case_directory
             identity = inspect_vbench_checkout(args.vbench_root, expected_commit=args.expected_vbench_commit or None)
             immutable_json(out / "vbench.lock.json", identity)

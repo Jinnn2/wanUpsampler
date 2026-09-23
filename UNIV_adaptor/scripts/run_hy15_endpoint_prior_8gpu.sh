@@ -40,6 +40,11 @@ if [[ "${MODE}" == download ]]; then
   "${HY_PYTHON}" "${DRIVER}" download "${COMMON[@]}"
   exit 0
 fi
+if [[ "${MODE}" == partial-check ]]; then
+  # Read-only CPU audit may run while the generation launcher owns its lock.
+  "${HY_PYTHON}" "${SCORER}" partial-check --out "${OUT_ROOT}" --vbench-root "${VBENCH_ROOT}"
+  exit 0
+fi
 
 IFS=',' read -r -a GPUS <<< "${GPU_IDS}"
 [[ ${#GPUS[@]} == 8 ]] || { echo "Exactly 8 GPU ids required" >&2; exit 2; }
@@ -75,11 +80,11 @@ case "${MODE}" in
       "${HY_PYTHON}" "${DRIVER}" finalize "${COMMON[@]}"
     fi ;;
   finalize) "${HY_PYTHON}" "${DRIVER}" finalize "${COMMON[@]}" ;;
-  score-check|score|report)
+  score-check|score|report|partial-score|partial-report)
     SCORE_MODE="${MODE}"
     [[ "${MODE}" != score-check ]] || SCORE_MODE=check
     CUDA_VISIBLE_DEVICES="${GPU_IDS}" "${HY_PYTHON}" "${SCORER}" "${SCORE_MODE}" --out "${OUT_ROOT}" \
       --vbench-root "${VBENCH_ROOT}" --vbench-python "${VBENCH_PYTHON}" \
       --expected-vbench-commit "${EXPECTED_VBENCH_COMMIT:-}" --ngpus 8 ;;
-  *) echo "Usage: $0 [setup|download|plan|check|smoke|generate|finalize|score-check|score|report]" >&2; exit 2 ;;
+  *) echo "Usage: $0 [setup|download|plan|check|smoke|generate|finalize|score-check|score|report|partial-check|partial-score|partial-report]" >&2; exit 2 ;;
 esac

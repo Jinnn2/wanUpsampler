@@ -88,6 +88,35 @@ class ProtocolTests(unittest.TestCase):
             self.assertTrue((root / "prompt_mean_targets.csv").exists())
             self.assertIn("NOT official", (root / "report.md").read_text())
 
+    def test_partial_snapshot_requires_complete_group(self):
+        from UNIV_adaptor.scripts.data.score_hy15_endpoint_prior import collect, coverage_report
+        plan = make_plan()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_json_atomic(root / "plan.json", plan)
+            write_json_atomic(root / "environment.json", {"run": "synthetic"})
+            env = canonical_sha256({"run": "synthetic"})
+            for job in plan["jobs"][:9]:
+                video, record = record_paths(root, job)
+                video.parent.mkdir(exist_ok=True)
+                record.parent.mkdir(exist_ok=True)
+                video.write_bytes(job["id"].encode())
+                write_json_atomic(record, {"schema": "hy15_endpoint_record_v1", "job": job,
+                    "plan_sha256": plan["plan_sha256"], "environment_sha256": env,
+                    "video_sha256": sha256_file(video),
+                    "timing_seconds": {"candidate_total": 10, "main": 7, "transition": 1, "refine": 2}})
+            progress = coverage_report(root)
+            self.assertEqual((progress["completed_videos"], progress["complete_groups"]), (9, 1))
+            rows, digest, snapshot = collect(root, partial=True)
+            self.assertEqual(len(rows), 8)
+            self.assertEqual(snapshot["complete_groups"], 1)
+            self.assertEqual(len(snapshot["records"]), 8)
+            self.assertEqual(digest, canonical_sha256(snapshot))
+            video, _ = record_paths(root, plan["jobs"][0])
+            video.write_bytes(b"corrupt")
+            with self.assertRaises(ValueError):
+                collect(root, partial=True)
+
 
 if __name__ == "__main__":
     unittest.main()
