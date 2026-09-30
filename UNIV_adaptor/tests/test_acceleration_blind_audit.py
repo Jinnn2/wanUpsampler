@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest import mock
 import contextlib
 import io
 import shutil
@@ -39,6 +40,24 @@ def fixture():
 
 
 class BlindAuditTests(unittest.TestCase):
+    def test_split_resume_merge_and_corruption_detection(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            original = root / "source/study.zip"
+            original.parent.mkdir()
+            original.write_bytes(b"a" * (1024 * 1024) + b"tail")
+            with contextlib.redirect_stdout(io.StringIO()):
+                local_export.split_zip(original, 1)
+                local_export.split_zip(original, 1)
+            parts = root / "download/study.zip.parts"
+            shutil.copytree(original.with_name("study.zip.parts"), parts)
+            subprocess.run([sys.executable, str(parts / "merge.py")], check=True, stdout=subprocess.DEVNULL)
+            self.assertEqual(audit.file_hash(original), audit.file_hash(parts.parent / "study.zip"))
+            (parts / "part-00001.bin").write_bytes(b"FAIL")
+            result = subprocess.run([sys.executable, str(parts / "merge.py")], capture_output=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(b"Checksum mismatch", result.stderr)
+
     def test_sampling_ignores_scores_and_is_repeatable(self):
         config, sources = fixture()
         expected = audit.make_plan(config, sources)
@@ -196,6 +215,12 @@ class BlindAuditTests(unittest.TestCase):
             research_root = Path(folder) / "research_extracted/blind_audit_research"
             subprocess.run([sys.executable, str(research_root / "run_analysis.py")], check=True, stdout=subprocess.DEVNULL)
             self.assertEqual(audit.read(research_root / "study/analysis/report.json")["fully_rated_pairs"], 0)
+            metadata_zip = Path(folder) / "analysis_only.zip"
+            with contextlib.redirect_stdout(io.StringIO()), mock.patch.object(local_export, "file_hash", side_effect=AssertionError("Metadata export read video bytes")):
+                local_export.export(out, metadata_zip, research=True, metadata_only=True)
+            with zipfile.ZipFile(metadata_zip) as archive:
+                self.assertFalse(any(n.endswith(".mp4") or n.endswith("START_WINDOWS.cmd") for n in archive.namelist()))
+                self.assertIn("blind_audit_research/study/private/presented_scores.csv", archive.namelist())
             sock = socket.socket()
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]

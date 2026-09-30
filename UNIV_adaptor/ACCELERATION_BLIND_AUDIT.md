@@ -138,6 +138,30 @@ be outside the study directory; existing ZIPs are never overwritten.
 
 ## Results and aggregation
 
+If downloading the video ZIP stalls, export the small compressed analysis-only
+archive first (does not read/copy video bytes):
+
+```bash
+python UNIV_adaptor/scripts/data/export_blind_audit_local.py --research --metadata-only
+```
+
+Download outputs/acceleration_blind_audit_analysis.zip. It supports local
+analysis but not video playback. To transfer the existing full ZIP in smaller
+independently retryable chunks:
+
+```bash
+python UNIV_adaptor/scripts/data/export_blind_audit_local.py \
+  --split-zip outputs/acceleration_blind_audit_research.zip --part-mib 8
+```
+
+Download all files in outputs/acceleration_blind_audit_research.zip.parts,
+including parts.json and merge.py, into one local folder. Run `python merge.py`
+inside it. The merger checks every part and the complete ZIP checksum before
+the archive is used. A previously downloaded incomplete ZIP with the same name
+in the parent folder must be moved aside first; the merger never overwrites it.
+Splitting is resumable for intact existing parts. If even the small metadata
+ZIP cannot transfer, investigate the transfer channel rather than file size.
+
 ```bash
 python UNIV_adaptor/scripts/data/acceleration_blind_audit.py report
 # Once the displayed clips have been scored:

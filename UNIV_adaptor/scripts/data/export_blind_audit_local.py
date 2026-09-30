@@ -1,14 +1,15 @@
 """Export the rendered study for offline/local annotation; no model or re-encoding."""
 import argparse
 import csv
+import hashlib
 import json
 from pathlib import Path
 import zipfile
 
 if __package__:
-    from .acceleration_blind_audit import ROOT, digest, file_hash, load_package, load_plan, read
+    from .acceleration_blind_audit import ROOT, digest, file_hash, immutable, load_package, load_plan, read
 else:
-    from acceleration_blind_audit import ROOT, digest, file_hash, load_package, load_plan, read
+    from acceleration_blind_audit import ROOT, digest, file_hash, immutable, load_package, load_plan, read
 
 
 LAUNCHER = '''from pathlib import Path
@@ -98,7 +99,9 @@ RESEARCH_README = '''研究者完整数据包（包含未盲化的信息，不�
 '''
 
 
-def export(study, destination, research=False):
+def export(study, destination, research=False, metadata_only=False):
+    if metadata_only and not research:
+        raise ValueError("Metadata-only export requires research mode")
     study, destination = Path(study).resolve(), Path(destination).resolve()
     plan = load_plan(study)
     package = load_package(study, plan)
@@ -120,20 +123,22 @@ def export(study, destination, research=False):
         if any(r["video_sha256"] != public["clips"][r["clip_id"]]["sha256"] for r in rows):
             raise ValueError("Presented score video hashes differ")
     # Verify every clip before opening an output archive. Only declared media enter it.
-    for clip, record in public["clips"].items():
+    for clip, record in ({} if metadata_only else public["clips"]).items():
         if file_hash(study / f"media/{clip}.mp4") != record["sha256"]:
             raise ValueError(f"Changed media: {clip}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     base = Path(__file__).parent
-    with zipfile.ZipFile(destination, "x", compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
+    with zipfile.ZipFile(destination, "x", compression=zipfile.ZIP_DEFLATED if metadata_only else zipfile.ZIP_STORED, allowZip64=True) as archive:
         prefix = "blind_audit_research/" if research else "blind_audit_local/"
         for name in ("acceleration_blind_audit.py", "acceleration_blind_audit.html"):
             archive.write(base / name, prefix + "UNIV_adaptor/scripts/data/" + name)
-        archive.writestr(prefix + "run_local.py", LAUNCHER)
-        archive.writestr(prefix + "START_WINDOWS.cmd", CMD.replace("\n", "\r\n"))
-        archive.writestr(prefix + "README.txt", (RESEARCH_README if research else README).encode("utf-8-sig"))
+        if not metadata_only:
+            archive.writestr(prefix + "run_local.py", LAUNCHER)
+            archive.writestr(prefix + "START_WINDOWS.cmd", CMD.replace("\n", "\r\n"))
+        intro = "本包仅含分析数据，没有视频，不能用于播放或盲评。使用 ANALYZE_WINDOWS.cmd 汇总。\n\n" if metadata_only else ""
+        archive.writestr(prefix + "README.txt", (intro + (RESEARCH_README if research else README)).encode("utf-8-sig"))
         archive.writestr(prefix + "study/public_study.json", json.dumps(public, ensure_ascii=False, indent=2))
-        for clip in public["clips"]:
+        for clip in ([] if metadata_only else public["clips"]):
             archive.write(study / f"media/{clip}.mp4", prefix + f"study/media/{clip}.mp4")
         if research:
             archive.writestr(prefix + "run_analysis.py", ANALYSIS)
@@ -142,8 +147,59 @@ def export(study, destination, research=False):
             for path in sorted(study.rglob("*")):
                 relative = path.relative_to(study)
                 if path.is_file() and relative not in written:
+                    if metadata_only and ("media" in relative.parts or path.suffix.lower() not in (".json", ".csv", ".md", ".txt")):
+                        continue
                     archive.write(path, prefix + "study/" + relative.as_posix())
-    print(f"Ready: {destination}\n{len(public['pairs'])} pairs, {len(public['clips'])} clips; {destination.stat().st_size / 1024**2:.1f} MiB")
+    print(f"Ready: {destination}\n{len(public['pairs'])} pairs; videos {'excluded' if metadata_only else len(public['clips'])}; {destination.stat().st_size / 1024**2:.2f} MiB")
+
+
+MERGER = '''from pathlib import Path
+import hashlib, json
+root = Path(__file__).resolve().parent
+manifest = json.loads((root / "parts.json").read_text())
+output = root.parent / manifest["filename"]
+for part in manifest["parts"]:
+    path = root / part["name"]
+    if not path.is_file() or path.stat().st_size != part["bytes"]:
+        raise RuntimeError("Missing/incomplete part: " + str(path))
+    if hashlib.sha256(path.read_bytes()).hexdigest() != part["sha256"]:
+        raise RuntimeError("Checksum mismatch: " + str(path))
+with output.open("xb") as target:
+    total = hashlib.sha256()
+    for part in manifest["parts"]:
+        data = (root / part["name"]).read_bytes()
+        target.write(data)
+        total.update(data)
+if total.hexdigest() != manifest["sha256"]:
+    raise RuntimeError("Combined checksum mismatch")
+print("Verified: " + str(output))
+'''
+
+
+def split_zip(path, part_mib):
+    path = Path(path).resolve()
+    if not 1 <= part_mib <= 128:
+        raise ValueError("part-mib must be between 1 and 128")
+    folder = path.with_name(path.name + ".parts")
+    folder.mkdir(exist_ok=True)
+    records, total = [], hashlib.sha256()
+    with path.open("rb") as source:
+        while data := source.read(part_mib * 1024 * 1024):
+            name = f"part-{len(records):05d}.bin"
+            item = folder / name
+            hashed = hashlib.sha256(data).hexdigest()
+            if item.exists():
+                if file_hash(item) != hashed:
+                    raise ValueError(f"Existing part differs: {item}; use a new destination ZIP name")
+            else:
+                with item.open("xb") as handle:
+                    handle.write(data)
+            total.update(data)
+            records.append({"name": name, "bytes": len(data), "sha256": hashed})
+            print(f"Prepared {name}: {len(data) / 1024**2:.1f} MiB", flush=True)
+    immutable(folder / "parts.json", {"filename": path.name, "sha256": total.hexdigest(), "parts": records})
+    (folder / "merge.py").write_text(MERGER, encoding="utf-8")
+    print(f"Download parts.json, merge.py and all {len(records)} parts from {folder}; run python merge.py locally.")
 
 
 if __name__ == "__main__":
@@ -151,6 +207,12 @@ if __name__ == "__main__":
     parser.add_argument("--study", type=Path, default=ROOT / "outputs/acceleration_blind_audit_v1")
     parser.add_argument("--zip", type=Path)
     parser.add_argument("--research", action="store_true", help="Include ALL study artifacts and local analysis; contains unblinding information")
+    parser.add_argument("--metadata-only", action="store_true", help="Small compressed analysis export; no media reading/copying")
+    parser.add_argument("--split-zip", type=Path, help="Split an existing ZIP; does not export or re-encode")
+    parser.add_argument("--part-mib", type=int, default=8)
     args = parser.parse_args()
-    destination = args.zip or ROOT / ("outputs/acceleration_blind_audit_research.zip" if args.research else "outputs/acceleration_blind_audit_local.zip")
-    export(args.study, destination, args.research)
+    if args.split_zip:
+        split_zip(args.split_zip, args.part_mib)
+    else:
+        destination = args.zip or ROOT / ("outputs/acceleration_blind_audit_analysis.zip" if args.metadata_only else "outputs/acceleration_blind_audit_research.zip" if args.research else "outputs/acceleration_blind_audit_local.zip")
+        export(args.study, destination, args.research, args.metadata_only)
