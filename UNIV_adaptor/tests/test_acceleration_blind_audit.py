@@ -14,8 +14,10 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import zipfile
 
 from UNIV_adaptor.scripts.data import acceleration_blind_audit as audit
+from UNIV_adaptor.scripts.data import export_blind_audit_local as local_export
 
 
 def fixture():
@@ -140,7 +142,8 @@ class BlindAuditTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg integration test requires executables in PATH")
     def test_real_encoding_http_blinding_and_resume(self):
         with tempfile.TemporaryDirectory() as folder:
-            out = Path(folder)
+            out = Path(folder) / "source_study"
+            out.mkdir()
             config, sources = fixture()
             config["presentation"].update(width=320, height=240)
             config["real_strata"][0]["count"] = 1
@@ -165,11 +168,40 @@ class BlindAuditTests(unittest.TestCase):
             for clip in first["clips"].values():
                 self.assertEqual(clip["info"]["width"], 320)
                 self.assertAlmostEqual(clip["info"]["duration"], 3, delta=.15)
+            bundle_path = Path(folder) / "local.zip"
+            with contextlib.redirect_stdout(io.StringIO()):
+                local_export.export(out, bundle_path)
+            with zipfile.ZipFile(bundle_path) as archive:
+                self.assertFalse(any("private/" in name for name in archive.namelist()))
+                public = json.loads(archive.read("blind_audit_local/study/public_study.json"))
+                self.assertEqual(public["package_sha256"], first["package_sha256"])
+                self.assertTrue(all(set(p) == {"id", "a", "b", "prompt"} for p in public["pairs"]))
+                self.assertTrue(all(set(c) == {"sha256"} for c in public["clips"].values()))
+                archive.extractall(out / "extracted")
+            local_root = out / "extracted/blind_audit_local"
+            local_study = local_root / "study"
+            # Research export must retain complete scores and support analysis
+            # without the source repository, GPU, or original server paths.
+            audit.write(out / "private/presented_scores.json", {"package_sha256": first["package_sha256"]})
+            audit.csv_write(out / "private/presented_scores.csv", [
+                {"clip_id": clip, "video_sha256": record["sha256"], "vbench5": .8}
+                for clip, record in first["clips"].items()])
+            research_zip = Path(folder) / "research.zip"
+            with contextlib.redirect_stdout(io.StringIO()):
+                local_export.export(out, research_zip, research=True)
+            with zipfile.ZipFile(research_zip) as archive:
+                self.assertIn("blind_audit_research/study/private/presented_scores.csv", archive.namelist())
+                self.assertIn("blind_audit_research/study/private/plan.json", archive.namelist())
+                archive.extractall(Path(folder) / "research_extracted")
+            research_root = Path(folder) / "research_extracted/blind_audit_research"
+            subprocess.run([sys.executable, str(research_root / "run_analysis.py")], check=True, stdout=subprocess.DEVNULL)
+            self.assertEqual(audit.read(research_root / "study/analysis/report.json")["fully_rated_pairs"], 0)
             sock = socket.socket()
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]
             sock.close()
-            process = subprocess.Popen([sys.executable, audit.__file__, "serve", "--out", str(out), "--port", str(port)],
+            local_script = local_root / "UNIV_adaptor/scripts/data/acceleration_blind_audit.py"
+            process = subprocess.Popen([sys.executable, str(local_script), "serve-local", "--out", str(local_study), "--port", str(port)],
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             base = f"http://127.0.0.1:{port}"
             try:
@@ -197,6 +229,9 @@ class BlindAuditTests(unittest.TestCase):
                     exc.exception.close()
                 votes = {d: "tie" for d in audit.DIMENSIONS}
                 post("/api/rate", {"participant": "rater01", "pair": p["id"], "votes": votes})
+                saved_local = audit.read(local_study / "private/ratings/rater01.json")
+                self.assertEqual(saved_local["plan_sha256"], body["plan_sha256"])
+                self.assertEqual(saved_local["package_sha256"], first["package_sha256"])
                 self.assertEqual(post("/api/session", {"participant": "rater01"})["answers"][p["id"]], votes)
                 self.assertFalse(post("/api/session", {"participant": "rater02"})["answers"])
                 request = urllib.request.Request(base + f"/media/{p['A']}.mp4", headers={"Range": "bytes=0-9"})

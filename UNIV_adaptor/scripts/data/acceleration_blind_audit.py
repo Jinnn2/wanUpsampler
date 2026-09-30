@@ -398,6 +398,17 @@ def score(args):
 def serve(args):
     plan = load_plan(args.out)
     package = load_package(args.out, plan)
+    serve_study(args, plan, package)
+
+
+def serve_local(args):
+    bundle = read(args.out / "public_study.json")
+    if digest({k: v for k, v in bundle.items() if k != "bundle_sha256"}) != bundle["bundle_sha256"]:
+        raise ValueError("Local study manifest changed")
+    serve_study(args, {"plan_sha256": bundle["plan_sha256"]}, bundle)
+
+
+def serve_study(args, plan, package):
     for clip, record in package["clips"].items():
         if file_hash(args.out / f"media/{clip}.mp4") != record["sha256"]:
             raise ValueError(f"Media hash mismatch: {clip}")
@@ -604,7 +615,7 @@ def report(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["plan", "package", "score", "serve", "report"])
+    parser.add_argument("mode", choices=["plan", "package", "score", "serve", "serve-local", "report"])
     parser.add_argument("--out", type=Path, default=ROOT / "outputs/acceleration_blind_audit_v1")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--source", action="append", default=[], help="NAME=directory_or_tgz, plan only")
@@ -620,7 +631,7 @@ def main():
     args.vbench_root = args.vbench_root.resolve()
     if args.ngpus < 1:
         parser.error("--ngpus must be positive")
-    globals()[args.mode](args)
+    globals()[args.mode.replace("-", "_")](args)
 
 
 if __name__ == "__main__":

@@ -102,7 +102,41 @@ hashes are checked. Missing derivative scores stay missing, never zero or
 copied from the original. Additional metrics such as DOVER/LPIPS are not yet
 integrated; their orientation and applicability need a declared protocol.
 
-## Results
+## Download for local annotation (no tunnel)
+
+After `package` has completed on the server, run:
+
+```bash
+python UNIV_adaptor/scripts/data/export_blind_audit_local.py
+```
+
+Download outputs/acceleration_blind_audit_local.zip. Extract it completely on
+Windows and double-click START_WINDOWS.cmd inside blind_audit_local. Python
+3.10+ is required; no extra libraries, ffmpeg, GPU or VBench are needed locally.
+It verifies media, chooses an available localhost port and opens the browser
+only after the server is ready. Keep the terminal running. The ZIP contains
+anonymous media and a minimal manifest, not the original plan, scores, source
+paths or prior raters' answers. This does not rerender or regenerate videos.
+
+Use distinct participant IDs across computers. Send back the JSON files from
+study/private/ratings to the researcher; preserve these original IDs and do
+not overwrite a different participant's file. They retain the original plan
+and package identities and can be aggregated in the original study directory.
+The local package intentionally cannot run score/report without the private
+researcher manifest. Keep researcher-only files out of participant packages.
+
+To migrate the completed scoring study for local research, stop annotations
+while taking the snapshot and use `python
+UNIV_adaptor/scripts/data/export_blind_audit_local.py --research`. This requires
+complete presented_scores.json/csv and exports ALL study files to
+outputs/acceleration_blind_audit_research.zip, including raw score runs and any
+existing ratings. Extract on the researcher computer. START_WINDOWS.cmd runs
+annotation; ANALYZE_WINDOWS.cmd runs local aggregation using existing scores.
+Both require only Python. This larger ZIP contains unblinding information and
+must not be distributed as the anonymous participant package. Output ZIPs must
+be outside the study directory; existing ZIPs are never overwritten.
+
+## Results and aggregation
 
 ```bash
 python UNIV_adaptor/scripts/data/acceleration_blind_audit.py report
