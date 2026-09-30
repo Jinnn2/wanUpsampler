@@ -1,0 +1,29 @@
+{
+  "schema": "acceleration_blind_audit_v1",
+  "claim": "Human-visible acceleration degradation may be missed or misranked by existing metrics.",
+  "seed": 20260930,
+  "minimum_raters": 3,
+  "presentation": {"width": 1280, "height": 720, "fps": 24, "crf": 16},
+  "sources": {
+    "hy15": "outputs/hy15_endpoint_prior_v1/metrics/hy15_endpoint_vbench_partial/02e9dfba339e3555",
+    "wan_targeted": "outputs/univ_targeted_st_temporal_calibration_v2/metrics/targeted_st_vbench",
+    "wan_star": "outputs/univ_matched_star_phase4_v1/metrics/sparse_action_vbench"
+  },
+  "real_strata": [
+    {"source": "hy15", "left": "FULL50", "right": "S_B050", "count": 3},
+    {"source": "hy15", "left": "FULL50", "right": "S_B025", "count": 3},
+    {"source": "hy15", "left": "FULL50", "right": "T_B050", "count": 3},
+    {"source": "hy15", "left": "FULL50", "right": "T_B025", "count": 3},
+    {"source": "hy15", "left": "FULL50", "right": "C_B050", "count": 3},
+    {"source": "hy15", "left": "FULL50", "right": "C_B025", "count": 3},
+    {"source": "hy15", "left": "S_B050", "right": "T_B050", "count": 3},
+    {"source": "hy15", "left": "S_B025", "right": "T_B025", "count": 3},
+    {"source": "wan_targeted", "left": "SPATIAL_ONLY_D050", "right": "TEMPORAL_ONLY_RT036_CAL", "count": 12},
+    {"source": "wan_star", "left": "REFERENCE", "right": "STAR_S", "count": 4},
+    {"source": "wan_star", "left": "REFERENCE", "right": "STAR_T", "count": 4},
+    {"source": "wan_star", "left": "REFERENCE", "right": "STAR_C", "count": 4}
+  ],
+  "synthetic": {"source": "hy15", "action": "FULL50", "bases": 4},
+  "seed_controls": {"source": "hy15", "action": "FULL50", "count": 8},
+  "metric_epsilon": {"vbench5": 0.001, "subject_consistency": 0.001, "background_consistency": 0.001, "motion_smoothness": 0.001, "aesthetic_quality": 0.001, "imaging_quality": 0.001, "overall_consistency": 0.001, "dynamic_degree": 0.0}
+}

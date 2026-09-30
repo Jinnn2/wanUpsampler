@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>视频配对评价</title>
+<style>
+body{font:16px/1.6 system-ui,sans-serif;margin:24px auto;padding:0 20px;max-width:1500px;color:#182532;background:#f4f6f8}
+button,input,select{font:inherit;padding:8px 12px;border:1px solid #adb7c2;border-radius:6px;background:white}button{cursor:pointer}button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.videos{display:grid;grid-template-columns:1fr 1fr;gap:16px}.pane{overflow:auto;background:#111;border-radius:8px}video{width:100%;display:block;max-width:none}
+section{background:white;padding:20px;border-radius:10px;margin:16px 0}fieldset{margin:14px 0;border:1px solid #d5dce3;border-radius:8px}label{display:inline-block;margin:8px 18px 8px 0;cursor:pointer}input[type=radio]{margin-right:6px}#status{white-space:pre-wrap;color:#254c75}#error{color:#a21a27}#prompt{white-space:pre-wrap}.help{color:#506070}h1{font-size:24px}h2{font-size:18px;margin:6px 0}progress{width:220px}
+@media(max-width:750px){.videos{grid-template-columns:1fr}body{padding:0 10px}.help:after{content:' 建议使用电脑屏幕评价细节。'}}
+</style>
+<h1>视频配对评价</h1>
+<p class="help">请根据画面独立判断。不存在默认正确的视频；允许基本相当或无法判断。画面更静止不一定更自然，请结合文字要求。请勿互相讨论答案。</p>
+<section id="login"><label>评价者编号 <input id="participant" placeholder="例如 rater01" autocomplete="off" maxlength="40"></label><button id="enter">开始 / 继续</button><p>每位评价者使用自己的编号。再次输入相同编号可继续；不要使用别人的编号。</p></section>
+<main id="study" hidden>
+<section><div class="row"><strong id="counter"></strong><progress id="progress"></progress><span id="saved"></span></div><p id="prompt"></p></section>
+<div class="videos"><div><h2>视频 A</h2><div class="pane"><video id="A" controls muted playsinline preload="auto"></video></div></div><div><h2>视频 B</h2><div class="pane"><video id="B" controls muted playsinline preload="auto"></video></div></div></div>
+<section class="row"><button id="play">同步从头播放</button><button id="pause">暂停两段</button><label>两侧缩放 <select id="zoom"><option value="100">适应窗口</option><option value="150">1.5 倍</option><option value="200">2 倍</option></select></label><span class="help">放大后可在画面内滚动查看细节。先完整观看，再判断。</span></section>
+<section><form id="form"></form><div class="row"><button id="prev">上一对</button><button id="submit">保存并下一对</button><button id="next">稍后评价 / 下一对</button></div></section>
+</main><p id="status" role="status"></p><p id="error" role="alert"></p>
+<script>
+const $=id=>document.getElementById(id);
+const dimensions={detail:'空间细节：哪段更清晰，模糊、纹理伪影或细节损失更少？',temporal:'时间表现：哪段运动更自然，卡顿、闪烁或不合理形变更少？',prompt:'文字符合度：哪段更符合文字中的主体、细节和动作要求？',overall:'综合偏好：作为这段文字的生成结果，你更喜欢哪段？'};
+const choices={A:'A 更好',B:'B 更好',tie:'基本相当',uncertain:'无法判断'};
+for(const [dim,title] of Object.entries(dimensions)){const field=document.createElement('fieldset');const legend=document.createElement('legend');legend.textContent=title;field.append(legend);for(const [value,text] of Object.entries(choices)){const label=document.createElement('label');const radio=document.createElement('input');radio.type='radio';radio.name=dim;radio.value=value;label.append(radio,document.createTextNode(text));field.append(label)}$('form').append(field)}
+let participant='',pairs=[],answers={},index=0,watched={A:false,B:false},loading=false;
+async function api(path,data){const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const result=await response.json();if(!response.ok)throw Error(result.error||'请求失败');return result}
+function show(){for(const side of ['A','B'])$(side).pause();$('form').reset();$('error').textContent='';$('status').textContent='';const pair=pairs[index];watched={A:!!answers[pair.id],B:!!answers[pair.id]};$('prompt').textContent=pair.prompt;$('counter').textContent=`第 ${index+1} / ${pairs.length} 对`;$('progress').max=pairs.length;$('progress').value=Object.keys(answers).length;$('saved').textContent=`已保存 ${Object.keys(answers).length} 对`;$('prev').disabled=index===0;$('next').disabled=index===pairs.length-1;for(const side of ['A','B']){$(side).src='/media/'+pair[side]+'.mp4';$(side).load()}for(const [dim,value] of Object.entries(answers[pair.id]||{})){document.querySelector(`input[name="${dim}"][value="${value}"]`).checked=true}}
+for(const side of ['A','B']){$(side).addEventListener('ended',()=>{watched[side]=true});$(side).addEventListener('error',()=>{$('error').textContent='视频加载失败，请先确认媒体打包完整。'})}
+$('enter').onclick=async()=>{try{participant=$('participant').value.trim();const data=await api('/api/session',{participant});pairs=data.pairs;answers=data.answers;index=pairs.findIndex(p=>!answers[p.id]);if(index<0)index=0;$('login').hidden=true;$('study').hidden=false;show()}catch(e){$('error').textContent=e.message}};
+$('play').onclick=async()=>{try{for(const side of ['A','B'])$(side).currentTime=0;await Promise.all(['A','B'].map(side=>$(side).play()))}catch(e){$('error').textContent='播放失败：'+e.message}};
+$('pause').onclick=()=>{for(const side of ['A','B'])$(side).pause()};
+$('zoom').onchange=()=>{for(const side of ['A','B'])$(side).style.width=$('zoom').value+'%'};
+$('prev').onclick=()=>{if(index>0){index--;show()}};$('next').onclick=()=>{if(index<pairs.length-1){index++;show()}};
+$('submit').onclick=async()=>{if(loading)return;try{if(!watched.A||!watched.B)throw Error('请先将两段视频播放至结束，再提交评价。');const votes={};for(const dim of Object.keys(dimensions)){const selected=document.querySelector(`input[name="${dim}"]:checked`);if(!selected)throw Error('请完成四项判断；无法判断时请选择对应选项。');votes[dim]=selected.value}loading=true;$('submit').disabled=true;await api('/api/rate',{participant,pair:pairs[index].id,votes});answers[pairs[index].id]=votes;if(index<pairs.length-1){index++;show()}else{show();$('status').textContent=Object.keys(answers).length===pairs.length?'全部评价已保存，谢谢。':'当前已到最后一对，仍有跳过的配对。可以重新进入，从首个未完成配对继续。'}}catch(e){$('error').textContent=e.message}finally{loading=false;$('submit').disabled=false}};
+</script>
+</html>
