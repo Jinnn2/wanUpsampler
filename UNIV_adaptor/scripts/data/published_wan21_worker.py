@@ -105,6 +105,49 @@ def versions():
     return result
 
 
+def configure_attention_backend(attention=None):
+    """Select upstream FA2 for ALL dense attention, including Jenga's dense path.
+
+    Some installed flash_attn_interface versions return Tensor, while these
+    pinned Wan wrappers assume a tuple and index [0] in their FA3 branch. Keep
+    the upstream FA2 implementation, rather than rewriting outputs or silently
+    falling back to SDPA. Jenga's published sparse Triton branch is untouched.
+    """
+    if attention is None:
+        attention = __import__("wan.modules.attention", fromlist=["flash_attention"])
+    fa2 = getattr(attention, "flash_attn", None)
+    if not getattr(attention, "FLASH_ATTN_2_AVAILABLE", False) or not callable(getattr(fa2, "flash_attn_varlen_func", None)):
+        raise RuntimeError("Common dense backend requires working FlashAttention-2 (flash_attn.flash_attn_varlen_func). No SDPA/FA3 fallback is allowed; check the CUDA/PyTorch-compatible flash-attn installation.")
+    observed_fa3 = bool(getattr(attention, "FLASH_ATTN_3_AVAILABLE", False))
+    attention.FLASH_ATTN_3_AVAILABLE = False
+    metadata = {"dense_backend": "flash_attention_2", "fa3_detected_before_lock": observed_fa3,
+                "flash_attn_module": getattr(fa2, "__file__", None),
+                "flash_attn_interface_module": getattr(getattr(attention, "flash_attn_interface", None), "__file__", None),
+                "policy": "use pinned upstream FA2 branch for all dense calls; published sparse attention remains unchanged"}
+    return attention, metadata
+
+
+def attention_smoke_test(attention, torch_module=None):
+    """Exercise real dense CUDA kernels and output layout before loading weights."""
+    if torch_module is None:
+        import torch as torch_module
+    torch = torch_module
+    with torch.no_grad():
+        q = torch.randn(1, 17, 12, 128, device="cuda", dtype=torch.bfloat16)
+        k = torch.randn(1, 23, 12, 128, device="cuda", dtype=torch.bfloat16)
+        v = torch.randn(1, 23, 12, 128, device="cuda", dtype=torch.bfloat16)
+        # Test the same varlen wrapper path used by Wan's real model, including
+        # explicit key lengths. Small shapes suffice to catch the API mismatch.
+        lengths = torch.tensor([23], device="cuda", dtype=torch.int32)
+        output = attention.flash_attention(q=q, k=k, v=v, k_lens=lengths)
+        torch.cuda.synchronize()
+        if tuple(output.shape) != (1, 17, 12, 128) or output.dtype != q.dtype:
+            raise RuntimeError(f"Dense attention smoke test failed: expected (1,17,12,128)/{q.dtype}; got {tuple(output.shape)}/{output.dtype}")
+        if not torch.isfinite(output).all().item():
+            raise RuntimeError("Dense attention smoke test produced non-finite values")
+    return {"passed": True, "shape": list(output.shape), "dtype": str(output.dtype), "scope": "dense FA2 CUDA kernel only; no model weights or sparse Triton validation"}
+
+
 def run(args):
     plan = load_plan(args.out)
     check_sources(plan["config"])
@@ -125,10 +168,14 @@ def run(args):
         raise RuntimeError("CUDA is unavailable in this method's Python environment")
     if importlib.util.find_spec("flash_attn") is None:
         raise RuntimeError("flash-attn is required for a common A800 attention backend")
+    attention, backend = configure_attention_backend()
     env = versions() | {"gpu_name": torch.cuda.get_device_name(0),
-                        "cuda": torch.version.cuda, "wan_module": str(sys.modules["wan"].__file__)}
+                        "cuda": torch.version.cuda, "wan_module": str(sys.modules["wan"].__file__),
+                        "dense_attention_backend": backend["dense_backend"]}
+    print(f"Dense attention locked to FA2; detected flash_attn_interface={backend['flash_attn_interface_module']}", flush=True)
     if args.probe:
-        print(json.dumps({"arm": args.arm, "environment": env}, ensure_ascii=False))
+        smoke = attention_smoke_test(attention)
+        print(json.dumps({"arm": args.arm, "environment": env, "attention_backend": backend, "dense_kernel_smoke_test": smoke}, ensure_ascii=False))
         return
     # Match attention/TF32 policy across official and vendored Wan implementations.
     torch.backends.cuda.matmul.allow_tf32 = False
@@ -237,10 +284,12 @@ def run(args):
         immutable(receipt, {"schema": "published_wan21_record_v1", "plan_sha256": plan["plan_sha256"],
             "job": job, "video_path": str(video.resolve()), "video_sha256": file_hash(video),
             "runtime": runtime, "environment": env, "noise": state["noise"],
+            "attention_backend": backend,
             "compatibility_adaptations": SCALING_COMPATIBILITY if source == "scalingcache" else [],
             "sample_path": state.get("sample"), "sample_sha256": file_hash(state["sample"]) if state.get("sample") else None,
             "sampling_identity": {"negative_prompt": pipeline.sample_neg_prompt, "param_dtype": str(pipeline.param_dtype),
-                                  "text_dtype": str(pipeline.config.t5_dtype), "fps": pipeline.config.sample_fps}})
+                                  "text_dtype": str(pipeline.config.t5_dtype), "fps": pipeline.config.sample_fps,
+                                  "dense_attention_backend": backend["dense_backend"]}})
         print(f"Completed {job['id']}: {runtime['pipeline_seconds']:.2f}s", flush=True)
 
     if plan["config"]["warmup"]:

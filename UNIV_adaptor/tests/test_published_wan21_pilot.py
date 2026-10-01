@@ -373,6 +373,7 @@ class WorkerTests(unittest.TestCase):
         initial_randn = fake_torch.randn
         with patch.object(worker, "load_plan", return_value=self.plan), patch.object(worker, "check_sources"), \
                 patch.object(worker, "load_entrypoint", return_value=module), patch.object(worker, "versions", return_value={}), \
+                patch.object(worker, "configure_attention_backend", return_value=(None, {"dense_backend": "flash_attention_2", "flash_attn_interface_module": "fake-interface"})), \
                 patch.object(worker.importlib.util, "find_spec", return_value=object()), patch.dict("sys.modules", {"torch": fake_torch, "wan": SimpleNamespace(__file__="mock/wan/__init__.py")}), \
                 patch("UNIV_adaptor.scripts.data.acceleration_blind_audit.probe", return_value={"width": 832, "height": 480, "duration": 81 / 16}):
             worker.run(args)

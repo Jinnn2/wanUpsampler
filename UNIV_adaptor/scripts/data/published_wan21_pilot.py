@@ -349,7 +349,7 @@ def check(args):
         if shutil.which(executable) is None:
             raise RuntimeError(f"Missing {executable}")
     launch(args, calibration=True, probe=True)
-    print("Source, native checkpoint, arguments and CUDA imports verified. Actual GPU generation still requires calibrate.")
+    print("Source, native checkpoint, arguments, CUDA imports and small dense FA2 kernels verified. Full-shape model and sparse Triton generation still require calibrate.")
 
 
 def audit(args):

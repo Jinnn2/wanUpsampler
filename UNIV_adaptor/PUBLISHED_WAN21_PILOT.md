@@ -26,6 +26,8 @@ ScalingCache 锁定源码有两个非计算入口问题：`adapter/wan/__init__.
 
 统一：832×480，81 帧，16 fps，UniPC，shift=8，CFG=6，禁用 prompt 扩写与 CPU offload。Jenga 原示例采用该 shift/CFG；这不代表已核实所有论文表格使用相同设置。速度由实际记录获得，不能套用论文声称的倍数。
 
+所有臂的**稠密 attention 统一锁定上游已有 FlashAttention-2 分支**。当前环境的 `flash_attn_interface` 可能返回 Tensor，而锁定的 Wan/Jenga FA3 包装器把返回值当元组取 `[0]`，导致序列维被错误移除。这是后端接口兼容问题，不应解读为某方法质量失败。启动层只将模块的 `FLASH_ATTN_3_AVAILABLE` 运行标志设为 false，不修改上游源码、attention 算法或缓存阈值，不自动回退 SDPA。receipt 记录后端与接口路径；Jenga 原版稀疏 Triton 路径保持不变。首次 `check` 会运行不加载权重的稠密 CUDA 小算子，确认输出形状、dtype 和有限性。
+
 ## 冻结设计
 
 配置：`configs/published_wan21_pilot_v1.json`。
@@ -78,7 +80,7 @@ bash UNIV_adaptor/scripts/run_univ_published_wan21_8gpu.sh calibrate
 bash UNIV_adaptor/scripts/run_univ_published_wan21_8gpu.sh audit
 ```
 
-`check` 会首次冻结 plan、检查原生权重/源码/ffmpeg，以及每个入口的参数和 CUDA 导入。`calibrate` 是真正 GPU 算子的首次运行。先看校准结果和耗时，再决定是否启动完整 120 条；这里不需要重新取得你的授权，但不要跳过校准。
+`check` 会首次冻结 plan、检查原生权重/源码/ffmpeg，以及每个入口的参数、CUDA 导入和小型稠密 attention 算子。`calibrate` 首次运行完整形状的生成模型与 Jenga 稀疏算子。先看校准结果和耗时，再决定是否启动完整 120 条；不要跳过校准。
 
 ```bash
 bash UNIV_adaptor/scripts/run_univ_published_wan21_8gpu.sh generate
