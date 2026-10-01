@@ -6,6 +6,7 @@
 
 | 方法 | 机制 | 官方代码 | 当前锁定版本 | 已确认入口 | 额外条件 |
 |---|---|---|---|---|---|
+| [Wan2.1 基线](https://github.com/Wan-Video/Wan2.1) | 原生完整去噪 | 可获取 | `9737cba9c1c3` | `generate.py`、`wan/text2video.py` | 与方法仓库独立锁定；首轮使用已有 1.3B 原生权重。 |
 | [TeaCache](https://github.com/ali-vilab/TeaCache) | 跨去噪步复用输出 | 可获取 | `7c10efc4702c` | `TeaCache4HunyuanVideo/teacache_sample_video.py`、`TeaCache4Wan2.1/teacache_generate.py` | 上游要求先部署对应基模型，再将入口脚本放进其源码目录；阈值决定质量和速度。 |
 | [ScalingCache](https://github.com/KlingAIResearch/ScalingCache) | 动态缓存间隔与差异缩放 | 可获取 | `7834c41c5457` | `HunyuanVideo/vbench_generate_t2v.py`、`Wan2.1/scalingcache_generate.py` | 上游要求复制其修改过的 `hyvideo/` 或 `wan/` 到基模型代码；提供预计算缩放系数。Wan2.1 1.3B 配置存在于源码，但官方 README 的运行示例为 14B，需先做 1.3B smoke test。 |
 | [VGDFR](https://github.com/thu-nics/VGDFR) | 动态 latent 帧率，输出阶段插帧 | 可获取 | `0f52b050312f` | `VGDFR/hunyuan_vgdfr.py`、`experiments/example.ipynb` | 原版 HunyuanVideo；另需论文仓库 release 中的 `flownet.pkl`、RIFE 和特定 CUDA/PyTorch 依赖。 |
@@ -36,5 +37,7 @@ python UNIV_adaptor/scripts/data/fetch_published_accelerators.py --fetch teacach
 ## 第一轮复现边界
 
 原版 HunyuanVideo 同时被 TeaCache、ScalingCache、VGDFR 和 Jenga 官方代码覆盖，是机制比较最完整的共同模型。当前已有的 HunyuanVideo-1.5 数据不能直接充当原版 HunyuanVideo 的无加速基线。若先用 Wan2.1 1.3B 做较快的代码 smoke test，可覆盖 TeaCache、ScalingCache 和 Jenga；VGDFR 官方代码不覆盖它。DVG 论文评测了原版 HunyuanVideo 与 HunyuanVideo-1.5，但目前未纳入可运行清单。
+
+已落地的首轮 Wan2.1 脚本及校准/人评流程见 [PUBLISHED_WAN21_PILOT.md](PUBLISHED_WAN21_PILOT.md)。其 120 视频 pilot 复用现有模型权重，默认先进行关闭加速的共享基线校准；并非已完成 GPU 复现。
 
 每一个最终视频记录至少应写明：上游仓库 commit、基模型权重 hash、入口/参数、prompt、seed、帧数、尺寸、采样步数、实际耗时、输出 hash。论文中的 VBench Total、我们此前使用的 VBench5 均值、以及自定义 prompt 可计算的维度必须分别标注。完整 VBench 复现要使用其标准 prompt 和官方计算协议；自定义 prompt 不能直接把有限维度的均值称为官方 Total。

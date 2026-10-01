@@ -5,6 +5,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+/.venv_published_wan21/
 venv/
 
 # Training data and generated outputs

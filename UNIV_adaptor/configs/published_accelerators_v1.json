@@ -4,6 +4,15 @@
   "checkout_root": "UNIV_adaptor/external",
   "repositories": [
     {
+      "name": "wan21",
+      "method": "Wan2.1 official dense baseline",
+      "family": "base_model",
+      "url": "https://github.com/Wan-Video/Wan2.1.git",
+      "commit": "9737cba9c1c3c4d04b33fcad41c111989865d315",
+      "paper": "https://arxiv.org/abs/2503.20314",
+      "entrypoints": ["generate.py", "wan/text2video.py", "requirements.txt"]
+    },
+    {
       "name": "teacache",
       "method": "TeaCache",
       "family": "timestep_output_cache",

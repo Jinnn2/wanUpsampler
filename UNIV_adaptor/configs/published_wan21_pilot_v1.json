@@ -1,0 +1,41 @@
+{
+  "schema": "published_wan21_pilot_v1",
+  "claim": "Test whether aggregate video quality scores conceal perceptible, content-dependent degradation in published acceleration pipelines; prompt-only routing benefit remains unproven.",
+  "seeds": [42, 3407],
+  "sampling": {"task": "t2v-1.3B", "size": "832*480", "frame_num": 81, "sample_solver": "unipc", "sample_shift": 8.0, "sample_guide_scale": 6.0, "offload_model": false},
+  "warmup": true,
+  "arms": [
+    {"id": "FULL50", "source": "wan21", "steps": 50, "flags": [], "role": "dense_reference"},
+    {"id": "STEP25", "source": "wan21", "steps": 25, "flags": [], "role": "simple_step_reduction_control"},
+    {"id": "TEA008", "source": "teacache", "steps": 50, "flags": ["--teacache_thresh", "0.08"], "role": "published_pipeline", "preset_source": "TeaCache4Wan2.1/README.md: 1.3B without retention steps"},
+    {"id": "SCALING10", "source": "scalingcache", "steps": 50, "flags": ["--mode", "Scaling", "--first_enhance", "10", "--dynamic_cache", "--use_alpha"], "role": "published_pipeline", "preset_source": "Wan2.1/README.md and root README 1.3B table; bundled 1.3B alpha"},
+    {"id": "JENGA_BASE", "source": "jenga", "steps": 50, "flags": ["--teacache_thresh", "0.15", "--use_ret_steps", "--p_remain_rates", "0.9", "--sa_drop_rates", "0.75", "0.85"], "role": "published_composite_pipeline", "preset_source": "scripts/wan_1.3B_jenga_base.sh; caching plus sparse attention, no turbo"}
+  ],
+  "disabled_arms": [
+    {"id": "TEA_OFF", "source": "teacache", "steps": 50, "flags": ["--teacache_thresh", "0"], "role": "implementation_control"},
+    {"id": "SCALING_OFF", "source": "scalingcache", "steps": 50, "flags": ["--mode", "Original"], "role": "implementation_control"},
+    {"id": "JENGA_OFF", "source": "jenga", "steps": 50, "flags": ["--teacache_thresh", "0", "--p_remain_rates", "1", "--sa_drop_rates", "0", "0"], "role": "implementation_control"}
+  ],
+  "calibration": {"seed": 12345, "sample_mae_tolerance": 0.001, "sample_max_tolerance": 0.02,
+    "prompts": [
+      {"id": "cal_mug", "prompt": "A plain blue ceramic mug slowly rotates on a turntable against a neutral gray background. Fixed camera, soft studio light."},
+      {"id": "cal_wave", "prompt": "An adult wearing a plain green shirt waves one hand while standing against a beige wall. Fixed medium shot in daylight."}
+    ]
+  },
+  "prompt_source": {"repository": "scalingcache", "path": "assets/VBench_full_info.json", "description": "Exact public VBench strings as distributed by the pinned published repository. Source dimensions/auxiliary metadata are preserved by plan; nominal motion/detail labels are design annotations, not measured facts."},
+  "prompts": [
+    {"id": "p00", "origin": "vbench", "motion": "low", "detail": "low", "family_id": "stop_sign", "prompt": "In a still frame, a stop sign"},
+    {"id": "p01", "origin": "vbench", "motion": "low", "detail": "low", "family_id": "toilet", "prompt": "a toilet, frozen in time"},
+    {"id": "p02", "origin": "stress", "motion": "low", "detail": "low", "family_id": "ball", "prompt": "A single smooth red ball rests motionless on an empty pale gray floor. Wide fixed camera, even lighting, a plain background, no camera motion."},
+    {"id": "p03", "origin": "vbench", "motion": "low", "detail": "high", "family_id": "streetlamp", "prompt": "In a still frame, the ornate Victorian streetlamp stands solemnly, adorned with intricate ironwork and stained glass panels"},
+    {"id": "p04", "origin": "vbench", "motion": "low", "detail": "high", "family_id": "gas_lantern", "prompt": "In a still frame, a vintage gas lantern, adorned with intricate details, gracing a historic cobblestone square"},
+    {"id": "p05", "origin": "stress", "motion": "low", "detail": "high", "family_id": "circuit_board", "prompt": "A stationary macro shot of a green circuit board covered with tiny resistors, silver solder joints and narrow copper traces. All components remain still. Sharp focus across the board, soft even light, no camera movement."},
+    {"id": "p06", "origin": "vbench", "motion": "high", "detail": "low", "family_id": "horse", "prompt": "a horse galloping across an open field"},
+    {"id": "p07", "origin": "vbench", "motion": "high", "detail": "low", "family_id": "cat", "prompt": "a cat running happily"},
+    {"id": "p08", "origin": "stress", "motion": "high", "detail": "low", "family_id": "athlete", "prompt": "A single athlete in a plain blue tracksuit runs rapidly from left to right across an empty outdoor court. The full body stays visible in a fixed wide shot. Simple background and bright daylight, continuous running without cuts."},
+    {"id": "p09", "origin": "vbench", "motion": "high", "detail": "high", "family_id": "bird_forest", "prompt": "a bird flying over a snowy forest"},
+    {"id": "p10", "origin": "vbench", "motion": "high", "detail": "high", "family_id": "bicycle_snow", "prompt": "a bicycle gliding through a snowy field"},
+    {"id": "p11", "origin": "stress", "motion": "high", "detail": "high", "family_id": "silk_dancer", "prompt": "A dancer spins rapidly in a silk dress covered with fine gold floral embroidery. The skirt unfolds and ripples as the dancer turns continuously. Full-body fixed shot, crisp fabric threads and embroidery, bright even stage lighting, no cuts."}
+  ],
+  "evaluation": {"quality_dimensions": ["subject_consistency", "background_consistency", "motion_smoothness", "aesthetic_quality", "imaging_quality"], "diagnostic_dimensions": ["dynamic_degree", "overall_consistency"], "metric_epsilon": 0.001, "minimum_raters": 3, "presentation": {"width": 832, "height": 480, "fps": 16, "crf": 16}}
+}
