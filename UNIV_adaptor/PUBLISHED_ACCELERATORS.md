@@ -31,7 +31,7 @@ python UNIV_adaptor/scripts/data/fetch_published_accelerators.py --check
 python UNIV_adaptor/scripts/data/fetch_published_accelerators.py --fetch teacache
 ```
 
-脚本校验 origin、commit、入口文件和工作区清洁度；已存在的目录不会被更新、清理或覆盖。下载中断时保留目录和错误信息，先检查该目录后再处理。远端服务器只需同步本仓库并运行相同命令；`UNIV_adaptor/external/` 不随 Git 同步。
+脚本校验 origin、commit、入口文件和工作区清洁度；已存在的文件不会被更新、清理或覆盖。若锁定版本的干净稀疏检出遗漏入口文件，再次运行 `--fetch all` 只会补出这些缺失文件；下载中断时保留目录和错误信息。远端服务器只需同步本仓库并运行相同命令；`UNIV_adaptor/external/` 不随 Git 同步。
 
 ## 第一轮复现边界
 

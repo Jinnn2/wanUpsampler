@@ -38,7 +38,7 @@
       "commit": "69051503a9e599363890c2d9da7e2441e2ca617a",
       "paper": "https://arxiv.org/abs/2505.16864",
       "sparse_dirs": ["hyvideo", "hyvideo_i2v", "wan", "scripts", "utils"],
-      "entrypoints": ["jenga_hyvideo.py", "jenga_wan.py"]
+      "entrypoints": ["README.md", "jenga_hyvideo.py", "jenga_wan.py", "hyvideo/inference.py", "wan/text2video.py"]
     },
     {
       "name": "pab_videosys",

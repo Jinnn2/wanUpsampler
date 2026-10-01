@@ -1,7 +1,8 @@
 """Fetch pinned official source snapshots without modifying the main git index.
 
 This script downloads *code*, not model weights or Python dependencies. Existing
-checkouts are inspected and never updated, cleaned, or overwritten.
+checkouts are never updated, cleaned, or overwritten. For an otherwise clean,
+pinned sparse checkout, it can restore missing tracked entrypoint files.
 """
 
 import argparse
@@ -64,9 +65,29 @@ def check_checkout(record: dict, target: Path) -> str:
         return f"invalid checkout: {exc}"
 
 
+def restore_missing_entrypoints(record: dict, target: Path) -> None:
+    """Complete a clean sparse checkout without touching any existing file."""
+    state = check_checkout(record, target)
+    if not state.startswith("missing entrypoints:"):
+        raise RuntimeError(f"Refusing to repair {target}: {state}")
+    missing = [entry for entry in record["entrypoints"] if not (target / entry).exists()]
+    for entry in missing:
+        if git("cat-file", "-t", f"HEAD:{entry}", cwd=target) != "blob":
+            raise RuntimeError(f"Cannot restore non-file entrypoint: {entry}")
+    git("restore", "--ignore-skip-worktree-bits", "--source=HEAD", "--worktree", "--", *missing, cwd=target)
+    state = check_checkout(record, target)
+    if state != "ok":
+        raise RuntimeError(f"Entrypoint restoration did not complete: {state}")
+
+
 def fetch(record: dict, target: Path) -> None:
     if target.exists():
         state = check_checkout(record, target)
+        if state.startswith("missing entrypoints:"):
+            print(f"{record['name']}: restoring missing files from pinned commit", flush=True)
+            restore_missing_entrypoints(record, target)
+            print(f"{record['name']}: verified")
+            return
         if state != "ok":
             raise RuntimeError(f"Refusing to change {target}: {state}")
         print(f"{record['name']}: already pinned and clean")
@@ -83,6 +104,9 @@ def fetch(record: dict, target: Path) -> None:
             git("fetch", "--depth=1", "origin", record["commit"], cwd=target)
         git("checkout", "--detach", record["commit"], cwd=target)
         state = check_checkout(record, target)
+        if state.startswith("missing entrypoints:"):
+            restore_missing_entrypoints(record, target)
+            state = "ok"
         if state != "ok":
             raise RuntimeError(f"Checkout verification failed: {state}")
     except Exception:
