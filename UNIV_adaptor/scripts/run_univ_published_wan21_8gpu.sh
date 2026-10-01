@@ -12,7 +12,14 @@ else
 fi
 PYTHON_BIN="${PYTHON_BIN:-${DEFAULT_PYTHON}}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
-DATASET_ROOT="${DATASET_ROOT:-${REPO_ROOT}/outputs/published_wan21_pilot_v1}"
+if [[ -n "${PUBLISHED_WAN21_ROOT:-}" ]]; then
+  DATASET_ROOT="${PUBLISHED_WAN21_ROOT}"
+elif [[ -n "${DATASET_ROOT:-}" ]]; then
+  echo "Warning: using inherited DATASET_ROOT=${DATASET_ROOT}. Prefer PUBLISHED_WAN21_ROOT for this experiment." >&2
+else
+  DATASET_ROOT="${REPO_ROOT}/outputs/published_wan21_pilot_v1"
+fi
+export PYTHONDONTWRITEBYTECODE=1
 PILOT_CONFIG="${PILOT_CONFIG:-${REPO_ROOT}/UNIV_adaptor/configs/published_wan21_pilot_v1.json}"
 VBENCH_ROOT="${VBENCH_ROOT:-/mnt/afs_2/houze/VBench}"
 VBENCH_PYTHON="${VBENCH_PYTHON:-/opt/conda/bin/python}"
@@ -37,7 +44,7 @@ case "${MODE}" in
     fi
     echo "Isolated generation Python: ${PILOT_VENV}/bin/python"
     ;;
-  fetch|check|plan|calibrate|audit|generate|status|finalize|score|report|blind|blind-report|export)
+  fetch|check|plan|calibrate|audit|generate|status|finalize|score|report|blind|blind-report|export|diagnose)
     shift || true
     "${PYTHON_BIN}" "${DRIVER}" "${MODE}" "${COMMON[@]}" "$@"
     ;;
@@ -47,7 +54,7 @@ case "${MODE}" in
     "${VBENCH_PYTHON}" UNIV_adaptor/scripts/data/acceleration_blind_audit.py "${HUMAN_MODE}" --out "${DATASET_ROOT}/blind" --vbench-root "${VBENCH_ROOT}" --vbench-python "${VBENCH_PYTHON}" --expected-vbench-commit "${EXPECTED_VBENCH_COMMIT}" --ngpus "${NGPUS}"
     ;;
   help)
-    echo 'Modes: fetch setup check plan calibrate audit generate status finalize score report blind blind-score blind-report export serve'
+    echo 'Modes: fetch setup check plan calibrate audit generate status finalize score report blind blind-score blind-report export serve diagnose'
     echo 'Run calibrate + audit before generate. Existing Wan2.1-1.3B weights are reused; no automatic weight download.'
     echo 'See UNIV_adaptor/PUBLISHED_WAN21_PILOT.md. Ctrl+C stops active generation workers; validated records are resumable.'
     ;;

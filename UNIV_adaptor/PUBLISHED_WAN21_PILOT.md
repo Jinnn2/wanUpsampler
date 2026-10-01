@@ -53,6 +53,17 @@ ScalingCache 锁定源码有两个非计算入口问题：`adapter/wan/__init__.
 
 在仓库根目录，先同步代码。默认已是你的模型路径，可用 `MODEL_ROOT=...` 覆盖；8 卡无需 torchrun，每卡独立处理。
 
+推荐使用专用 `PUBLISHED_WAN21_ROOT` 指定输出，它优先于旧实验可能残留的 `DATASET_ROOT`；若误指定含 Phase3/Phase4 清单的目录，程序会拒绝串用，不修改旧数据。首次环境检查会写冻结 plan，更新脚本后应选新目录（例如 `published_wan21_pilot_v2`），不要删除已有计划或视频绕过校验。
+
+运行时禁写外部仓库的 Python 字节码。源码检查只容许未跟踪的 `__pycache__/*.pyc`/`.pyo`，真实源码增删改依然拒绝并显示路径。Jenga 的 `gilbert.py` 已加入必需文件；稀疏检出遗漏时运行 `fetch` 会从锁定 commit 补齐，不要安装 pip 同名包。
+
+如果运行失败，主进程会直接显示失败日志末尾。`diagnose` 是只读诊断，可以检查旧目录，既不加载模型，也不要求旧 plan 与新脚本 hash 匹配：
+
+```bash
+PUBLISHED_WAN21_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/univ_sparse_action_phase3_v1 \
+  bash UNIV_adaptor/scripts/run_univ_published_wan21_8gpu.sh diagnose
+```
+
 ```bash
 bash UNIV_adaptor/scripts/run_univ_published_wan21_8gpu.sh fetch
 

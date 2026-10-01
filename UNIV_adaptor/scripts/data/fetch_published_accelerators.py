@@ -43,6 +43,33 @@ def load_manifest() -> tuple[dict, Path]:
     return manifest, checkout_root
 
 
+def source_changes(target: Path) -> list[str]:
+    """Reject source edits/additions, but tolerate untracked Python bytecode.
+
+    -z preserves leading status columns and arbitrary filename whitespace. A
+    tracked .pyc change is still rejected; only generated __pycache__ entries
+    are ignored, never untracked Python modules or other new source files.
+    """
+    completed = subprocess.run(
+        ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
+        cwd=target, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    )
+    entries = iter(completed.stdout.split("\0"))
+    changes = []
+    for entry in entries:
+        if not entry:
+            continue
+        status, filename = entry[:2], entry[3:]
+        path = Path(filename)
+        if status == "??" and "__pycache__" in path.parts and path.suffix in (".pyc", ".pyo"):
+            continue
+        changes.append(f"{status} {filename}")
+        if "R" in status or "C" in status:
+            original = next(entries, "")
+            changes[-1] += f" (from {original})"
+    return changes
+
+
 def check_checkout(record: dict, target: Path) -> str:
     if not target.is_dir():
         return "missing"
@@ -55,13 +82,14 @@ def check_checkout(record: dict, target: Path) -> str:
         commit = git("rev-parse", "HEAD", cwd=target)
         if commit != record["commit"]:
             return f"wrong commit: {commit}"
-        if git("status", "--porcelain", "--untracked-files=all", cwd=target):
-            return "modified or untracked files"
+        changes = source_changes(target)
+        if changes:
+            return "modified or untracked source files: " + repr(changes[:12])
         missing = [entry for entry in record["entrypoints"] if not (target / entry).exists()]
         if missing:
             return f"missing entrypoints: {missing}"
         return "ok"
-    except (OSError, RuntimeError) as exc:
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as exc:
         return f"invalid checkout: {exc}"
 
 

@@ -80,6 +80,25 @@ class PilotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             pilot.load_plan(self.out, verify_implementation=False)
 
+    def test_foreign_output_root_rejected_even_if_pilot_plan_exists(self):
+        pilot.write(self.out / "sparse_dataset_manifest.json", {"schema": "old_phase3"})
+        with self.assertRaisesRegex(ValueError, "another experiment"):
+            pilot.validate_output_root(self.out)
+        with self.assertRaises(ValueError):
+            pilot.load_plan(self.out, verify_implementation=False)
+
+    def test_log_excerpt_has_actual_exception(self):
+        path = self.out / "worker.log"
+        path.write_text("noise\n" * 80 + "ModuleNotFoundError: No module named 'gilbert'\n", encoding="utf-8")
+        excerpt = pilot.log_excerpt(path, lines=5)
+        self.assertEqual(len(excerpt.splitlines()), 5)
+        self.assertIn("No module named 'gilbert'", excerpt)
+
+    def test_old_frozen_plan_rejected_after_worker_update(self):
+        with patch.object(pilot, "file_hash", return_value="changed"):
+            with self.assertRaisesRegex(ValueError, "implementation changed"):
+                pilot.load_plan(self.out)
+
     def test_receipt_video_tamper_and_resumption(self):
         job = self.plan["jobs"][0]
         self.assertFalse(pilot.receipt_valid(self.out, self.plan, job))

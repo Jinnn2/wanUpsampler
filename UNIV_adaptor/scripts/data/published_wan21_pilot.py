@@ -154,6 +154,7 @@ def build_plan(cfg, model_root, ngpus, commits, prompt_metadata, weights):
 
 
 def plan(args):
+    validate_output_root(args.out)
     cfg = validate_config(read(args.config))
     commits = check_sources(cfg)
     source = ROOT / "UNIV_adaptor/external" / cfg["prompt_source"]["repository"] / cfg["prompt_source"]["path"]
@@ -171,7 +172,18 @@ def plan(args):
     print(f"Frozen plan {result['plan_sha256'][:12]}: {sum(j['phase']=='pilot' for j in result['jobs'])} pilot videos; {sum(j['phase']=='calibration' for j in result['jobs'])} calibration videos")
 
 
+def validate_output_root(out):
+    out = Path(out)
+    markers = [name for name in ("sparse_action_plan.json", "sparse_dataset_manifest.json", "generation_manifest.json", "collection_plan.json") if (out / name).exists()]
+    if markers:
+        raise ValueError(f"Output belongs to another experiment: {out}: {markers}. Set PUBLISHED_WAN21_ROOT to a new dedicated directory; old assets are untouched.")
+    for name, expected in (("plan.json", "published_wan21_plan_v1"), ("dataset_manifest.json", "published_wan21_dataset_v1")):
+        if (out / name).exists() and read(out / name).get("schema") != expected:
+            raise ValueError(f"Foreign experiment schema in {out / name}; use a dedicated published Wan2.1 output")
+
+
 def load_plan(out, verify_implementation=True):
+    validate_output_root(out)
     result = read(Path(out) / "plan.json")
     if digest({k: v for k, v in result.items() if k != "plan_sha256"}) != result["plan_sha256"]:
         raise ValueError("Plan hash mismatch")
@@ -218,7 +230,46 @@ def python_for(arm, fallback):
     return os.environ.get("PYTHON_" + arm["source"].upper(), fallback)
 
 
+def log_excerpt(path, lines=60):
+    from collections import deque
+    try:
+        with Path(path).open(encoding="utf-8", errors="replace") as handle:
+            return "".join(deque(handle, maxlen=lines))[-16000:]
+    except OSError as exc:
+        return f"Cannot read worker log: {exc}"
+
+
+def diagnose(args):
+    """Read-only diagnostics, usable even with a foreign/old frozen plan."""
+    from UNIV_adaptor.scripts.data.fetch_published_accelerators import check_checkout, git
+    cfg = validate_config(read(args.config))
+    print(f"Diagnostic output: {args.out}\nDriver Python: {sys.executable}\nWorker fallback: {args.python}")
+    try:
+        validate_output_root(args.out)
+    except ValueError as exc:
+        print(f"OUTPUT WARNING: {exc}")
+    records, root = source_records(cfg)
+    for record in records:
+        target = root / record["name"]
+        print(f"SOURCE {record['name']}: {check_checkout(record, target)}")
+        if target.exists():
+            print(git("status", "--short", "--untracked-files=all", cwd=target) or "clean")
+    # Latest representative log per implementation; STEP25 shares Wan's imports.
+    seen = set()
+    arms = cfg["arms"] + cfg["disabled_arms"]
+    paths = sorted((args.out / "logs").glob("*.log"), key=lambda p:p.stat().st_mtime_ns, reverse=True)
+    for path in paths:
+        arm = next((a for a in arms if f"_{a['id']}_gpu" in path.name), None)
+        if not arm or arm["source"] in seen:
+            continue
+        seen.add(arm["source"])
+        print(f"\nWORKER {arm['source']}: {path}\n{log_excerpt(path)}")
+    if not seen:
+        print("No published-worker logs found here; pass --out with the failed run's exact directory.")
+
+
 def launch(args, calibration=False, probe=False):
+    validate_output_root(args.out)
     if not (args.out / "plan.json").exists():
         plan(args)
     frozen = load_plan(args.out)
@@ -247,7 +298,7 @@ def launch(args, calibration=False, probe=False):
                 if gpu in processes or not queue:
                     continue
                 arm = queue.pop(0)
-                env = dict(os.environ, CUDA_VISIBLE_DEVICES=str(gpu), PYTHONUNBUFFERED="1")
+                env = dict(os.environ, CUDA_VISIBLE_DEVICES=str(gpu), PYTHONUNBUFFERED="1", PYTHONDONTWRITEBYTECODE="1")
                 for key in ("RANK", "LOCAL_RANK", "WORLD_SIZE", "MASTER_ADDR", "MASTER_PORT"):
                     env.pop(key, None)
                 command = [python_for(arm, args.python), str(WORKER), "--out", str(args.out), "--gpu", str(gpu), "--arm", arm["id"]]
@@ -255,7 +306,8 @@ def launch(args, calibration=False, probe=False):
                     command += ["--calibration"]
                 if probe:
                     command += ["--probe"]
-                path = logs / f"{phases}_{arm['id']}_gpu{gpu}_{time.time_ns()}.log"
+                prefix = "probe" if probe else phases
+                path = logs / f"{prefix}_{arm['id']}_gpu{gpu}_{time.time_ns()}.log"
                 handle = path.open("w", encoding="utf-8")
                 process = subprocess.Popen(command, env=env, cwd=ROOT, stdout=handle, stderr=subprocess.STDOUT)
                 processes[gpu] = (process, handle, arm, path)
@@ -268,6 +320,7 @@ def launch(args, calibration=False, probe=False):
                         failures.append(str(path))
                         queues[gpu].clear()
                         print(f"FAILED GPU {gpu} / {arm['id']}; inspect {path}", flush=True)
+                        print(log_excerpt(path), flush=True)
             if time.monotonic() - last_progress >= 30:
                 completed = sum((args.out / "records" / (j["id"] + ".json")).exists() for j in frozen["jobs"] if j["phase"] == phases)
                 print(f"{phases}: {completed} receipts saved; {len(processes)} active GPUs. Detailed progress is in logs/.", flush=True)
@@ -674,7 +727,7 @@ def export(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["fetch", "check", "plan", "calibrate", "audit", "generate", "status", "finalize", "score", "report", "blind", "blind-report", "export"])
+    parser.add_argument("mode", choices=["fetch", "check", "plan", "calibrate", "audit", "generate", "status", "finalize", "score", "report", "blind", "blind-report", "export", "diagnose"])
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--out", type=Path, default=ROOT / "outputs/published_wan21_pilot_v1")
     parser.add_argument("--model-root", type=Path, default=Path("/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B"))

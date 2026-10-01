@@ -20,6 +20,10 @@ import sys
 import time
 import types
 
+# Published snapshots may not ignore __pycache__. Do not write runtime bytecode
+# into a pinned checkout; this is also propagated to all worker subprocesses.
+sys.dont_write_bytecode = True
+
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from UNIV_adaptor.scripts.data.published_wan21_pilot import (  # noqa: E402
