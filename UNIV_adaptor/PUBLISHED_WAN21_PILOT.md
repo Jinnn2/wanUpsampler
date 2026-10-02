@@ -45,6 +45,8 @@ ScalingCache 锁定源码有两个非计算入口问题：`adapter/wan/__init__.
 
 **网格通过不是全像素精确相同的证明**；这是实现兼容性关卡。失败会阻止正式生成。不要随意放宽阈值：先检查采样器、负 prompt、attention、数值/排序差异；必要时另立协议使用各实现自己的关闭基线，并停止“共享一个 FULL”的归因。
 
+若 v3 只有 JENGA_OFF 不通过，使用独立 [Jenga 诊断协议](PUBLISHED_JENGA_DIAGNOSTIC.md)：新增 6 条计数/严格关闭/identity 对照，按哈希只读复用旧校准。原 pilot 的 worker/driver 与计划不变；诊断不会自动放行正式实验。
+
 ### 耗时范围
 
 预热后的 wall time 包含 prompt 编码、pipeline 设置（包括 Jenga 空间曲线构建）、去噪和 VAE；排除模型加载、MP4 编码、噪声哈希及审计采样开销。各项另存，峰值显存另存。不额外添加 RGB 超分或 HR refine。
