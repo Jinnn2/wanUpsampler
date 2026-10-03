@@ -1,0 +1,18 @@
+{
+  "schema": "published_wan21_study_config_v2",
+  "base_config": "UNIV_adaptor/configs/published_wan21_pilot_v1.json",
+  "exclude_from_main": ["JENGA_BASE"],
+  "exclude_from_calibration": ["JENGA_OFF"],
+  "exclusion_reason": "Preregeneration diagnostics: Jenga's disabled token permutation path differs numerically from native FULL, and its published BASE preset is slower on this hardware. Retain all old Jenga assets as a separate implementation stratum; do not silently repair the official method.",
+  "hr": {"sigma": 0.2, "steps": 4, "noise_seed_offset": 1000000007},
+  "sr": {"wan_rgb_sr_backend": "realesrgan", "wan_rgb_sr_tile": 256, "wan_rgb_sr_tile_pad": 10, "wan_rgb_sr_half": true, "wan_rgb_sr_gpu_id": 0},
+  "extra_arms": [
+    {"id": "FULL50_HR4", "source": "wan21", "steps": 50, "flags": [], "role": "refinement_control", "endpoint": {"width": 832, "height": 480, "frames": 81, "transition": "identity", "refine": true}},
+    {"id": "FULL50_RT_HR4", "source": "wan21", "steps": 50, "flags": [], "role": "vae_roundtrip_control", "endpoint": {"width": 832, "height": 480, "frames": 81, "transition": "vae_roundtrip", "refine": true}},
+    {"id": "S_B050", "source": "wan21", "steps": 50, "flags": [], "role": "custom_spatial_pipeline", "endpoint": {"width": 592, "height": 336, "frames": 81, "budget": 0.5, "transition": "rgb_sr_vae", "refine": true}},
+    {"id": "S_B025", "source": "wan21", "steps": 50, "flags": [], "role": "custom_spatial_pipeline", "endpoint": {"width": 416, "height": 240, "frames": 81, "budget": 0.25, "transition": "rgb_sr_vae", "refine": true}},
+    {"id": "T_B050", "source": "wan21", "steps": 50, "flags": [], "role": "custom_temporal_pipeline_dvg_inspired", "endpoint": {"width": 832, "height": 480, "frames": 41, "budget": 0.5, "transition": "dvg_latent_anchor", "refine": true}},
+    {"id": "T_B025", "source": "wan21", "steps": 50, "flags": [], "role": "custom_temporal_pipeline_dvg_inspired", "endpoint": {"width": 832, "height": 480, "frames": 17, "budget": 0.25, "transition": "dvg_latent_anchor", "refine": true}}
+  ],
+  "adapter_control": {"id": "NATIVE_ADAPTER_OFF", "source": "wan21", "steps": 50, "flags": [], "role": "implementation_control", "endpoint": {"width": 832, "height": 480, "frames": 81, "transition": "identity", "refine": false}}
+}
