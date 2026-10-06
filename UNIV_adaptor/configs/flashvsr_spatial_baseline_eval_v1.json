@@ -1,0 +1,25 @@
+{
+  "schema": "flashvsr_spatial_eval_config_v1",
+  "claim": "Test whether prompt-dependent tolerance to acceleration mechanisms and budgets can support stable prompt-only selection. This asset-only spatial screening does not establish learnability or VBench failure.",
+  "frames": 33,
+  "random_seed": 20261006,
+  "minimum_raters_per_pair": 3,
+  "expected_vbench_commit": "fd18b3d055cb0fc6f066ca90fe2c3c8cbb698490",
+  "quality_dimensions": ["subject_consistency", "background_consistency", "motion_smoothness", "aesthetic_quality", "imaging_quality"],
+  "diagnostic_dimensions": ["dynamic_degree", "overall_consistency"],
+  "comparisons": [
+    {"id": "pipeline", "left": "FULL", "right": "NATIVE_LR_FLASH"},
+    {"id": "native_restoration", "left": "NATIVE_LR_BICUBIC", "right": "NATIVE_LR_FLASH"},
+    {"id": "aligned_restoration", "left": "HR_DOWN4_BICUBIC", "right": "HR_DOWN4_FLASH"},
+    {"id": "aligned_fidelity", "left": "FULL", "right": "HR_DOWN4_FLASH"}
+  ],
+  "limitations": [
+    "A 33-frame prefix screening of four preselected prompts and two seeds, not a complete-video benchmark or router training set.",
+    "B025 denotes main-generation spatial pixel density, not end-to-end runtime budget.",
+    "Native LR and FULL follow different trajectories. Composition differences alone are not quality failures; FULL can also violate the prompt.",
+    "Low-resolution generation + FlashVSR v1.1 Tiny x4 + Lanczos resize is our composite spatial baseline, not an official acceleration reproduction.",
+    "MP4 previews are lossy; VBench and humans receive the same existing MP4 bytes. No cross-trajectory pixel reconstruction score.",
+    "Seven separate custom-input VBench dimensions, NOT the official full VBench total. No invented composite quality score.",
+    "Restoration-only latency cannot establish pipeline speedup. No end-to-end speedup is reported."
+  ]
+}

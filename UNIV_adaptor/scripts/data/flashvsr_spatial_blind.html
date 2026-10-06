@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>匿名视频质量对照</title>
+<style>
+body{font:16px system-ui,sans-serif;margin:24px auto;max-width:1500px;padding:0 20px;background:#fafafa;color:#20242a}button,select,input{font:inherit;padding:6px;margin:4px}textarea{width:95%;min-height:55px}video{width:100%;background:#151515;aspect-ratio:832/480;object-fit:contain}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}section{background:white;padding:15px;border:1px solid #ddd}label{display:block;margin:7px 0}small{color:#555}.notice{background:#fff5d8;padding:12px}#status{white-space:pre-wrap}@media(max-width:850px){.grid{grid-template-columns:1fr}}
+</style>
+<h1>匿名视频质量对照</h1>
+<p class="notice">请独立观看两段视频，根据 prompt 和视频本身评分。两段视频不保证具有相同构图或主体外观；构图变化本身不代表质量下降。完整生成的视频也可能违反 prompt，不应把 A/B 预设为参考或加速结果。<br>清晰度与细节正确性分开判断：变锐、增加纹理不一定更真实。对无法判断的细节选“不确定”。时序稳定性只评价不合理的闪烁/形变，不惩罚 prompt 要求的运动。不得查看方法标签或自动评分后再评价。</p>
+<label>评审匿名 ID（英文字母、数字、下划线或短横线）<input id="rater" maxlength="100" autocomplete="off"></label>
+<label>你此前是否看过本实验的方法标签或诊断结果？<select id="exposure"><option value="">请选择</option><option value="false">没有</option><option value="true">看过</option></select></label>
+<p><button id="prev">上一组</button><button id="next">下一组</button><span id="counter"></span><button id="play">从头同步播放</button><button id="pause">暂停两段</button></p>
+<p id="prompt"></p>
+<div class="grid"><section><h2>A</h2><video id="videoA" controls playsinline preload="metadata"></video><div id="fieldsA"></div></section><section><h2>B</h2><video id="videoB" controls playsinline preload="metadata"></video><div id="fieldsB"></div></section></div>
+<label>总体偏好<select id="preference"><option value="">请选择</option><option value="A">A</option><option value="B">B</option><option value="tie">接近 / 无明显偏好</option><option value="uncertain">无法判断</option></select></label>
+<label>可观察到的具体问题 / 备注<textarea id="notes"></textarea></label>
+<p><button id="download">导出已完成评分 JSON</button><label>导入自己之前的评分（可继续未完成部分）<input type="file" id="upload" accept=".json"></label></p>
+<p id="status"></p><small>无网络请求。评分按评审 ID 保存在此浏览器的本地存储；请定期导出 JSON 备份。导出仅包含完整作答的组。评分不是正式训练标签。</small>
+<script id="study" type="application/json">__STUDY_JSON__</script>
+<script>
+'use strict';
+const study=JSON.parse(document.getElementById('study').textContent);
+const labels={prompt_match:'Prompt 符合度',detail_correctness:'细节 / 结构正确性（非纹理数量）',sharpness:'清晰度',temporal_stability:'时序稳定性',overall_quality:'总体视觉质量'};
+const flagLabels={blur:'模糊',crop:'主体裁切 / 出框',subject_count:'主体缺失 / 多余',texture:'错误材质 / 不合理纹理',structure:'结构 / 解剖形变',flicker:'不合理闪烁',other:'其他'};
+const $=id=>document.getElementById(id);
+let index=0,records={},updating=false;
+const storageKey=()=>`video-review:${study.bundle_id}:${$('rater').value.trim()}`;
+function message(s){$('status').textContent=s;}
+for(const side of ['A','B']){
+ for(const axis of study.axes){const label=document.createElement('label');label.textContent=labels[axis]+' ';const select=document.createElement('select');select.id=side+'_'+axis;
+  for(const [value,text] of [['','未回答'],['1','1 很差'],['2','2 较差'],['3','3 一般'],['4','4 较好'],['5','5 很好'],['unknown','不确定 / 无法判断']]){const option=document.createElement('option');option.value=value;option.textContent=text;select.append(option);}label.append(select);$("fields"+side).append(label);select.onchange=save;
+ }
+ const caption=document.createElement('p');caption.textContent='可观察到的伪影（可多选）';$('fields'+side).append(caption);
+ for(const flag of study.flags){const label=document.createElement('label'),box=document.createElement('input');box.type='checkbox';box.id=side+'_flag_'+flag;box.onchange=save;label.append(box,flagLabels[flag]);$('fields'+side).append(label);}
+}
+function current(){const row={id:study.trials[index].id,preference:$('preference').value,notes:$('notes').value};
+ for(const side of ['A','B']){row[side]={};row[side+'_flags']=study.flags.filter(f=>$(side+'_flag_'+f).checked);for(const axis of study.axes){const value=$(side+'_'+axis).value;row[side][axis]=value==='unknown'?null:value===''?'':Number(value);}}
+ return row;
+}
+function complete(row){return ['A','B','tie','uncertain'].includes(row.preference)&&['A','B'].every(s=>study.axes.every(a=>row[s][a]===null||(Number.isInteger(row[s][a])&&row[s][a]>=1&&row[s][a]<=5)));}
+function save(){if(updating)return;records[study.trials[index].id]=current();try{localStorage.setItem(storageKey(),JSON.stringify({records,prior_exposure:$('exposure').value}));}catch(e){message('本地存储不可用，请立即导出备份：'+e.message);}count();}
+function count(){const n=Object.values(records).filter(complete).length;$('counter').textContent=`第 ${index+1} / ${study.trials.length} 组；已完成 ${n} 组`;$('prev').disabled=index===0;$('next').disabled=index===study.trials.length-1;}
+function render(){updating=true;const trial=study.trials[index],row=records[trial.id];$('prompt').textContent='Prompt: '+trial.prompt;
+ for(const side of ['A','B']){$('video'+side).pause();$('video'+side).src=trial[side];for(const axis of study.axes){const value=row?row[side][axis]:'';$(side+'_'+axis).value=value===null?'unknown':String(value);}for(const f of study.flags)$(side+'_flag_'+f).checked=!!row&&row[side+'_flags'].includes(f);}
+ $('preference').value=row?row.preference:'';$('notes').value=row?row.notes:'';updating=false;count();}
+$('prev').onclick=()=>{save();index=Math.max(0,index-1);render();};$('next').onclick=()=>{save();index=Math.min(study.trials.length-1,index+1);render();};
+$('play').onclick=()=>{for(const side of ['A','B']){const v=$('video'+side);v.currentTime=0;v.play().catch(e=>message('请用视频播放器手动播放：'+e.message));}};
+$('pause').onclick=()=>{for(const side of ['A','B'])$('video'+side).pause();};$('preference').onchange=save;$('notes').oninput=save;$('exposure').onchange=save;
+$('rater').onchange=()=>{records={};$('exposure').value='';try{const saved=JSON.parse(localStorage.getItem(storageKey())||'null');if(saved){records=saved.records;$('exposure').value=saved.prior_exposure;}}catch(e){message('无法读取本地缓存：'+e.message);}index=0;render();};
+function identity(){const id=$('rater').value.trim();if(!/^[A-Za-z0-9_-]{1,100}$/.test(id))throw Error('请填写合法的匿名评审 ID');if(!$('exposure').value)throw Error('请声明是否看过本实验标签 / 结果');return id;}
+$('download').onclick=()=>{try{const id=identity();save();const ratings=study.trials.map(t=>records[t.id]).filter(r=>r&&complete(r));if(!ratings.length)throw Error('尚无完整作答的组');
+ const data={schema:'flashvsr_spatial_blind_ratings_v1',bundle_id:study.bundle_id,rater_id:id,prior_exposure:$('exposure').value==='true',ratings};const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`ratings_${id}_${Date.now()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);message(`已导出 ${ratings.length} 组，请将 JSON 交给研究者。`);}catch(e){message(e.message);}};
+$('upload').onchange=async()=>{try{const file=$('upload').files[0];if(!file)return;const data=JSON.parse(await file.text());if(data.schema!=='flashvsr_spatial_blind_ratings_v1'||data.bundle_id!==study.bundle_id||!/^[A-Za-z0-9_-]{1,100}$/.test(data.rater_id)||typeof data.prior_exposure!=='boolean')throw Error('评分文件不是本次评估的有效导出');
+ const known=new Set(study.trials.map(t=>t.id)),loaded={};for(const r of data.ratings){if(!known.has(r.id)||loaded[r.id]||!complete(r)||['A','B'].some(s=>!Array.isArray(r[s+'_flags'])||r[s+'_flags'].some(f=>!study.flags.includes(f))))throw Error('未知 / 重复 / 不完整的评分组');loaded[r.id]=r;}
+ $('rater').value=data.rater_id;$('exposure').value=String(data.prior_exposure);records=loaded;localStorage.setItem(storageKey(),JSON.stringify({records,prior_exposure:$('exposure').value}));index=0;render();message('导入完成。若本地还有更新的未导出评分，请先备份再导入。');}catch(e){message('导入失败：'+e.message);}};
+render();
+</script></html>
