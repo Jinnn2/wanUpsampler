@@ -259,5 +259,99 @@ class DiagnosticTests(unittest.TestCase):
             diag.validate_result(wrong, p, pair, "HR_DOWN4", prepared)
 
 
+class CheckoutTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+        self.relative = "examples/WanVSR/prompt_tensor/posi_prompt.pth"
+        self.file = self.root / self.relative
+        self.file.parent.mkdir(parents=True)
+        self.file.write_bytes(b"fixture-author-context-raw-bytes")
+        self.commit = "f" * 40
+        self.blob = "a" * 40
+        self.context = {"relative_path": self.relative, "git_blob": self.blob,
+                        "bytes": self.file.stat().st_size, "sha256": diag.file_hash(self.file)}
+        self.changes = ""
+        self.index = f"100644 {self.blob} 0\t{self.relative}\0"
+        self.current = self.commit
+        self.top = str(self.root)
+
+        def fake_git(command, **kwargs):
+            operation = command[3:]
+            if operation == ["rev-parse", "--show-toplevel"]:
+                return self.top + "\n"
+            if operation == ["rev-parse", "HEAD"]:
+                return self.current + "\n"
+            if operation == ["rev-parse", "HEAD:" + self.relative]:
+                return self.blob + "\n"
+            if operation[:1] == ["ls-files"]:
+                return self.index
+            if operation[:1] == ["status"]:
+                return self.changes
+            if operation[:1] == ["check-attr"]:
+                return self.relative + ": filter: lfs\n"
+            raise AssertionError(f"Unexpected git command: {command}")
+
+        for mocked in (patch.object(diag, "FLASH_AUTHOR_COMMIT", self.commit),
+                       patch.object(diag, "FLASH_CONTEXT", self.context),
+                       patch.object(diag.subprocess, "check_output", side_effect=fake_git)):
+            mocked.start()
+            self.addCleanup(mocked.stop)
+
+    def test_clean_context_is_still_raw_hash_bound(self):
+        result = diag.checkout(self.root, self.commit)
+        self.assertEqual(result["author_prompt_tensor"]["sha256"], self.context["sha256"])
+        self.assertEqual(result["verified_git_metadata_anomalies"], [])
+
+    def test_only_byte_identical_unstaged_context_anomaly_is_accepted(self):
+        self.changes = " M " + self.relative + "\0"
+        before = self.file.read_bytes()
+        result = diag.checkout(self.root, self.commit)
+        anomalies = result["verified_git_metadata_anomalies"]
+        self.assertEqual(len(anomalies), 1)
+        self.assertEqual(anomalies[0]["status"], " M")
+        self.assertEqual(anomalies[0]["raw_sha256"], self.context["sha256"])
+        self.assertIn("filter: lfs", anomalies[0]["git_attributes"])
+        self.assertEqual(self.file.read_bytes(), before)
+
+    def test_actual_context_modification_is_rejected_even_when_status_clean(self):
+        self.file.write_bytes(b"modified")
+        for status in ("", " M " + self.relative + "\0"):
+            self.changes = status
+            with self.assertRaisesRegex(ValueError, "RAW bytes differ"):
+                diag.checkout(self.root, self.commit)
+
+    def test_staged_context_blob_change_is_rejected(self):
+        self.index = f"100644 {'b'*40} 0\t{self.relative}\0"
+        self.changes = "M  " + self.relative + "\0"
+        with self.assertRaisesRegex(ValueError, "HEAD/index"):
+            diag.checkout(self.root, self.commit)
+
+    def test_source_edit_and_untracked_code_cannot_hide_behind_context_anomaly(self):
+        for additional in (" M diffsynth/pipelines/flashvsr_tiny.py\0", "?? custom.py\0"):
+            self.changes = " M " + self.relative + "\0" + additional
+            with self.assertRaisesRegex(ValueError, "dirty"):
+                diag.checkout(self.root, self.commit)
+
+    def test_staged_status_and_rename_never_allowed(self):
+        for status in ("M  ", "MM ", "?? "):
+            self.changes = status + self.relative + "\0"
+            with self.assertRaisesRegex(ValueError, "dirty"):
+                diag.checkout(self.root, self.commit)
+        self.changes = "R  new.pth\0" + self.relative + "\0"
+        with self.assertRaisesRegex(ValueError, "dirty"):
+            diag.checkout(self.root, self.commit)
+
+    def test_wrong_commit_or_parent_repository_rejected(self):
+        self.current = "b"*40
+        with self.assertRaisesRegex(ValueError, "commit mismatch"):
+            diag.checkout(self.root, self.commit)
+        self.current = self.commit
+        self.top = str(self.root.parent)
+        with self.assertRaisesRegex(ValueError, "independent source"):
+            diag.checkout(self.root, self.commit)
+
+
 if __name__ == "__main__":
     unittest.main()

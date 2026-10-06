@@ -18,6 +18,16 @@ Do not choose a metric or keep only prompts that make FlashVSR look good/bad.
 - Source assets: `outputs/published_wan21_study_v2` ONLY. Frozen study/record/MP4
   and saved clean endpoint hashes are checked. Source assets are never changed.
 
+Author `examples/WanVSR/prompt_tensor/posi_prompt.pth` is a regular 4,195,504-byte
+Git blob in this commit, not a Git-LFS pointer. Some Git filters/stat handling
+can mark a byte-identical checkout as unstaged `M`. The check admits ONLY this
+specific metadata anomaly after verifying the pinned HEAD blob, unchanged index,
+exact size and raw SHA256
+`4601107a11e4e11a936a6b79df579e54dbc99872132bf542151f0ffd65b4b1ef`.
+Filter attributes and the anomaly are recorded in the plan. Actual binary edits,
+staged changes, source edits and untracked additions remain errors. No reset,
+assume-unchanged flag, file replacement or global Git config change is made.
+
 New environment `.venv_flashvsr_diagnostic` uses the author Torch 2.6/CUDA 12.4
 dependencies. **Do not install these into the native Wan/VBench environments.**
 Setup needs Python 3.11, a matching CUDA compiler/toolkit, a working NVIDIA

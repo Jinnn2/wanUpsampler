@@ -23,6 +23,15 @@ import time
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
 CONFIG = ROOT / "UNIV_adaptor/configs/flashvsr_asset_diagnostic_v1.json"
+# The author commit stores this as an ordinary 4 MiB Git blob, not an LFS
+# pointer. Pin its RAW bytes independently of machine-specific clean filters.
+FLASH_AUTHOR_COMMIT = "cf910c61a60733e610e9c6e8b607f80c3a6c202b"
+FLASH_CONTEXT = {
+    "relative_path": "examples/WanVSR/prompt_tensor/posi_prompt.pth",
+    "git_blob": "95c840b20b8d6aa0d16504ee04e49f1c01a7f209",
+    "bytes": 4195504,
+    "sha256": "4601107a11e4e11a936a6b79df579e54dbc99872132bf542151f0ffd65b4b1ef",
+}
 
 
 def read(path):
@@ -73,14 +82,73 @@ def verify_files(identities):
         bound_file(identity["path"], identity["sha256"])
 
 
+def git_changes(path):
+    """NUL parsing preserves unstaged/index distinction and arbitrary names."""
+    output = subprocess.check_output(["git", "-C", str(path), "status", "--porcelain=v1",
+                                      "-z", "--untracked-files=all"], text=True)
+    entries = iter(output.split("\0"))
+    changes = []
+    for entry in entries:
+        if not entry:
+            continue
+        if len(entry) < 4 or entry[2] != " ":
+            raise ValueError("Malformed Git status")
+        row = {"status": entry[:2], "path": entry[3:]}
+        if "R" in row["status"] or "C" in row["status"]:
+            row["original_path"] = next(entries, "")
+        changes.append(row)
+    return changes
+
+
+def verify_author_context(path):
+    relative = FLASH_CONTEXT["relative_path"]
+    head_blob = subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD:" + relative], text=True).strip()
+    stage = subprocess.check_output(["git", "-C", str(path), "ls-files", "--stage", "-z", "--", relative], text=True)
+    expected_stage = f"100644 {FLASH_CONTEXT['git_blob']} 0\t{relative}\0"
+    if head_blob != FLASH_CONTEXT["git_blob"] or stage != expected_stage:
+        raise ValueError("Author prompt tensor HEAD/index differs; do not overwrite or ignore staged changes")
+    tensor_path = Path(path) / relative
+    if tensor_path.is_symlink():
+        raise ValueError("Author prompt tensor is unexpectedly a symlink")
+    identity = bound_file(tensor_path)
+    if identity["sha256"] != FLASH_CONTEXT["sha256"] or identity["bytes"] != FLASH_CONTEXT["bytes"]:
+        raise ValueError("Author prompt tensor RAW bytes differ, not a Git-status false positive: "
+                         f"expected_sha256={FLASH_CONTEXT['sha256']}, actual_sha256={identity['sha256']}, "
+                         f"expected_bytes={FLASH_CONTEXT['bytes']}, actual_bytes={identity['bytes']}. "
+                         "Do not overwrite/ignore this file; inspect checkout filters or incomplete transfer.")
+    return identity
+
+
 def checkout(path, commit):
     path = Path(path).resolve()
+    top = subprocess.check_output(["git", "-C", str(path), "rev-parse", "--show-toplevel"], text=True).strip()
+    if Path(top).resolve() != path:
+        raise ValueError(f"Expected an independent source checkout, not a parent repository: {path}")
     current = subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip()
-    dirty = subprocess.check_output(["git", "-C", str(path), "status", "--porcelain",
-                                     "--untracked-files=all"], text=True).strip()
-    if current != commit or dirty:
-        raise ValueError(f"Pinned checkout mismatch/dirty: {path}; do not reset user changes. HEAD={current}, status={dirty}")
-    return {"path": str(path), "commit": current}
+    if current != commit:
+        raise ValueError(f"Pinned commit mismatch: {path}; do not reset user changes. HEAD={current}")
+    context = verify_author_context(path) if commit == FLASH_AUTHOR_COMMIT else None
+    changes = git_changes(path)
+    verified = []
+    rejected = []
+    for change in changes:
+        if context and change == {"status": " M", "path": FLASH_CONTEXT["relative_path"]}:
+            # A filter/stat false positive is accepted ONLY after HEAD, index,
+            # size and raw SHA256 all match the independently pinned author blob.
+            attributes = subprocess.check_output(["git", "-C", str(path), "check-attr",
+                                                  "filter", "text", "eol", "working-tree-encoding",
+                                                  "--", FLASH_CONTEXT["relative_path"]], text=True).strip()
+            verified.append(dict(change, verification="HEAD/index/RAW bytes exactly match author blob",
+                                 raw_sha256=context["sha256"], git_attributes=attributes))
+        else:
+            rejected.append(change)
+    if rejected:
+        raise ValueError(f"Pinned checkout dirty: {path}; do not reset user changes. status={rejected}")
+    result = {"path": str(path), "commit": current}
+    if context:
+        result["author_prompt_tensor"] = context
+        result["verified_git_metadata_anomalies"] = verified
+    return result
 
 
 def fetch(args):
@@ -91,8 +159,10 @@ def fetch(args):
             subprocess.run(["git", "clone", "--no-checkout", cfg[name + "_repository"], str(path)], check=True)
             subprocess.run(["git", "-C", str(path), "checkout", "--detach", cfg[name + "_commit"]], check=True)
             subprocess.run(["git", "-C", str(path), "submodule", "update", "--init", "--recursive"], check=True)
-        checkout(path, cfg[name + "_commit"])
+        identity = checkout(path, cfg[name + "_commit"])
         print(f"Verified {name}: {path}", flush=True)
+        if identity.get("verified_git_metadata_anomalies"):
+            print(json.dumps(identity["verified_git_metadata_anomalies"], indent=2), flush=True)
 
 
 def download(args):
