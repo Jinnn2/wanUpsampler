@@ -6,6 +6,7 @@ __pycache__/
 .ruff_cache/
 .venv/
 /.venv_published_wan21/
+/.venv_flashvsr_diagnostic/
 venv/
 
 # Training data and generated outputs

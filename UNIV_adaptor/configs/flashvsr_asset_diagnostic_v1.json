@@ -1,0 +1,27 @@
+{
+  "schema": "flashvsr_asset_diagnostic_config_v1",
+  "claim": "Diagnose SR-module fidelity separately from native low-resolution generation. Prompt-only method/budget routing benefit remains unproven.",
+  "prompt_ids": ["p02", "p05", "p08", "p11"],
+  "seeds": [42, 3407],
+  "spatial_arms": ["S_B025"],
+  "frames": 33,
+  "flash_scale": 4,
+  "flash_seed": 0,
+  "sparse_ratio": 2.0,
+  "kv_ratio": 3.0,
+  "local_range": 11,
+  "color_fix": true,
+  "flash_repository": "https://github.com/OpenImagingLab/FlashVSR.git",
+  "flash_commit": "cf910c61a60733e610e9c6e8b607f80c3a6c202b",
+  "kernel_repository": "https://github.com/mit-han-lab/Block-Sparse-Attention.git",
+  "kernel_commit": "49d6c39e4dc0303442cda3bb758b3925d4399c49",
+  "weights_repository": "JunhaoZhuang/FlashVSR-v1.1",
+  "weights_files": ["diffusion_pytorch_model_streaming_dmd.safetensors", "LQ_proj_in.ckpt", "TCDecoder.ckpt"],
+  "adaptations": [
+    "Use the author's v1.1 Tiny model, LCSA backend and inference parameters; no RGB-SR-to-VAE-to-HR4 stage.",
+    "Pad LR right/bottom with edge pixels to multiples of 32 before bicubic x4; remove padding, never center-crop source content.",
+    "Repeat the last frame to a sufficient 8n+1 input length; trim only padded output frames, never shorten the source prefix.",
+    "Native LR uses official x4 followed by Lanczos resizing to the original FULL canvas; this is not a native x2 recipe.",
+    "Fixed first 33 frames by default; screening only, not a complete-video quality or speed claim."
+  ]
+}
