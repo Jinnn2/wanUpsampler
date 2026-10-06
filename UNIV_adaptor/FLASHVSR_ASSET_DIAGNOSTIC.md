@@ -19,14 +19,20 @@ Do not choose a metric or keep only prompts that make FlashVSR look good/bad.
   and saved clean endpoint hashes are checked. Source assets are never changed.
 
 Author `examples/WanVSR/prompt_tensor/posi_prompt.pth` is a regular 4,195,504-byte
-Git blob in this commit, not a Git-LFS pointer. Some Git filters/stat handling
-can mark a byte-identical checkout as unstaged `M`. The check admits ONLY this
-specific metadata anomaly after verifying the pinned HEAD blob, unchanged index,
-exact size and raw SHA256
+Git blob in this commit, not a Git-LFS pointer. The diagnostic loads it directly
+from `git cat-file blob` into an in-memory stream, bypassing working-tree
+checkout/clean/smudge conversions. It verifies the pinned HEAD blob, unchanged
+index, canonical object size and raw SHA256
 `4601107a11e4e11a936a6b79df579e54dbc99872132bf542151f0ffd65b4b1ef`.
-Filter attributes and the anomaly are recorded in the plan. Actual binary edits,
-staged changes, source edits and untracked additions remain errors. No reset,
-assume-unchanged flag, file replacement or global Git config change is made.
+Only an unstaged modification of this specific binary can be isolated: the
+working file is preserved but NEVER loaded, even if byte-different. Its actual
+hash, whether it matches, and filter attributes (when marked `M`) are recorded
+in the plan; a mismatch prints a warning. This does NOT establish the cause of
+the modification or claim byte differences are metadata-only. Staged changes,
+missing/symlink files, corrupt Git objects, source edits and untracked additions
+remain errors. No reset, assume-unchanged flag, file replacement or global Git
+config change is made. Thus the executed tensor remains the author's exact
+input, not the differing working-tree tensor or a relaxed hash check.
 
 New environment `.venv_flashvsr_diagnostic` uses the author Torch 2.6/CUDA 12.4
 dependencies. **Do not install these into the native Wan/VBench environments.**

@@ -11,6 +11,7 @@ import csv
 import hashlib
 import html
 import importlib.util
+import io
 import json
 import math
 import os
@@ -100,6 +101,19 @@ def git_changes(path):
     return changes
 
 
+def author_context_bytes(path):
+    """Read the canonical object, bypassing checkout/clean/smudge conversions."""
+    raw = subprocess.check_output(["git", "-C", str(path), "cat-file", "blob", FLASH_CONTEXT["git_blob"]])
+    actual = hashlib.sha256(raw).hexdigest()
+    if actual != FLASH_CONTEXT["sha256"] or len(raw) != FLASH_CONTEXT["bytes"]:
+        raise ValueError("Author prompt tensor Git object RAW bytes differ: "
+                         f"expected_sha256={FLASH_CONTEXT['sha256']}, actual_sha256={actual}, "
+                         f"expected_bytes={FLASH_CONTEXT['bytes']}, actual_bytes={len(raw)}. "
+                         "The canonical Git object is invalid; inspect object storage/transfer. "
+                         "The working-tree file will not be used as a fallback.")
+    return raw
+
+
 def verify_author_context(path):
     relative = FLASH_CONTEXT["relative_path"]
     head_blob = subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD:" + relative], text=True).strip()
@@ -110,13 +124,13 @@ def verify_author_context(path):
     tensor_path = Path(path) / relative
     if tensor_path.is_symlink():
         raise ValueError("Author prompt tensor is unexpectedly a symlink")
-    identity = bound_file(tensor_path)
-    if identity["sha256"] != FLASH_CONTEXT["sha256"] or identity["bytes"] != FLASH_CONTEXT["bytes"]:
-        raise ValueError("Author prompt tensor RAW bytes differ, not a Git-status false positive: "
-                         f"expected_sha256={FLASH_CONTEXT['sha256']}, actual_sha256={identity['sha256']}, "
-                         f"expected_bytes={FLASH_CONTEXT['bytes']}, actual_bytes={identity['bytes']}. "
-                         "Do not overwrite/ignore this file; inspect checkout filters or incomplete transfer.")
-    return identity
+    author_context_bytes(path)
+    worktree = bound_file(tensor_path)
+    return {"input_source": "git_cat_file_blob", "git_blob": FLASH_CONTEXT["git_blob"],
+            "bytes": FLASH_CONTEXT["bytes"], "sha256": FLASH_CONTEXT["sha256"],
+            "worktree": worktree,
+            "worktree_matches_author": worktree["sha256"] == FLASH_CONTEXT["sha256"]
+                                       and worktree["bytes"] == FLASH_CONTEXT["bytes"]}
 
 
 def checkout(path, commit):
@@ -133,13 +147,14 @@ def checkout(path, commit):
     rejected = []
     for change in changes:
         if context and change == {"status": " M", "path": FLASH_CONTEXT["relative_path"]}:
-            # A filter/stat false positive is accepted ONLY after HEAD, index,
-            # size and raw SHA256 all match the independently pinned author blob.
+            # This ONE unstaged binary is never consumed. Preserve it and bind
+            # the canonical Git object instead; all source/staged edits fail.
             attributes = subprocess.check_output(["git", "-C", str(path), "check-attr",
                                                   "filter", "text", "eol", "working-tree-encoding",
                                                   "--", FLASH_CONTEXT["relative_path"]], text=True).strip()
-            verified.append(dict(change, verification="HEAD/index/RAW bytes exactly match author blob",
-                                 raw_sha256=context["sha256"], git_attributes=attributes))
+            verified.append(dict(change, verification="HEAD/index/canonical Git RAW bytes match; worktree is NOT executed",
+                                 execution_sha256=context["sha256"], worktree=context["worktree"],
+                                 worktree_matches_author=context["worktree_matches_author"], git_attributes=attributes))
         else:
             rejected.append(change)
     if rejected:
@@ -147,7 +162,7 @@ def checkout(path, commit):
     result = {"path": str(path), "commit": current}
     if context:
         result["author_prompt_tensor"] = context
-        result["verified_git_metadata_anomalies"] = verified
+        result["isolated_context_worktree_changes"] = verified
     return result
 
 
@@ -161,8 +176,14 @@ def fetch(args):
             subprocess.run(["git", "-C", str(path), "submodule", "update", "--init", "--recursive"], check=True)
         identity = checkout(path, cfg[name + "_commit"])
         print(f"Verified {name}: {path}", flush=True)
-        if identity.get("verified_git_metadata_anomalies"):
-            print(json.dumps(identity["verified_git_metadata_anomalies"], indent=2), flush=True)
+        if identity.get("isolated_context_worktree_changes"):
+            print(json.dumps(identity["isolated_context_worktree_changes"], indent=2), flush=True)
+        context = identity.get("author_prompt_tensor")
+        if context and not context["worktree_matches_author"]:
+            print("WARNING: Worktree prompt tensor differs and is preserved, NOT loaded. "
+                  f"Inference uses verified Git blob SHA256={context['sha256']}; "
+                  f"unused worktree SHA256={context['worktree']['sha256']}. "
+                  "The cause of the worktree difference is not established.", flush=True)
 
 
 def download(args):
@@ -468,7 +489,9 @@ def init_flash(p):
         raise RuntimeError(f"TCDecoder checkpoint mismatch: {mismatch}")
     pipe.to("cuda")
     pipe.enable_vram_management(num_persistent_param_in_dit=None)
-    context = torch.load(root / "examples/WanVSR/prompt_tensor/posi_prompt.pth", map_location="cpu", weights_only=True)
+    # Explicitly pass the independently verified canonical tensor. Never load
+    # the possibly transformed/modified working-tree .pth, even if status clean.
+    context = torch.load(io.BytesIO(author_context_bytes(root)), map_location="cpu", weights_only=True)
     pipe.init_cross_kv(context_tensor=context)
     pipe.load_models_to_device(["dit", "vae"])
     pipe.denoising_model().eval()

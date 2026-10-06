@@ -2,6 +2,7 @@
 import argparse
 import copy
 from pathlib import Path
+import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -259,6 +260,23 @@ class DiagnosticTests(unittest.TestCase):
             diag.validate_result(wrong, p, pair, "HR_DOWN4", prepared)
 
 
+class GitBlobIntegrationTests(unittest.TestCase):
+    def test_real_git_object_read_preserves_binary_and_bypasses_worktree(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+            raw = b"PK\x03\x04\x00\xff\x80\r\n\n\r\x00canonical-tensor-fixture"
+            blob = subprocess.check_output(["git", "-C", str(root), "hash-object", "-w", "--stdin"],
+                                           input=raw).decode("ascii").strip()
+            file = root / "posi_prompt.pth"
+            file.write_bytes(b"different-worktree-payload")
+            context = {"relative_path": file.name, "git_blob": blob, "bytes": len(raw),
+                       "sha256": diag.hashlib.sha256(raw).hexdigest()}
+            with patch.object(diag, "FLASH_CONTEXT", context):
+                self.assertEqual(diag.author_context_bytes(root), raw)
+            self.assertEqual(file.read_bytes(), b"different-worktree-payload")
+
+
 class CheckoutTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -268,6 +286,7 @@ class CheckoutTests(unittest.TestCase):
         self.file = self.root / self.relative
         self.file.parent.mkdir(parents=True)
         self.file.write_bytes(b"fixture-author-context-raw-bytes")
+        self.canonical = self.file.read_bytes()
         self.commit = "f" * 40
         self.blob = "a" * 40
         self.context = {"relative_path": self.relative, "git_blob": self.blob,
@@ -291,6 +310,9 @@ class CheckoutTests(unittest.TestCase):
                 return self.changes
             if operation[:1] == ["check-attr"]:
                 return self.relative + ": filter: lfs\n"
+            if operation == ["cat-file", "blob", self.blob]:
+                self.assertNotIn("text", kwargs)
+                return self.canonical
             raise AssertionError(f"Unexpected git command: {command}")
 
         for mocked in (patch.object(diag, "FLASH_AUTHOR_COMMIT", self.commit),
@@ -302,25 +324,51 @@ class CheckoutTests(unittest.TestCase):
     def test_clean_context_is_still_raw_hash_bound(self):
         result = diag.checkout(self.root, self.commit)
         self.assertEqual(result["author_prompt_tensor"]["sha256"], self.context["sha256"])
-        self.assertEqual(result["verified_git_metadata_anomalies"], [])
+        self.assertTrue(result["author_prompt_tensor"]["worktree_matches_author"])
+        self.assertEqual(result["isolated_context_worktree_changes"], [])
 
-    def test_only_byte_identical_unstaged_context_anomaly_is_accepted(self):
+    def test_byte_identical_unstaged_context_anomaly_is_recorded(self):
         self.changes = " M " + self.relative + "\0"
         before = self.file.read_bytes()
         result = diag.checkout(self.root, self.commit)
-        anomalies = result["verified_git_metadata_anomalies"]
+        anomalies = result["isolated_context_worktree_changes"]
         self.assertEqual(len(anomalies), 1)
         self.assertEqual(anomalies[0]["status"], " M")
-        self.assertEqual(anomalies[0]["raw_sha256"], self.context["sha256"])
+        self.assertEqual(anomalies[0]["execution_sha256"], self.context["sha256"])
         self.assertIn("filter: lfs", anomalies[0]["git_attributes"])
         self.assertEqual(self.file.read_bytes(), before)
 
-    def test_actual_context_modification_is_rejected_even_when_status_clean(self):
-        self.file.write_bytes(b"modified")
+    def test_modified_worktree_is_preserved_but_canonical_bytes_are_consumed(self):
+        modified = b"X" * len(self.canonical)
+        self.file.write_bytes(modified)
         for status in ("", " M " + self.relative + "\0"):
             self.changes = status
-            with self.assertRaisesRegex(ValueError, "RAW bytes differ"):
+            result = diag.checkout(self.root, self.commit)
+            identity = result["author_prompt_tensor"]
+            self.assertFalse(identity["worktree_matches_author"])
+            self.assertEqual(identity["sha256"], self.context["sha256"])
+            self.assertEqual(identity["worktree"]["sha256"], diag.file_hash(self.file))
+            self.assertEqual(diag.author_context_bytes(self.root), self.canonical)
+            self.assertEqual(self.file.read_bytes(), modified)
+
+    def test_corrupt_git_object_is_rejected_without_worktree_fallback(self):
+        # Even a correct working-tree file must not mask corrupt object storage.
+        self.canonical = b"X" * len(self.canonical)
+        with self.assertRaisesRegex(ValueError, "Git object RAW bytes differ"):
+            diag.checkout(self.root, self.commit)
+
+    def test_truncated_git_object_is_rejected(self):
+        self.canonical = self.canonical[:-1]
+        with self.assertRaisesRegex(ValueError, "Git object RAW bytes differ"):
+            diag.author_context_bytes(self.root)
+
+    def test_missing_or_symlink_worktree_is_not_silently_accepted(self):
+        with patch.object(Path, "is_symlink", return_value=True):
+            with self.assertRaisesRegex(ValueError, "symlink"):
                 diag.checkout(self.root, self.commit)
+        self.file.unlink()
+        with self.assertRaises(FileNotFoundError):
+            diag.checkout(self.root, self.commit)
 
     def test_staged_context_blob_change_is_rejected(self):
         self.index = f"100644 {'b'*40} 0\t{self.relative}\0"
