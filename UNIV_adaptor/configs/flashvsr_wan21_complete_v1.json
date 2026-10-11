@@ -1,0 +1,19 @@
+{
+  "schema": "flashvsr_wan21_complete_config_v1",
+  "prompt_ids": ["p00", "p01", "p02", "p03", "p04", "p05", "p06", "p07", "p08", "p09", "p10", "p11"],
+  "seeds": [42, 3407],
+  "spatial_arms": ["S_B025"],
+  "frames": 81,
+  "flash_scale": 4,
+  "flash_seed": 0,
+  "sparse_ratio": 2.0,
+  "kv_ratio": 3.0,
+  "local_range": 11,
+  "color_fix": true,
+  "flash_commit": "cf910c61a60733e610e9c6e8b607f80c3a6c202b",
+  "kernel_commit": "49d6c39e4dc0303442cda3bb758b3925d4399c49",
+  "weights_repository": "JunhaoZhuang/FlashVSR-v1.1",
+  "weights_files": ["diffusion_pytorch_model_streaming_dmd.safetensors", "LQ_proj_in.ckpt", "TCDecoder.ckpt"],
+  "claim": "Complete matched comparison assets for studying whether similar quality scores hide prompt/local-detail failures. Neither metric insufficiency nor prompt-routing benefit is established by generating these assets.",
+  "protocol": "Reuse 50-step, sigma-zero native LR endpoints; native VAE decode; author v1.1 Tiny x4; unpad and Lanczos to 832x480. No DiT/T5 rerun, RealESRGAN, VAE re-encode, HR4, temporal interpolation or HR-downsample diagnostic control."
+}
