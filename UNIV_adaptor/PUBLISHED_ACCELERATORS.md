@@ -12,7 +12,7 @@
 | [VGDFR](https://github.com/thu-nics/VGDFR) | 动态 latent 帧率，输出阶段插帧 | 可获取 | `0f52b050312f` | `VGDFR/hunyuan_vgdfr.py`、`experiments/example.ipynb` | 原版 HunyuanVideo；另需论文仓库 release 中的 `flownet.pkl`、RIFE 和特定 CUDA/PyTorch 依赖。 |
 | [Jenga](https://github.com/JIA-Lab-research/Jenga) | 稀疏注意力、渐进分辨率和步数配置 | 可获取 | `69051503a9e5` | `jenga_hyvideo.py`、`jenga_wan.py` 与 `scripts/` | 官方 Wan 1.3B Base 示例同时设置 `--teacache_thresh 0.15`；Hunyuan Base 示例设置 `--step-rate-list 0.5 1.0`。复现完整 pipeline 时应记录这些组件，不能把结果归因于单一空间操作。 |
 | [PAB / VideoSys](https://github.com/NUS-HPC-AI-Lab/VideoSys) | 空间、时间和跨模态注意力广播复用 | 可获取 | `4cce477878b0` | `videosys/core/pab/`、`docs/pab.md` | 官方文档中的 PAB 支持 Open-Sora、Open-Sora-Plan、Latte；暂不作为原版 HunyuanVideo 同模型对照。 |
-| [DVG](https://arxiv.org/abs/2605.21042) | 早期 latent 预览驱动的时空联合压缩 | 未找到可直接拉取的官方 GitHub 仓库 | — | — | 论文称代码在补充材料中、后续发布 GitHub。需要获得可运行官方实现后才能作为“官方 DVG”复现。 |
+| [DVG](https://arxiv.org/abs/2605.21042) | 早期 latent 预览驱动的时空联合压缩 | 可获取（2026-10 发布） | `f39ee94` | [DarrenZheng303/DVG](https://github.com/DarrenZheng303/DVG) `scripts/run_wan_2_1.sh`、`dvg/core.py` | 官方支持 Wan2.1-T2V-1.3B（832×480×81）与 Wan2.2-A14B、HunyuanVideo(-1.5)。见 `run_univ_dvg_wan21_study.sh`。 |
 
 `Jenga` 与 `VideoSys` 使用稀疏检出，只拉代码、文档和根目录文件；上游演示媒体未纳入本地源码快照。这不会改变锁定 commit。所有源码下载不等于已经安装依赖或下载模型权重。上游性能数字也不能跨不同模型、分辨率或实现协议直接比较。
 

@@ -47,9 +47,15 @@ QUESTION = "Look carefully at this {kind} and answer the question with only Yes 
 # ---------------------------------------------------------------- plan
 
 def plan(args):
-    from UNIV_adaptor.scripts.data.score_controlled_factor_dataset import collect
+    if args.dvg_study:
+        from UNIV_adaptor.scripts.data import dvg_wan21_study as dvg
 
-    rows, identity = collect(Path(args.root))
+        rows = [r for r in dvg.receipts(args.dvg_study, dvg.load_plan(args.dvg_study)) if r["set"] == "main"]
+        identity = {"dvg_study_plan_sha256": sha256_file(Path(args.dvg_study) / "plan.json")}
+    else:
+        from UNIV_adaptor.scripts.data.score_controlled_factor_dataset import collect
+
+        rows, identity = collect(Path(args.root))
     keep = [r for r in rows if r["split"] != "test"]
     checklist = load_checklist(args.checklist)
     missing = {r["prompt_id"] for r in keep} - set(checklist)
@@ -366,7 +372,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="mode", required=True)
     p = sub.add_parser("plan")
-    p.add_argument("--root", required=True, help="controlled-factor OUT_ROOT")
+    source = p.add_mutually_exclusive_group(required=True)
+    source.add_argument("--root", help="controlled-factor OUT_ROOT")
+    source.add_argument("--dvg-study", help="dvg_wan21_study output root (main set only)")
     p.add_argument("--checklist", required=True)
     p.add_argument("--out", required=True)
     for name in ("signals", "vlm", "check"):
