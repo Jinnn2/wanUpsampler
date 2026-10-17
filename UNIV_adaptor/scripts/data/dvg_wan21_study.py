@@ -13,6 +13,8 @@ Two job sets:
   seeds x {FULL_NATIVE_50, DVG_D070, DVG_D050}; feeds VBench + requirement scoring.
 - repro: a deterministic subset of VBench's own prompts, seed 42, FULL vs DVG_D050,
   to check that our run reproduces DVG's "near-lossless" VBench behaviour.
+- repro_ext: the same VBench prompt indices, rewritten by VBench's line-aligned
+  Wan2.1 prompt extension, to separate prompt under-specification from content.
 """
 from __future__ import annotations
 
@@ -37,6 +39,8 @@ PLAN_SCHEMA = "dvg_wan21_study_plan_v1"
 FULL = "FULL_NATIVE_50"
 ARMS = {FULL: None, "DVG_D070": 0.7, "DVG_D050": 0.5}
 REPRO_ARMS = (FULL, "DVG_D050")
+SETS = ("main", "repro", "repro_ext")
+SET_CSV = {"main": "quality_by_video.csv", "repro": "repro_by_video.csv", "repro_ext": "repro_ext_by_video.csv"}
 SEEDS = (42, 100, 2024)
 SETTINGS = {"size": "832*480", "frame_num": 81, "sampling_steps": 50, "shift": 8.0,
             "guide_scale": 6.0, "sample_solver": "unipc", "negative_prompt": "wan_default"}
@@ -47,12 +51,19 @@ ATTENTION = {"backend": "flash_attn_2_varlen", "fa3_detected": None}
 
 # ---------------------------------------------------------------- plan
 
+def read_lines(path):
+    return [line.strip() for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
 def plan(args):
+    sets = args.sets.split(",")
+    if not set(sets) <= set(SETS):
+        raise ValueError(f"unknown sets: {sets}")
     jobs = []
     with Path(args.prompts).open(encoding="utf-8") as handle:
         rows = [json.loads(line) for line in handle]
     dev = [r for r in rows if r["split"] != "test"]
-    for r in dev:
+    for r in dev if "main" in sets else ():
         for seed in SEEDS:
             for arm in ARMS:
                 jobs.append({
@@ -61,25 +72,37 @@ def plan(args):
                     "family_id": r["family_id"], "split": r["split"], "motion_level": r["motion_level"],
                     "detail_level": r["detail_level"], "base_seed": seed, "case_id": arm,
                     "budget": ARMS[arm], "prompt": r["prompt"]})
-    vbench_prompts = [line.strip() for line in Path(args.vbench_prompts).read_text(encoding="utf-8").splitlines() if line.strip()]
+    vbench_prompts = read_lines(args.vbench_prompts)
+    ext_prompts = None
+    if "repro_ext" in sets:
+        if not args.vbench_ext_prompts:
+            raise ValueError("repro_ext needs --vbench-ext-prompts")
+        ext_prompts = read_lines(args.vbench_ext_prompts)
+        if len(ext_prompts) != len(vbench_prompts):  # extension must be line-aligned with the short file
+            raise ValueError(f"extended prompts have {len(ext_prompts)} lines, short file has {len(vbench_prompts)}")
     picks = np.linspace(0, len(vbench_prompts) - 1, args.repro_count).round().astype(int)
-    for i in sorted(set(picks.tolist())):
-        for arm in REPRO_ARMS:
-            jobs.append({
-                "stem": f"repro_v{i:04d}_s42__{arm}", "set": "repro", "group_id": f"repro_v{i:04d}_s42",
-                "prompt_id": int(i), "base_seed": 42, "case_id": arm, "budget": ARMS[arm],
-                "prompt": vbench_prompts[i]})
+    for subset, tag, source in (("repro", "repro", vbench_prompts), ("repro_ext", "reproext", ext_prompts)):
+        if subset not in sets:
+            continue
+        for i in sorted(set(picks.tolist())):
+            for arm in REPRO_ARMS:
+                jobs.append({
+                    "stem": f"{tag}_v{i:04d}_s42__{arm}", "set": subset, "group_id": f"{tag}_v{i:04d}_s42",
+                    "prompt_id": int(i), "base_seed": 42, "case_id": arm, "budget": ARMS[arm],
+                    "prompt": source[i], "short_prompt": vbench_prompts[i]})
     body = {
         "schema": PLAN_SCHEMA, "settings": SETTINGS, "arms": ARMS,
         "prompts_path": str(Path(args.prompts).resolve()), "prompts_sha256": sha256_file(args.prompts),
         "vbench_prompts_path": str(Path(args.vbench_prompts).resolve()),
         "vbench_prompts_sha256": sha256_file(args.vbench_prompts),
-        "excluded_test_prompts": len(rows) - len(dev), "jobs": jobs,
+        "vbench_ext_prompts_path": str(Path(args.vbench_ext_prompts).resolve()) if ext_prompts else None,
+        "vbench_ext_prompts_sha256": sha256_file(args.vbench_ext_prompts) if ext_prompts else None,
+        "sets": sets, "excluded_test_prompts": len(rows) - len(dev), "jobs": jobs,
     }
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     write_json_atomic(out / "plan.json", body)
-    counts = {s: sum(j["set"] == s for j in jobs) for s in ("main", "repro")}
+    counts = {s: sum(j["set"] == s for j in jobs) for s in sets}
     print(f"planned {len(jobs)} videos {counts}; excluded {body['excluded_test_prompts']} locked test prompts")
 
 
@@ -207,17 +230,21 @@ def score(args):
         item["dvg_stage1_spatial"] = (dvg.get("spatial_rates") or [""])[0]
         item["dvg_stage1_temporal"] = (dvg.get("temporal_rates") or [""])[0]
         table.append(item)
-    for subset, name in (("main", "quality_by_video.csv"), ("repro", "repro_by_video.csv")):
+    for subset, name in SET_CSV.items():
         part = [t for t in table if t["set"] == subset]
+        if not part:
+            continue
         with (out / name).open("w", encoding="utf-8", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=list(part[0]))
             writer.writeheader()
             writer.writerows(part)
-    repro_summary(out)
+    for subset in ("repro", "repro_ext"):
+        if (out / SET_CSV[subset]).is_file():
+            repro_summary(out, subset)
 
 
-def repro_summary(out):
-    with (Path(out) / "repro_by_video.csv").open(encoding="utf-8") as handle:
+def repro_summary(out, subset="repro"):
+    with (Path(out) / SET_CSV[subset]).open(encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     by = {}
     for r in rows:
@@ -234,7 +261,8 @@ def repro_summary(out):
     speed = np.array([float(g[FULL]["pipeline_seconds"]) / float(g["DVG_D050"]["pipeline_seconds"]) for g in by.values()])
     lines.append(f"\nmean paired speedup FULL/DVG_D050: {speed.mean():.2f}x over {len(by)} VBench prompts (seed 42)")
     text = "\n".join(lines)
-    (Path(out) / "repro_summary.md").write_text(text + "\n", encoding="utf-8")
+    name = "repro_summary.md" if subset == "repro" else f"{subset}_summary.md"
+    (Path(out) / name).write_text(text + "\n", encoding="utf-8")
     print(text)
 
 
@@ -254,7 +282,7 @@ def smoke(args):
 def status(args):
     value = load_plan(args.out)
     done = {p.stem for p in (Path(args.out) / "receipts").glob("*.json")}
-    for subset in ("main", "repro"):
+    for subset in value.get("sets", ("main", "repro")):
         jobs = [j for j in value["jobs"] if j["set"] == subset]
         print(f"{subset}: {sum(j['stem'] in done for j in jobs)}/{len(jobs)}")
 
@@ -267,6 +295,8 @@ def main():
     p.add_argument("--prompts", required=True)
     p.add_argument("--vbench-prompts", required=True)
     p.add_argument("--repro-count", type=int, default=48)
+    p.add_argument("--vbench-ext-prompts")
+    p.add_argument("--sets", default="main,repro", help="comma list of " + ",".join(SETS))
     for name in ("generate", "smoke"):
         p = sub.add_parser(name)
         p.add_argument("--out", required=True)
@@ -279,11 +309,13 @@ def main():
     p.add_argument("--vbench-root", required=True)
     p.add_argument("--vbench-python", required=True)
     p.add_argument("--ngpus", type=int, default=4)
-    for name in ("status", "repro-summary"):
-        sub.add_parser(name).add_argument("--out", required=True)
+    sub.add_parser("status").add_argument("--out", required=True)
+    p = sub.add_parser("repro-summary")
+    p.add_argument("--out", required=True)
+    p.add_argument("--set", default="repro", choices=("repro", "repro_ext"))
     args = parser.parse_args()
     {"plan": plan, "generate": generate, "smoke": smoke, "score": score, "status": status,
-     "repro-summary": lambda a: repro_summary(a.out)}[args.mode](args)
+     "repro-summary": lambda a: repro_summary(a.out, a.set)}[args.mode](args)
 
 
 if __name__ == "__main__":

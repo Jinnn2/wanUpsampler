@@ -11,6 +11,8 @@ DVG_ROOT="${DVG_ROOT:-/mnt/afs_2/houze/DVG}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 VBENCH_ROOT="${VBENCH_ROOT:-/mnt/afs_2/houze/VBench}"
 VBENCH_PROMPTS="${VBENCH_PROMPTS:-${VBENCH_ROOT}/prompts/all_dimension.txt}"
+VBENCH_EXT_PROMPTS="${VBENCH_EXT_PROMPTS:-${VBENCH_ROOT}/prompts/augmented_prompts/Wan2.1-T2V-1.3B/all_dimension_aug_wanx_seed42.txt}"
+SETS="${SETS:-main,repro}"
 PROMPTS="${PROMPTS:-${REPO_ROOT}/prompts/univ_controlled_factor_v1.jsonl}"
 STUDY_ROOT="${STUDY_ROOT:-${REPO_ROOT}/outputs/dvg_wan21_study_v1}"
 REQ_ROOT="${REQ_ROOT:-${REPO_ROOT}/outputs/dvg_wan21_requirements_v1}"
@@ -24,7 +26,8 @@ cd "${REPO_ROOT}"
 
 case "${MODE}" in
   plan)
-    "${BASE_PYTHON}" "${DRIVER}" plan --out "${STUDY_ROOT}" --prompts "${PROMPTS}" --vbench-prompts "${VBENCH_PROMPTS}"
+    "${BASE_PYTHON}" "${DRIVER}" plan --out "${STUDY_ROOT}" --prompts "${PROMPTS}" --vbench-prompts "${VBENCH_PROMPTS}" \
+      --vbench-ext-prompts "${VBENCH_EXT_PROMPTS}" --sets "${SETS}"
     ;;
   smoke)
     CUDA_VISIBLE_DEVICES="${GPUS[0]}" "${GEN_PYTHON}" "${DRIVER}" smoke --out "${STUDY_ROOT}" \
@@ -62,15 +65,20 @@ case "${MODE}" in
     REQ_ROOT="${REQ_ROOT}" QUALITY_CSV="${STUDY_ROOT}/quality_by_video.csv" bash "${REQ}" report
     ;;
   export)
-    tar czf "${STUDY_ROOT}_analysis.tgz" -C "$(dirname "${STUDY_ROOT}")" \
-      "$(basename "${STUDY_ROOT}")/plan.json" "$(basename "${STUDY_ROOT}")/receipts" \
-      "$(basename "${STUDY_ROOT}")/quality_by_video.csv" "$(basename "${STUDY_ROOT}")/repro_by_video.csv" \
-      "$(basename "${STUDY_ROOT}")/repro_summary.md" "$(basename "${STUDY_ROOT}")/vbench_scores.json"
+    name="$(basename "${STUDY_ROOT}")"
+    files=()
+    for f in plan.json receipts vbench_scores.json quality_by_video.csv repro_by_video.csv repro_ext_by_video.csv \
+             repro_summary.md repro_ext_summary.md; do
+      [[ -e "${STUDY_ROOT}/${f}" ]] && files+=("${name}/${f}")
+    done
+    tar czf "${STUDY_ROOT}_analysis.tgz" -C "$(dirname "${STUDY_ROOT}")" "${files[@]}"
     echo "Download: ${STUDY_ROOT}_analysis.tgz and ${REQ_ROOT}_analysis.tgz"
     ;;
   *)
     echo "Usage: bash $0 {plan|smoke|generate|status|score|requirements|export}"
     echo "Clone DVG first: git clone https://github.com/DarrenZheng303/DVG.git ${DVG_ROOT}"
     echo "Plan: 64 dev prompts x 3 seeds x {FULL, DVG 0.7, DVG 0.5} + 48 VBench prompts x {FULL, DVG 0.5}."
+    echo "Extended-prompt control (same 48 VBench indices, VBench's Wan2.1 prompt extension), in its own root:"
+    echo "  STUDY_ROOT=outputs/dvg_wan21_vbench_ext_v1 SETS=repro_ext bash $0 plan   # then generate/score/export"
     ;;
 esac

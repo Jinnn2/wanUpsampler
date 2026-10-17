@@ -23,8 +23,8 @@ class DvgStudyTest(unittest.TestCase):
         self.vbench = self.root / "all_dimension.txt"
         self.vbench.write_text("\n".join(f"vbench prompt {i}" for i in range(946)) + "\n", encoding="utf-8")
         self.out = self.root / "study"
-        study.plan(argparse.Namespace(out=str(self.out), prompts=str(PROMPTS),
-                                      vbench_prompts=str(self.vbench), repro_count=48))
+        study.plan(argparse.Namespace(out=str(self.out), prompts=str(PROMPTS), vbench_prompts=str(self.vbench),
+                                      vbench_ext_prompts=None, repro_count=48, sets="main,repro"))
         self.value = study.load_plan(self.out)
 
     def test_plan_excludes_test_and_covers_arms(self):
@@ -37,6 +37,25 @@ class DvgStudyTest(unittest.TestCase):
         dvg = [j for j in main if j["case_id"] == "DVG_D050"]
         self.assertTrue(all(j["budget"] == 0.5 for j in dvg))
         self.assertTrue(all(j["budget"] is None for j in main if j["case_id"] == study.FULL))
+
+    def test_extended_prompts_align_with_short_indices(self):
+        ext = self.root / "ext.txt"
+        ext.write_text("\n".join(f"long rewrite {i}" for i in range(946)) + "\n", encoding="utf-8")
+        out = self.root / "ext_study"
+        args = argparse.Namespace(out=str(out), prompts=str(PROMPTS), vbench_prompts=str(self.vbench),
+                                  vbench_ext_prompts=str(ext), repro_count=48, sets="repro_ext")
+        study.plan(args)
+        jobs = study.load_plan(out)["jobs"]
+        short = {j["prompt_id"]: j["prompt"] for j in self.value["jobs"] if j["set"] == "repro"}
+        self.assertEqual({j["set"] for j in jobs}, {"repro_ext"})
+        self.assertEqual(len(jobs), 96)
+        self.assertEqual({j["prompt_id"] for j in jobs}, set(short))
+        for j in jobs:
+            self.assertEqual(j["prompt"], f"long rewrite {j['prompt_id']}")
+            self.assertEqual(j["short_prompt"], short[j["prompt_id"]])
+        ext.write_text("too short\n", encoding="utf-8")
+        with self.assertRaises(ValueError):
+            study.plan(args)
 
     def test_shards_mix_arms(self):
         for shard in range(4):
