@@ -33,6 +33,42 @@ case "${MODE}" in
     CUDA_VISIBLE_DEVICES="${GPUS[0]}" "${GEN_PYTHON}" "${DRIVER}" smoke --out "${STUDY_ROOT}" \
       --dvg-root "${DVG_ROOT}" --ckpt-dir "${MODEL_ROOT}"
     ;;
+  official-check)
+    # Re-run short VBench prompts through DVG's own Wan2.1/generate.py (seed 42, D=0.5), then compare
+    # frame-by-frame with our receipted videos. FA3 is disabled the same way as in our driver.
+    check="${STUDY_ROOT}/official_check"
+    mkdir -p "${check}"
+    printf '%s\n' '{"prompt": "downtown"}' '{"prompt": "shower"}' '{"prompt": "A person is clapping"}' \
+      '{"prompt": "a bench"}' '{"prompt": "a horse galloping across an open field"}' \
+      '{"prompt": "A person is clay pottery making"}' '{"prompt": "a truck slowing down to stop"}' > "${check}/prompts.jsonl"
+    (cd "${DVG_ROOT}" && CUDA_VISIBLE_DEVICES="${GPUS[0]}" PYTHONPATH="${DVG_ROOT}:${DVG_ROOT}/Wan2.1" "${GEN_PYTHON}" -c '
+import runpy, sys
+from wan.modules import attention
+attention.FLASH_ATTN_3_AVAILABLE = False
+sys.argv = ["generate.py"] + sys.argv[1:]
+runpy.run_path("Wan2.1/generate.py", run_name="__main__")
+' --task t2v-1.3B --size '832*480' --ckpt_dir "${MODEL_ROOT}" --prompt_file "${check}/prompts.jsonl" \
+      --output_dir "${check}/dvg050" --sample_steps 50 --sample_shift 8.0 --sample_guide_scale 6.0 --frame_num 81 \
+      --base_seed 42 --enable_tae false --enable_torch_compile false --ulysses_size 1 --offload_model false \
+      --enable_dvg --dvg_budget 0.5) 2>&1 | tee "${check}/run.log"
+    "${GEN_PYTHON}" - "${check}/dvg050" "${STUDY_ROOT}/videos" <<'PY'
+import sys, glob, os, numpy as np, imageio
+official, ours = sys.argv[1], sys.argv[2]
+pairs = {"00000": "repro_v0804_s42", "00001": "repro_v0844_s42", "00002": "repro_v0161_s42", "00003": "repro_v0342_s42"}
+def load(p):
+    return np.stack([f for f in imageio.get_reader(p)]).astype(np.float32)
+for path in sorted(glob.glob(f"{official}/*.mp4")):
+    idx = os.path.basename(path)[:5]
+    a = load(path)
+    line = f"{os.path.basename(path)}: frames={len(a)} mean|dframe|={np.abs(np.diff(a, axis=0)).mean():.2f}"
+    if idx in pairs:
+        b = load(f"{ours}/{pairs[idx]}__DVG_D050.mp4")
+        line += f" | vs ours {pairs[idx]}: mean|diff|={np.abs(a - b).mean():.2f} (0 = identical)"
+    print(line)
+PY
+    tar czf "${check}.tgz" -C "${STUDY_ROOT}" official_check
+    echo "Download: ${check}.tgz"
+    ;;
   generate)
     mkdir -p "${STUDY_ROOT}/logs"
     pids=()
@@ -75,7 +111,7 @@ case "${MODE}" in
     echo "Download: ${STUDY_ROOT}_analysis.tgz and ${REQ_ROOT}_analysis.tgz"
     ;;
   *)
-    echo "Usage: bash $0 {plan|smoke|generate|status|score|requirements|export}"
+    echo "Usage: bash $0 {plan|smoke|official-check|generate|status|score|requirements|export}"
     echo "Clone DVG first: git clone https://github.com/DarrenZheng303/DVG.git ${DVG_ROOT}"
     echo "Plan: 64 dev prompts x 3 seeds x {FULL, DVG 0.7, DVG 0.5} + 48 VBench prompts x {FULL, DVG 0.5}."
     echo "Extended-prompt control (same 48 VBench indices, VBench's Wan2.1 prompt extension), in its own root:"
