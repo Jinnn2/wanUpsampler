@@ -42,6 +42,7 @@ SETTINGS = {"size": "832*480", "frame_num": 81, "sampling_steps": 50, "shift": 8
             "guide_scale": 6.0, "sample_solver": "unipc", "negative_prompt": "wan_default"}
 QUALITY = ("subject_consistency", "background_consistency", "motion_smoothness", "aesthetic_quality", "imaging_quality")
 DIAGNOSTIC = ("dynamic_degree", "overall_consistency")
+ATTENTION = {"backend": "flash_attn_2_varlen", "fa3_detected": None}
 
 
 # ---------------------------------------------------------------- plan
@@ -98,9 +99,16 @@ def load_dvg_wan(dvg_root, ckpt_dir, noise_cache_dir):
             sys.path.insert(0, str(path))
     import wan
     from wan.configs import SIZE_CONFIGS, WAN_CONFIGS
+    from wan.modules import attention
     from wan.utils.utils import cache_video
     import dvg
 
+    # Some flash_attn_interface (FA3) builds return a Tensor where Wan's FA3 branch
+    # expects a tuple and indexes [0]; lock FULL and DVG to the same FA2 path.
+    if not attention.FLASH_ATTN_2_AVAILABLE:
+        raise RuntimeError("flash_attn (FA2) is required for the locked dense-attention path")
+    ATTENTION["fa3_detected"] = bool(attention.FLASH_ATTN_3_AVAILABLE)
+    attention.FLASH_ATTN_3_AVAILABLE = False
     dvg.DVG.noise_cache_dir = str(noise_cache_dir)  # per-worker cache avoids concurrent partial reads
     model = wan.WanT2V(config=WAN_CONFIGS["t2v-1.3B"], checkpoint_dir=ckpt_dir, device_id=0, rank=0)
     return model, SIZE_CONFIGS[SETTINGS["size"]], WAN_CONFIGS["t2v-1.3B"].sample_fps, cache_video
@@ -150,7 +158,7 @@ def generate(args):
         cache_video(tensor=video[None], save_file=str(path), fps=fps, nrow=1, normalize=True, value_range=(-1, 1))
         write_json_atomic(out / "receipts" / f"{j['stem']}.json", {
             **j, "generate_seconds": seconds, "dvg": dvg_state(model), "video_path": str(path.resolve()),
-            "video_sha256": sha256_file(path), "settings": value["settings"]})
+            "video_sha256": sha256_file(path), "settings": value["settings"], "attention": dict(ATTENTION)})
         print(f"[gen {args.shard_index}] {n + 1}/{len(todo)} {j['stem']} {seconds:.1f}s", flush=True)
 
 
