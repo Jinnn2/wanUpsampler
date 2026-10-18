@@ -675,9 +675,28 @@ def blind_report(args):
     print(f"Saved method/content human breakdown and repeat reliability: {study / 'analysis'}")
 
 
+def export_analysis(args):
+    export_root = args.out / "exports"
+    export_root.mkdir(exist_ok=True)
+    target = export_root / "published_wan21_analysis.tgz"
+    with tarfile.open(target, "w:gz") as archive:
+        for path in [args.out / "plan.json", args.out / "dataset_manifest.json", args.out / "calibration_audit.json", args.out / "base_observability_review.csv"]:
+            if path.exists():
+                archive.add(path, arcname=path.name)
+        for directory in ("records", "metrics", "blind/private", "blind/analysis"):
+            for path in sorted((args.out / directory).rglob("*")):
+                if path.is_file() and path.suffix in (".csv", ".json", ".log"):
+                    archive.add(path, arcname=str(path.relative_to(args.out)).replace("\\", "/"))
+    return target
+
+
 def export(args):
     from UNIV_adaptor.scripts.data import acceleration_blind_audit as human
     study = args.out / "blind"
+    if not (study / "private/plan.json").exists():
+        # Studies without a blind audit (e.g. the prompt-method platform) export only the analysis bundle.
+        print(f"No blind audit; analysis only: {export_analysis(args)}")
+        return
     plan = human.load_plan(study)
     package = human.load_package(study, plan)
     public = {"schema": "acceleration_blind_local_v1", "plan_sha256": plan["plan_sha256"],
@@ -712,15 +731,7 @@ def export(args):
                 for name in ("acceleration_blind_audit.py", "acceleration_blind_audit.html"):
                     archive.add(Path(human.__file__).with_name(name), arcname="study/" + name)
         manifests.append({"file": target.name, "bytes": target.stat().st_size, "sha256": file_hash(target)})
-    target = export_root / "published_wan21_analysis.tgz"
-    with tarfile.open(target, "w:gz") as archive:
-        for path in [args.out / "plan.json", args.out / "dataset_manifest.json", args.out / "calibration_audit.json", args.out / "base_observability_review.csv"]:
-            if path.exists():
-                archive.add(path, arcname=path.name)
-        for directory in ("records", "metrics", "blind/private", "blind/analysis"):
-            for path in sorted((args.out / directory).rglob("*")):
-                if path.is_file() and path.suffix in (".csv", ".json", ".log"):
-                    archive.add(path, arcname=str(path.relative_to(args.out)).replace("\\", "/"))
+    target = export_analysis(args)
     write(export_root / "export_manifest.json", {"public_media": manifests, "private_analysis": {"file": target.name, "sha256": file_hash(target)}})
     print(f"Public media chunks and separate PRIVATE analysis: {export_root}. Extract all media chunks to the same folder; do not give the analysis archive to raters.")
 
