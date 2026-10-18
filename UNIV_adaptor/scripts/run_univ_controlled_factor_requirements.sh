@@ -11,7 +11,14 @@ export VLM_MODEL="${VLM_MODEL:-/mnt/afs_2/houze/models/Qwen2.5-VL-7B-Instruct}"
 CF_ROOT="${CF_ROOT:-${REPO_ROOT}/outputs/univ_controlled_factor_v1}"
 REQ_ROOT="${REQ_ROOT:-${REPO_ROOT}/outputs/controlled_factor_requirements_v1}"
 CHECKLIST="${CHECKLIST:-${REPO_ROOT}/prompts/univ_controlled_factor_v1_requirements.jsonl}"
-QUALITY_CSV="${QUALITY_CSV:-${CF_ROOT}/metrics/controlled_factor_vbench/quality_by_video.csv}"
+# PUBLISHED_ROOT: score a finalized + VBench-scored published_wan21 platform instead of CF_ROOT;
+# plan then writes the converted VBench CSV into REQ_ROOT.
+PUBLISHED_ROOT="${PUBLISHED_ROOT:-}"
+if [[ -n "${PUBLISHED_ROOT}" ]]; then
+  QUALITY_CSV="${QUALITY_CSV:-${REQ_ROOT}/quality_by_video.csv}"
+else
+  QUALITY_CSV="${QUALITY_CSV:-${CF_ROOT}/metrics/controlled_factor_vbench/quality_by_video.csv}"
+fi
 GPU_IDS="${GPU_IDS:-0,1,2,3}"
 export PYTHONDONTWRITEBYTECODE=1
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
@@ -43,7 +50,11 @@ case "${MODE}" in
       Qwen/Qwen2.5-VL-7B-Instruct --local-dir "${VLM_MODEL}"
     ;;
   plan)
-    "${BASE_PYTHON}" "${DRIVER}" plan --root "${CF_ROOT}" --checklist "${CHECKLIST}" --out "${REQ_ROOT}"
+    if [[ -n "${PUBLISHED_ROOT}" ]]; then
+      "${BASE_PYTHON}" "${DRIVER}" plan --published "${PUBLISHED_ROOT}" --checklist "${CHECKLIST}" --out "${REQ_ROOT}"
+    else
+      "${BASE_PYTHON}" "${DRIVER}" plan --root "${CF_ROOT}" --checklist "${CHECKLIST}" --out "${REQ_ROOT}"
+    fi
     ;;
   check)
     CUDA_VISIBLE_DEVICES="${GPUS[0]}" "${VLM_PYTHON}" "${DRIVER}" check --out "${REQ_ROOT}"

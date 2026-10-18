@@ -110,3 +110,47 @@ class ReportTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PublishedPlatformPlanTest(unittest.TestCase):
+    """A finalized published platform is mapped onto DVG-compatible group ids and the shared FULL id."""
+
+    def test_plan_maps_published_platform(self):
+        import argparse
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name) / "platform"
+        (root / "metrics").mkdir(parents=True)
+        (root / "videos").mkdir()
+        checklist = Path(__file__).resolve().parents[2] / "prompts" / "univ_controlled_factor_v1_requirements.jsonl"
+        prompts = [{"id": "cf000", "origin": "controlled_factor_v1", "motion": "low", "detail": "high",
+                    "family_id": "watchmaking", "split": "train", "prompt": "p0"},
+                   {"id": "cf064", "origin": "controlled_factor_v1", "motion": "low", "detail": "low",
+                    "family_id": "locked", "split": "test", "prompt": "p64"}]
+        records, scored = [], []
+        for p in prompts:
+            for arm in ("FULL50", "TEA015"):
+                job = {"id": f"pilot_{p['id']}_s42_{arm}", "group_id": f"{p['id']}_s42", "phase": "pilot",
+                       "prompt_id": p["id"], "prompt": p["prompt"], "seed": 42, "arm": {"id": arm}}
+                video = root / "videos" / f"{job['id']}.mp4"
+                video.write_bytes(job["id"].encode())
+                records.append({"job": job, "video_path": str(video), "video_sha256": sha256_file(video)})
+                scored.append({"observation_id": job["id"], "video_sha256": sha256_file(video), "pipeline_seconds": "50",
+                               "vbench5": "0.8", **{d: "0.8" for d in req.VBENCH_DIMS}})
+        (root / "plan.json").write_text(json.dumps({"plan_sha256": "abc", "config": {"prompts": prompts}}), encoding="utf-8")
+        (root / "dataset_manifest.json").write_text(json.dumps(
+            {"plan_sha256": "abc", "partial_exploratory": False, "records": records}), encoding="utf-8")
+        with (root / "metrics" / "quality_by_video.csv").open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(scored[0]))
+            writer.writeheader()
+            writer.writerows(scored)
+        out = Path(tmp.name) / "req"
+        req.plan(argparse.Namespace(published=str(root), dvg_study=None, root=None, checklist=str(checklist), out=str(out)))
+        videos = req.load_plan(out)["videos"]
+        self.assertEqual({v["case_id"] for v in videos}, {FULL, "TEA015"})
+        self.assertEqual({v["group_id"] for v in videos}, {"main_p000_s42"})
+        with (out / "quality_by_video.csv").open(encoding="utf-8") as handle:
+            rows = list(csv.DictReader(handle))
+        self.assertEqual({r["observation_id"] for r in rows}, {v["stem"] for v in videos})
+        self.assertEqual({r["split"] for r in rows}, {"train"})

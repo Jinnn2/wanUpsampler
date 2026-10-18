@@ -54,3 +54,17 @@ bash $S export
 ```
 
 预计 1152 个视频约需 41 GPU 小时，4 卡约 10 小时，以校准实测为准。
+
+## 需求清单与光流评分（VBench 打分之后）
+
+和 DVG 实验使用同一套指标：Qwen2.5-VL 需求清单、RAFT 光流、细节统计。
+
+- **group id**：映射为 DVG 的格式 `main_p###_s<seed>`，两个来源可以按 prompt 和 seed 直接合并。
+- **FULL 编号**：FULL50 记为 `FULL_NATIVE_50`。
+
+```bash
+PUBLISHED_ROOT=$PUBLISHED_WAN21_ROOT REQ_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/platform_v1_requirements \
+GPU_IDS=0,1,2,3,4,5,6,7 R=UNIV_adaptor/scripts/run_univ_controlled_factor_requirements.sh
+PUBLISHED_ROOT=$PUBLISHED_WAN21_ROOT REQ_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/platform_v1_requirements bash $R plan
+# signals / vlm / report 也使用同样的环境变量
+```

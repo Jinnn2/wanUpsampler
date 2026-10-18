@@ -46,8 +46,64 @@ QUESTION = "Look carefully at this {kind} and answer the question with only Yes 
 
 # ---------------------------------------------------------------- plan
 
+PUBLISHED_FULL = "FULL50"
+VBENCH_DIMS = ("subject_consistency", "background_consistency", "motion_smoothness", "aesthetic_quality",
+               "imaging_quality", "dynamic_degree", "overall_consistency")
+
+
+def published_rows(root):
+    """Finalized published-pipeline platform (controlled-factor prompts) in the requirement/variance schema.
+
+    Group ids follow the DVG study (main_p###_s<seed>) so both sources join on prompt and seed;
+    FULL50 is renamed to the shared FULL case id. Also converts the platform's VBench CSV.
+    """
+    from UNIV_adaptor.scripts.data.analyze_controlled_factor_variance import FULL as FULL_CASE
+
+    root = Path(root)
+    manifest = json.loads((root / "dataset_manifest.json").read_text(encoding="utf-8"))
+    frozen = json.loads((root / "plan.json").read_text(encoding="utf-8"))
+    if manifest["plan_sha256"] != frozen["plan_sha256"] or manifest["partial_exploratory"]:
+        raise ValueError("requirement scoring needs the complete finalized platform manifest")
+    prompts = {p["id"]: p for p in frozen["config"]["prompts"]}
+    rows, by_job = [], {}
+    for record in manifest["records"]:
+        job = record["job"]
+        p = prompts[job["prompt_id"]]
+        if p["origin"] != "controlled_factor_v1":
+            raise ValueError(f"not a controlled-factor prompt: {p['id']}")
+        pid = int(p["id"][2:])
+        arm = job["arm"]["id"]
+        row = {"stem": job["id"], "group_id": f"main_p{pid:03d}_s{job['seed']}", "prompt_id": pid,
+               "family_id": p["family_id"], "split": p["split"], "motion_level": p["motion"],
+               "detail_level": p["detail"], "base_seed": job["seed"],
+               "case_id": FULL_CASE if arm == PUBLISHED_FULL else arm,
+               "video_path": record["video_path"], "video_sha256": record["video_sha256"]}
+        rows.append(row)
+        by_job[job["id"]] = row
+    quality_path = root / "metrics" / "quality_by_video.csv"
+    with quality_path.open(encoding="utf-8-sig", newline="") as handle:
+        scored = list(csv.DictReader(handle))
+    if {r["observation_id"] for r in scored} != set(by_job):
+        raise ValueError("platform VBench CSV does not cover the finalized manifest; run its score mode first")
+    quality = []
+    for r in scored:
+        v = by_job[r["observation_id"]]
+        if r["video_sha256"] != v["video_sha256"]:
+            raise ValueError(f"VBench row identity mismatch: {r['observation_id']}")
+        quality.append({"observation_id": v["stem"], "set": "main",
+                        **{k: v[k] for k in ("group_id", "prompt_id", "family_id", "split", "motion_level",
+                                             "detail_level", "base_seed", "case_id")},
+                        "pipeline_seconds": r["pipeline_seconds"], "vbench5": r["vbench5"],
+                        **{k: r[k] for k in VBENCH_DIMS}})
+    identity = {"published_plan_sha256": frozen["plan_sha256"], "published_quality_sha256": sha256_file(quality_path)}
+    return rows, identity, quality
+
+
 def plan(args):
-    if args.dvg_study:
+    quality = None
+    if getattr(args, "published", None):
+        rows, identity, quality = published_rows(args.published)
+    elif args.dvg_study:
         from UNIV_adaptor.scripts.data import dvg_wan21_study as dvg
 
         rows = [r for r in dvg.receipts(args.dvg_study, dvg.load_plan(args.dvg_study)) if r["set"] == "main"]
@@ -64,13 +120,18 @@ def plan(args):
     videos = [{k: r[k] for k in ("stem", "group_id", "prompt_id", "family_id", "split", "motion_level",
                                  "detail_level", "base_seed", "case_id", "video_path", "video_sha256")}
               for r in keep]
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    if quality is not None:  # converted platform VBench rows, for `report --quality-csv`
+        with (out / "quality_by_video.csv").open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(quality[0]))
+            writer.writeheader()
+            writer.writerows(q for q in quality if q["split"] != "test")
     body = {
         "schema": PLAN_SCHEMA, "source": identity,
         "checklist_path": str(Path(args.checklist).resolve()), "checklist_sha256": sha256_file(args.checklist),
         "excluded_test_videos": len(rows) - len(keep), "videos": videos,
     }
-    out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
     write_json_atomic(out / "plan.json", body)
     print(f"planned {len(videos)} development videos; excluded {body['excluded_test_videos']} locked test videos")
 
@@ -375,6 +436,7 @@ def main():
     source = p.add_mutually_exclusive_group(required=True)
     source.add_argument("--root", help="controlled-factor OUT_ROOT")
     source.add_argument("--dvg-study", help="dvg_wan21_study output root (main set only)")
+    source.add_argument("--published", help="finalized + scored published_wan21 platform root")
     p.add_argument("--checklist", required=True)
     p.add_argument("--out", required=True)
     for name in ("signals", "vlm", "check"):
