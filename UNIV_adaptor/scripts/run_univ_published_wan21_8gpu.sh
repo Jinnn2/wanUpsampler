@@ -44,7 +44,20 @@ case "${MODE}" in
     fi
     echo "Isolated generation Python: ${PILOT_VENV}/bin/python"
     ;;
-  fetch|check|plan|calibrate|audit|generate|status|finalize|score|report|blind|blind-report|export|diagnose)
+  export)
+    # The driver is hash-frozen into plan.json, so studies without a blind audit
+    # (e.g. the prompt-method platform) are bundled here instead of in the driver.
+    if [[ -f "${DATASET_ROOT}/blind/private/plan.json" ]]; then
+      "${PYTHON_BIN}" "${DRIVER}" export "${COMMON[@]}"
+    else
+      mkdir -p "${DATASET_ROOT}/exports"
+      target="${DATASET_ROOT}/exports/published_wan21_analysis.tgz"
+      (cd "${DATASET_ROOT}" && find plan.json dataset_manifest.json calibration_audit.json base_observability_review.csv \
+        records metrics -type f \( -name '*.csv' -o -name '*.json' -o -name '*.log' \) 2>/dev/null | tar czf "${target}" -T -)
+      echo "No blind audit; analysis only: ${target}"
+    fi
+    ;;
+  fetch|check|plan|calibrate|audit|generate|status|finalize|score|report|blind|blind-report|diagnose)
     shift || true
     "${PYTHON_BIN}" "${DRIVER}" "${MODE}" "${COMMON[@]}" "$@"
     ;;
