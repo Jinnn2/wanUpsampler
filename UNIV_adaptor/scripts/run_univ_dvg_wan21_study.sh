@@ -23,6 +23,9 @@ DRIVER="${REPO_ROOT}/UNIV_adaptor/scripts/data/dvg_wan21_study.py"
 REQ="${REPO_ROOT}/UNIV_adaptor/scripts/run_univ_controlled_factor_requirements.sh"
 IFS=',' read -r -a GPUS <<< "${GPU_IDS}"
 cd "${REPO_ROOT}"
+# VBench runs with its own cwd, so study paths given relative to the repo must be absolute.
+STUDY_ROOT="$(realpath -m "${STUDY_ROOT}")"
+REQ_ROOT="$(realpath -m "${REQ_ROOT}")"
 
 case "${MODE}" in
   plan)

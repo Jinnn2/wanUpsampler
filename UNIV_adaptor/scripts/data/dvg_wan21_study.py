@@ -204,7 +204,7 @@ def score(args):
     from changing_resolution_uni.scripts.data.batch_vbench_score_dataset import (
         inspect_vbench_checkout, score_case_directory)
 
-    out = Path(args.out)
+    out = Path(args.out).resolve()  # VBench runs with its own cwd
     value = load_plan(out)
     rows = receipts(out, value)
     write_json_atomic(out / "prompt_map.json", {r["video_path"]: r["prompt"] for r in rows})
