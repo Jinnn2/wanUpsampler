@@ -63,8 +63,9 @@ bash $S export
 - **FULL 编号**：FULL50 记为 `FULL_NATIVE_50`。
 
 ```bash
-PUBLISHED_ROOT=$PUBLISHED_WAN21_ROOT REQ_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/platform_v1_requirements \
-GPU_IDS=0,1,2,3,4,5,6,7 R=UNIV_adaptor/scripts/run_univ_controlled_factor_requirements.sh
-PUBLISHED_ROOT=$PUBLISHED_WAN21_ROOT REQ_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/platform_v1_requirements bash $R plan
-# signals / vlm / report 也使用同样的环境变量
+export PUBLISHED_ROOT=$PUBLISHED_WAN21_ROOT
+export REQ_ROOT=/mnt/afs_2/houze/wanUpsampler/outputs/platform_v1_requirements
+export GPU_IDS=0,1,2,3,4,5,6,7
+R=UNIV_adaptor/scripts/run_univ_controlled_factor_requirements.sh
+bash $R plan && bash $R signals && bash $R vlm && bash $R report
 ```
