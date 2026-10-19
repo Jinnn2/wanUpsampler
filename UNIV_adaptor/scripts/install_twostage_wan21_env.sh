@@ -34,7 +34,7 @@ cd "${REPO_ROOT}"
 
 say() { printf '\n==== %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
-gpu_tag() { nvidia-smi --query-gpu=name --format=csv,noheader | head -1 | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9'; }
+gpu_tag() { nvidia-smi -i 0 --query-gpu=name --format=csv,noheader | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9'; }
 ENV_DIR="${REPO_ROOT}/outputs/twostage_env"
 ENV_FILE=""
 

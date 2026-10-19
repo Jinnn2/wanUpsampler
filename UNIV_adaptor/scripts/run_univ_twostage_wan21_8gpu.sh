@@ -6,7 +6,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODE="${1:-help}"
 [[ $# -eq 0 ]] || shift
-GPU_TAG="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')"
+GPU_TAG="$(nvidia-smi -i 0 --query-gpu=name --format=csv,noheader 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')"
 ENV_FILE="${TWOSTAGE_ENV_FILE:-${REPO_ROOT}/outputs/twostage_env/${GPU_TAG}.env}"
 # shellcheck disable=SC1090
 [[ -f "${ENV_FILE}" ]] && source "${ENV_FILE}"
