@@ -74,24 +74,43 @@ dvg() {
 
 requirements() {
   say "requirements: flow / detail / VLM checklist"
-  local root req checklist
-  for spec in "${V2B}:platform_v2b_requirements:${CHECK_V1}" "${P2}:platform_dev2_requirements:${CHECK_DEV2}" \
-              "${T2}:twostage_dev2_requirements:${CHECK_DEV2}"; do
+  local root req checklist failed=0
+  for spec in "${V2A}:platform_v2a_requirements:${CHECK_V1}" "${V2B}:platform_v2b_requirements:${CHECK_V1}" \
+              "${P2}:platform_dev2_requirements:${CHECK_DEV2}" "${T2}:twostage_dev2_requirements:${CHECK_DEV2}"; do
     IFS=: read -r root req checklist <<< "${spec}"
     [[ -f "${root}/metrics/quality_by_video.csv" ]] || { echo "skip (not scored yet): ${root}"; continue; }
     say "requirements ${req}"
-    PUBLISHED_ROOT="${root}" REQ_ROOT="${OUT}/${req}" CHECKLIST="${checklist}" GPU_IDS="${ALL_GPUS}" \
-      bash "${S}/run_univ_controlled_factor_requirements.sh" plan
-    for m in signals vlm report; do
-      PUBLISHED_ROOT="${root}" REQ_ROOT="${OUT}/${req}" CHECKLIST="${checklist}" GPU_IDS="${ALL_GPUS}" \
-        bash "${S}/run_univ_controlled_factor_requirements.sh" "${m}"
-    done
+    # One root failing (e.g. RAFT download) must not stop the others.
+    if ! (export PUBLISHED_ROOT="${root}" REQ_ROOT="${OUT}/${req}" CHECKLIST="${checklist}" GPU_IDS="${ALL_GPUS}"
+          R="${S}/run_univ_controlled_factor_requirements.sh"
+          bash "$R" plan && bash "$R" signals && bash "$R" vlm && bash "$R" report); then
+      echo "REQUIREMENTS FAILED: ${req}" >&2
+      failed=1
+    fi
   done
   if [[ -f "${D2}/quality_by_video.csv" ]]; then
     say "requirements dvg_dev2"
     STUDY_ROOT="${D2}" REQ_ROOT="${OUT}/dvg_dev2_requirements" CHECKLIST="${CHECK_DEV2}" GPU_IDS="${ALL_GPUS}" \
-      bash "${S}/run_univ_dvg_wan21_study.sh" requirements
+      bash "${S}/run_univ_dvg_wan21_study.sh" requirements || { echo "REQUIREMENTS FAILED: dvg_dev2" >&2; failed=1; }
   fi
+  return "${failed}"
+}
+
+unattended() {
+  # Every stage in its own bash (so set -e holds inside it); a failed stage does not stop later
+  # independent stages. twostage needs platform, and both check that themselves.
+  local stage failed=()
+  for stage in v2b platform twostage dvg requirements; do
+    bash "$0" "${stage}" || { failed+=("${stage}"); say "STAGE FAILED: ${stage} (continuing)"; }
+  done
+  status
+  # Everything to send back, in one file (analysis bundles only, no videos), plus the batch log.
+  local bundle="${OUT}/batch_dev2_results.tgz" files=()
+  mapfile -t files < <(cd "${OUT}" && ls -1 published_wan21_twostage_v2b/exports/*.tgz published_wan21_platform_dev2/exports/*.tgz \
+    published_wan21_twostage_dev2/exports/*.tgz dvg_wan21_study_dev2_analysis.tgz *_requirements_analysis.tgz \
+    batch_dev2.log 2>/dev/null || true)
+  (( ${#files[@]} )) && tar czf "${bundle}" -C "${OUT}" "${files[@]}" && echo "SEND THIS: ${bundle}"
+  say "BATCH DONE. failed stages: ${failed[*]:-none}"
 }
 
 status() {
@@ -108,7 +127,7 @@ status() {
 }
 
 case "${STAGE}" in
-  all) v2b; platform; twostage; dvg; requirements; status ;;
+  all) unattended ;;
   v2b|platform|twostage|dvg|requirements|status) "${STAGE}" ;;
   *) echo "Stages: all v2b platform twostage dvg requirements status"; exit 2 ;;
 esac

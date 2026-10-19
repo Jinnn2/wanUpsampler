@@ -20,7 +20,15 @@
 
 ## 运行
 
-先在仓库根目录执行 `git pull`。v2a 的需求评分如果还在跑，等它跑完，或者 Ctrl+C 停掉，之后可以接着跑。
+无人值守、一条命令跑完（v2a 的需求评分也包含在内）：
+
+```bash
+cd /mnt/afs_2/houze/wanUpsampler && git pull && nohup setsid bash UNIV_adaptor/scripts/run_univ_batch_dev2_8gpu.sh all > outputs/batch_dev2.log 2>&1 &
+```
+
+某个阶段失败时，脚本会继续跑后面不依赖它的阶段。全部结束后打包成 `outputs/batch_dev2_results.tgz`，只需把这一个文件发回来。
+
+分阶段手动运行：
 
 ```bash
 cd /mnt/afs_2/houze/wanUpsampler
