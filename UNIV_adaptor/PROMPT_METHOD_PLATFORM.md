@@ -73,3 +73,12 @@ bash $R plan && bash $R signals && bash $R vlm && bash $R report
 ## v2a：只压空间、只压时间
 
 见 `PUBLISHED_WAN21_TWOSTAGE.md`。新增两组方法：一组先用 416×240 生成再用 FlashVSR 放大，另一组先生成 41 帧再用 RIFE 插帧；另外各配一个简单对照（双三次放大、帧重复）。prompt 和 seed 与 v1 相同。新机器先运行 `install_twostage_wan21_env.sh` 安装环境，再运行 `run_univ_twostage_wan21_8gpu.sh all`。
+
+## v2b 与 dev2：一次性批次
+
+见 `PUBLISHED_WAN21_BATCH_DEV2.md`，入口为 `bash UNIV_adaptor/scripts/run_univ_batch_dev2_8gpu.sh all`。
+
+- **v2b**：在 v1 dev prompt 上新增两类方法：
+  - rCM 蒸馏，1、2、4 步。
+  - LR41 先经 FlashVSR 放大，再经 RIFE 插帧，同时压缩空间和时间。
+- **dev2**：新写 64 个 prompt，覆盖 16 个新 family。v1、v2a、v2b、DVG 的所有方法都在上面重跑，用来检验路由能否推广到没见过的 family。

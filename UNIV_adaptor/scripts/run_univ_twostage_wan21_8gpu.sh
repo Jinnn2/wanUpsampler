@@ -16,13 +16,18 @@ VBENCH_PYTHON="${VBENCH_PYTHON:-/opt/conda/bin/python}"
 VBENCH_ROOT="${VBENCH_ROOT:-/mnt/afs_2/houze/VBench}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 TWOSTAGE_ROOT="${TWOSTAGE_ROOT:-${REPO_ROOT}/outputs/published_wan21_twostage_v1}"
+# v2b / dev2: TWOSTAGE_CONFIG=UNIV_adaptor/configs/published_wan21_twostage_{v2b,dev2}.json and
+# REFERENCE_ROOT=<finalized run whose FULL50 is reused>; see PUBLISHED_WAN21_BATCH_DEV2.md.
+TWOSTAGE_CONFIG="${TWOSTAGE_CONFIG:-${REPO_ROOT}/UNIV_adaptor/configs/published_wan21_twostage_v1.json}"
+REFERENCE_ROOT="${REFERENCE_ROOT:-}"
 NGPUS="${NGPUS:-8}"
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
 DRIVER="${REPO_ROOT}/UNIV_adaptor/scripts/data/twostage_wan21.py"
-COMMON=(--out "${TWOSTAGE_ROOT}" --model-root "${MODEL_ROOT}" --ngpus "${NGPUS}"
+COMMON=(--config "${TWOSTAGE_CONFIG}" --out "${TWOSTAGE_ROOT}" --model-root "${MODEL_ROOT}" --ngpus "${NGPUS}"
   --python "${WAN_PYTHON}" --flash-python "${FLASH_PYTHON}"
   --vbench-root "${VBENCH_ROOT}" --vbench-python "${VBENCH_PYTHON}")
+[[ -z "${REFERENCE_ROOT}" ]] || COMMON+=(--reference-root "${REFERENCE_ROOT}")
 cd "${REPO_ROOT}"
 # The driver itself is stdlib-only; like platform v1 it runs in the Wan venv.
 run() { "${WAN_PYTHON}" "${DRIVER}" "$1" "${COMMON[@]}" "${@:2}"; }

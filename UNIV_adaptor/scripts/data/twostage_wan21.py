@@ -1,9 +1,12 @@
 """Two-stage spatial-only / temporal-only accelerators on the platform-v1 prompts.
 
 Stage 1 runs the pinned official Wan2.1 entrypoint at a smaller canvas (LR81) or
-half the frame count (HR41); FULL50 (HR81) is regenerated on the same machine
-for same-hardware timing. Stage 2 runs a published restorer (FlashVSR x4, RIFE
-x2) or a trivial control (bicubic, frame hold) on the SAME stage-1 frames.
+half the frame count (HR41), or the official rCM distilled DiT in that same Wan
+model (1-4 steps). FULL50 (HR81) is regenerated on the same machine for
+same-hardware timing, or reused from another finalized same-machine run.
+Stage 2 runs a published restorer (FlashVSR x4, RIFE x2) or a trivial control
+(bicubic, frame hold) on the SAME stage-1 frames; a chain such as
+'flashvsr+rife' runs its steps in order, each in its own Python.
 Orchestration is stdlib-only; GPU work runs in twostage_wan21_worker.py. The
 platform-v1 driver/worker are imported for helpers only and never modified.
 """
@@ -36,8 +39,11 @@ WORKER = Path(__file__).with_name("twostage_wan21_worker.py")
 # Every file whose code runs in this protocol; any change requires a new output root.
 IMPLEMENTATION = (Path(__file__), WORKER, Path(pilot.__file__),
                   Path(__file__).with_name("published_wan21_worker.py"), Path(diag.__file__))
-POSTS = ("none", "flashvsr", "bicubic", "rife", "duplicate")
+POSTS = ("flashvsr", "bicubic", "rife", "duplicate")
 SPATIAL_POSTS, TEMPORAL_POSTS = ("flashvsr", "bicubic"), ("rife", "duplicate")
+GPU_POSTS = ("flashvsr", "rife")
+SAMPLERS = ("wan", "rcm")
+EXTERNAL = "external"  # FULL50 reused from another finalized, same-machine run (no regeneration)
 PLAN_SCHEMA, DATASET_SCHEMA = "published_wan21_twostage_plan_v1", "published_wan21_twostage_dataset_v1"
 
 read, write, immutable, file_hash, digest, csv_write = (
@@ -49,31 +55,54 @@ def canvas(size):
     return width, height
 
 
+def post_steps(arm):
+    """'flashvsr+rife' -> ['flashvsr', 'rife']; each step runs as its own unit, in order."""
+    return [] if arm["post"] == "none" else arm["post"].split("+")
+
+
+def chain_shapes(cfg, arm):
+    """(frames, width, height) entering each post step, plus the final output."""
+    width, height = canvas(cfg["sampling"]["size"])
+    g = next(x for x in cfg["generations"] if x["id"] == arm["generation"])
+    shape = (g["frame_num"], *canvas(g["size"]))
+    shapes = [shape]
+    for step in post_steps(arm):
+        if step not in POSTS:
+            raise ValueError(f"Unsupported post stage: {step}")
+        if step in SPATIAL_POSTS:
+            if shape[1:] != (width // 2, height // 2):
+                raise ValueError(f"{arm['id']}: spatial steps take exactly half width/height")
+            shape = (shape[0], width, height)
+        else:
+            shape = (2 * shape[0] - 1, *shape[1:])
+        shapes.append(shape)
+    if shape != (cfg["sampling"]["frame_num"], width, height):
+        raise ValueError(f"{arm['id']}: post chain ends at {shape}, not the final canvas and length")
+    return shapes
+
+
 def validate_config(cfg):
     if cfg["schema"] != "published_wan21_twostage_v1" or cfg["sampling"]["task"] != "t2v-1.3B":
         raise ValueError("Wrong two-stage schema or base model")
-    width, height = canvas(cfg["sampling"]["size"])
-    frames = cfg["sampling"]["frame_num"]
     gens = {g["id"]: g for g in cfg["generations"]}
-    if len(gens) != len(cfg["generations"]):
-        raise ValueError("Duplicate generation ids")
+    if len(gens) != len(cfg["generations"]) or EXTERNAL in gens:
+        raise ValueError("Duplicate or reserved generation ids")
     for g in gens.values():
         w, h = canvas(g["size"])
-        if w % 16 or h % 16 or g["frame_num"] % 4 != 1 or g["steps"] < 2:
-            raise ValueError(f"Invalid generation {g['id']}: canvas must be /16, frames 4n+1")
+        sampler = g.get("sampler", "wan")
+        if w % 16 or h % 16 or g["frame_num"] % 4 != 1 or sampler not in SAMPLERS:
+            raise ValueError(f"Invalid generation {g['id']}: canvas must be /16, frames 4n+1, known sampler")
+        if (sampler == "wan" and g["steps"] < 2) or (sampler == "rcm" and (g["steps"] not in (1, 2, 3, 4) or "rcm" not in cfg)):
+            raise ValueError(f"Invalid step count or missing rcm block for {g['id']}")
     arms = cfg["arms"]
     if len({a["id"] for a in arms}) != len(arms) or arms[0]["id"] != "FULL50" or arms[0]["post"] != "none":
         raise ValueError("Duplicate arms or missing FULL50 reference")
-    for arm in arms:
-        g = gens[arm["generation"]]
-        if arm["post"] not in POSTS:
-            raise ValueError(f"Unsupported post stage: {arm['post']}")
-        if arm["post"] == "none" and (g["size"] != cfg["sampling"]["size"] or g["frame_num"] != frames):
-            raise ValueError("A post-free arm must generate the final canvas and length")
-        if arm["post"] in SPATIAL_POSTS and (canvas(g["size"]) != (width // 2, height // 2) or g["frame_num"] != frames):
-            raise ValueError("Spatial arms generate exactly half width/height at full length")
-        if arm["post"] in TEMPORAL_POSTS and (g["size"] != cfg["sampling"]["size"] or 2 * g["frame_num"] - 1 != frames):
-            raise ValueError("Temporal arms generate (frames+1)/2 frames at the final canvas")
+    for index, arm in enumerate(arms):
+        if arm["generation"] == EXTERNAL:
+            if index != 0 or "reference" not in cfg:
+                raise ValueError("Only the FULL50 reference may be external, and it needs a reference block")
+            continue
+        chain_shapes(cfg, arm)
     prompts = cfg["prompts"]
     if len({p["id"] for p in prompts}) != len(prompts) or any(p["split"] == "test" for p in prompts):
         raise ValueError("Duplicate prompts, or a locked test prompt was included")
@@ -110,9 +139,36 @@ def flash_binding(cfg, weights):
     return binding, path
 
 
+def rcm_binding(cfg, path):
+    """The rCM DiT checkpoint, bound by the Hugging Face LFS sha256 frozen in the config."""
+    identity = diag.bound_file(path)
+    if identity["sha256"] != cfg["rcm"]["weights_sha256"]:
+        raise ValueError(f"rCM checkpoint {path} is not {cfg['rcm']['weights_file']}@{cfg['rcm']['weights_revision']}")
+    return identity
+
+
+def reference_binding(cfg, root):
+    """FULL50 from another frozen run on the same prompts/seeds; its plan must already exist."""
+    if root is None:
+        raise ValueError("This config reuses FULL50 from another run; pass --reference-root")
+    if Path(root).resolve().name != Path(cfg["reference"]["expected_root"]).name:
+        raise ValueError(f"Reference root {root} is not the configured {cfg['reference']['expected_root']}")
+    frozen = read(Path(root) / "plan.json")
+    return {"root": str(Path(root).resolve()), "plan_sha256": frozen["plan_sha256"], "schema": frozen["schema"],
+            "arm": cfg["reference"]["arm"]}
+
+
+def reference_index(p):
+    ref = p["reference"]
+    root = Path(ref["root"])
+    frozen, manifest = read(root / "plan.json"), read(root / "dataset_manifest.json")
+    if frozen["plan_sha256"] != ref["plan_sha256"] or manifest["plan_sha256"] != ref["plan_sha256"] or manifest["partial_exploratory"]:
+        raise ValueError(f"Reference run {root} changed or is not completely finalized")
+    return {(r["job"]["prompt"], r["job"]["seed"]): r for r in manifest["records"] if r["job"]["arm"]["id"] == ref["arm"]}
+
+
 def build_jobs(cfg, ngpus):
     gen_jobs, final_jobs = [], []
-    by_id = {g["id"]: g for g in cfg["generations"]}
     pairs = [(p, s) for p in cfg["prompts"] for s in cfg["seeds"]]
     for index, (prompt, seed) in enumerate(pairs):
         group = f"{prompt['id']}_s{seed}"
@@ -121,8 +177,9 @@ def build_jobs(cfg, ngpus):
             gen_jobs.append({"id": f"gen_{group}_{gen['id']}", **common, "generation": gen,
                              "gpu": (index + g_index) % ngpus})
         for a_index, arm in enumerate(cfg["arms"]):
+            external = arm["generation"] == EXTERNAL
             final_jobs.append({"id": f"pilot_{group}_{arm['id']}", "phase": "pilot", **common, "arm": arm,
-                               "generation_job": f"gen_{group}_{by_id[arm['generation']]['id']}",
+                               "generation_job": None if external else f"gen_{group}_{arm['generation']}",
                                "gpu": (index + a_index) % ngpus})
     return gen_jobs, final_jobs
 
@@ -140,27 +197,33 @@ def plan(args):
     if out.exists() and any(out.iterdir()):
         raise ValueError(f"Unplanned nonempty output: {out}; choose a NEW directory")
     cfg = validate_config(read(args.config))
-    binding, binding_path = flash_binding(cfg, args.flash_weights)
-    print("Freezing plan: SHA256 of FlashVSR weights (several GB on shared storage; may take minutes)...", flush=True)
-    diag.verify_files(binding["files"])  # full SHA256 once at planning
-    print("Freezing plan: RIFE weights, Wan weight inventory...", flush=True)
-    rife = rife_binding(args.rife_weights)
-    if rife["archive_sha256"] != cfg["rife"]["weights_archive_sha256"]:
-        raise ValueError("RIFE weights come from a different archive")
+    used = {s for a in cfg["arms"] for s in post_steps(a)}
+    body = {"schema": PLAN_SCHEMA, "config": cfg, "model_root": str(args.model_root.resolve()), "ngpus": args.ngpus}
+    if "flashvsr" in used:
+        binding, binding_path = flash_binding(cfg, args.flash_weights)
+        print("Freezing plan: SHA256 of FlashVSR weights (several GB on shared storage; may take minutes)...", flush=True)
+        diag.verify_files(binding["files"])  # full SHA256 once at planning
+        body |= {"flash_source": diag.checkout(args.flash_root, cfg["flashvsr"]["commit"]),
+                 "kernel_source": diag.checkout(args.kernel_root, cfg["flashvsr"]["kernel_commit"]),
+                 "weights": binding, "weight_binding": diag.bound_file(binding_path)}
+    if "rife" in used:
+        rife = rife_binding(args.rife_weights)
+        if rife["archive_sha256"] != cfg["rife"]["weights_archive_sha256"]:
+            raise ValueError("RIFE weights come from a different archive")
+        body |= {"rife_source": diag.checkout(args.rife_root, cfg["rife"]["commit"]), "rife_weights": rife}
+    if any(g.get("sampler") == "rcm" for g in cfg["generations"]):
+        print("Freezing plan: SHA256 of the rCM checkpoint (2.8 GB)...", flush=True)
+        body["rcm_weights"] = rcm_binding(cfg, args.rcm_weights)
+    if cfg["arms"][0]["generation"] == EXTERNAL:
+        body["reference"] = reference_binding(cfg, args.reference_root)
+    print("Freezing plan: Wan weight inventory and pinned Wan checkout...", flush=True)
     gen_jobs, final_jobs = build_jobs(cfg, args.ngpus)
-    inventory = pilot.weight_inventory(args.model_root)
-    print("Freezing plan: verifying pinned Wan / FlashVSR / Block-Sparse / RIFE checkouts...", flush=True)
-    body = {"schema": PLAN_SCHEMA, "config": cfg, "model_root": str(args.model_root.resolve()), "ngpus": args.ngpus,
-            "weight_inventory": inventory, "wan_source": wan_source(),
-            "flash_source": diag.checkout(args.flash_root, cfg["flashvsr"]["commit"]),
-            "kernel_source": diag.checkout(args.kernel_root, cfg["flashvsr"]["kernel_commit"]),
-            "weights": binding, "weight_binding": diag.bound_file(binding_path),
-            "rife_source": diag.checkout(args.rife_root, cfg["rife"]["commit"]), "rife_weights": rife,
-            "implementation": implementation(), "gen_jobs": gen_jobs, "final_jobs": final_jobs}
+    body |= {"weight_inventory": pilot.weight_inventory(args.model_root), "wan_source": wan_source(),
+             "implementation": implementation(), "gen_jobs": gen_jobs, "final_jobs": final_jobs}
     body["plan_sha256"] = digest(body)
     immutable(out / "plan.json", body)
     print(f"Frozen plan {body['plan_sha256'][:12]}: {len(gen_jobs)} stage-1 generations, "
-          f"{sum(j['arm']['post'] != 'none' for j in final_jobs)} post-processing jobs, {len(final_jobs)} final videos")
+          f"{sum(len(post_steps(j['arm'])) for j in final_jobs)} post-processing steps, {len(final_jobs)} final videos")
 
 
 def load_plan(out, verify=True):
@@ -173,7 +236,7 @@ def load_plan(out, verify=True):
         if wan_source() != p["wan_source"]:
             raise ValueError("Pinned Wan source changed")
         for key in ("flash_source", "kernel_source", "rife_source"):
-            if diag.checkout(p[key]["path"], p[key]["commit"])["commit"] != p[key]["commit"]:
+            if key in p and diag.checkout(p[key]["path"], p[key]["commit"])["commit"] != p[key]["commit"]:
                 raise ValueError(f"{key} changed")
     return p
 
@@ -184,6 +247,35 @@ def gen_record_path(out, job_id):
 
 def final_record_path(out, job_id):
     return Path(out) / "records" / "post" / (job_id + ".json")
+
+
+def step_record_path(out, job_id, step):
+    """Receipt of an intermediate step of a multi-step post chain (all but the last step)."""
+    return Path(out) / "records" / "post_steps" / f"{job_id}.step{step}.json"
+
+
+def step_input_receipt(out, job, step):
+    return gen_record_path(out, job["generation_job"]) if step == 0 else step_record_path(out, job["id"], step - 1)
+
+
+def step_receipt_valid(out, p, job, step):
+    path = step_record_path(out, job["id"], step)
+    if not path.exists():
+        return False
+    row = read(path)
+    if row["plan_sha256"] != p["plan_sha256"] or row["job"] != job or row["step"] != step:
+        raise ValueError(f"Post-step receipt protocol mismatch: {path}")
+    if row["input_receipt_sha256"] != file_hash(step_input_receipt(out, job, step)):
+        raise ValueError(f"Post-step receipt is bound to a different input: {path}")
+    if not math.isfinite(row["seconds"]) or row["seconds"] <= 0 or file_hash(row["frames"]["path"]) != row["frames"]["sha256"]:
+        raise ValueError(f"Invalid post-step runtime or changed frames: {path}")
+    return True
+
+
+def post_step_done(out, p, job, step):
+    if step == len(post_steps(job["arm"])) - 1:
+        return final_receipt_valid(out, p, job)
+    return step_receipt_valid(out, p, job, step)
 
 
 def gen_receipt_valid(out, p, job):
@@ -211,6 +303,10 @@ def final_receipt_valid(out, p, job):
         raise ValueError(f"Post receipt protocol mismatch: {path}")
     if row["stage1_receipt_sha256"] != file_hash(gen_record_path(out, job["generation_job"])):
         raise ValueError(f"Post receipt is bound to a different stage-1 receipt: {path}")
+    chain = range(len(post_steps(job["arm"])) - 1)
+    if (not all(step_receipt_valid(out, p, job, k) for k in chain) or
+            row.get("step_receipt_sha256", []) != [file_hash(step_record_path(out, job["id"], k)) for k in chain]):
+        raise ValueError(f"Post receipt is bound to different intermediate steps: {path}")
     if not math.isfinite(row["runtime"]["post_seconds"]) or row["runtime"]["post_seconds"] <= 0:
         raise ValueError(f"Invalid post runtime: {path}")
     if file_hash(row["video_path"]) != row["video_sha256"]:
@@ -218,26 +314,27 @@ def final_receipt_valid(out, p, job):
     return True
 
 
-def python_for(phase, unit, p, args):
-    if phase == "post" and next(a for a in p["config"]["arms"] if a["id"] == unit)["post"] == "flashvsr":
+def python_for(phase, unit, step, p, args):
+    if phase == "post" and post_steps(next(a for a in p["config"]["arms"] if a["id"] == unit))[step] == "flashvsr":
         return args.flash_python
     return args.python
 
 
-def units(p, phase):
+def units(p, phase, step=None):
     if phase == "stage1":
         return [g["id"] for g in p["config"]["generations"]]
-    return [a["id"] for a in p["config"]["arms"] if a["post"] != "none"]
+    return [a["id"] for a in p["config"]["arms"] if len(post_steps(a)) > step]
 
 
-def pending_units(args, p, phase, gpu, probe):
+def pending_units(args, p, phase, gpu, probe, step=None):
     if probe:  # one full-shape probe per unit, spread across GPUs
-        return [u for i, u in enumerate(units(p, phase)) if i % p["ngpus"] == gpu]
+        return [u for i, u in enumerate(units(p, phase, step)) if i % p["ngpus"] == gpu]
     if phase == "stage1":
         jobs = [j for j in p["gen_jobs"] if j["gpu"] == gpu and not gen_receipt_valid(args.out, p, j)]
         return [u for u in units(p, phase) if any(j["generation"]["id"] == u for j in jobs)]
-    jobs = [j for j in p["final_jobs"] if j["gpu"] == gpu and j["arm"]["post"] != "none" and not final_receipt_valid(args.out, p, j)]
-    return [u for u in units(p, phase) if any(j["arm"]["id"] == u for j in jobs)]
+    jobs = [j for j in p["final_jobs"] if j["gpu"] == gpu and len(post_steps(j["arm"])) > step
+            and not post_step_done(args.out, p, j, step)]
+    return [u for u in units(p, phase, step) if any(j["arm"]["id"] == u for j in jobs)]
 
 
 def launch(args, phase, probe=False):
@@ -246,11 +343,19 @@ def launch(args, phase, probe=False):
         raise ValueError("NGPUS differs from frozen plan")
     if pilot.weight_inventory(Path(p["model_root"])) != p["weight_inventory"]:
         raise ValueError("Wan weights changed after the plan was frozen")
-    if phase == "post" and not probe:
+    if phase == "stage1":
+        return launch_wave(args, p, phase, None, probe)
+    if not probe:
         missing = [j["id"] for j in p["gen_jobs"] if not gen_receipt_valid(args.out, p, j)]
         if missing:
             raise RuntimeError(f"Stage 1 incomplete ({len(missing)} missing, e.g. {missing[:3]}); run stage1 first")
-    queues = {gpu: pending_units(args, p, phase, gpu, probe) for gpu in range(p["ngpus"])}
+    # Step k of every chain runs after step k-1 of every chain (they may need different Pythons).
+    for step in range(max(len(post_steps(a)) for a in p["config"]["arms"])):
+        launch_wave(args, p, phase, step, probe)
+
+
+def launch_wave(args, p, phase, step, probe):
+    queues = {gpu: pending_units(args, p, phase, gpu, probe, step) for gpu in range(p["ngpus"])}
     logs = args.out / "logs"
     logs.mkdir(parents=True, exist_ok=True)
     processes, failures, last = {}, [], time.monotonic()
@@ -263,13 +368,15 @@ def launch(args, phase, probe=False):
                 env = dict(os.environ, CUDA_VISIBLE_DEVICES=str(gpu), PYTHONUNBUFFERED="1", PYTHONDONTWRITEBYTECODE="1")
                 for key in ("RANK", "LOCAL_RANK", "WORLD_SIZE", "MASTER_ADDR", "MASTER_PORT"):
                     env.pop(key, None)
-                command = [python_for(phase, unit, p, args), str(WORKER), phase, "--out", str(args.out),
+                command = [python_for(phase, unit, step, p, args), str(WORKER), phase, "--out", str(args.out),
                            "--gpu", str(gpu), "--unit", unit] + (["--probe"] if probe else [])
-                path = logs / f"{'probe_' if probe else ''}{phase}_{unit}_gpu{gpu}_{time.time_ns()}.log"
+                command += [] if step is None else ["--step", str(step)]
+                tag = unit if step is None else f"{unit}_step{step}"
+                path = logs / f"{'probe_' if probe else ''}{phase}_{tag}_gpu{gpu}_{time.time_ns()}.log"
                 handle = path.open("w", encoding="utf-8")
                 processes[gpu] = (subprocess.Popen(command, env=env, cwd=ROOT, stdout=handle, stderr=subprocess.STDOUT),
                                   handle, unit, path)
-                print(f"GPU {gpu}: {phase} {unit} -> {path}", flush=True)
+                print(f"GPU {gpu}: {phase} {tag} -> {path}", flush=True)
             for gpu, (process, handle, unit, path) in list(processes.items()):
                 if process.poll() is None:
                     continue
@@ -314,17 +421,30 @@ def status(args, quiet=False):
     gen_done = sum(gen_record_path(args.out, j["id"]).exists() for j in p["gen_jobs"])
     post_jobs = [j for j in p["final_jobs"] if j["arm"]["post"] != "none"]
     post_done = sum(final_record_path(args.out, j["id"]).exists() for j in post_jobs)
-    print(f"stage1 {gen_done}/{len(p['gen_jobs'])}; post {post_done}/{len(post_jobs)}", flush=True)
+    middle = [(j, k) for j in post_jobs for k in range(len(post_steps(j["arm"])) - 1)]
+    middle_done = sum(step_record_path(args.out, j["id"], k).exists() for j, k in middle)
+    print(f"stage1 {gen_done}/{len(p['gen_jobs'])}; post {post_done}/{len(post_jobs)}"
+          + (f" (intermediate steps {middle_done}/{len(middle)})" if middle else ""), flush=True)
 
 
 def final_records(args, p):
     records = []
+    reference = reference_index(p) if "reference" in p else {}
     for job in p["final_jobs"]:
+        public_job = {k: v for k, v in job.items() if k not in ("gpu", "generation_job")}
+        if job["generation_job"] is None:  # reused FULL50: same prompt text and seed, unchanged video
+            source = reference.get((job["prompt"], job["seed"]))
+            if source is None or file_hash(source["video_path"]) != source["video_sha256"]:
+                raise RuntimeError(f"Reference FULL50 missing or changed for {job['id']}")
+            seconds = source["runtime"]["pipeline_seconds"]
+            records.append({"job": public_job, "video_path": source["video_path"], "video_sha256": source["video_sha256"],
+                            "runtime": {"pipeline_seconds": seconds, "stage1_seconds": seconds, "post_seconds": 0.0},
+                            "generation_job": None, "reference_job": source["job"]["id"]})
+            continue
         gen = next(j for j in p["gen_jobs"] if j["id"] == job["generation_job"])
         if not gen_receipt_valid(args.out, p, gen):
             raise RuntimeError(f"Missing stage-1 receipt: {gen['id']}")
         stage1 = read(gen_record_path(args.out, gen["id"]))
-        public_job = {k: v for k, v in job.items() if k not in ("gpu", "generation_job")}
         if job["arm"]["post"] == "none":
             runtime = {"pipeline_seconds": stage1["runtime"]["pipeline_seconds"],
                        "stage1_seconds": stage1["runtime"]["pipeline_seconds"], "post_seconds": 0.0}
@@ -461,7 +581,12 @@ def report(args):
         "F41 arms play 41 generated frames as 81 at 16 fps, i.e. 2x slow motion of what Wan drew; flow-based "
         "freeze/motion metrics must be normalized for this before comparison with FULL50.",
         "LR81 is generated at 416x240, outside Wan2.1-1.3B's 480p training canvas; LR_BICUBIC separates "
-        "low-resolution generation failures from SR failures."]})
+        "low-resolution generation failures from SR failures."] + ([
+        "rCM arms load the official rCM 1.3B DiT into the pinned official Wan2.1 model and replicate the official "
+        "rcm inference loop (TrigFlow timesteps, no CFG, no negative prompt); 81 frames as all other arms."]
+        if "rcm_weights" in p else []) + ([
+        f"FULL50 is reused, unregenerated, from {p['reference']['root']} (same prompts, seeds and machine)."]
+        if "reference" in p else [])})
     print(f"Saved paired deltas and summary: {metrics}")
 
 
@@ -512,6 +637,8 @@ def main():
     parser.add_argument("--flash-weights", type=Path, default=ROOT / "checkpoints/flashvsr_v11")
     parser.add_argument("--rife-root", type=Path, default=ROOT / "UNIV_adaptor/external/practical_rife")
     parser.add_argument("--rife-weights", type=Path, default=ROOT / "checkpoints/rife_v426")
+    parser.add_argument("--rcm-weights", type=Path, default=ROOT / "checkpoints/rcm/rCM_Wan2.1_T2V_1.3B_480p.pt")
+    parser.add_argument("--reference-root", type=Path, help="finalized run whose FULL50 an external reference arm reuses")
     parser.add_argument("--ngpus", type=int, default=8)
     parser.add_argument("--vbench-root", type=Path, default=Path("/mnt/afs_2/houze/VBench"))
     parser.add_argument("--vbench-python", default="/opt/conda/bin/python")

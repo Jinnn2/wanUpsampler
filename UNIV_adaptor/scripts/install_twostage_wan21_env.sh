@@ -3,7 +3,7 @@
 #
 #   bash UNIV_adaptor/scripts/install_twostage_wan21_env.sh            # all steps
 #   bash UNIV_adaptor/scripts/install_twostage_wan21_env.sh <step>     # one step
-#   steps: preflight wan vbench flash rife verify | cache-export (run on a WORKING machine)
+#   steps: preflight wan vbench flash rife rcm verify | cache-export (run on a WORKING machine)
 #
 # Idempotent: every step checks first and installs only what is missing. Shared
 # environments under the repo (/mnt/afs_2) are reused when they work on this
@@ -240,6 +240,21 @@ print("RIFE weights extracted and bound:", root)
 PY
 }
 
+rcm() {
+  say "rCM distilled Wan2.1-T2V-1.3B 480p DiT (loaded into the official Wan code; no rcm repo install)"
+  # Official checkpoint of NVlabs/rcm; sha256 = the Hugging Face LFS object id, also frozen in the configs.
+  local dir="${REPO_ROOT}/checkpoints/rcm" file="rCM_Wan2.1_T2V_1.3B_480p.pt"
+  local revision="142d77a331f1516fea772607c1bf25a2785a2505"
+  local sha="3baa20e8e64c7f1ee6e4a377f5a04b8e4d193e0a1a1241814879a004fd77370a"
+  mkdir -p "${dir}"
+  if [[ ! -s "${dir}/${file}" ]]; then
+    curl -fL --retry 5 -C - -o "${dir}/${file}.part" "${HF_ENDPOINT}/worstcoder/rcm-Wan/resolve/${revision}/${file}"
+    mv "${dir}/${file}.part" "${dir}/${file}"
+  fi
+  echo "Verifying rCM checkpoint SHA256 (2.8 GB)..."
+  echo "${sha}  ${dir}/${file}" | sha256sum -c - || die "rCM checkpoint hash mismatch; delete ${dir}/${file} and rerun"
+}
+
 verify() {
   say "verify: real full-shape runs on this machine"
   echo "The first minutes of check freeze the plan (weight hashes, git checks) with the GPUs still idle."
@@ -257,8 +272,8 @@ verify() {
 
 ENV_FILE="${TWOSTAGE_ENV_FILE:-${ENV_DIR}/$(gpu_tag).env}"
 case "${STEP}" in
-  all) preflight; wan; vbench; flash; rife; verify ;;
-  preflight|wan|vbench|flash|rife|verify) "${STEP}" ;;
+  all) preflight; wan; vbench; flash; rife; rcm; verify ;;
+  preflight|wan|vbench|flash|rife|rcm|verify) "${STEP}" ;;
   cache-export) cache_export ;;
   *) die "Unknown step: ${STEP}" ;;
 esac

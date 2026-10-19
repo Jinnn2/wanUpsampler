@@ -37,6 +37,32 @@ class ConfigTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             driver.validate_config(cfg)
 
+    def test_v2b_and_dev2_configs_are_valid(self):
+        for name in ("published_wan21_twostage_v2b.json", "published_wan21_twostage_dev2.json"):
+            cfg = driver.validate_config(driver.read(driver.DEFAULT_CONFIG.with_name(name)))
+            self.assertEqual(cfg["arms"][0]["generation"], driver.EXTERNAL)
+            arm = next(a for a in cfg["arms"] if a["id"] == "LR41_FLASH_RIFE")
+            self.assertEqual(driver.chain_shapes(cfg, arm), [(41, 416, 240), (41, 832, 480), (81, 832, 480)])
+        dev2 = driver.read(driver.DEFAULT_CONFIG.with_name("published_wan21_twostage_dev2.json"))
+        v1 = config()
+        self.assertFalse({p["prompt"] for p in dev2["prompts"]} & {p["prompt"] for p in v1["prompts"]})
+        self.assertFalse({p["family_id"] for p in dev2["prompts"]} & {p["family_id"] for p in v1["prompts"]})
+
+    def test_incomplete_chain_and_bad_rcm_steps_are_rejected(self):
+        cfg = driver.read(driver.DEFAULT_CONFIG.with_name("published_wan21_twostage_v2b.json"))
+        bad = copy.deepcopy(cfg)
+        next(a for a in bad["arms"] if a["id"] == "LR41_FLASH_RIFE")["post"] = "flashvsr"
+        with self.assertRaises(ValueError):
+            driver.validate_config(bad)
+        bad = copy.deepcopy(cfg)
+        next(g for g in bad["generations"] if g["id"] == "RCM4")["steps"] = 5
+        with self.assertRaises(ValueError):
+            driver.validate_config(bad)
+        bad = copy.deepcopy(cfg)
+        bad["arms"][1]["generation"] = driver.EXTERNAL
+        with self.assertRaises(ValueError):
+            driver.validate_config(bad)
+
 
 class JobTest(unittest.TestCase):
     def test_jobs_share_stage1_generations(self):
@@ -128,6 +154,57 @@ class FinalRecordTest(unittest.TestCase):
         self.assertNotIn("gpu", full["job"])
         self.assertEqual(len(records), 5)
         json.dumps(records)
+
+    def test_external_reference_and_post_chain(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        out, ref = Path(tmp.name) / "run", Path(tmp.name) / "published_wan21_twostage_v1"
+        cfg = driver.read(driver.DEFAULT_CONFIG.with_name("published_wan21_twostage_v2b.json"))
+        cfg["prompts"], cfg["seeds"] = cfg["prompts"][:1], [42]
+        cfg["arms"] = [a for a in cfg["arms"] if a["id"] in ("FULL50", "LR41_FLASH_RIFE")]
+        gens, finals = driver.build_jobs(cfg, 1)
+        gens = [g for g in gens if g["generation"]["id"] == "LR41"]
+        source = ref / "full.mp4"
+        source.parent.mkdir(parents=True)
+        source.write_bytes(b"full")
+        driver.write(ref / "plan.json", {"plan_sha256": "ref", "schema": "x"})
+        reference = driver.reference_binding(cfg, ref)
+        p = {"plan_sha256": "abc", "gen_jobs": gens, "final_jobs": finals, "reference": reference}
+        driver.write(ref / "dataset_manifest.json", {"plan_sha256": "ref", "partial_exploratory": False, "records": [{
+            "job": {"id": "pilot_x_FULL50", "prompt": finals[0]["prompt"], "seed": 42, "arm": {"id": "FULL50"}},
+            "video_path": str(source), "video_sha256": driver.file_hash(source),
+            "runtime": {"pipeline_seconds": 100.0}}]})
+        out.mkdir()
+        gen = gens[0]
+        video = out / "gen.mp4"
+        video.write_bytes(b"gen")
+        driver.write(driver.gen_record_path(out, gen["id"]), {
+            "plan_sha256": "abc", "job": gen, "video_path": str(video), "video_sha256": driver.file_hash(video),
+            "frames": None, "runtime": {"pipeline_seconds": 10.0}})
+        chain = next(j for j in finals if j["arm"]["id"] == "LR41_FLASH_RIFE")
+        self.assertFalse(driver.post_step_done(out, p, chain, 0))
+        frames = out / "step0.npz"
+        frames.write_bytes(b"frames")
+        driver.write(driver.step_record_path(out, chain["id"], 0), {
+            "plan_sha256": "abc", "job": chain, "step": 0, "seconds": 5.0,
+            "input_receipt_sha256": driver.file_hash(driver.gen_record_path(out, gen["id"])),
+            "frames": {"path": str(frames), "sha256": driver.file_hash(frames)}})
+        self.assertTrue(driver.post_step_done(out, p, chain, 0))
+        self.assertFalse(driver.post_step_done(out, p, chain, 1))
+        final = out / "final.mp4"
+        final.write_bytes(b"final")
+        driver.write(driver.final_record_path(out, chain["id"]), {
+            "plan_sha256": "abc", "job": chain, "video_path": str(final), "video_sha256": driver.file_hash(final),
+            "stage1_receipt_sha256": driver.file_hash(driver.gen_record_path(out, gen["id"])),
+            "step_receipt_sha256": [driver.file_hash(driver.step_record_path(out, chain["id"], 0))],
+            "runtime": {"pipeline_seconds": 15.5, "stage1_seconds": 10.0, "post_seconds": 5.5}})
+        records = {r["job"]["arm"]["id"]: r for r in driver.final_records(types.SimpleNamespace(out=out), p)}
+        self.assertEqual(records["FULL50"]["video_path"], str(source))
+        self.assertEqual(records["FULL50"]["runtime"]["pipeline_seconds"], 100.0)
+        self.assertEqual(records["LR41_FLASH_RIFE"]["runtime"]["post_seconds"], 5.5)
+        source.write_bytes(b"changed")
+        with self.assertRaises(RuntimeError):
+            driver.final_records(types.SimpleNamespace(out=out), p)
 
 
 if __name__ == "__main__":

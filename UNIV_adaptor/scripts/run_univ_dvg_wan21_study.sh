@@ -97,7 +97,7 @@ PY
     ;;
   requirements)
     "${BASE_PYTHON}" "${REPO_ROOT}/UNIV_adaptor/scripts/data/score_controlled_factor_requirements.py" plan \
-      --dvg-study "${STUDY_ROOT}" --checklist "${REPO_ROOT}/prompts/univ_controlled_factor_v1_requirements.jsonl" \
+      --dvg-study "${STUDY_ROOT}" --checklist "${CHECKLIST:-${REPO_ROOT}/prompts/univ_controlled_factor_v1_requirements.jsonl}" \
       --out "${REQ_ROOT}"
     REQ_ROOT="${REQ_ROOT}" QUALITY_CSV="${STUDY_ROOT}/quality_by_video.csv" bash "${REQ}" signals
     REQ_ROOT="${REQ_ROOT}" QUALITY_CSV="${STUDY_ROOT}/quality_by_video.csv" bash "${REQ}" vlm
