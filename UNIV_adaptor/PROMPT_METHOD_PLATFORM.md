@@ -69,3 +69,7 @@ export GPU_IDS=0,1,2,3,4,5,6,7
 R=UNIV_adaptor/scripts/run_univ_controlled_factor_requirements.sh
 bash $R plan && bash $R signals && bash $R vlm && bash $R report
 ```
+
+## v2a：只压空间、只压时间
+
+见 `PUBLISHED_WAN21_TWOSTAGE.md`。新增两组方法：一组先用 416×240 生成再用 FlashVSR 放大，另一组先生成 41 帧再用 RIFE 插帧；另外各配一个简单对照（双三次放大、帧重复）。prompt 和 seed 与 v1 相同。新机器先运行 `install_twostage_wan21_env.sh` 安装环境，再运行 `run_univ_twostage_wan21_8gpu.sh all`。
