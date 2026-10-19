@@ -29,7 +29,7 @@ RIFE_COMMIT="bbfd2ea90910789a860ea3e2b32a240cd577b75e"
 RIFE_REVISION="01fdc7e97404120c243c3ea7b427046e5dc7643e"
 RIFE_ZIP_SHA256="1fa9b9cda3d9b8c3e301359e2595960902f97bf926c08598b0e9957a3f3f760e"
 HF_ENDPOINT="${HF_ENDPOINT:-https://huggingface.co}"
-export PYTHONDONTWRITEBYTECODE=1
+export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 cd "${REPO_ROOT}"
 
 say() { printf '\n==== %s\n' "$*"; }
@@ -198,6 +198,7 @@ print("flash env OK: torch", torch.__version__, "cuda", torch.version.cuda, "sm"
     "${python}" -c "${probe}" || die "FlashVSR env still broken"
   fi
   # Verifies an existing SHA256-bound download, or downloads the pinned revision.
+  echo "Verifying FlashVSR weights by SHA256 (several GB on shared storage; silent for a few minutes)..."
   FLASH_VENV="${venv}" FLASH_PYTHON="${python}" bash UNIV_adaptor/scripts/run_univ_flashvsr_asset_diagnostic_8gpu.sh download
   record_env FLASH_PYTHON "${python}"
 }
@@ -241,6 +242,7 @@ PY
 
 verify() {
   say "verify: real full-shape runs on this machine"
+  echo "The first minutes of check freeze the plan (weight hashes, git checks) with the GPUs still idle."
   local smoke="${SMOKE_VIDEO:-}"
   if [[ -z "${smoke}" ]]; then
     smoke="$(find "${REPO_ROOT}/outputs" -path '*videos/pilot/FULL50/*.mp4' -print -quit 2>/dev/null || true)"

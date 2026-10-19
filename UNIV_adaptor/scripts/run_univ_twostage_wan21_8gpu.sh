@@ -17,7 +17,7 @@ VBENCH_ROOT="${VBENCH_ROOT:-/mnt/afs_2/houze/VBench}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 TWOSTAGE_ROOT="${TWOSTAGE_ROOT:-${REPO_ROOT}/outputs/published_wan21_twostage_v1}"
 NGPUS="${NGPUS:-8}"
-export PYTHONDONTWRITEBYTECODE=1
+export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
 DRIVER="${REPO_ROOT}/UNIV_adaptor/scripts/data/twostage_wan21.py"
 COMMON=(--out "${TWOSTAGE_ROOT}" --model-root "${MODEL_ROOT}" --ngpus "${NGPUS}"

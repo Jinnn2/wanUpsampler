@@ -141,13 +141,17 @@ def plan(args):
         raise ValueError(f"Unplanned nonempty output: {out}; choose a NEW directory")
     cfg = validate_config(read(args.config))
     binding, binding_path = flash_binding(cfg, args.flash_weights)
+    print("Freezing plan: SHA256 of FlashVSR weights (several GB on shared storage; may take minutes)...", flush=True)
     diag.verify_files(binding["files"])  # full SHA256 once at planning
+    print("Freezing plan: RIFE weights, Wan weight inventory...", flush=True)
     rife = rife_binding(args.rife_weights)
     if rife["archive_sha256"] != cfg["rife"]["weights_archive_sha256"]:
         raise ValueError("RIFE weights come from a different archive")
     gen_jobs, final_jobs = build_jobs(cfg, args.ngpus)
+    inventory = pilot.weight_inventory(args.model_root)
+    print("Freezing plan: verifying pinned Wan / FlashVSR / Block-Sparse / RIFE checkouts...", flush=True)
     body = {"schema": PLAN_SCHEMA, "config": cfg, "model_root": str(args.model_root.resolve()), "ngpus": args.ngpus,
-            "weight_inventory": pilot.weight_inventory(args.model_root), "wan_source": wan_source(),
+            "weight_inventory": inventory, "wan_source": wan_source(),
             "flash_source": diag.checkout(args.flash_root, cfg["flashvsr"]["commit"]),
             "kernel_source": diag.checkout(args.kernel_root, cfg["flashvsr"]["kernel_commit"]),
             "weights": binding, "weight_binding": diag.bound_file(binding_path),
