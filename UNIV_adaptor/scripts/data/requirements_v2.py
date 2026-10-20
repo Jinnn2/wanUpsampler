@@ -429,6 +429,58 @@ def compare(args):
     return 0
 
 
+def apply_edits(record, edits):
+    """Apply human review edits (keyed by draft ids) to one record: drop questions or change fields, then
+    renumber q0, q1, ... and rewrite depends_on. Dependencies on a dropped question are removed."""
+    qs = [dict(q) for q in record["questions"]]
+    for e in edits:
+        q = next((q for q in qs if q["id"] == e["id"]), None)
+        if q is None:
+            raise ValueError(f"p{record['prompt_id']}: edit names unknown question {e['id']}")
+        if e["action"] == "drop":
+            q["_drop"] = True
+        elif e["action"] == "set":
+            for k, v in e["fields"].items():
+                if v is None:
+                    q.pop(k, None)
+                else:
+                    q[k] = v
+        else:
+            raise ValueError(f"unknown edit action {e['action']!r}")
+    kept = [q for q in qs if not q.get("_drop")]
+    new_id = {q["id"]: f"q{i}" for i, q in enumerate(kept)}
+    for q in kept:
+        q["depends_on"] = [new_id[d] for d in q.get("depends_on", []) if d in new_id]
+        q["id"] = new_id[q["id"]]
+    return {**record, "questions": kept}
+
+
+def freeze(args):
+    """Draft + reviewed edit list -> frozen checklist (validated), with its sha256."""
+    import hashlib
+
+    prompts = load_prompts(args.prompts)
+    spec = json.loads(Path(args.edits).read_text(encoding="utf-8"))
+    draft_sha = hashlib.sha256(Path(args.draft).read_bytes()).hexdigest()
+    if spec["draft_sha256"] != draft_sha:
+        raise SystemExit(f"edits were reviewed against draft {spec['draft_sha256'][:12]}, but {args.draft} is {draft_sha[:12]}")
+    by_prompt = collections.defaultdict(list)
+    for e in spec["edits"]:
+        by_prompt[e["prompt_id"]].append(e)
+    records = [apply_edits(r, by_prompt.pop(r["prompt_id"], [])) for r in load_jsonl(args.draft)]
+    if by_prompt:
+        raise SystemExit(f"edits for prompts not in the draft: {sorted(by_prompt)}")
+    errs = [e for r in records for e in validate_record(r, prompts[r["prompt_id"]])]
+    if errs:
+        raise SystemExit("frozen checklist is invalid:\n" + "\n".join(errs))
+    text = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records)
+    Path(args.out).write_text(text, encoding="utf-8", newline="\n")
+    n = sum(len(r["questions"]) for r in records)
+    print(f"{len(records)} prompts, {n} questions, {len(spec['edits'])} edits applied")
+    print(f"sha256 {hashlib.sha256(text.encode('utf-8')).hexdigest()}  {args.out}")
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -455,8 +507,14 @@ def main(argv=None):
     m.add_argument("--prompts", nargs="+", required=True)
     m.add_argument("--exclude-family", nargs="*", default=["watchmaking"], help="families used as examples")
     m.add_argument("--report")
+    f = sub.add_parser("freeze")
+    f.add_argument("--draft", required=True)
+    f.add_argument("--edits", required=True, help="reviewed edit list (JSON) pinned to the draft's sha256")
+    f.add_argument("--prompts", nargs="+", required=True)
+    f.add_argument("--out", required=True)
     args = ap.parse_args(argv)
-    return {"validate": validate, "generate": generate, "collect": collect, "compare": compare}[args.cmd](args)
+    return {"validate": validate, "generate": generate, "collect": collect, "compare": compare,
+            "freeze": freeze}[args.cmd](args)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,31 @@
+{
+ "draft": "prompts/univ_requirements_v2_draft.jsonl",
+ "draft_sha256": "7654534a082a50e401a2d8575d2c779bcb17a2bc38ef328878481a2c3056bb29",
+ "review": {
+  "date": "2026-10-21",
+  "fully_reviewed_prompts": [0, 1, 2, 3, 4, 5, 6],
+  "flagged_questions_reviewed": 49,
+  "notes": "One reviewer. Prompts 0-6 checked question by question, all passed. All 49 heuristic flags checked: only the motion-related negatives needed changes (edits below); the rest passed. The other prompts are machine-validated only."
+ },
+ "edits": [
+  {"prompt_id": 2, "id": "q5", "action": "drop", "reason": "duplicates q4 (global static); a single frame cannot show movement"},
+  {"prompt_id": 3, "id": "q4", "action": "drop", "reason": "duplicates q3 (global static)"},
+  {"prompt_id": 33, "id": "q9", "action": "drop", "reason": "duplicates q8 (camera)"},
+  {"prompt_id": 37, "id": "q7", "action": "drop", "reason": "duplicates q3 (global static); 'animals' is not in the prompt"},
+  {"prompt_id": 40, "id": "q9", "action": "drop", "reason": "duplicates q7 (camera) and q8 (global static)"},
+  {"prompt_id": 49, "id": "q7", "action": "drop", "reason": "duplicates q5 (global static)"},
+  {"prompt_id": 121, "id": "q7", "action": "drop", "reason": "duplicates q6 (global static)"},
+  {"prompt_id": 145, "id": "q7", "action": "drop", "reason": "duplicates q6 (global static)"},
+  {"prompt_id": 148, "id": "q7", "action": "drop", "reason": "duplicates q6 (the kite is the only thing that could move)"},
+  {"prompt_id": 41, "id": "q5", "action": "set", "reason": "movement is measured by flow, not single frames",
+   "fields": {"type": "static", "question": "Does the water stay calm, without waves or ripples?", "region": "subject", "expect": "still", "grounding": "the water"}},
+  {"prompt_id": 48, "id": "q6", "action": "set", "reason": "movement is measured by flow, not single frames",
+   "fields": {"type": "static", "question": "Does the water inside the globe stay calm?", "region": "subject", "expect": "still", "grounding": "the water inside the snow globe"}},
+  {"prompt_id": 60, "id": "q9", "action": "set", "reason": "movement is measured by flow, not single frames",
+   "fields": {"type": "static", "question": "Do the shadows stay still?", "region": "global", "expect": "still"}},
+  {"prompt_id": 120, "id": "q6", "action": "set", "reason": "the sails turning is the specific failure; measured by flow on the sails",
+   "fields": {"type": "static", "question": "Do the sails stay still without turning?", "evidence": "the sails do not turn", "region": "subject", "expect": "still", "grounding": "the windmill sails"}},
+  {"prompt_id": 139, "id": "q7", "action": "set", "reason": "describes the motion, not an absence; judged on video",
+   "fields": {"type": "action", "question": "Do the tops cross paths and occlude one another while spinning?", "evidence": "occlude one another"}}
+ ]
+}

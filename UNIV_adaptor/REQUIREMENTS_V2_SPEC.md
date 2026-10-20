@@ -188,6 +188,12 @@ locked test 的清单最后单独起草，在最终评估前冻结。校验脚�
   bash UNIV_adaptor/scripts/run_univ_requirements_v2.sh full    # dev + dev2 共 128 个 prompt
   ```
 - **冻结子集**：dev 与 dev2 的清单由人审核，修改记入变更日志，然后冻结并记录 sha256。
+- **已冻结（2026-10-21）**：
+    - 草稿 `prompts/univ_requirements_v2_draft.jsonl`（Qwen3-VL-32B 生成，sha256 `7654534a…`）。
+    - 审核修改 `prompts/univ_requirements_v2_edits.json`：删除 9 题、改写 5 题，全部是"用单帧题问运动"的问题。
+    - 冻结版 `prompts/univ_requirements_v2_frozen.jsonl`：128 个 prompt，1247 题，sha256 `5f8bb6567d520faa8f67aebde1f0dcd36885991791ca9e87e6d50f8679abcc51`。
+    - 由 `requirements_v2.py freeze` 从前两个文件重新生成，结果逐字节一致。
+    - 审核范围：一人审核。p0–p6 逐题审核；49 道自动标记的疑点全部检查；其余题目只经过机器校验。M3 的人工标注会顺带检验题目质量，发现问题时只能发新版本（v2.1），不能改动 v2.0。
 
 ### M2 判定器
 

@@ -110,6 +110,19 @@ class GenerateTest(unittest.TestCase):
         self.assertIn("without '...'", msg("plain white paper crane... light gray table"))
         self.assertIn("split it", msg("sits motionless on an empty table. The locked camera frames it"))
 
+    def test_edits_drop_renumber_and_rewrite_dependencies(self):
+        rec = {"prompt_id": 7, "questions": [
+            {"id": "q0", "type": "entity", "depends_on": []},
+            {"id": "q1", "type": "negative", "depends_on": ["q0"]},
+            {"id": "q2", "type": "attribute", "depends_on": ["q0", "q1"]}]}
+        out = rv2.apply_edits(rec, [{"id": "q1", "action": "drop"},
+                                    {"id": "q2", "action": "set", "fields": {"type": "detail"}}])
+        self.assertEqual([(q["id"], q["type"], q["depends_on"]) for q in out["questions"]],
+                         [("q0", "entity", []), ("q1", "detail", ["q0"])])
+        self.assertEqual(rec["questions"][2]["type"], "attribute")  # the draft is not modified
+        with self.assertRaises(ValueError):
+            rv2.apply_edits(rec, [{"id": "q9", "action": "drop"}])
+
     def test_reference_against_itself_has_full_recall(self):
         import contextlib, io, tempfile
 
