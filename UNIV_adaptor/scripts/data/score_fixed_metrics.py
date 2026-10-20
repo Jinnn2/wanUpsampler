@@ -157,7 +157,8 @@ def flow_series(frames, model, device):
             "flow_alternation": float(np.abs(np.diff(m)).mean() / (m.mean() + 1e-3)),
             "flow_hold_fraction": float((m < 0.2 * med).mean()) if med > 0.2 else 0.0,
             "warp_error": float(e.mean()), "warp_spike": float(e.max() / (np.median(e) + 1e-6)),
-            "boil": float(np.nanmean(b)) if np.isfinite(b).any() else float("nan"),
+            # None (JSON null) when no pair has enough near-static pixels, e.g. a camera that never stops
+            "boil": float(np.nanmean(b)) if np.isfinite(b).any() else None,
             "flow_mag_series": [round(float(v), 4) for v in m]}
 
 
@@ -209,7 +210,7 @@ def report(args):
         s = json.loads((cache / f"{sha}.json").read_text(encoding="utf-8"))
         if s["signal_version"] != SIGNAL_VERSION:
             raise ValueError(f"stale signal cache: {sha}")
-        sig[sha] = s
+        sig[sha] = {k: float("nan") if v is None else v for k, v in s.items()}
     full = {(v["source"], v["group_id"]): sig[v["video_sha256"]] for v in value["videos"] if v["case_id"] == FULL}
     rows = []
     for v in value["videos"]:

@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import math
 import unittest
 from pathlib import Path
@@ -72,6 +73,9 @@ class FlowSeriesTest(unittest.TestCase):
         self.assertAlmostEqual(s["flow_camera"], 3.0, places=4)
         self.assertLess(s["flow_local"], 1e-4)
         self.assertEqual(len(s["flow_mag_series"]), 8)
+        # No near-static pixels under a constant pan: boil is undefined and must still be valid JSON.
+        self.assertIsNone(s["boil"])
+        json.dumps(s, allow_nan=False)
 
 
 if __name__ == "__main__":
