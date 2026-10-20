@@ -1,3 +1,4 @@
+import argparse
 import copy
 import json
 import unittest
@@ -44,6 +45,53 @@ class RequirementsV2Test(unittest.TestCase):
         self.assertTrue(any("camera" in e for e in rv2.validate_record(bad, p)))
         test_prompt = next(q for q in prompts.values() if q["split"] == "test")
         self.assertTrue(any("locked test" in e for e in rv2.validate_record({"prompt_id": test_prompt["prompt_id"]}, test_prompt)))
+
+
+class GenerateTest(unittest.TestCase):
+    def setUp(self):
+        self.prompts = prompt_index()
+        self.pilot = {r["prompt_id"]: r for r in rv2.load_jsonl(PILOT)}
+        self.examples = [r for r in self.pilot.values() if r["family_id"] == "watchmaking"]
+
+    def test_examples_are_turns_and_target_comes_last(self):
+        msgs = rv2.build_messages(self.prompts[100], self.examples, self.prompts)
+        self.assertEqual(len(msgs), 2 + 2 * len(self.examples))
+        self.assertIn(self.prompts[100]["prompt"], msgs[-1]["content"])
+        self.assertEqual(rv2.parse_reply(msgs[2]["content"])["questions"][0]["id"], "q0")
+
+    def test_errors_are_fed_back_until_valid(self):
+        good = json.dumps({"questions": self.pilot[100]["questions"]})
+        broken = copy.deepcopy(self.pilot[100]["questions"])
+        broken[0]["evidence"] = "not in the prompt"
+        replies = iter(["Sure! Here it is:", "```json\n" + json.dumps({"questions": broken}) + "\n```", good])
+        seen = []
+
+        def chat(msgs):
+            seen.append(msgs)
+            return next(replies)
+
+        result = rv2.generate_one(self.prompts[100], self.examples, self.prompts, chat, repairs=2)
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(result["attempts"]), 3)
+        self.assertIn("evidence", seen[2][-1]["content"])  # the second error went back to the model
+        self.assertEqual(result["record"]["motion_level"], self.prompts[100]["motion_level"])
+
+        replies = iter(["no json"] * 3)
+        self.assertFalse(rv2.generate_one(self.prompts[100], self.examples, self.prompts,
+                                          lambda m: next(replies), repairs=2)["ok"])
+
+    def test_reference_against_itself_has_full_recall(self):
+        import contextlib, io, tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "r.md"
+            args = argparse.Namespace(generated=str(PILOT), reference=str(PILOT), prompts=[str(p) for p in PROMPTS],
+                                      exclude_family=["watchmaking"], report=str(report))
+            with contextlib.redirect_stdout(io.StringIO()):
+                rv2.compare(args)
+            text = report.read_text(encoding="utf-8")
+        self.assertIn("= 100.0%", text)
+        self.assertIn("matching no reference question: 0", text)
 
 
 if __name__ == "__main__":
