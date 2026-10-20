@@ -116,7 +116,8 @@ Fields of each question:
 - type: one of the types below. The type alone decides how the question is judged.
 - question: one English yes/no question ending with "?". Phrase negative constraints so that Yes means
   satisfied, e.g. "Is the frame free of human hands?".
-- evidence: a span copied character-for-character from the prompt, naming the requirement the question checks.
+- evidence: one contiguous span copied character-for-character from the prompt (same capitalization, no "..."),
+  naming the requirement the question checks.
 - depends_on: ids of earlier questions that must hold for this one to make sense (e.g. an attribute question
   depends on its entity question). Use [] when there is none.
 - region, expect, grounding: see motion, static, camera and integrity below.
@@ -150,6 +151,13 @@ Rules:
 - If the prompt mentions the camera (camera, locked, stationary), include a camera question.
 - If the prompt describes a still scene, include a static question. If it describes motion, include a motion
   or action question.
+- Choosing between similar types:
+  - "plain", "untextured", "undecorated", "without veins" are negative (something is absent), not attribute.
+  - Small structures that must be visible ("fine printed patterns", "thin creases", "carved", "antennae") are
+    detail, not attribute.
+  - Verbs of movement ("slides", "spins", "tumbles") are action or motion, never spatial: spatial is judged on
+    single frames.
+  - Viewpoint ("looks down at", "overhead", "close-up") is spatial.
 - Typically 7 to 12 questions. Do not ask about the same requirement twice.
 
 Output exactly one JSON object {"questions": [...]} and nothing else."""
@@ -185,6 +193,20 @@ def parse_reply(text):
     return obj if isinstance(obj, dict) and isinstance(obj.get("questions"), list) else None
 
 
+def snap_evidence(questions, text):
+    """Replace evidence that matches the prompt up to case and whitespace with the prompt's own span.
+    Models lower-case sentence-initial words ("The camera is locked") and do not fix it when told."""
+    folded = text.lower()
+    for q in questions:
+        ev = q.get("evidence") if isinstance(q, dict) else None
+        if not isinstance(ev, str) or not ev.strip() or ev in text:
+            continue
+        m = re.search(r"\s+".join(map(re.escape, ev.lower().split())), folded)
+        if m:
+            q["evidence"] = text[m.start():m.end()]
+    return questions
+
+
 def generate_one(prompt, examples, prompts, chat, repairs=2):
     """Draft, validate, and feed the errors back up to `repairs` times. Keeps every attempt for audit."""
     msgs = build_messages(prompt, examples, prompts)
@@ -198,7 +220,7 @@ def generate_one(prompt, examples, prompts, chat, repairs=2):
             # Prompt metadata comes from the prompt file, never from the model.
             rec = {"prompt_id": prompt["prompt_id"], "family_id": prompt["family_id"],
                    "motion_level": prompt["motion_level"], "detail_level": prompt["detail_level"],
-                   "questions": obj["questions"]}
+                   "questions": snap_evidence(obj["questions"], prompt["prompt"])}
             try:
                 errs = validate_record(rec, prompt)
             except (AttributeError, TypeError) as exc:  # e.g. a question that is not an object
@@ -307,7 +329,7 @@ def compare(args):
     prompts = load_prompts(args.prompts)
     gen = {r["prompt_id"]: r for r in load_jsonl(args.generated)}
     ref = [r for r in load_jsonl(args.reference) if r["family_id"] not in args.exclude_family]
-    n_t, hit_t, hit_any, missed, extras = collections.Counter(), collections.Counter(), 0, [], []
+    n_t, hit_t, hit_j, hit_any, missed, extras = collections.Counter(), collections.Counter(), 0, 0, [], []
     for r in ref:
         text = prompts[r["prompt_id"]]["prompt"]
         gq = gen.get(r["prompt_id"], {}).get("questions", [])
@@ -317,6 +339,7 @@ def compare(args):
             n_t[t] += 1
             hit = any(gt == t and overlaps(s, g) for gt, g in gs)
             hit_t[t] += hit
+            hit_j += any(JUDGE.get(gt) == JUDGE[t] and overlaps(s, g) for gt, g in gs)
             hit_any += any(overlaps(s, g) for _, g in gs)
             if not hit:
                 missed.append(f"| p{r['prompt_id']} | {t} | {q['question']} | {q['evidence']} |")
@@ -328,6 +351,7 @@ def compare(args):
              f"Reference prompts: {len(ref)} (example families excluded: {', '.join(args.exclude_family) or 'none'}); "
              f"generated: {sum(r['prompt_id'] in gen for r in ref)}.", "",
              f"- Recall, same type and overlapping evidence: {hits}/{n} = {hits / max(n, 1):.1%}",
+             f"- Recall, same judge and overlapping evidence: {hit_j}/{n} = {hit_j / max(n, 1):.1%}",
              f"- Recall, overlapping evidence of any type: {hit_any}/{n} = {hit_any / max(n, 1):.1%}",
              f"- Generated questions matching no reference question: {len(extras)}", "",
              "| type | recall |", "| --- | --- |"]

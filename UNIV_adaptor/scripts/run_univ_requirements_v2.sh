@@ -62,6 +62,7 @@ case "${MODE}" in
       "${GEN_ROOT}/check/raw/100.json"
     ;;
   pilot)
+    rm -rf "${GEN_ROOT}/pilot"  # a measurement: always from scratch (generate skips prompts already in raw/)
     fan_out "${GEN_ROOT}/pilot" --only "${HELD_OUT[@]}"
     "${BASE_PYTHON}" "${DRIVER}" collect --prompts "${PROMPTS[@]}" --out "${GEN_ROOT}/pilot" | tee "${GEN_ROOT}/pilot/collect.txt"
     "${BASE_PYTHON}" "${DRIVER}" compare --generated "${GEN_ROOT}/pilot/checklist.jsonl" --reference "${PILOT}" \

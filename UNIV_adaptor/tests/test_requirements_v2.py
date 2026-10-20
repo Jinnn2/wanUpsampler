@@ -80,6 +80,13 @@ class GenerateTest(unittest.TestCase):
         self.assertFalse(rv2.generate_one(self.prompts[100], self.examples, self.prompts,
                                           lambda m: next(replies), repairs=2)["ok"])
 
+    def test_evidence_is_snapped_to_prompt_casing(self):
+        text = "One oversized king stands still.  The camera is locked."
+        qs = rv2.snap_evidence([{"evidence": "the camera is locked"}, {"evidence": "stands  still"},
+                                {"evidence": "one oversized king"}, {"evidence": "a queen"}], text)
+        self.assertEqual([q["evidence"] for q in qs],
+                         ["The camera is locked", "stands still", "One oversized king", "a queen"])
+
     def test_reference_against_itself_has_full_recall(self):
         import contextlib, io, tempfile
 
