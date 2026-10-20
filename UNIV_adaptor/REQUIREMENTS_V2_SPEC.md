@@ -1,13 +1,61 @@
-# 需求清单 v2：出题规范、判定器分派与评分协议
+# 加速质量评测 v2：固定层与动态层
 
-v1 清单（`prompts/univ_controlled_factor_*_requirements.jsonl`）的做法：每个 prompt 手写 4 道题，全部交给 Qwen2.5-VL-7B 打分，P(Yes) 等权平均，每个视频单独评分后再与 FULL 相减。v2 在四处升级：
+v1 的做法：每个 prompt 手写 4 道题，全部交给 Qwen2.5-VL-7B 打分，P(Yes) 等权平均，每个视频单独评分后再与 FULL 相减。清单在 `prompts/univ_controlled_factor_*_requirements.jsonl`。
 
-1. **出题**：题目原子化，每题对应 prompt 原文的一段，题与题之间有依赖关系。
-2. **分派**：按题型交给最合适的判定器，运动类题不再交给 VLM。
-3. **成对判定**：VLM 判定的题，同时与同 seed 的 FULL 视频成对比较。
-4. **伪影信号**：卡顿、闪烁等不依赖 VLM 的信号，见本文末尾"待定"。
+v2 把评测分成两层，划分标准是"需不需要读懂 prompt"：
 
-依据的相关工作：DSG、ETVA 的拆题与依赖结构；MLLM-as-a-Judge、UVE 关于成对比较更可靠、大模型优于小模型的结论；Time Blindness、MotionInsight 关于 VLM 看不出时间维度信息的结论。
+| 层 | 回答的问题 | 适用范围 | 判定方式 |
+|---|---|---|---|
+| **固定层** | 与原版相比丢了什么 | 任何 prompt、任何视频，只需同 seed 的 FULL 视频 | 信号测量；固定问句的成对 VLM 判定 |
+| **动态层** | prompt 的要求还满足吗 | 按 prompt 出题；冻结子集人工审核，新 prompt 自动出题 | 按题型分派：VLM 或测量 |
+
+固定层能脱离 prompt，是因为加速评测天然带一个参考：同 seed 的 FULL 视频已经隐含了"这个视频应该是什么样"。因此固定层的指标在任何 prompt 集上都可比，可以直接用到 VBench 的 prompt 或用户的真实 prompt 上。代价是固定层奖励"像 FULL"：FULL 本身做错的地方，加速视频照抄也不扣分。是否满足 prompt 交给动态层判断。
+
+依据的相关工作：
+
+- DSG、ETVA 的拆题与依赖结构。
+- MLLM-as-a-Judge、UVE：成对比较更可靠，大模型优于小模型。
+- Time Blindness、MotionInsight：VLM 看不出时间维度的信息。
+- MoGAN、SGMD：蒸馏会改变运动量，而 VBench 不够敏感。
+
+## 0. 固定层
+
+### 0.1 信号指标（已实现）
+
+实现：`scripts/data/score_fixed_metrics.py`，运行脚本 `scripts/run_univ_fixed_metrics.sh`。每个视频先单独计算原始量，再与同一来源、同一 prompt、同一 seed 的 FULL 视频配对，得到差值或对数比。
+
+| 维度 | 原始量 | 与 FULL 配对后 |
+|---|---|---|
+| 运动保真 | 全部 80 个相邻帧对的 RAFT 光流：全局幅度、镜头分量（光流中位数向量）、局部分量（扣除中位数后的残差） | 三者的对数比 `logratio_*`。运动多了、少了都偏离 0：rCM 给静止画面加运动时大于 0，蒸馏让画面变静止时小于 0 |
+| 卡顿 | 光流幅度在相邻帧对间的交替程度 `flow_alternation`；停帧比例 `flow_hold_fraction`、`pixel_hold_fraction` | 差值。合成测试中，重复帧视频的交替度为 1.98，平滑运动为 0.18 |
+| 闪烁 | 逐帧平均亮度的二阶差分 `flicker` | 差值 |
+| 纹理沸腾 | 近静止区域（光流小于 1 像素）做运动补偿后，高频分量的残差占比 `boil` | 差值 |
+| 光流中断 | 运动补偿误差的峰值与中位数之比 `warp_spike` | 差值 |
+| 细节 | 逐帧 Laplacian 清晰度的均值，以及其随时间的波动 | 差值 |
+| 色彩 | 饱和度、亮度、colorfulness、饱和度加权色相 | 差值；色相偏移取圆周距离 |
+
+计算按视频哈希去重：多个结果目录共用的 FULL 视频只算一次。locked test 在计划阶段就被排除，不会被解码。
+
+### 0.2 固定问句（待实现，依赖 VLM 选型）
+
+对每个加速视频都问同样的问题，不读 prompt 的具体内容，并与 FULL 成对判定：
+
+- "Do any objects deform, melt, merge, or appear and disappear abruptly?"（形状完整，单视频判定）
+- "Do video A and video B depict the same scene and content?"（内容一致）
+- "Given the description, does video B follow it at least as well as video A?"（整体忠实度，只把 prompt 原文作为上下文）
+
+### 0.3 表示类指标（待评估）
+
+V-JEPA 2 的视频表示对运动和物理很敏感，原版 V-JEPA 用预测误差（surprise）在 IntPhys 上零样本检测物理违例达到 98%。计划加入两项：
+
+- 加速视频与 FULL 在 V-JEPA 特征空间的距离。
+- 加速视频自身的 surprise。
+
+两项都不依赖 prompt。
+
+## 动态层
+
+以下第 1–6 节定义动态层。动态层的题目由 LLM 按本规范自动生成，经机器校验后即可用于任何新 prompt。进入 benchmark 冻结子集（dev、dev2、test）的清单，还要经过人工审核。
 
 ## 1. 题目格式
 
@@ -100,5 +148,11 @@ locked test 的清单最后单独起草，在最终评估前冻结。校验脚�
 
 - 主体分割：`grounding` 短语交给检测加跟踪模型（如 Grounding DINO 加 SAM2）得到主体掩码。需要确认服务器能否安装。
 - 光流阈值的标定方法，以及 `motion` 题"一定比例"的具体取值。
-- 伪影信号：重复帧和卡顿、亮度闪烁、高频纹理沸腾。v2a 已证明光流能区分 DUP 和 RIFE，这一层计划作为独立指标，不并入需求分数。
+- 动态层自动出题：服务器上目前没有文本 LLM。可选方案是本地部署一个开源 LLM，或者在本地起草后上传，需要决定。
 - 72B 模型的显存与吞吐：约 2900 个视频 × 约 9 题 × 5 帧，需要先测速。
+- **VideoJev**（南京大学 MCG，[arXiv 2610.18615](https://arxiv.org/abs/2610.18615)，[GitHub](https://github.com/MCG-NJU/VideoJev)）：暂不接入，记录备选。
+    - 它用打分头代替逐字生成：视频编码一次后可缓存，多个问题在一次前向中同时打分。
+    - QA 准确率与底座相当，速度提升 100 倍以上；有 4B 和 35B-A3B 两个版本。
+    - 适合"一个视频回答约 10 道是非题"的动态层：主要价值是成本，不解决准确率问题。它的时间定位能力还可以用来定位"要求在第几秒开始被违反"。
+    - 据二手资料，输入为 2 fps、最大 640×640，5 秒视频只有约 10 帧，不能用于运动、卡顿和细节类题。
+    - 发布于 2026-10，尚无生成视频评测上的验证。接入前需读原文核实输入规格，并在人工标注集上与 72B VLM 对比。
