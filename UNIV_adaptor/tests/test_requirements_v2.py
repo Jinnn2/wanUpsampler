@@ -43,6 +43,20 @@ class RequirementsV2Test(unittest.TestCase):
         bad["questions"] = [q for q in bad["questions"] if q["type"] != "camera"]
         bad["questions"] = [{**q, "id": f"q{i}", "depends_on": []} for i, q in enumerate(bad["questions"])]
         self.assertTrue(any("camera" in e for e in rv2.validate_record(bad, p)))
+        orbit = prompts[42]  # "... while the camera flies rapidly around it in a broad continuous orbit ..."
+        cam = {"id": "q0", "type": "camera", "question": "Does the camera stay locked?", "depends_on": [],
+               "evidence": "the camera flies rapidly around it", "region": "background", "expect": "still"}
+        inverted = {k: orbit[k] for k in ("prompt_id", "family_id", "motion_level", "detail_level")}
+        inverted["questions"] = [cam]
+        self.assertTrue(any("camera moving" in e for e in rv2.validate_record(inverted, orbit)))
+        inverted["questions"] = [{**cam, "question": "Does the camera orbit the lighthouse?", "expect": "moving"}]
+        self.assertFalse(any("camera" in e for e in rv2.validate_record(inverted, orbit)))
+        rolls = {"id": "q0", "type": "spatial", "question": "Does the ball roll across the table?", "depends_on": [],
+                 "evidence": orbit["prompt"].split()[0]}
+        inverted["questions"] = [rolls]
+        self.assertTrue(any("single frames" in e for e in rv2.validate_record(inverted, orbit)))
+        inverted["questions"] = [{**rolls, "question": "Is the spinning top on the table?"}]
+        self.assertFalse(any("single frames" in e for e in rv2.validate_record(inverted, orbit)))
         test_prompt = next(q for q in prompts.values() if q["split"] == "test")
         self.assertTrue(any("locked test" in e for e in rv2.validate_record({"prompt_id": test_prompt["prompt_id"]}, test_prompt)))
 

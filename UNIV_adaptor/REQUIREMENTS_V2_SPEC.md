@@ -76,6 +76,7 @@ V-JEPA 2 的视频表示对运动和物理很敏感，原版 V-JEPA 用预测误
 - 一题只问一件事。"银色的、占满画面的怀表"要拆成属性题和空间题。
 - prompt 里的否定和静止约束必须出题，例如"no other objects""no engraving""nothing moves""lighting never changes"。这类要求是加速方法最容易违反的，现有 benchmark 很少系统地问。
 - 只要 prompt 约束了镜头，就必须有 `camera` 题；低运动 prompt 必须有 `static` 题；高运动 prompt 必须有 `motion` 或 `action` 题。以上由校验脚本检查。
+- 按单帧判定的题型（entity、count、attribute、detail、spatial）不能问"是否在动"，如"球是否滚过桌面"。单帧看不出运动，这类要求应写成 action 或 motion 题。校验脚本按问句中的运动动词检查。
 
 ## 2. 题型与判定器
 
@@ -91,7 +92,7 @@ V-JEPA 2 的视频表示对运动和物理很敏感，原版 V-JEPA 用预测误
 | integrity | 运动中形状是否完整、不融化 | VLM，密集抽帧的视频 | 是 |
 | motion | 运动幅度和速度（"快速""跨越大半画面"） | RAFT 光流，在 `grounding` 分割出的主体区域上测 | 否，与 FULL 的测量值比较 |
 | static | 主体或全局保持静止 | RAFT 光流，主体区域或全局 | 否 |
-| camera | 镜头锁定 | RAFT 光流，背景区域 | 否 |
+| camera | 镜头锁定（`expect: still`），或按 prompt 运动，如环绕、横扫（`expect: moving`） | RAFT 光流，背景区域 | 否 |
 | focus | 对焦不变 | 逐帧清晰度随时间的变化 | 否 |
 | lighting | 光照恒定 | 逐帧亮度随时间的变化 | 否 |
 
@@ -129,8 +130,9 @@ locked test 的清单最后单独起草，在最终评估前冻结。校验脚�
 
 **测量类判定**
 
-- `static` 和 `camera`：对应区域的光流幅度低于阈值。
-- `motion`：主体区域的光流幅度达到 FULL 同 seed 视频的一定比例。
+- `static` 和 `expect: still` 的 `camera`：对应区域的光流幅度低于阈值。
+- `motion` 和 `expect: moving` 的 `camera`：对应区域的光流幅度达到 FULL 同 seed 视频的一定比例。
+- 校验脚本拒绝"依据是镜头运动、却期望镜头静止"的 camera 题。全量出题时，模型曾把 p42 的环绕镜头写成"镜头是否锁定"。
 - 阈值只在 dev 的 FULL 视频上标定。
 
 ## 5. 评分聚合

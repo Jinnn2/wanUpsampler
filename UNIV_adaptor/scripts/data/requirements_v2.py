@@ -25,7 +25,12 @@ JUDGE = {
 # Questions a VLM judges are also asked pairwise against the same-seed FULL video.
 PAIRWISE = {t for t, j in JUDGE.items() if j.startswith("vlm")}
 REGIONS = {"subject", "background", "global"}
-EXPECT = {"motion": {"moving", "fast"}, "static": {"still"}, "camera": {"still"}}
+EXPECT = {"motion": {"moving", "fast"}, "static": {"still"}, "camera": {"still", "moving"}}
+# A camera question that expects "still" must not cite the camera moving (the model inverted p42 this way).
+# Single frames cannot show movement: a frame-judged question asking whether something moves is mistyped.
+FRAME_MOVES = re.compile(r"^(does|do|is|are)\b.*\b(move|moving|roll|rolling|slide|sliding|spin|rotate|rotating|"
+                         r"tumble|tumbling|fly|flying|drift|drifting|swing|swinging)\b", re.I)
+CAMERA_MOVES = re.compile(r"\b(orbit|sweep|pan|fl(y|ies|ying)|track|dolly|zoom|circl|glid|swoop|rotat)", re.I)
 
 
 def load_jsonl(path):
@@ -69,6 +74,11 @@ def validate_record(rec, prompt):
                 errs.append(f"{tag}: {t} needs expect in {sorted(EXPECT[t])}")
             if q.get("region") == "subject" and not q.get("grounding"):
                 errs.append(f"{tag}: subject region needs a grounding phrase")
+        if JUDGE[t] == "vlm_frames" and t != "negative" and FRAME_MOVES.search(text):
+            errs.append(f"{tag}: {t} is judged on single frames, which cannot show movement; ask about movement "
+                        "as action or motion, or ask only what one frame shows")
+        if t == "camera" and q.get("expect") == "still" and CAMERA_MOVES.search(q.get("evidence", "")):
+            errs.append(f"{tag}: evidence describes the camera moving, so expect must be \"moving\"")
         if t == "integrity" and not q.get("grounding"):
             errs.append(f"{tag}: integrity needs a grounding phrase")
         seen.add(q.get("id"))
@@ -134,7 +144,8 @@ Types:
   subject even if the prompt does not say it; evidence is the noun phrase of that object; give grounding.
 - motion: amount or speed of motion ("fast", "sweeps across most of the frame"); expect is "moving" or "fast".
 - static: a subject or the whole scene stays still; expect is "still".
-- camera: the camera stays locked; expect is "still", region is "background" or "global".
+- camera: what the prompt says the camera does. expect is "still" for a locked or fixed camera and "moving"
+  when the camera pans, orbits or flies; region is "background" or "global".
 - focus: focus stays constant.
 - lighting: lighting stays constant.
 
@@ -155,8 +166,8 @@ Rules:
   - "plain", "untextured", "undecorated", "without veins" are negative (something is absent), not attribute.
   - Small structures that must be visible ("fine printed patterns", "thin creases", "carved", "antennae") are
     detail, not attribute.
-  - Verbs of movement ("slides", "spins", "tumbles") are action or motion, never spatial: spatial is judged on
-    single frames.
+  - Verbs of movement ("slides", "spins", "tumbles", "rolls across") are action or motion. entity, count,
+    attribute, detail and spatial are judged on single frames, so they must not ask whether something moves.
   - Viewpoint ("looks down at", "overhead", "close-up") is spatial.
 - Typically 7 to 12 questions. Do not ask about the same requirement twice.
 
@@ -312,7 +323,8 @@ def generate(args, chat=None):
         raise SystemExit(f"no examples of family {args.example_family} in {args.examples}")
     todo = [p for pid, p in sorted(prompts.items()) if p["split"] != "test" and (not args.only or pid in args.only)]
     raw = Path(args.out) / "raw"
-    todo = [p for p in todo[args.shard_index::args.shard_count] if not (raw / f"{p['prompt_id']}.json").exists()]
+    # Skip prompts already done, unless the saved checklist fails rules added since it was generated.
+    todo = [p for p in todo[args.shard_index::args.shard_count] if current_errors(raw / f"{p['prompt_id']}.json", p)]
     if not todo:
         return 0
     chat = chat or TextChat(args.model, args.max_new_tokens)
@@ -325,12 +337,25 @@ def generate(args, chat=None):
     return 0
 
 
+def current_errors(path, prompt):
+    """Errors of a saved result under the current rules; None means nothing is saved yet."""
+    if not path.exists():
+        return ["not generated"]
+    r = json.loads(path.read_text(encoding="utf-8"))
+    return validate_record(r["record"], prompt) if r["ok"] else r["attempts"][-1]["errors"]
+
+
 def collect(args):
     """Merge raw/*.json into checklist.jsonl (valid records only) and list the prompts that need a human."""
     prompts = load_prompts(args.prompts)
     out = Path(args.out)
     results = sorted((json.loads(f.read_text(encoding="utf-8")) for f in (out / "raw").glob("*.json")),
                      key=lambda r: r["prompt_id"])
+    for r in results:  # re-check under the current rules
+        if r["ok"]:
+            errs = validate_record(r["record"], prompts[r["prompt_id"]])
+            if errs:
+                r["ok"], r["attempts"] = False, r["attempts"] + [{"reply": None, "errors": errs}]
     ok = [r["record"] for r in results if r["ok"]]
     (out / "checklist.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in ok),
                                          encoding="utf-8")
