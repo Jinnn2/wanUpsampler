@@ -87,6 +87,15 @@ class GenerateTest(unittest.TestCase):
         self.assertEqual([q["evidence"] for q in qs],
                          ["The camera is locked", "stands still", "One oversized king", "a queen"])
 
+    def test_repair_message_says_how_to_fix_evidence(self):
+        p = self.prompts[100]  # "... there are no patterns or other objects, ..."
+        def msg(ev):
+            return rv2.repair_message([], {"questions": [{"id": "q6", "evidence": ev}]}, p)
+        self.assertIn("'other objects'", msg("no other objects"))
+        self.assertIn("remove the question", msg("From a stationary overhead view"))
+        self.assertIn("without '...'", msg("plain white paper crane... light gray table"))
+        self.assertIn("split it", msg("sits motionless on an empty table. The locked camera frames it"))
+
     def test_reference_against_itself_has_full_recall(self):
         import contextlib, io, tempfile
 

@@ -12,7 +12,7 @@ Usage:
   python .../requirements_v2.py compare --generated outputs/requirements_v2_gen/checklist.jsonl \
       --reference prompts/univ_requirements_v2_pilot.jsonl --prompts ...
 """
-import argparse, collections, json, re, sys
+import argparse, collections, difflib, json, re, sys
 from pathlib import Path
 
 # type -> judge. vlm_frames: native-resolution stills; vlm_video: dense clip; flow: RAFT on a grounded region;
@@ -207,6 +207,42 @@ def snap_evidence(questions, text):
     return questions
 
 
+def closest_span(text, evidence):
+    """(span, score): the run of whole words in `text` most similar to `evidence` (difflib ratio on words)."""
+    words = list(re.finditer(r"\S+", text))
+    target = [w.strip(".,;:") for w in evidence.lower().split()]
+    best, best_score = None, 0.0
+    for n in range(max(1, len(target) - 3), len(target) + 4):
+        for i in range(len(words) - n + 1):
+            cand = [w.group().lower().strip(".,;:") for w in words[i:i + n]]
+            score = difflib.SequenceMatcher(None, cand, target).ratio()
+            if score > best_score:
+                best, best_score = (words[i].start(), words[i + n - 1].end()), score
+    return (text[best[0]:best[1]].rstrip(".,;:") if best else None), best_score
+
+
+def repair_message(errs, rec, prompt):
+    """Error list for the model, with a concrete fix for each evidence error: 'not an exact span' alone does
+    not tell a model what to copy, and it keeps paraphrasing."""
+    lines, text = list(errs), prompt["prompt"]
+    for q in (rec or {}).get("questions", []):
+        ev = q.get("evidence") if isinstance(q, dict) else None
+        if not isinstance(ev, str) or not ev or ev in text:
+            continue
+        span, score = closest_span(text, ev)
+        if "..." in ev or "…" in ev:
+            lines.append(f"{q.get('id')}: evidence must be one contiguous span without '...'; the closest is {span!r}")
+        elif re.search(r"[.!?]\s+\S", ev.strip()):
+            lines.append(f"{q.get('id')}: evidence joins two sentences; split it into one question per requirement")
+        elif score >= 0.6:
+            lines.append(f"{q.get('id')}: the closest exact span of the prompt is {span!r}; use it as evidence")
+        else:
+            lines.append(f"{q.get('id')}: the prompt does not say this; remove the question unless you find the "
+                         "exact words in the prompt")
+    return ("The checklist has these problems:\n- " + "\n- ".join(lines)
+            + "\nOutput the full corrected JSON object only.")
+
+
 def generate_one(prompt, examples, prompts, chat, repairs=2):
     """Draft, validate, and feed the errors back up to `repairs` times. Keeps every attempt for audit."""
     msgs = build_messages(prompt, examples, prompts)
@@ -229,8 +265,7 @@ def generate_one(prompt, examples, prompts, chat, repairs=2):
         if not errs:
             break
         msgs = msgs + [{"role": "assistant", "content": reply},
-                       {"role": "user", "content": "The checklist has these problems:\n- " + "\n- ".join(errs)
-                        + "\nOutput the full corrected JSON object only."}]
+                       {"role": "user", "content": repair_message(errs, rec if obj is not None else None, prompt)}]
     return {"prompt_id": prompt["prompt_id"], "ok": not errs, "record": rec, "attempts": attempts}
 
 
