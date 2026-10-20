@@ -197,6 +197,12 @@ locked test 的清单最后单独起草，在最终评估前冻结。校验脚�
 
 ### M2 判定器
 
+**实现**：`scripts/data/score_dynamic.py`，运行脚本 `scripts/run_univ_dynamic.sh`（`plan pilot` → `check` → `run`）。判定模型先用 Qwen3-VL-32B-Instruct，与出题模型相同。
+
+- 视频题传入 32 帧，同时传入帧号和 fps：Qwen3-VL 据此为每帧标注时间戳，并且不会再按默认的 2 fps 重新抽帧。默认设置会把 32 帧压到总共约 78 万像素，即每帧约 120×210，所以显式放宽了像素上限，每帧保持 448×768。
+- 成对判定：两种顺序问的都是加速视频（"B 是否不差于 A"和"A 是否不差于 B"），两次的 P(Yes) 都 ≥ 0.5 才算保持。
+- 测量类题的阈值写在 `PROVISIONAL` 里，是 M3 标定前的临时值。原始测量值逐题写入 `dynamic_by_question.csv`，以后改阈值不需要重新运行。
+
 **VLM 单视频判定**
 
 - 帧类题：5 帧原分辨率图片。
