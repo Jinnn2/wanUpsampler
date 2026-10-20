@@ -28,7 +28,8 @@ REGIONS = {"subject", "background", "global"}
 EXPECT = {"motion": {"moving", "fast"}, "static": {"still"}, "camera": {"still", "moving"}}
 # A camera question that expects "still" must not cite the camera moving (the model inverted p42 this way).
 # Single frames cannot show movement: a frame-judged question asking whether something moves is mistyped.
-FRAME_MOVES = re.compile(r"^(does|do|is|are)\b.*\b(move|moving|roll|rolling|slide|sliding|spin|rotate|rotating|"
+# "Is there / Are there" questions are exempt: there the verb form is a modifier ("drifting fragments").
+FRAME_MOVES = re.compile(r"^(does|do|is|are)\b(?! there\b).*\b(move|moving|roll|rolling|slide|sliding|spin|rotate|rotating|"
                          r"tumble|tumbling|fly|flying|drift|drifting|swing|swinging)\b", re.I)
 CAMERA_MOVES = re.compile(r"\b(orbit|sweep|pan|fl(y|ies|ying)|track|dolly|zoom|circl|glid|swoop|rotat)", re.I)
 
@@ -342,7 +343,7 @@ def current_errors(path, prompt):
     if not path.exists():
         return ["not generated"]
     r = json.loads(path.read_text(encoding="utf-8"))
-    return validate_record(r["record"], prompt) if r["ok"] else r["attempts"][-1]["errors"]
+    return validate_record(r["record"], prompt) if r["record"] else r["attempts"][-1]["errors"]
 
 
 def collect(args):
@@ -351,11 +352,12 @@ def collect(args):
     out = Path(args.out)
     results = sorted((json.loads(f.read_text(encoding="utf-8")) for f in (out / "raw").glob("*.json")),
                      key=lambda r: r["prompt_id"])
-    for r in results:  # re-check under the current rules
-        if r["ok"]:
+    for r in results:  # re-check under the current rules, which may be stricter or looser than at generation
+        if r["record"]:
             errs = validate_record(r["record"], prompts[r["prompt_id"]])
-            if errs:
-                r["ok"], r["attempts"] = False, r["attempts"] + [{"reply": None, "errors": errs}]
+            if errs != (r["attempts"][-1]["errors"] if not r["ok"] else []):
+                r["attempts"] = r["attempts"] + [{"reply": None, "errors": errs}]
+            r["ok"] = not errs
     ok = [r["record"] for r in results if r["ok"]]
     (out / "checklist.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in ok),
                                          encoding="utf-8")
