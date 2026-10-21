@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>视频要求标注</title>
+<style>
+  :root { --bg: #f6f6f4; --card: #fff; --ink: #1d1d1b; --mute: #6b6b66; --line: #dcdcd6; --accent: #2a5db0; --done: #2e7d32; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, "Microsoft YaHei", sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--card); border-bottom: 1px solid var(--line);
+           display: flex; gap: 12px; align-items: center; padding: 8px 16px; flex-wrap: wrap; }
+  header b { font-size: 16px; }
+  header .grow { flex: 1; }
+  button, select { font: inherit; padding: 4px 10px; border: 1px solid var(--line); background: var(--card); border-radius: 6px; cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  main { max-width: 1500px; margin: 0 auto; padding: 16px; }
+  .prompt { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; color: var(--mute); }
+  .videos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .videos figure { margin: 0; background: #000; border-radius: 8px; overflow: hidden; position: relative; }
+  .videos video { width: 100%; display: block; }
+  .videos figcaption { position: absolute; top: 6px; left: 8px; color: #fff; font-weight: 700; font-size: 22px; text-shadow: 0 0 4px #000; }
+  .controls { display: flex; gap: 8px; align-items: center; margin: 10px 0 16px; flex-wrap: wrap; }
+  .controls input[type=range] { flex: 1; min-width: 160px; }
+  .q { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
+  .q.complete { border-left: 4px solid var(--done); }
+  .q .text { font-weight: 600; }
+  .q .hint { color: var(--mute); font-size: 13px; margin-bottom: 6px; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 3px 0; }
+  .row .label { width: 150px; color: var(--mute); }
+  .row label { border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; cursor: pointer; user-select: none; }
+  .row input { display: none; }
+  .row input:checked + span { font-weight: 700; color: var(--accent); }
+  .row label:has(input:checked) { border-color: var(--accent); background: #eaf0fb; }
+  .nav { display: flex; gap: 8px; justify-content: space-between; margin-top: 14px; }
+  .help { color: var(--mute); font-size: 13px; }
+  @media (max-width: 800px) { .videos { grid-template-columns: 1fr; } .row .label { width: 100%; } }
+</style>
+</head>
+<body>
+<header>
+  <b id="who"></b>
+  <span id="progress"></span>
+  <span class="grow"></span>
+  <select id="jump"></select>
+  <button id="export" class="primary">导出标注</button>
+  <button id="import">导入</button>
+  <input id="importFile" type="file" accept=".json" hidden>
+</header>
+<main>
+  <div class="prompt"><b>生成视频的文字描述：</b><span id="prompt"></span></div>
+  <div class="videos">
+    <figure><figcaption>左</figcaption><video id="vL" muted playsinline preload="auto"></video></figure>
+    <figure><figcaption>右</figcaption><video id="vR" muted playsinline preload="auto"></video></figure>
+  </div>
+  <div class="controls">
+    <button id="play">播放 / 暂停 (空格)</button>
+    <button id="back">◀ 一帧 (,)</button>
+    <button id="fwd">一帧 ▶ (.)</button>
+    <input id="seek" type="range" min="0" max="1000" value="0">
+    <select id="rate"><option value="1">1×</option><option value="0.5">0.5×</option><option value="0.25">0.25×</option></select>
+    <label><input id="loop" type="checkbox" checked> 循环</label>
+  </div>
+  <div id="questions"></div>
+  <div class="nav">
+    <button id="prev">← 上一组</button>
+    <span class="help">每道题答三项：左边是否满足、右边是否满足、哪边满足得更好。看不清或拿不准就选"不确定"。标注自动保存在本浏览器中，完成后点"导出标注"把文件发回。</span>
+    <button id="next" class="primary">下一组 →</button>
+  </div>
+</main>
+<script src="tasks.js"></script>
+<script>
+const A = window.ANNOTATION;
+const KEY = `annotation-${A.annotator}-${A.sample_sha256.slice(0, 12)}`;
+let state = { index: 0, answers: {} };
+try { state = Object.assign(state, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const $ = id => document.getElementById(id);
+const vL = $("vL"), vR = $("vR");
+const FPS = 16;
+const FIELDS = [
+  ["left", "左边满足这项要求吗", [["yes", "是"], ["no", "否"], ["unsure", "不确定"]]],
+  ["right", "右边满足这项要求吗", [["yes", "是"], ["no", "否"], ["unsure", "不确定"]]],
+  ["better", "哪边满足得更好", [["left", "左边"], ["same", "差不多"], ["right", "右边"], ["unsure", "不确定"]]],
+];
+
+$("who").textContent = `标注者 ${A.annotator}`;
+A.tasks.forEach((t, i) => $("jump").add(new Option(`第 ${i + 1} 组`, i)));
+
+function complete(t) {
+  const a = state.answers[t.gid] || {};
+  return t.questions.every(q => a[q.id] && FIELDS.every(([f]) => a[q.id][f]));
+}
+
+function progress() {
+  const n = A.tasks.filter(complete).length;
+  $("progress").textContent = `已完成 ${n} / ${A.tasks.length} 组`;
+  [...$("jump").options].forEach((o, i) => o.text = `第 ${i + 1} 组${complete(A.tasks[i]) ? " ✓" : ""}`);
+}
+
+function render() {
+  const t = A.tasks[state.index];
+  $("jump").value = state.index;
+  $("prompt").textContent = t.prompt;
+  vL.src = `videos/${t.gid}_L.mp4`;
+  vR.src = `videos/${t.gid}_R.mp4`;
+  vL.playbackRate = vR.playbackRate = +$("rate").value;
+  const box = $("questions");
+  box.innerHTML = "";
+  const answers = state.answers[t.gid] = state.answers[t.gid] || {};
+  t.questions.forEach((q, n) => {
+    const div = document.createElement("div");
+    div.className = "q";
+    const text = document.createElement("div");
+    text.className = "text";
+    text.textContent = `${n + 1}. ${q.question}`;
+    const hint = document.createElement("div");
+    hint.className = "hint";
+    hint.textContent = q.hint;
+    div.append(text, hint);
+    const a = answers[q.id] = answers[q.id] || {};
+    for (const [field, label, options] of FIELDS) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const l = document.createElement("span");
+      l.className = "label";
+      l.textContent = label;
+      row.append(l);
+      for (const [value, name] of options) {
+        const lab = document.createElement("label");
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.name = `${q.id}-${field}`;
+        input.checked = a[field] === value;
+        input.onchange = () => { a[field] = value; save(); div.classList.toggle("complete", FIELDS.every(([f]) => a[f])); progress(); };
+        const span = document.createElement("span");
+        span.textContent = name;
+        lab.append(input, span);
+        row.append(lab);
+      }
+      div.append(row);
+    }
+    div.classList.toggle("complete", FIELDS.every(([f]) => a[f]));
+    box.append(div);
+  });
+  progress();
+  save();
+  window.scrollTo(0, 0);
+}
+
+// Both clips follow one clock: the left video drives, the right one is re-aligned when it drifts.
+function sync() {
+  if (Math.abs(vR.currentTime - vL.currentTime) > 0.05) vR.currentTime = vL.currentTime;
+  if (vL.duration) $("seek").value = Math.round(1000 * vL.currentTime / vL.duration);
+}
+vL.addEventListener("timeupdate", sync);
+vL.addEventListener("ended", () => { if ($("loop").checked) { vL.currentTime = vR.currentTime = 0; vL.play(); vR.play(); } });
+function toggle() {
+  if (vL.paused) { vR.currentTime = vL.currentTime; vL.play(); vR.play(); } else { vL.pause(); vR.pause(); vR.currentTime = vL.currentTime; }
+}
+function step(d) {
+  vL.pause(); vR.pause();
+  const t = Math.min(Math.max(vL.currentTime + d / FPS, 0), (vL.duration || 0) - 0.001);
+  vL.currentTime = vR.currentTime = t;
+}
+$("play").onclick = toggle;
+$("back").onclick = () => step(-1);
+$("fwd").onclick = () => step(1);
+$("seek").oninput = e => { if (vL.duration) vL.currentTime = vR.currentTime = vL.duration * e.target.value / 1000; };
+$("rate").onchange = e => { vL.playbackRate = vR.playbackRate = +e.target.value; };
+const go = i => { if (i >= 0 && i < A.tasks.length) { vL.pause(); vR.pause(); state.index = i; render(); } };
+$("prev").onclick = () => go(state.index - 1);
+$("next").onclick = () => {
+  if (!complete(A.tasks[state.index]) && !confirm("这一组还有题没答完，仍然跳到下一组吗？")) return;
+  go(state.index + 1);
+};
+$("jump").onchange = e => go(+e.target.value);
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "SELECT") return;
+  if (e.key === " ") { e.preventDefault(); toggle(); }
+  else if (e.key === ",") step(-1);
+  else if (e.key === ".") step(1);
+});
+
+$("export").onclick = () => {
+  const out = { annotator: A.annotator, sample_sha256: A.sample_sha256, exported_at: new Date().toISOString(),
+                answers: state.answers };
+  const blob = new Blob([JSON.stringify(out, null, 1)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `labels_${A.annotator}.json`;
+  link.click();
+};
+$("import").onclick = () => $("importFile").click();
+$("importFile").onchange = async e => {
+  const data = JSON.parse(await e.target.files[0].text());
+  if (data.annotator !== A.annotator || data.sample_sha256 !== A.sample_sha256) { alert("这个文件不属于当前标注包"); return; }
+  state.answers = data.answers;
+  render();
+};
+render();
+</script>
+</body>
+</html>
