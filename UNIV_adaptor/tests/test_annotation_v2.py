@@ -89,7 +89,7 @@ class AnnotationTest(unittest.TestCase):
     def test_kit_hides_the_method(self):
         with mock.patch.object(an, "encode", lambda src, dst, ffmpeg: shutil.copy(src, dst)), \
                 contextlib.redirect_stdout(io.StringIO()):
-            an.kit(Namespace(out=str(self.out), annotator="A", ffmpeg="ffmpeg"))
+            an.kit(Namespace(out=str(self.out), annotator="A", ffmpeg="ffmpeg", jobs=4))
         kit = self.out / "kit_A"
         tasks = (kit / "tasks.js").read_text(encoding="utf-8")
         self.assertEqual(len(list((kit / "videos").glob("*.mp4"))), 2 * len(self.value["assignment"]["A"]))

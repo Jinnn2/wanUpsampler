@@ -24,7 +24,7 @@ case "${MODE}" in
     ;;
   kit)
     for who in A B; do
-      "${BASE_PYTHON}" "${DRIVER}" kit --out "${ANN_ROOT}" --annotator "${who}" --ffmpeg "${FFMPEG}" | tail -n 1
+      "${BASE_PYTHON}" "${DRIVER}" kit --out "${ANN_ROOT}" --annotator "${who}" --ffmpeg "${FFMPEG}" --jobs "${JOBS:-16}"
       tar czf "${ANN_ROOT}/kit_${who}.tgz" -C "${ANN_ROOT}" "kit_${who}"
       echo "Send: ${ANN_ROOT}/kit_${who}.tgz ($(du -h "${ANN_ROOT}/kit_${who}.tgz" | cut -f1))"
     done

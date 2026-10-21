@@ -25,6 +25,7 @@ import json
 import random
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import sys
 
@@ -198,7 +199,7 @@ HINT = {
 def encode(src, dst, ffmpeg):
     """Same encoder and settings for both sides, native size and frame rate, no metadata."""
     subprocess.run([ffmpeg, "-y", "-loglevel", "error", "-i", str(src), "-map_metadata", "-1", "-an",
-                    "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p",
+                    "-threads", "2", "-c:v", "libx264", "-preset", "medium", "-crf", "16", "-pix_fmt", "yuv420p",
                     "-movflags", "+faststart", str(dst)], check=True)
 
 
@@ -211,21 +212,31 @@ def kit(args):
     random.Random(f"{SEED}-{args.annotator}").shuffle(order)  # each annotator sees their own order
     kdir = out / f"kit_{args.annotator}"
     (kdir / "videos").mkdir(parents=True, exist_ok=True)
-    tasks = []
-    for n, gid in enumerate(order):
+    tasks, jobs = [], []
+    for gid in order:
         g = by_gid[gid]
         sides = {"L": g["accel"] if g["accel_left"] else g["full"], "R": g["full"] if g["accel_left"] else g["accel"]}
         for side, clip in sides.items():
             dst = kdir / "videos" / f"{gid}_{side}.mp4"
-            if not dst.exists():
-                if sha256_file(clip["video_path"]) != clip["video_sha256"]:
-                    raise ValueError(f"video changed since the dynamic run: {clip['video_path']}")
-                encode(clip["video_path"], dst.with_suffix(".tmp.mp4"), args.ffmpeg)
-                dst.with_suffix(".tmp.mp4").replace(dst)
+            if not dst.exists():  # finished clips are kept, so an interrupted kit resumes
+                jobs.append((clip, dst))
         tasks.append({"gid": gid, "prompt": g["prompt"],
                       "questions": [{"id": q["id"], "type": q["type"], "question": q["question"], "hint": HINT[q["type"]]}
                                     for q in g["questions"]]})
-        print(f"[kit {args.annotator}] {n + 1}/{len(order)} {gid}", flush=True)
+
+    def one(job):
+        clip, dst = job
+        if sha256_file(clip["video_path"]) != clip["video_sha256"]:
+            raise ValueError(f"video changed since the dynamic run: {clip['video_path']}")
+        tmp = dst.with_name(dst.stem + ".tmp.mp4")
+        encode(clip["video_path"], tmp, args.ffmpeg)
+        tmp.replace(dst)
+
+    print(f"[kit {args.annotator}] encoding {len(jobs)} clips with {args.jobs} workers", flush=True)
+    with ThreadPoolExecutor(args.jobs) as pool:
+        for n, _ in enumerate(pool.map(one, jobs)):
+            if (n + 1) % 20 == 0 or n + 1 == len(jobs):
+                print(f"[kit {args.annotator}] {n + 1}/{len(jobs)}", flush=True)
     payload = {"annotator": args.annotator, "sample_sha256": sha256_file(out / "sample.json"), "tasks": tasks}
     (kdir / "tasks.js").write_text("window.ANNOTATION = " + json.dumps(payload, ensure_ascii=False) + ";\n",
                                    encoding="utf-8")
@@ -419,6 +430,7 @@ def main(argv=None):
     p.add_argument("--out", required=True)
     p.add_argument("--annotator", required=True, choices=("A", "B"))
     p.add_argument("--ffmpeg", default="ffmpeg")
+    p.add_argument("--jobs", type=int, default=16, help="parallel ffmpeg processes")
     p = sub.add_parser("analyze")
     p.add_argument("--out", required=True)
     p.add_argument("--labels", nargs="+", required=True, help="exported label files, one per annotator")
