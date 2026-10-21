@@ -17,6 +17,7 @@ DYN_ROOT="${DYN_ROOT:-${REPO_ROOT}/outputs/dynamic_v1_${SCOPE}}"
 GPU_IDS="${GPU_IDS:-0,1,2,3,4,5,6,7}"
 export PYTHONDONTWRITEBYTECODE=1
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 DRIVER="${REPO_ROOT}/UNIV_adaptor/scripts/data/score_dynamic.py"
 PROMPTS=("${REPO_ROOT}/prompts/univ_controlled_factor_v1.jsonl" "${REPO_ROOT}/prompts/univ_controlled_factor_dev2.jsonl")
 PILOT_IDS=(0 1 8 9 10 11 12 13 100 101 102 103 104 105 106 107)

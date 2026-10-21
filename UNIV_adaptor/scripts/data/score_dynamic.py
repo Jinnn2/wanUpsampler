@@ -186,7 +186,9 @@ class Judge:
                       cap_pixels_per_frame=True)
         inputs = self.processor(**kw).to(self.model.device)
         with self.torch.inference_mode():
-            logits = self.model(**inputs).logits[:, -1].float()
+            # Only the next-token position: full-sequence logits of a few video prompts (~5.5k tokens each,
+            # 150k vocabulary) alone take over 6 GB.
+            logits = self.model(**inputs, logits_to_keep=1).logits[:, -1].float()
         yes = self.torch.logsumexp(logits[:, self.yes], 1)
         no = self.torch.logsumexp(logits[:, self.no], 1)
         return self.torch.sigmoid(yes - no).cpu().tolist()
