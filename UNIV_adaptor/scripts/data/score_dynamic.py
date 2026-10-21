@@ -162,7 +162,7 @@ class Judge:
         self.tokenizer = self.processor.tokenizer
         self.tokenizer.padding_side = "left"  # the last position is then the next-token position for every row
         self.model = transformers.AutoModelForImageTextToText.from_pretrained(
-            model_id, torch_dtype=torch.bfloat16, device_map=device).eval()
+            model_id, dtype=torch.bfloat16, device_map=device).eval()
         self.yes = sorted({self.tokenizer.encode(w, add_special_tokens=False)[0] for w in ("Yes", "yes", " Yes")})
         self.no = sorted({self.tokenizer.encode(w, add_special_tokens=False)[0] for w in ("No", "no", " No")})
         h, w = VIDEO_SIZE
@@ -180,7 +180,10 @@ class Judge:
         if images:
             kw.update(images=images, size=self.image_size)
         if videos:
-            kw.update(videos=videos, video_metadata=metadata, do_sample_frames=False, size=self.video_size)
+            # Frames are pre-sampled: no re-sampling at the processor's default 2 fps; timestamps come from
+            # the metadata. The per-frame cap (default from transformers 5.22) equals VIDEO_SIZE here.
+            kw.update(videos=videos, video_metadata=metadata, do_sample_frames=False, size=self.video_size,
+                      cap_pixels_per_frame=True)
         inputs = self.processor(**kw).to(self.model.device)
         with self.torch.inference_mode():
             logits = self.model(**inputs).logits[:, -1].float()

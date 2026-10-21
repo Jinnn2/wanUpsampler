@@ -59,11 +59,20 @@ out, model = sys.argv[2], sys.argv[3]
 value = sd.load_plan(out)
 t = time.time(); judge = sd.Judge(model); print(f"model loaded in {time.time() - t:.0f}s")
 fulls = sd.full_of(value)
-accel = next(v for v in value["videos"] if v["case_id"] != sd.FULL)
+has_video = lambda v: any(sd.rv2.JUDGE[q["type"]] == "vlm_video" for q in value["checklist_by_prompt"][v["prompt_id"]]["questions"])
+accel = next(v for v in value["videos"] if v["case_id"] != sd.FULL and has_video(v))  # exercise the video path too
 full = fulls[(accel["source"], accel["group_id"])]
 record = value["checklist_by_prompt"][accel["prompt_id"]]
 qs = sd.vlm_questions(record)
 print(f"prompt {accel['prompt_id']}: {len(qs)} VLM questions; accelerated case {accel['case_id']}")
+# What the model actually receives for a video question: expect grid [16, 28, 48] (32 frames at 448x768)
+# and 16 "<x.x seconds>" timestamps spanning the clip.
+clip, meta = sd.video_clip(*sd.decode(full["video_path"]))
+inputs = judge.processor(text=[judge._text(["video", "Describe."])], videos=[clip], video_metadata=[meta],
+                         do_sample_frames=False, size=judge.video_size, cap_pixels_per_frame=True, return_tensors="pt")
+text = judge.tokenizer.decode(inputs["input_ids"][0])
+stamps = [s.split(" seconds>")[0] for s in text.split("<")[1:] if " seconds>" in s]
+print(f"video grid {inputs['video_grid_thw'].tolist()}, {len(stamps)} timestamps: {stamps[0]} ... {stamps[-1]} s")
 frames = {}
 for v in (full, accel):
     frames[v["case_id"]] = sd.decode(v["video_path"])
