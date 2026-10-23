@@ -71,20 +71,26 @@
 <script src="tasks.js"></script>
 <script>
 const A = window.ANNOTATION;
-const KEY = `annotation-${A.annotator}-${A.sample_sha256.slice(0, 12)}`;
+const KIND = A.kind ? `${A.kind}-` : "";  // the quality add-on keeps its own answers, file and storage
+const KEY = `annotation-${KIND}${A.annotator}-${A.sample_sha256.slice(0, 12)}`;
 let state = { index: 0, answers: {} };
 try { state = Object.assign(state, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
 const $ = id => document.getElementById(id);
 const vL = $("vL"), vR = $("vR");
 const FPS = 16;
+const QUALITY = A.kind === "quality";
 const FIELDS = [
-  ["left", "左边满足这项要求吗", [["yes", "是"], ["no", "否"], ["unsure", "不确定"]]],
-  ["right", "右边满足这项要求吗", [["yes", "是"], ["no", "否"], ["unsure", "不确定"]]],
-  ["better", "哪边满足得更好", [["left", "左边"], ["same", "差不多"], ["right", "右边"], ["unsure", "不确定"]]],
+  ["left", QUALITY ? "左边在这一项上达标吗" : "左边满足这项要求吗", [["yes", "是"], ["no", "否"], ["unsure", "不确定"]]],
+  ["right", QUALITY ? "右边在这一项上达标吗" : "右边满足这项要求吗", [["yes", "是"], ["no", "否"], ["unsure", "不确定"]]],
+  ["better", QUALITY ? "这一项哪边更好" : "哪边满足得更好", [["left", "左边"], ["same", "差不多"], ["right", "右边"], ["unsure", "不确定"]]],
 ];
+if (QUALITY) {
+  document.title = "视频画质标注";
+  document.querySelector(".nav .help").textContent = "只看画质，不管是否符合文字描述。每道题答三项：左边是否达标、右边是否达标、哪边更好。拿不准就选\"不确定\"。标注自动保存在本浏览器中，完成后点\"导出标注\"把文件发回。";
+}
 
-$("who").textContent = `标注者 ${A.annotator}`;
+$("who").textContent = `标注者 ${A.annotator}${A.kind === "quality" ? " · 画质" : ""}`;
 A.tasks.forEach((t, i) => $("jump").add(new Option(`第 ${i + 1} 组`, i)));
 
 function complete(t) {
@@ -184,18 +190,18 @@ document.addEventListener("keydown", e => {
 });
 
 $("export").onclick = () => {
-  const out = { annotator: A.annotator, sample_sha256: A.sample_sha256, exported_at: new Date().toISOString(),
-                answers: state.answers };
+  const out = { annotator: A.annotator, ...(A.kind ? { kind: A.kind } : {}), sample_sha256: A.sample_sha256,
+                exported_at: new Date().toISOString(), answers: state.answers };
   const blob = new Blob([JSON.stringify(out, null, 1)], { type: "application/json" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `labels_${A.annotator}.json`;
+  link.download = `labels_${KIND}${A.annotator}.json`;
   link.click();
 };
 $("import").onclick = () => $("importFile").click();
 $("importFile").onchange = async e => {
   const data = JSON.parse(await e.target.files[0].text());
-  if (data.annotator !== A.annotator || data.sample_sha256 !== A.sample_sha256) { alert("这个文件不属于当前标注包"); return; }
+  if (data.annotator !== A.annotator || data.sample_sha256 !== A.sample_sha256 || (data.kind || "") !== (A.kind || "")) { alert("这个文件不属于当前标注包"); return; }
   state.answers = data.answers;
   render();
 };

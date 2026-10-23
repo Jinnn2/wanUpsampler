@@ -418,6 +418,129 @@ def analyze(args):
     print(report)
 
 
+# ---------------------------------------------------------------- visual-quality add-on
+
+QUALITY_GROUPS = 100   # per annotator: the 50 overlap groups first, then the first 50 of their own
+
+
+def quality_kit(args):
+    """Five fixed visual-quality questions (score_quality.QUALITY) on the same pairs as the M3 kit, written
+    next to that kit's videos: tasks_quality.js + annotate_quality.html. No re-encoding. The M3 sample,
+    questions and analysis are untouched."""
+    from UNIV_adaptor.scripts.data.score_quality import QUALITY
+
+    out = Path(args.out)
+    value = json.loads((out / "sample.json").read_text(encoding="utf-8"))
+    by_gid = {g["gid"]: g for g in value["groups"]}
+    overlap = value["assignment"]["overlap"]
+    own = [g for g in value["assignment"][args.annotator] if g not in overlap]
+    gids = (overlap + own)[:args.groups]
+    random.Random(f"{SEED}-quality-{args.annotator}").shuffle(gids)
+    zh = json.loads(Path(args.zh).read_text(encoding="utf-8"))["prompts"] if args.zh else {}
+    kdir = Path(args.kit_dir) if args.kit_dir else out / f"kit_{args.annotator}"
+    missing = [f"{g}_{s}.mp4" for g in gids for s in "LR" if not (kdir / "videos" / f"{g}_{s}.mp4").exists()]
+    if missing and not args.allow_missing:
+        raise ValueError(f"{len(missing)} videos missing in {kdir / 'videos'} (build the M3 kit first), e.g. {missing[0]}")
+    tasks = [{"gid": gid, "prompt": by_gid[gid]["prompt"], **({"prompt_zh": zh[by_gid[gid]["prompt"]]}
+                                                              if by_gid[gid]["prompt"] in zh else {}),
+              "questions": [{"id": a, "type": "quality", "question": en, "question_zh": q_zh, "hint": hint}
+                            for a, _, en, q_zh, hint in QUALITY]} for gid in gids]
+    payload = {"annotator": args.annotator, "kind": "quality", "sample_sha256": sha256_file(out / "sample.json"),
+               "tasks": tasks}
+    kdir.mkdir(parents=True, exist_ok=True)
+    (kdir / "tasks_quality.js").write_text("window.ANNOTATION = " + json.dumps(payload, ensure_ascii=False) + ";\n",
+                                           encoding="utf-8")
+    html = (ROOT / "UNIV_adaptor/annotation/annotate.html").read_text(encoding="utf-8")
+    if '<script src="tasks.js"></script>' not in html:
+        raise ValueError("annotate.html no longer loads tasks.js the expected way")
+    (kdir / "annotate_quality.html").write_text(html.replace('<script src="tasks.js"></script>',
+                                                             '<script src="tasks_quality.js"></script>'), encoding="utf-8")
+    print(f"quality kit ready in {kdir}: annotate_quality.html, {len(tasks)} groups x {len(QUALITY)} questions")
+
+
+def quality_analyze(args):
+    """Pre-registered (REQUIREMENTS_V2_SPEC.md, visual-quality layer): annotator agreement per aspect; each
+    automatic signal against the human labels (single-video VLM vs human yes/no; pairwise VLM, DOVER and
+    sharpness deltas vs human "accelerated not worse"); method-family quality loss, human vs judges."""
+    import math
+
+    from UNIV_adaptor.scripts.data.score_quality import ASPECTS
+
+    out = Path(args.out)
+    value = json.loads((out / "sample.json").read_text(encoding="utf-8"))
+    value["sample_sha256"] = sha256_file(out / "sample.json")
+    labels = [json.loads(Path(p).read_text(encoding="utf-8")) for p in args.labels]
+    for lab in labels:
+        if lab.get("kind") != "quality":
+            raise ValueError(f"labels of annotator {lab['annotator']} are not from the quality kit")
+    items = human_items(value, labels)
+    by_gid = {g["gid"]: g for g in value["groups"]}
+    with Path(args.quality_csv).open(encoding="utf-8", newline="") as handle:
+        q = {(r["source"], r["stem"]): r for r in csv.DictReader(handle)}
+
+    lines = ["# Visual-quality annotation analysis", "",
+             f"Annotators: {', '.join(l['annotator'] for l in labels)}; labelled items: {len(items)}", "",
+             "## Annotator agreement (overlap groups)", "", "| aspect | label | kappa | n |", "| --- | --- | --- | --- |"]
+    names = sorted({a for a, _, _ in items})
+    if len(names) >= 2:
+        for aspect in ASPECTS:
+            for field in ("full", "accel", "better"):
+                pairs = [(x[field], items[(names[1], gid, qid)][field]) for (a, gid, qid), x in items.items()
+                         if a == names[0] and qid == aspect and (names[1], gid, qid) in items
+                         and "unsure" not in (x[field], items[(names[1], gid, qid)][field])]
+                k, n = kappa(pairs)
+                lines.append(f"| {aspect} | {field} | {k:.2f} | {n} |")
+
+    cons = consensus(items)
+    single = collections.defaultdict(list)   # aspect -> (P(Yes), human yes)
+    paired = collections.defaultdict(list)   # signal -> (score, human not-worse)
+    fam = collections.defaultdict(lambda: collections.defaultdict(list))
+    for (gid, aspect), x in cons.items():
+        g = by_gid[gid]
+        ra, rf = q[(g["source"], g["accel"]["stem"])], q[(g["source"], g["full"]["stem"])]
+        for who, r in (("accel", ra), ("full", rf)):
+            if x[who] != "unsure":
+                single[aspect].append((float(r[f"p_{aspect}"]), x[who] == "yes"))
+        if x["better"] == "unsure":
+            continue
+        not_worse = x["better"] != "full"
+        paired[f"pairwise VLM {aspect}"].append((float(ra[f"pair_{aspect}"]), not_worse))
+        paired[f"single VLM delta {aspect}"].append((float(ra[f"p_{aspect}"]) - float(ra[f"full_p_{aspect}"]), not_worse))
+        for key in ("d_dover_overall", "d_dover_technical", "d_dover_aesthetic", "d_sharpness"):
+            if ra.get(key, "") != "":
+                paired[f"{key} ({aspect})"].append((float(ra[key]), not_worse))
+        fam[g["family"]][aspect].append((not_worse, int(ra[f"kept_{aspect}"]) == 1))
+
+    lines += ["", "## Single-video VLM vs human yes/no (both clips)", "",
+              "| aspect | n | human yes | AUC | best cut | accuracy at best cut | accuracy at 0.5 |",
+              "| --- | --- | --- | --- | --- | --- | --- |"]
+    for aspect in ASPECTS:
+        pts = single[aspect]
+        if pts:
+            auc, cut, acc = calibrate(pts)
+            acc5 = sum((p >= 0.5) == y for p, y in pts) / len(pts)
+            lines.append(f"| {aspect} | {len(pts)} | {sum(y for _, y in pts) / len(pts):.2f} | {auc:.2f} | "
+                         f"{cut:.3g} | {acc:.2f} | {acc5:.2f} |")
+    lines += ["", "## Signals vs human \"accelerated not worse than FULL\"", "",
+              "| signal | n | human not worse | AUC |", "| --- | --- | --- | --- |"]
+    for key, pts in sorted(paired.items()):
+        auc, _, _ = calibrate(pts)
+        lines.append(f"| {key} | {len(pts)} | {sum(y for _, y in pts) / len(pts):.2f} | "
+                     f"{'nan' if math.isnan(auc) else f'{auc:.2f}'} |")
+    lines += ["", "## Family-level share not worse than FULL: human vs pairwise VLM", "",
+              "| family | " + " | ".join(ASPECTS) + " |", "| --- |" + " --- |" * len(ASPECTS)]
+    for f_, d in sorted(fam.items()):
+        cells = []
+        for aspect in ASPECTS:
+            ps = d[aspect]
+            cells.append(f"{sum(h for h, _ in ps) / len(ps):.2f} / {sum(m for _, m in ps) / len(ps):.2f} (n={len(ps)})"
+                         if ps else "")
+        lines.append(f"| {f_} | " + " | ".join(cells) + " |")
+    report = "\n".join(lines) + "\n"
+    (out / "quality_analysis.md").write_text(report, encoding="utf-8")
+    print(report)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="mode", required=True)
@@ -434,8 +557,20 @@ def main(argv=None):
     p = sub.add_parser("analyze")
     p.add_argument("--out", required=True)
     p.add_argument("--labels", nargs="+", required=True, help="exported label files, one per annotator")
+    p = sub.add_parser("quality-kit")
+    p.add_argument("--out", required=True)
+    p.add_argument("--annotator", required=True, choices=("A", "B"))
+    p.add_argument("--groups", type=int, default=QUALITY_GROUPS)
+    p.add_argument("--kit-dir", help="M3 kit directory with videos/ (default OUT/kit_<annotator>)")
+    p.add_argument("--zh", default=str(ROOT / "prompts/annotation_v1/zh_translation.json"))
+    p.add_argument("--allow-missing", action="store_true", help="write the task file even if videos are absent here")
+    p = sub.add_parser("quality-analyze")
+    p.add_argument("--out", required=True)
+    p.add_argument("--quality-csv", required=True, help="quality_by_video.csv from score_quality.py report")
+    p.add_argument("--labels", nargs="+", required=True)
     args = parser.parse_args(argv)
-    {"sample": sample, "kit": kit, "analyze": analyze}[args.mode](args)
+    {"sample": sample, "kit": kit, "analyze": analyze, "quality-kit": quality_kit,
+     "quality-analyze": quality_analyze}[args.mode](args)
 
 
 if __name__ == "__main__":

@@ -124,6 +124,72 @@ class AnnotationTest(unittest.TestCase):
         kappas = report.split("## Annotator agreement")[1].split("##")[0]
         self.assertNotIn("| 0.", kappas.replace("| 0 |", ""))  # identical annotators: kappa 1.00 or undefined
 
+    def test_quality_kit_reuses_the_m3_videos(self):
+        with mock.patch.object(an, "encode", lambda src, dst, ffmpeg: shutil.copy(src, dst)),                 contextlib.redirect_stdout(io.StringIO()):
+            an.kit(Namespace(out=str(self.out), annotator="A", ffmpeg="ffmpeg", jobs=4))
+            an.quality_kit(Namespace(out=str(self.out), annotator="A", groups=an.QUALITY_GROUPS, kit_dir=None,
+                                     zh="", allow_missing=False))
+        kit = self.out / "kit_A"
+        text = (kit / "tasks_quality.js").read_text(encoding="utf-8")
+        payload = json.loads(text[len("window.ANNOTATION = "):].rstrip().rstrip(";"))
+        self.assertEqual(payload["kind"], "quality")
+        gids = [t["gid"] for t in payload["tasks"]]
+        self.assertEqual(len(gids), an.QUALITY_GROUPS)
+        self.assertTrue(set(self.value["assignment"]["overlap"]) <= set(gids) <= set(self.value["assignment"]["A"]))
+        self.assertTrue(all(len(t["questions"]) == 5 for t in payload["tasks"]))
+        for word in list(an.FAMILY) + [an.FULL, "accel_left", "video_sha256"]:
+            self.assertNotIn(word, text)
+        html = (kit / "annotate_quality.html").read_text(encoding="utf-8")
+        self.assertIn('src="tasks_quality.js"', html)
+        self.assertNotIn('src="tasks.js"', html)
+        with self.assertRaises(ValueError):  # no videos for B yet
+            an.quality_kit(Namespace(out=str(self.out), annotator="B", groups=10, kit_dir=None, zh="", allow_missing=False))
+
+    def test_quality_analyze_matches_labels_that_copy_the_judge(self):
+        from UNIV_adaptor.scripts.data.score_quality import ASPECTS
+
+        rng = random.Random(1)
+        rows = {}
+        for g in self.value["groups"]:
+            for side in ("accel", "full"):
+                r = {"source": g["source"], "stem": g[side]["stem"]}
+                for a in ASPECTS:
+                    r[f"p_{a}"], r[f"full_p_{a}"], r[f"pair_{a}"] = rng.random(), rng.random(), rng.random()
+                    r[f"kept_{a}"] = int(r[f"pair_{a}"] >= 0.5)
+                r["d_sharpness"] = rng.random()
+                rows[(r["source"], r["stem"])] = r
+        csv_path = self.tmp / "quality_by_video.csv"
+        with csv_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(next(iter(rows.values()))))
+            writer.writeheader()
+            writer.writerows(rows.values())
+        by_gid = {g["gid"]: g for g in self.value["groups"]}
+        labels = []
+        for who in ("A", "B"):
+            answers = {}
+            for gid in self.value["assignment"][who][:60]:
+                g = by_gid[gid]
+                acc, ful = ("left", "right") if g["accel_left"] else ("right", "left")
+                ra, rf = rows[(g["source"], g["accel"]["stem"])], rows[(g["source"], g["full"]["stem"])]
+                answers[gid] = {a: {acc: "yes" if ra[f"p_{a}"] >= 0.5 else "no", ful: "yes" if rf[f"p_{a}"] >= 0.5 else "no",
+                                    "better": acc if ra[f"pair_{a}"] >= 0.5 else ful} for a in ASPECTS}
+            path = self.tmp / f"labels_quality_{who}.json"
+            path.write_text(json.dumps({"annotator": who, "kind": "quality",
+                                        "sample_sha256": sha256_file(self.out / "sample.json"), "answers": answers}))
+            labels.append(str(path))
+        with contextlib.redirect_stdout(io.StringIO()):
+            an.quality_analyze(Namespace(out=str(self.out), quality_csv=str(csv_path), labels=labels))
+        report = (self.out / "quality_analysis.md").read_text(encoding="utf-8")
+        for a in ASPECTS:
+            self.assertRegex(report, rf"\| pairwise VLM {a} \| \d+ \| [0-9.]+ \| 1.00 \|")
+            self.assertRegex(report, rf"\| {a} \| \d+ \| [0-9.]+ \| 1.00 \|")
+        with self.assertRaises(ValueError):  # M3 labels are refused
+            json_path = Path(labels[0])
+            data = json.loads(json_path.read_text())
+            data.pop("kind")
+            json_path.write_text(json.dumps(data))
+            an.quality_analyze(Namespace(out=str(self.out), quality_csv=str(csv_path), labels=labels))
+
     def test_calibrate(self):
         auc, cut, acc = an.calibrate([(0.1, True), (0.2, True), (0.9, False)], lower_is_yes=True)
         self.assertEqual((auc, cut, acc), (1.0, 0.2, 1.0))
