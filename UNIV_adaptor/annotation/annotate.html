@@ -48,7 +48,7 @@
   <input id="importFile" type="file" accept=".json" hidden>
 </header>
 <main>
-  <div class="prompt"><b>生成视频的文字描述：</b><span id="prompt"></span></div>
+  <div class="prompt"><b>生成视频的文字描述：</b><span id="prompt"></span><div id="promptEn" class="hint"></div></div>
   <div class="videos">
     <figure><figcaption>左</figcaption><video id="vL" muted playsinline preload="auto"></video></figure>
     <figure><figcaption>右</figcaption><video id="vR" muted playsinline preload="auto"></video></figure>
@@ -101,7 +101,8 @@ function progress() {
 function render() {
   const t = A.tasks[state.index];
   $("jump").value = state.index;
-  $("prompt").textContent = t.prompt;
+  $("prompt").textContent = t.prompt_zh || t.prompt;
+  $("promptEn").textContent = t.prompt_zh ? t.prompt : "";
   vL.src = `videos/${t.gid}_L.mp4`;
   vR.src = `videos/${t.gid}_R.mp4`;
   vL.playbackRate = vR.playbackRate = +$("rate").value;
@@ -113,10 +114,10 @@ function render() {
     div.className = "q";
     const text = document.createElement("div");
     text.className = "text";
-    text.textContent = `${n + 1}. ${q.question}`;
+    text.textContent = `${n + 1}. ${q.question_zh || q.question}`;
     const hint = document.createElement("div");
     hint.className = "hint";
-    hint.textContent = q.hint;
+    hint.textContent = q.question_zh ? `${q.hint}　·　原文：${q.question}` : q.hint;
     div.append(text, hint);
     const a = answers[q.id] = answers[q.id] || {};
     for (const [field, label, options] of FIELDS) {
