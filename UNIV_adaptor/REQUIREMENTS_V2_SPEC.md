@@ -257,7 +257,7 @@ locked test 的清单最后单独起草，在最终评估前冻结。校验脚�
 
 **动机**：保持率只问"prompt 要求的东西还在不在"，画面整体变糊、出现伪影、变难看，只要要求还在就不扣分；人评时看到两边画质差距很大。现有的画质代理分不开方法：以 FULL 的第 10 百分位为及格线，VBench aesthetic/imaging 判为不及格的比例，FULL 自己是 16%，RCM4 是 13%（比 FULL 还低），LR_BICUBIC 也只有 35%；成像质量（MUSIQ）和 Laplacian 锐度还会奖励 DVG 的过锐（两者都高于 FULL，美观却下降）。因此单独建一层，并用人工标注校准。
 
-**实现**：`scripts/data/score_quality.py`（plan / vlm / pair / dover / report），运行脚本 `scripts/run_univ_quality.sh`；标注 `annotation_v2.py quality-kit / quality-analyze`。
+**实现**：`scripts/data/score_quality.py`（plan / vlm / pair / dover / report），运行脚本 `scripts/run_univ_quality.sh`；标注 `annotation_v2.py quality-kit / quality-analyze`。分析命令：`python UNIV_adaptor/scripts/data/annotation_v2.py quality-analyze --out prompts/annotation_v1 --quality-csv <quality_by_video.csv> --vbench-csv prompts/annotation_v1/vbench_quality_sample.csv --labels labels_quality_A.json labels_quality_B.json`。
 
 - **5 个固定问句**（`score_quality.QUALITY`，计划阶段写入 plan，改动即拒绝旧缓存）：
     - sharp（帧）：清晰，无模糊，细节没有糊掉。
@@ -276,11 +276,14 @@ locked test 的清单最后单独起草，在最终评估前冻结。校验脚�
 - **分析**（事先登记，`quality-analyze` 输出 `quality_analysis.md`）：
     1. 人与人 κ：每项分别计算。
     2. 单视频 VLM 对人工是/否：AUC，以及最佳阈值。
-    3. 各信号对人工"加速不比 FULL 差"的 AUC。信号包括：成对 VLM、单视频 P(Yes) 差值、DOVER 差值、锐度差值。
+    3. 各信号对人工"加速不比 FULL 差"的 AUC，全部放在同一张表里。信号包括：成对 VLM、单视频 P(Yes) 差值、DOVER 差值、锐度差值，以及 VBench 的 `d_aesthetic_quality` 与 `d_imaging_quality`（加速视频减同 prompt、同 seed 的 FULL，百分点）。
+        - VBench 两项按 (prompt_id, seed, case_id) 关联，用 `--vbench-csv` 传入。数值在开标前冻结为 `prompts/annotation_v1/vbench_quality_sample.csv`（覆盖样本全部 200 组；由主线汇总的 `dev_all.csv`、`dev2_all.csv` 截取，源自服务器 `outputs/` 下 published / twostage / dvg 的 VBench 结果）。
+        - 加入 VBench 是为了公平检验"VBench aesthetic/imaging 能否当画质尺子"：之前的分析认为它不适合（照片上训练、看不到生成伪影、奖励 DVG 过锐），这里不预设结论，只按下面同一条判定标准处理。
     4. 方法族层面：人工与成对 VLM 的"不比 FULL 差"比例并列。
 - **判定标准**：
     - 沿用 M3：某项的判定器 κ ≥ 人与人 κ − 0.1 视为可用。
-    - 每项取 AUC 最高的信号；与成对 VLM 相差 < 0.03 时取更便宜的。
+    - 每项取 AUC 最高的信号；与成对 VLM 相差 < 0.03 时取更便宜的。VBench 与锐度差值是已有的数，视为最便宜，其次 DOVER、单视频 VLM 差值，成对 VLM 最贵。
+    - VBench 结论：某项上 VBench 两个差值中较好的一个，AUC 与该项最佳信号相差 < 0.03，才算"VBench 可以当该项的画质尺子"；否则在论文中报告它在该项上不足（给出 AUC 差距）。
     - 不可用的项不进入路由约束，并在论文中报告。
 - **用途**：作为与保持率并列的第二个维度报告。路由改为在"速度 ≥ T 且画质损失 ≤ 阈值"的约束下最大化保持率，阈值在 dev 上设定，在 dev2 上评估。
 

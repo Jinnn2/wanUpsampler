@@ -421,6 +421,7 @@ def analyze(args):
 # ---------------------------------------------------------------- visual-quality add-on
 
 QUALITY_GROUPS = 100   # per annotator: the 50 overlap groups first, then the first 50 of their own
+VBENCH_QUALITY = ("d_aesthetic_quality", "d_imaging_quality")   # candidate signals, accelerated minus FULL
 
 
 def quality_kit(args):
@@ -461,7 +462,8 @@ def quality_kit(args):
 def quality_analyze(args):
     """Pre-registered (REQUIREMENTS_V2_SPEC.md, visual-quality layer): annotator agreement per aspect; each
     automatic signal against the human labels (single-video VLM vs human yes/no; pairwise VLM, DOVER and
-    sharpness deltas vs human "accelerated not worse"); method-family quality loss, human vs judges."""
+    sharpness deltas, and the VBench aesthetic/imaging deltas when --vbench-csv is given, vs human "accelerated
+    not worse"); method-family quality loss, human vs judges."""
     import math
 
     from UNIV_adaptor.scripts.data.score_quality import ASPECTS
@@ -477,6 +479,11 @@ def quality_analyze(args):
     by_gid = {g["gid"]: g for g in value["groups"]}
     with Path(args.quality_csv).open(encoding="utf-8", newline="") as handle:
         q = {(r["source"], r["stem"]): r for r in csv.DictReader(handle)}
+    vb = {}   # (prompt_id, seed, case_id) -> VBench deltas, accelerated minus FULL, percentage points
+    for path in args.vbench_csv or []:
+        with Path(path).open(encoding="utf-8", newline="") as handle:
+            for r in csv.DictReader(handle):
+                vb[(int(float(r["pid"])), int(float(r["seed"])), r["arm"])] = r
 
     lines = ["# Visual-quality annotation analysis", "",
              f"Annotators: {', '.join(l['annotator'] for l in labels)}; labelled items: {len(items)}", "",
@@ -495,6 +502,7 @@ def quality_analyze(args):
     single = collections.defaultdict(list)   # aspect -> (P(Yes), human yes)
     paired = collections.defaultdict(list)   # signal -> (score, human not-worse)
     fam = collections.defaultdict(lambda: collections.defaultdict(list))
+    vb_missing = set()
     for (gid, aspect), x in cons.items():
         g = by_gid[gid]
         ra, rf = q[(g["source"], g["accel"]["stem"])], q[(g["source"], g["full"]["stem"])]
@@ -509,6 +517,13 @@ def quality_analyze(args):
         for key in ("d_dover_overall", "d_dover_technical", "d_dover_aesthetic", "d_sharpness"):
             if ra.get(key, "") != "":
                 paired[f"{key} ({aspect})"].append((float(ra[key]), not_worse))
+        if vb:
+            rv = vb.get((int(g["prompt_id"]), int(g["base_seed"]), g["case_id"]))
+            if rv is None:
+                vb_missing.add(gid)
+            for key in VBENCH_QUALITY:
+                if rv is not None and rv.get(key, "") != "":
+                    paired[f"vbench {key} ({aspect})"].append((float(rv[key]), not_worse))
         fam[g["family"]][aspect].append((not_worse, int(ra[f"kept_{aspect}"]) == 1))
 
     lines += ["", "## Single-video VLM vs human yes/no (both clips)", "",
@@ -521,6 +536,11 @@ def quality_analyze(args):
             acc5 = sum((p >= 0.5) == y for p, y in pts) / len(pts)
             lines.append(f"| {aspect} | {len(pts)} | {sum(y for _, y in pts) / len(pts):.2f} | {auc:.2f} | "
                          f"{cut:.3g} | {acc:.2f} | {acc5:.2f} |")
+    if args.vbench_csv:
+        if len(vb_missing) == len({gid for gid, _ in cons}):
+            raise ValueError("no labelled group matches the VBench csv on (prompt_id, seed, case_id)")
+        lines += ["", f"VBench deltas from {len(args.vbench_csv)} csv file(s); labelled groups without a VBench row: "
+                      f"{len(vb_missing)}" + (f" ({', '.join(sorted(vb_missing))})" if vb_missing else "")]
     lines += ["", "## Signals vs human \"accelerated not worse than FULL\"", "",
               "| signal | n | human not worse | AUC |", "| --- | --- | --- | --- |"]
     for key, pts in sorted(paired.items()):
@@ -568,6 +588,8 @@ def main(argv=None):
     p.add_argument("--out", required=True)
     p.add_argument("--quality-csv", required=True, help="quality_by_video.csv from score_quality.py report")
     p.add_argument("--labels", nargs="+", required=True)
+    p.add_argument("--vbench-csv", nargs="+", help="per-video VBench deltas vs FULL (columns pid, seed, arm, "
+                   "d_aesthetic_quality, d_imaging_quality), e.g. dev_all.csv dev2_all.csv")
     args = parser.parse_args(argv)
     {"sample": sample, "kit": kit, "analyze": analyze, "quality-kit": quality_kit,
      "quality-analyze": quality_analyze}[args.mode](args)

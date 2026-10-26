@@ -177,18 +177,45 @@ class AnnotationTest(unittest.TestCase):
             path.write_text(json.dumps({"annotator": who, "kind": "quality",
                                         "sample_sha256": sha256_file(self.out / "sample.json"), "answers": answers}))
             labels.append(str(path))
+        # VBench deltas that track the human "not worse" on the artifact aspect; one labelled group has no row
+        labelled = [gid for who in ("A", "B") for gid in self.value["assignment"][who][:60]]
+        dropped = by_gid[labelled[0]]
+        vb_path = self.tmp / "dev_all.csv"
+        with vb_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=["pid", "seed", "arm", "d_aesthetic_quality", "d_imaging_quality"])
+            writer.writeheader()
+            for g in self.value["groups"]:
+                if g is dropped:
+                    continue
+                ra = rows[(g["source"], g["accel"]["stem"])]
+                writer.writerow({"pid": g["prompt_id"], "seed": g["base_seed"], "arm": g["case_id"],
+                                 "d_aesthetic_quality": 1.0 if ra["pair_artifact"] >= 0.5 else -1.0,
+                                 "d_imaging_quality": ""})
         with contextlib.redirect_stdout(io.StringIO()):
-            an.quality_analyze(Namespace(out=str(self.out), quality_csv=str(csv_path), labels=labels))
+            an.quality_analyze(Namespace(out=str(self.out), quality_csv=str(csv_path), labels=labels,
+                                         vbench_csv=[str(vb_path)]))
         report = (self.out / "quality_analysis.md").read_text(encoding="utf-8")
         for a in ASPECTS:
             self.assertRegex(report, rf"\| pairwise VLM {a} \| \d+ \| [0-9.]+ \| 1.00 \|")
             self.assertRegex(report, rf"\| {a} \| \d+ \| [0-9.]+ \| 1.00 \|")
+            self.assertIn(f"| vbench d_aesthetic_quality ({a}) |", report)
+        self.assertRegex(report, r"\| vbench d_aesthetic_quality \(artifact\) \| \d+ \| [0-9.]+ \| 1.00 \|")
+        self.assertNotIn("vbench d_imaging_quality", report)
+        self.assertIn(f"labelled groups without a VBench row: 1 ({dropped['gid']})", report)
+        with contextlib.redirect_stdout(io.StringIO()):  # without --vbench-csv the VBench rows are simply absent
+            an.quality_analyze(Namespace(out=str(self.out), quality_csv=str(csv_path), labels=labels, vbench_csv=None))
+        self.assertNotIn("vbench", (self.out / "quality_analysis.md").read_text(encoding="utf-8"))
+        wrong = self.tmp / "wrong.csv"
+        wrong.write_text("pid,seed,arm,d_aesthetic_quality,d_imaging_quality\n9999,42,RCM1,1,1\n", encoding="utf-8")
+        with self.assertRaises(ValueError):  # a csv that matches nothing is refused
+            an.quality_analyze(Namespace(out=str(self.out), quality_csv=str(csv_path), labels=labels,
+                                         vbench_csv=[str(wrong)]))
         with self.assertRaises(ValueError):  # M3 labels are refused
             json_path = Path(labels[0])
             data = json.loads(json_path.read_text())
             data.pop("kind")
             json_path.write_text(json.dumps(data))
-            an.quality_analyze(Namespace(out=str(self.out), quality_csv=str(csv_path), labels=labels))
+            an.quality_analyze(Namespace(out=str(self.out), quality_csv=str(csv_path), labels=labels, vbench_csv=None))
 
     def test_calibrate(self):
         auc, cut, acc = an.calibrate([(0.1, True), (0.2, True), (0.9, False)], lower_is_yes=True)
