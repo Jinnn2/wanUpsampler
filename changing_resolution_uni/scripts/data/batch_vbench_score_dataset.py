@@ -371,6 +371,9 @@ def parse_vbench_eval_result(
             if dimension == "imaging_quality" and value > 1.0:
                 value /= 100.0
             lower_bound = -1.0 if dimension == "overall_consistency" else 0.0
+            # Cosine-similarity dimensions can round a hair above 1 on near-static frames.
+            if 1.0 < value <= 1.0 + 1e-3:
+                value = 1.0
             if not math.isfinite(value) or not lower_bound <= value <= 1.0:
                 raise RuntimeError(
                     f"Out-of-range score for {stem}.{dimension}: {value}"
