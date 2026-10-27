@@ -107,8 +107,15 @@ def table(args):
     full_s = {(v["source"], v["group_id"]): seconds[(v["source"], v["stem"])] for v in fixed["videos"] if v["case_id"] == FULL}
     acc = collections.defaultdict(lambda: collections.defaultdict(list))  # (pid, arm) -> metric -> per-seed values
     meta = {}
+    # A prompt with no dynamic score at all had no valid checklist and was left out of the dynamic layer; it is
+    # dropped here. A prompt scored for only some of its clips is still an error.
+    by_video = {(v["source"], v["stem"]): int(v["prompt_id"]) for v in fixed["videos"]}
+    scored = {by_video[k] for k in dyn if k in by_video}
+    unscored = sorted({int(v["prompt_id"]) for v in fixed["videos"] if v["split"] != "test"} - scored)
+    if unscored:
+        print(f"dropping {len(unscored)} prompts with no dynamic score (no valid checklist): {unscored}")
     for v in fixed["videos"]:
-        if v["case_id"] == FULL or v["split"] == "test":
+        if v["case_id"] == FULL or v["split"] == "test" or int(v["prompt_id"]) in unscored:
             continue
         key = (v["source"], v["stem"])
         if key not in dyn or key not in qual:
@@ -129,10 +136,11 @@ def table(args):
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
-    write_json_atomic(out / "table_inputs.json", {"fixed_plan_sha256": sha256_file(fixed_path),
-                                                  "dynamic_sha256": sha256_file(args.dynamic),
-                                                  "quality_sha256": sha256_file(args.quality),
-                                                  "quality_column": args.quality_column})
+    inputs = {"fixed_plan_sha256": sha256_file(fixed_path), "dynamic_sha256": sha256_file(args.dynamic),
+              "quality_sha256": sha256_file(args.quality), "quality_column": args.quality_column}
+    if unscored:
+        inputs["dropped_prompts_no_checklist"] = unscored
+    write_json_atomic(out / "table_inputs.json", inputs)
     print(f"wrote {out / 'route_table.csv'}: {len(meta)} prompts, {len({r['arm'] for r in rows})} arms")
 
 
