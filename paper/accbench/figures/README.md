@@ -19,22 +19,19 @@ figures must be traceable to `data/`; nothing is typed in by hand.
   "kept / dVB" label are the arm's **dev2 cell means** (`fixed_arms_by_cell_dev2_*.csv`), not the shown clip's
   own scores (those are in `fig1_samples_v2/samples.json`).
 - Band (b) rows: FULL frame 40 | routed arm frames 0/40/80, routed arm = dev-fit argmax at tau (default 0.80:
-  hh->RCM4, hl->SCALING10 (98%), lh->F41_RIFE, ll->TEA015). Tint = the arm's min(retention, quality_kept) in
-  that cell from `route_table_*.json` (dev + dev2); no number is printed because per-cell dev2 numbers exist only
-  for RCM4 / LR_FLASH / LR_BICUBIC.
+  hh->RCM4, hl->SCALING10 (98%), lh->F41_RIFE, ll->TEA015). Tint and "kept / dVB" are the routed arm's dev2 cell
+  means from the same file as (a).
 - Scorecards: identical axes in both bands (speedup vs min(semantic, quality) kept, dev2). (a) highlights the two
   fixed arms with their dVBench-5; (b) adds the router and prompt-blind frontiers over tau 0.95..0.60.
 
 ## Open items
 
-1. Per-cell dev2 numbers for all 15 arms (extend `fixed_arms_by_cell_dev2` to every arm) so the (b) labels can carry
-   "kept / dVB" like (a). Requested from the main line.
-2. Paper name for SCALING10 (`ARM_NAME` in the script).
-3. The hh row of (b) routes to rCM, whose dev2 hh kept is 0.48 and whose shown clip scores min 0.17: the LP
+1. Paper name for SCALING10 (`ARM_NAME` in the script).
+2. The hh row of (b) routes to rCM, whose dev2 hh kept is 0.48 and whose shown clip scores min 0.17: the LP
    constrains the **mean** over prompts, so hh is traded for speed at tau = 0.80. Decide whether the figure should
    show tau = 0.85 (hh -> rCM 68% / FULL) or keep 0.80 and say this in the caption.
-4. Router frontier below tau = 0.60 (needs the main line to extend TAUS).
-5. Caption must say: the flow values in `fig1_samples_v2/*/flow.csv` are OpenCV Farneback mean pixel magnitude at
+3. Router frontier below tau = 0.60 (needs the main line to extend TAUS).
+4. Caption must say: the flow values in `fig1_samples_v2/*/flow.csv` are OpenCV Farneback mean pixel magnitude at
    416 px width, drawn only as a per-frame trend; not the RAFT flow of the fixed layer and not comparable to it.
    (Not drawn in the current figure.)
 
@@ -43,9 +40,12 @@ figures must be traceable to `data/`; nothing is typed in by hand.
 - `route_table_20261027.json`: the `D` object embedded in `doc/figures/method_by_cell_profiles.html`
   (main line, 2026-10-27), itself from `outputs/route_v1_q2/route_table.csv`. `r[arm][cell]` =
   `[retention, quality_kept, relative advantage, speedup]`; dev + dev2, 3 seeds averaged per prompt.
-- `scoreboard_dev2_20261027.csv`, `fixed_arms_by_cell_dev2_20261027.csv`, `scoreboard_dev2_policies_20261027.json`,
-  `route_eval_20261027.csv`, `route_rules_20261027.json`: copies of `outputs/fig1_v1/` and
-  `outputs/fig1_v1/route_v1_q2/` (main line, 2026-10-27). Router / blind policies are fit on dev, evaluated on dev2.
+- `scoreboard_dev2_20261027.csv`, `scoreboard_dev2_policies_20261027.json`, `route_eval_20261027.csv`,
+  `route_rules_20261027.json`: copies of `outputs/fig1_v1/` and `outputs/fig1_v1/route_v1_q2/` (main line,
+  2026-10-27). Router / blind policies are fit on dev, evaluated on dev2.
+- `fixed_arms_by_cell_dev2_20261027.csv`: copy of `results/derived/fig1_v1/fixed_arms_by_cell_dev2.csv` (main line
+  commit 2801355, all 15 arms x 4 cells, dev2, 3 seeds averaged). The DVG arms' dVBench-5 is relative to the FULL
+  the DVG study ran itself (same prompt and seed); every other arm is relative to the published FULL50.
 - `fig1_samples_v1/`: first export (`run_univ_figure_samples.sh fig1`, commit 7b5b969): per (arm, cell) the lower
   median prompt by min(retention, quality_kept), RCM4 and LR_FLASH only; different prompts per arm. Superseded by
   v2 for the figure, kept for the candidate tables.

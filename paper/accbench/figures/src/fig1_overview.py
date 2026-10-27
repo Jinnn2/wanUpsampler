@@ -83,7 +83,7 @@ def arrow(ax, p, q, color=C_EDGE):
                                  shrinkA=0, shrinkB=0))
 
 
-ROW_H = 26
+ROW_H = 30                           # frames (FH) + up to two label lines
 FH = FW / (832 / 480)
 
 
@@ -106,9 +106,10 @@ def full_frame(ax, x, y, path, header):
     return x + FW + 3
 
 
-def group(ax, x, y, frames, kept, label, header=None, label_color=None):
+def group(ax, x, y, frames, kept, label, header=None, label2=None):
     """Three frames of one accelerated clip in a box tinted by min(retention, quality_kept) like the profile
-    inset, with a one-line label under the frames. frames: list of paths (None = placeholder). Returns next x."""
+    inset, with one or two label lines under the frames. frames: list of paths (None = placeholder).
+    Returns next x."""
     w = 3 * FW + 2 * 1.5 + 4
     ax.add_patch(Rectangle((x, y), w, ROW_H, fc=GREENS(0.1 + 0.6 * kept), ec=C_EDGE, lw=0.5))
     fy = y + ROW_H - 1.5 - FH
@@ -116,8 +117,12 @@ def group(ax, x, y, frames, kept, label, header=None, label_color=None):
         frame(ax, x + 2 + i * (FW + 1.5), fy, p)
     if header:
         ax.text(x + w / 2, y + ROW_H + 1.5, header, ha="center", va="bottom", fontsize=4.3, color=C_MUTE)
-    ax.text(x + w / 2, y + 3.4, label, ha="center", va="center", fontsize=4.8,
-            color=label_color or (C_TXT if kept < 0.6 else "#F7FBF5"))
+    col = C_TXT if kept < 0.6 else "#F7FBF5"
+    if label2 is None:
+        ax.text(x + w / 2, y + (fy - y) / 2, label, ha="center", va="center", fontsize=4.8, color=col)
+    else:
+        ax.text(x + w / 2, y + 9.4, label, ha="center", va="center", fontsize=4.8, color=col)
+        ax.text(x + w / 2, y + 3.6, label2, ha="center", va="center", fontsize=4.6, color=col)
     return x + w + 3
 
 
@@ -191,8 +196,8 @@ def main(tau: float):
     ax = fig.add_axes([0, 0, 1, 1]); ax.set_xlim(0, 680); ax.set_ylim(0, 350); ax.axis("off")
     ax.set_autoscale_on(False)
 
-    rows = [292, 262, 232, 202]          # band (a) row baselines (y of the row's bottom), top to bottom
-    rows_b = [r - 172 for r in rows]     # band (b)
+    rows = [288, 256, 224, 192]          # band (a) row baselines (y of the row's bottom), top to bottom
+    rows_b = [r - 176 for r in rows]     # band (b)
 
     # ---------------- band (a): status quo ----------------
     band(ax, 180, "(a) Status quo: one accelerator for every prompt")
@@ -217,7 +222,7 @@ def main(tau: float):
                       f"kept {r['min_ret_q']:.2f}  ·  ΔVB {r['d_vbench5_pp']:+.1f} pp",
                       header=f"{ARM_NAME[arm]}  (f0 / f40 / f80)" if k == 0 else None)
     for y in rows:
-        arrow(ax, (270, 247), (292, y + 13))
+        arrow(ax, (270, 247), (292, y + ROW_H / 2))
     # scorecard: speed vs min(semantic, quality) kept on dev2; fixed arms are points, VBench deltas annotated
     frontier(fig, 548, 198, 86, 100, score, highlight=FIXED_ARMS, curves=False)
 
@@ -247,16 +252,17 @@ def main(tau: float):
     box(ax, 322, 52, 60, 46, "Router", fc=C_OURS, ec=C_OURS_E, fs=6.5, weight="bold",
         sub=f"min time s.t.\nkept ≥ τ = {tau:.2f}")
     # outputs: the same prompt as the row above = FULL | routed arm f0/f40/f80 (dev-fit argmax of the per-cell
-    # distribution at tau). Tint = the arm's min(retention, quality_kept) in that cell from the route table
-    # (dev + dev2); per-cell dev2 numbers for the routed arms are not exported yet, so no number is printed.
+    # distribution at tau). Tint and numbers: the routed arm's dev2 cell means, same source and format as (a).
     routed = pol[f"{tau:g}"]["router"]
     for k, (c, y) in enumerate(zip(CELLS, rows_b)):
         arm, p = max(routed[c].items(), key=lambda kv: kv[1])
-        arrow(ax, (382, 75), (398, y + 13))
-        kept = min(d["r"][arm][c][0], d["r"][arm][c][1])
+        arrow(ax, (382, 75), (398, y + ROW_H / 2))
+        r = by_cell[(arm, c)]
         x = full_frame(ax, 400, y, SAMPLES / c / "FULL_f040.jpg", header=(k == 0))
-        group(ax, x, y, sample_frames(c, arm), kept, "→ " + ARM_NAME[arm] + ("" if p > 0.95 else f" ({p:.0%})"),
-              header="routed arm  (f0 / f40 / f80)" if k == 0 else None)
+        group(ax, x, y, sample_frames(c, arm), r["min_ret_q"],
+              "→ " + ARM_NAME[arm] + ("" if p > 0.95 else f" ({p:.0%})"),
+              header="routed arm  (f0 / f40 / f80)" if k == 0 else None,
+              label2=f"kept {r['min_ret_q']:.2f}  ·  ΔVB {r['d_vbench5_pp']:+.1f} pp")
     # same axes as band (a): fixed arms in grey, router and blind-mixture frontiers (tau 0.95 -> 0.60) on top
     frontier(fig, 548, 26, 86, 100, score, highlight=[], curves=True, tau_mark=tau)
 
