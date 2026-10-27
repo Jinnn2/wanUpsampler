@@ -1,0 +1,295 @@
+{
+  "claim": "Prompt-method platform dev2: the platform-v1 published/simple accelerators on 64 NEW controlled-factor prompts (16 new families x 4 nominal motion/detail cells, prompts/univ_controlled_factor_dev2.jsonl), same seeds and sampling, as an out-of-family check of routing rules learned on the v1 dev prompts.",
+  "status": "pilot; metric inadequacy and router benefit require independent human/heldout evidence",
+  "partial_exploratory": false,
+  "summary": [
+    {
+      "arm": "SCALING10",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "high/high",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 1.6022345091176642,
+      "mean_delta_vbench5": -0.0012514816613199236,
+      "prompt_bootstrap_ci": [
+        -0.003333564691385335,
+        0.0008944753066822013
+      ],
+      "close_score_fraction": 0.08333333333333333
+    },
+    {
+      "arm": "SCALING10",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "high/low",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 1.8158575531916712,
+      "mean_delta_vbench5": -0.002550086193047726,
+      "prompt_bootstrap_ci": [
+        -0.004313261016384425,
+        -0.0009316780558667701
+      ],
+      "close_score_fraction": 0.14583333333333334
+    },
+    {
+      "arm": "SCALING10",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "low/high",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 1.7350618686172812,
+      "mean_delta_vbench5": 0.000656185926992898,
+      "prompt_bootstrap_ci": [
+        -0.001842737301583947,
+        0.0032860129933833505
+      ],
+      "close_score_fraction": 0.1875
+    },
+    {
+      "arm": "SCALING10",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "low/low",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 1.8869633161012327,
+      "mean_delta_vbench5": -0.00021461786350948867,
+      "prompt_bootstrap_ci": [
+        -0.00220415937961659,
+        0.0015376231688120565
+      ],
+      "close_score_fraction": 0.125
+    },
+    {
+      "arm": "STEP20",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "high/high",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 2.1769342031164767,
+      "mean_delta_vbench5": -0.00782734911897698,
+      "prompt_bootstrap_ci": [
+        -0.014758904289647984,
+        -0.0007362590834917143
+      ],
+      "close_score_fraction": 0.041666666666666664
+    },
+    {
+      "arm": "STEP20",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "high/low",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 2.1721908521964655,
+      "mean_delta_vbench5": -0.01959616567003799,
+      "prompt_bootstrap_ci": [
+        -0.028959791685214082,
+        -0.008611633638592424
+      ],
+      "close_score_fraction": 0
+    },
+    {
+      "arm": "STEP20",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "low/high",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 2.16641684579761,
+      "mean_delta_vbench5": 0.0013846288951693587,
+      "prompt_bootstrap_ci": [
+        -0.0015917222493947378,
+        0.004269355392154325
+      ],
+      "close_score_fraction": 0.041666666666666664
+    },
+    {
+      "arm": "STEP20",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "low/low",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 2.17148393054547,
+      "mean_delta_vbench5": -0.008778134892551581,
+      "prompt_bootstrap_ci": [
+        -0.017217664331339873,
+        -3.419243732913818e-05
+      ],
+      "close_score_fraction": 0
+    },
+    {
+      "arm": "STEP25",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "high/high",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 1.81917994105696,
+      "mean_delta_vbench5": -0.0077607351272287834,
+      "prompt_bootstrap_ci": [
+        -0.012840594361417714,
+        -0.002396112729083246
+      ],
+      "close_score_fraction": 0.0625
+    },
+    {
+      "arm": "STEP25",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "high/low",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 1.8184591772037606,
+      "mean_delta_vbench5": -0.019439678068780226,
+      "prompt_bootstrap_ci": [
+        -0.02834089570395798,
+        -0.011391937262007297
+      ],
+      "close_score_fraction": 0.020833333333333332
+    },
+    {
+      "arm": "STEP25",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "low/high",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 1.8151382422134614,
+      "mean_delta_vbench5": 0.0006653621685178829,
+      "prompt_bootstrap_ci": [
+        -0.001955610285426334,
+        0.003317986800027898
+      ],
+      "close_score_fraction": 0.0625
+    },
+    {
+      "arm": "STEP25",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "low/low",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 1.8150058738808408,
+      "mean_delta_vbench5": -0.0024899572894407918,
+      "prompt_bootstrap_ci": [
+        -0.010602937127606828,
+        0.006659857258211691
+      ],
+      "close_score_fraction": 0.041666666666666664
+    },
+    {
+      "arm": "TEA008",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "high/high",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 1.8741592180997493,
+      "mean_delta_vbench5": -0.0045981607884283335,
+      "prompt_bootstrap_ci": [
+        -0.0075245451607648785,
+        -0.001871252504032787
+      ],
+      "close_score_fraction": 0.020833333333333332
+    },
+    {
+      "arm": "TEA008",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "high/low",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 1.8682639487502362,
+      "mean_delta_vbench5": -0.007210897651956309,
+      "prompt_bootstrap_ci": [
+        -0.010275396308620155,
+        -0.0038841818300497724
+      ],
+      "close_score_fraction": 0.041666666666666664
+    },
+    {
+      "arm": "TEA008",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "low/high",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 1.8690808804021233,
+      "mean_delta_vbench5": -0.0007182887686750332,
+      "prompt_bootstrap_ci": [
+        -0.0034907074944385322,
+        0.0022421563250863046
+      ],
+      "close_score_fraction": 0.0625
+    },
+    {
+      "arm": "TEA008",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "low/low",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 1.8716641937126879,
+      "mean_delta_vbench5": 0.002208440685062804,
+      "prompt_bootstrap_ci": [
+        -0.00041534027742848545,
+        0.005263634256587822
+      ],
+      "close_score_fraction": 0.0625
+    },
+    {
+      "arm": "TEA015",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "high/high",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 2.341974998092886,
+      "mean_delta_vbench5": -0.007362270224338711,
+      "prompt_bootstrap_ci": [
+        -0.01214603767703011,
+        -0.002325566334786718
+      ],
+      "close_score_fraction": 0.041666666666666664
+    },
+    {
+      "arm": "TEA015",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "high/low",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 2.3407930595626087,
+      "mean_delta_vbench5": -0.013936342529722747,
+      "prompt_bootstrap_ci": [
+        -0.02185646207009507,
+        -0.0072930567451179595
+      ],
+      "close_score_fraction": 0
+    },
+    {
+      "arm": "TEA015",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "low/high",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 2.3410798344054156,
+      "mean_delta_vbench5": -0.002829880732028551,
+      "prompt_bootstrap_ci": [
+        -0.006475194612046026,
+        6.595409262161638e-05
+      ],
+      "close_score_fraction": 0.08333333333333333
+    },
+    {
+      "arm": "TEA015",
+      "origin": "controlled_factor_dev2",
+      "nominal_cell": "low/low",
+      "groups": 48,
+      "prompts": 16,
+      "mean_speedup": 2.3407512229322487,
+      "mean_delta_vbench5": -0.0024057089129875626,
+      "prompt_bootstrap_ci": [
+        -0.007134924862555611,
+        0.002819080634774001
+      ],
+      "close_score_fraction": 0.08333333333333333
+    }
+  ],
+  "caveats": [
+    "Not official VBench Total or a full paper-table reproduction.",
+    "Published presets have different measured speedups: no latency-matched quality ranking.",
+    "Cells are nominal prompt labels; inspect base_observability_review.csv without excluding base failures after viewing scores.",
+    "Two seeds and very few prompt families cannot establish generalizable prompt-only routing.",
+    "Dynamic degree is a motion diagnostic, not universally higher-is-better.",
+    "Bootstrap conditions on observed seeds and uses prompt clusters; tiny cell intervals may be unavailable."
+  ]
+}

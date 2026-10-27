@@ -1,0 +1,13 @@
+{
+ "archive": "fixed_metrics_v1_analysis.tgz",
+ "sha256": "124ffc883a3ccbd457bd2d33a4ada849917c33a572aa258bab74e75e25543be8",
+ "ingested": "2026-10-27",
+ "note": "",
+ "kept": [
+  "fixed_by_video.csv",
+  "report.txt"
+ ],
+ "skipped_by_suffix": {
+  ".json": 6529
+ }
+}

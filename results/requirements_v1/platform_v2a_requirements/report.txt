@@ -1,0 +1,99 @@
+64 prompts / 16 families
+
+### vbench5
+| action | mean dvbench5 (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| F41_DUP | -0.57 | -0.09 | [-0.18, 0.05] | -0.03 | 0.10 | +1.03 [+0.35, +1.73] | +0.16 [-0.73, +0.95] | -1.17 (high motion/low detail) |
+| F41_RIFE | -0.44 | -0.06 | [-0.15, 0.09] | -0.02 | 0.16 | +1.25 [+0.55, +1.96] | +0.42 [-0.50, +1.25] | -1.12 (high motion/low detail) |
+| LR_BICUBIC | -2.48 | -0.06 | [-0.18, 0.17] | 0.09 | 0.03 | -0.78 [-1.84, +0.28] | +0.10 [-1.40, +1.49] | -3.07 (high motion/high detail) |
+| LR_FLASH | -1.04 | -0.03 | [-0.16, 0.20] | 0.07 | 0.02 | -0.44 [-1.58, +0.73] | -0.23 [-1.77, +1.11] | -1.61 (high motion/high detail) |
+
+### imaging_quality
+| action | mean dimaging_quality (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| F41_DUP | -1.03 | -0.01 | [-0.10, 0.12] | 0.01 | 0.03 | +0.42 [-1.82, +2.79] | -1.48 [-4.20, +1.45] | -2.45 (high motion/low detail) |
+| F41_RIFE | -1.24 | 0.00 | [-0.09, 0.14] | 0.01 | 0.04 | +0.16 [-2.25, +2.53] | -1.84 [-4.65, +1.10] | -2.60 (high motion/low detail) |
+| LR_BICUBIC | -4.28 | 0.05 | [-0.11, 0.30] | 0.16 | 0.05 | -3.17 [-6.39, +0.97] | -0.36 [-4.12, +3.34] | -6.55 (high motion/high detail) |
+| LR_FLASH | +1.23 | 0.08 | [-0.12, 0.36] | 0.13 | 0.03 | -1.45 [-5.09, +3.09] | +1.96 [-1.81, +5.72] | -0.33 (low motion/high detail) |
+
+### req_all
+| action | mean dreq_all (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| F41_DUP | -0.74 | 0.22 | [0.04, 0.41] | 0.18 | 0.05 | -0.52 [-2.86, +1.87] | -2.98 [-7.02, +1.14] | -2.29 (high motion/low detail) |
+| F41_RIFE | -0.81 | 0.19 | [0.02, 0.38] | 0.15 | 0.06 | -0.59 [-2.91, +1.66] | -3.28 [-7.33, +0.88] | -2.55 (high motion/high detail) |
+| LR_BICUBIC | -9.57 | 0.19 | [-0.07, 0.56] | 0.14 | 0.25 | -8.63 [-12.93, -4.42] | -1.58 [-5.16, +1.53] | -14.01 (low motion/high detail) |
+| LR_FLASH | -7.75 | 0.19 | [-0.03, 0.45] | 0.14 | 0.18 | -6.27 [-10.27, -2.07] | -3.09 [-6.98, +0.71] | -11.67 (high motion/high detail) |
+
+### log_laplacian_var
+| action | mean dlog_laplacian_var (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| F41_DUP | -29.37 | 0.47 | [0.23, 0.71] | 0.31 | 0.11 | -5.67 [-28.42, +19.59] | -36.53 [-60.82, -10.84] | -49.22 (high motion/high detail) |
+| F41_RIFE | -30.72 | 0.48 | [0.24, 0.71] | 0.31 | 0.12 | -6.52 [-29.15, +19.07] | -37.35 [-61.68, -10.78] | -51.37 (high motion/high detail) |
+| LR_BICUBIC | -194.71 | 0.19 | [-0.03, 0.51] | 0.15 | 0.04 | -6.34 [-30.33, +17.49] | +12.23 [-10.63, +35.90] | -212.04 (low motion/high detail) |
+| LR_FLASH | -13.32 | 0.18 | [-0.06, 0.59] | 0.15 | 0.09 | -31.28 [-53.36, -6.08] | -3.19 [-22.19, +17.34] | -29.07 (low motion/high detail) |
+
+### hf_share
+| action | mean dhf_share (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| F41_DUP | -0.12 | -0.24 | [-0.28, 0.19] | 0.14 | 0.02 | -0.04 [-0.54, +0.44] | +0.05 [-0.49, +0.69] | -0.30 (low motion/high detail) |
+| F41_RIFE | -0.14 | -0.24 | [-0.28, 0.20] | 0.14 | 0.02 | -0.07 [-0.57, +0.43] | +0.05 [-0.47, +0.69] | -0.34 (low motion/high detail) |
+| LR_BICUBIC | -1.73 | 0.52 | [0.33, 1.92] | 0.77 | 0.23 | -2.27 [-3.73, -1.15] | +0.55 [-0.43, +1.32] | -3.35 (low motion/high detail) |
+| LR_FLASH | -0.48 | 0.23 | [-0.05, 0.83] | 0.32 | 0.14 | -1.57 [-3.03, -0.43] | +0.09 [-0.86, +0.99] | -1.40 (high motion/high detail) |
+
+### edge_density
+| action | mean dedge_density (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| F41_DUP | -0.64 | 0.11 | [-0.08, 0.37] | 0.12 | 0.09 | -0.65 [-1.25, -0.06] | -0.52 [-1.22, +0.14] | -1.25 (high motion/high detail) |
+| F41_RIFE | -0.65 | 0.11 | [-0.08, 0.37] | 0.12 | 0.10 | -0.67 [-1.27, -0.08] | -0.52 [-1.20, +0.17] | -1.28 (high motion/high detail) |
+| LR_BICUBIC | -2.39 | 0.55 | [0.24, 1.03] | 0.52 | 0.58 | -3.32 [-4.05, -2.61] | +0.31 [-0.21, +0.85] | -4.40 (low motion/high detail) |
+| LR_FLASH | -1.34 | 0.19 | [-0.03, 0.45] | 0.26 | 0.37 | -2.34 [-3.14, -1.51] | -0.14 [-0.66, +0.41] | -2.52 (low motion/high detail) |
+
+### log_flow_magnitude
+| action | mean dlog_flow_magnitude (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| F41_DUP | -268.46 | 7.60 | [4.15, 16.06] | 0.84 | 0.82 | -105.99 [-148.34, -69.89] | -435.78 [-491.43, -378.07] | -588.58 (high motion/high detail) |
+| F41_RIFE | +6.42 | 0.20 | [0.02, 0.61] | 0.24 | 0.25 | -33.91 [-60.54, -8.25] | -70.77 [-113.93, -25.85] | -46.65 (high motion/high detail) |
+| LR_BICUBIC | +23.57 | 0.11 | [-0.06, 0.39] | 0.24 | 0.36 | +38.72 [+4.49, +74.00] | -94.06 [-132.50, -55.20] | -31.42 (high motion/low detail) |
+| LR_FLASH | +14.26 | 0.05 | [-0.08, 0.30] | 0.16 | 0.31 | +33.81 [+0.89, +68.44] | -87.09 [-125.43, -48.78] | -38.51 (high motion/low detail) |
+
+### warp_error
+| action | mean dwarp_error (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| F41_DUP | -1.14 | 4.02 | [2.70, 6.15] | 0.91 | 0.69 | -1.57 [-2.04, -1.14] | -1.73 [-2.15, -1.34] | -3.43 (high motion/high detail) |
+| F41_RIFE | -0.39 | 0.64 | [0.09, 1.38] | 0.35 | 0.50 | -0.72 [-1.04, -0.46] | -0.68 [-0.97, -0.44] | -1.36 (high motion/high detail) |
+| LR_BICUBIC | +0.24 | 0.64 | [-0.11, 1.30] | 0.29 | 0.03 | +0.37 [-0.15, +1.04] | +0.06 [-0.31, +0.48] | +0.04 (high motion/low detail) |
+| LR_FLASH | +0.26 | 0.48 | [-0.15, 1.07] | 0.13 | 0.03 | +0.22 [-0.28, +0.87] | +0.19 [-0.17, +0.57] | +0.13 (low motion/low detail) |
+
+### requirement retention (FULL-satisfied -> kept), by action/type
+F41_DUP                    detail   detail=high 96/107 = 0.897
+F41_DUP                    motion   detail=high 31/37 = 0.838
+F41_DUP                    motion   detail=low  9/12 = 0.750
+F41_DUP                    plain    detail=low  96/109 = 0.881
+F41_DUP                    static   detail=high 5/8 = 0.625
+F41_DUP                    static   detail=low  19/26 = 0.731
+F41_DUP                    subject  detail=high 95/103 = 0.922
+F41_DUP                    subject  detail=low  113/122 = 0.926
+F41_RIFE                   detail   detail=high 95/107 = 0.888
+F41_RIFE                   motion   detail=high 29/37 = 0.784
+F41_RIFE                   motion   detail=low  10/12 = 0.833
+F41_RIFE                   plain    detail=low  94/109 = 0.862
+F41_RIFE                   static   detail=high 4/8 = 0.500
+F41_RIFE                   static   detail=low  18/26 = 0.692
+F41_RIFE                   subject  detail=high 95/103 = 0.922
+F41_RIFE                   subject  detail=low  110/122 = 0.902
+LR_BICUBIC                 detail   detail=high 59/107 = 0.551
+LR_BICUBIC                 motion   detail=high 34/37 = 0.919
+LR_BICUBIC                 motion   detail=low  9/12 = 0.750
+LR_BICUBIC                 plain    detail=low  95/109 = 0.872
+LR_BICUBIC                 static   detail=high 1/8 = 0.125
+LR_BICUBIC                 static   detail=low  15/26 = 0.577
+LR_BICUBIC                 subject  detail=high 89/103 = 0.864
+LR_BICUBIC                 subject  detail=low  98/122 = 0.803
+LR_FLASH                   detail   detail=high 71/107 = 0.664
+LR_FLASH                   motion   detail=high 34/37 = 0.919
+LR_FLASH                   motion   detail=low  9/12 = 0.750
+LR_FLASH                   plain    detail=low  95/109 = 0.872
+LR_FLASH                   static   detail=high 2/8 = 0.250
+LR_FLASH                   static   detail=low  20/26 = 0.769
+LR_FLASH                   subject  detail=high 90/103 = 0.874
+LR_FLASH                   subject  detail=low  98/122 = 0.803

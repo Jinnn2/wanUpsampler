@@ -1,0 +1,17 @@
+{
+ "archive": "degradation_v1_analysis.tgz",
+ "sha256": "78b065477896ed60febf00a9b8155d428804dd71cb8ab1984c8a7187af61e7cc",
+ "ingested": "2026-10-27",
+ "note": "",
+ "kept": [
+  "degradation_by_video.csv",
+  "degradation_report.md",
+  "dynamic/dynamic_by_video.csv",
+  "fixed/fixed_by_video.csv",
+  "quality/quality_by_video.csv",
+  "vbench_by_video.csv"
+ ],
+ "skipped_by_suffix": {
+  ".json": 1
+ }
+}

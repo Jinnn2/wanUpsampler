@@ -1,0 +1,6 @@
+127 valid, 1 failed, 0 not generated
+attempts needed: 1: 99, 2: 22, 3: 6
+FAILED p59: p59/q6: entity is judged on single frames, which cannot show movement; ask about movement as action or motion, or ask only what one frame shows
+127 prompts, 1246 questions (9.8 per prompt)
+by type: attribute 205, entity 132, negative 129, camera 128, spatial 121, action 106, count 104, detail 95, motion 72, static 70, integrity 52, lighting 28, focus 4
+by judge: vlm_frames 786, flow 270, vlm_video 158, luma 28, sharpness 4

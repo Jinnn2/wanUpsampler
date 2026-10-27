@@ -1,0 +1,2456 @@
+{
+  "schema": "published_wan21_twostage_v1",
+  "claim": "Natural prompt set v1: frontier two-stage and distillation arms on real user prompts, one seed. FULL50 is reused from the platform-natural run on the same machine.",
+  "seeds": [
+    42
+  ],
+  "sampling": {
+    "task": "t2v-1.3B",
+    "size": "832*480",
+    "frame_num": 81,
+    "sample_solver": "unipc",
+    "sample_shift": 8.0,
+    "sample_guide_scale": 6.0,
+    "offload_model": false
+  },
+  "warmup": true,
+  "generations": [
+    {
+      "id": "LR81",
+      "size": "416*240",
+      "frame_num": 81,
+      "steps": 50
+    },
+    {
+      "id": "HR41",
+      "size": "832*480",
+      "frame_num": 41,
+      "steps": 50
+    },
+    {
+      "id": "LR41",
+      "size": "416*240",
+      "frame_num": 41,
+      "steps": 50
+    },
+    {
+      "id": "RCM4",
+      "size": "832*480",
+      "frame_num": 81,
+      "sampler": "rcm",
+      "steps": 4
+    }
+  ],
+  "arms": [
+    {
+      "id": "FULL50",
+      "generation": "external",
+      "post": "none",
+      "role": "dense_reference",
+      "preset_source": "Reused unchanged from a finalized same-machine run on the same prompts and seeds"
+    },
+    {
+      "id": "LR_FLASH",
+      "generation": "LR81",
+      "post": "flashvsr",
+      "role": "spatial_only_two_stage",
+      "preset_source": "FlashVSR v1.1 Tiny, author parameters; same adapted pad/x4/unpad/Lanczos recipe as FLASHVSR_WAN21_COMPLETE.md"
+    },
+    {
+      "id": "F41_RIFE",
+      "generation": "HR41",
+      "post": "rife",
+      "role": "temporal_only_two_stage",
+      "preset_source": "Practical-RIFE v4.26 model.inference, multi=2, scale=1.0, fp32; CLI static-frame/scene-cut heuristics omitted because they change frame count"
+    },
+    {
+      "id": "RCM4",
+      "generation": "RCM4",
+      "post": "none",
+      "role": "distillation",
+      "preset_source": "Official rCM 1.3B 480p DiT, 4 step(s), no CFG"
+    },
+    {
+      "id": "LR41_FLASH_RIFE",
+      "generation": "LR41",
+      "post": "flashvsr+rife",
+      "role": "spatial_and_temporal_two_stage",
+      "preset_source": "416x240x41 Wan generation -> FlashVSR x4 (same recipe as LR_FLASH) -> RIFE x2 (same as F41_RIFE)"
+    }
+  ],
+  "flashvsr": {
+    "repository": "https://github.com/OpenImagingLab/FlashVSR.git",
+    "commit": "cf910c61a60733e610e9c6e8b607f80c3a6c202b",
+    "kernel_repository": "https://github.com/mit-han-lab/Block-Sparse-Attention.git",
+    "kernel_commit": "49d6c39e4dc0303442cda3bb758b3925d4399c49",
+    "weights_repository": "JunhaoZhuang/FlashVSR-v1.1",
+    "weights_files": [
+      "diffusion_pytorch_model_streaming_dmd.safetensors",
+      "LQ_proj_in.ckpt",
+      "TCDecoder.ckpt"
+    ],
+    "flash_scale": 4,
+    "flash_seed": 0,
+    "sparse_ratio": 2.0,
+    "kv_ratio": 3.0,
+    "local_range": 11,
+    "color_fix": true
+  },
+  "rife": {
+    "repository": "https://github.com/hzwer/Practical-RIFE.git",
+    "commit": "bbfd2ea90910789a860ea3e2b32a240cd577b75e",
+    "weights_repository": "hzwer/RIFE",
+    "weights_revision": "01fdc7e97404120c243c3ea7b427046e5dc7643e",
+    "weights_archive": "RIFEv4.26_0921.zip",
+    "weights_archive_sha256": "1fa9b9cda3d9b8c3e301359e2595960902f97bf926c08598b0e9957a3f3f760e",
+    "multi": 2,
+    "scale": 1.0,
+    "fp16": false
+  },
+  "prompt_source": {
+    "repository": "scalingcache",
+    "path": "assets/VBench_full_info.json",
+    "description": "The 256 prompts come from prompts/univ_natural_v1.jsonl: real VidProM user prompts (CC BY-NC 4.0) drawn by natural_prompts.py without looking at any outcome. motion/detail are Qwen3-VL zero-shot predictions (route_v1 questions), used only as nominal cells."
+  },
+  "prompts": [
+    {
+      "id": "nt1000",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1000",
+      "split": "natural",
+      "prompt": "a cute puppy runs in circles"
+    },
+    {
+      "id": "nt1001",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1001",
+      "split": "natural",
+      "prompt": "calm beautiful view with a puppy"
+    },
+    {
+      "id": "nt1002",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1002",
+      "split": "natural",
+      "prompt": "Very old honey found in Egyptian pyramids"
+    },
+    {
+      "id": "nt1003",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1003",
+      "split": "natural",
+      "prompt": "major organs of the body working together to form organ system"
+    },
+    {
+      "id": "nt1004",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1004",
+      "split": "natural",
+      "prompt": "cybernetic biker on night street cyberpunk city, neon light, ultra quality"
+    },
+    {
+      "id": "nt1005",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1005",
+      "split": "natural",
+      "prompt": "a background of environment, waterfall which lasts 30 secs"
+    },
+    {
+      "id": "nt1006",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1006",
+      "split": "natural",
+      "prompt": "words \"adil\" with water and electric current"
+    },
+    {
+      "id": "nt1007",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1007",
+      "split": "natural",
+      "prompt": "tables diagrams and graphs that move around a bright ball"
+    },
+    {
+      "id": "nt1008",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1008",
+      "split": "natural",
+      "prompt": "a sri lankan budhdhist monk working road"
+    },
+    {
+      "id": "nt1009",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1009",
+      "split": "natural",
+      "prompt": "3d moving ostriches in the paradise"
+    },
+    {
+      "id": "nt1010",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1010",
+      "split": "natural",
+      "prompt": "3D animation Cao Cao walking and bursting into laughter, exclaiming 'Impossible!"
+    },
+    {
+      "id": "nt1011",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1011",
+      "split": "natural",
+      "prompt": "A super cool giant robot in Cyberpunk city, artstation."
+    },
+    {
+      "id": "nt1012",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1012",
+      "split": "natural",
+      "prompt": "a hydrogen molecule floats in the air"
+    },
+    {
+      "id": "nt1013",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1013",
+      "split": "natural",
+      "prompt": "A walls crumbling to the floor"
+    },
+    {
+      "id": "nt1014",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1014",
+      "split": "natural",
+      "prompt": "cinematic shot of a grizzly bear jumping over a creek"
+    },
+    {
+      "id": "nt1015",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1015",
+      "split": "natural",
+      "prompt": "create a movie like Star wars, cinematic, animation"
+    },
+    {
+      "id": "nt1016",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1016",
+      "split": "natural",
+      "prompt": "A red toy car speeds through the forest"
+    },
+    {
+      "id": "nt1017",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1017",
+      "split": "natural",
+      "prompt": "very deep grand canyon with fog"
+    },
+    {
+      "id": "nt1018",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1018",
+      "split": "natural",
+      "prompt": "man takes off sunglasses but has another pair of sunglasses underneath"
+    },
+    {
+      "id": "nt1019",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1019",
+      "split": "natural",
+      "prompt": "Portrait of a demon with cinematic lighting"
+    },
+    {
+      "id": "nt1020",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1020",
+      "split": "natural",
+      "prompt": "ancient monk carving statue in mountain using chisel and hammer, 16:9"
+    },
+    {
+      "id": "nt1021",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1021",
+      "split": "natural",
+      "prompt": "Person stretching in front of a TV"
+    },
+    {
+      "id": "nt1022",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1022",
+      "split": "natural",
+      "prompt": "Education Live Room Premium simplicity Solid color Black"
+    },
+    {
+      "id": "nt1023",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1023",
+      "split": "natural",
+      "prompt": "pen exploding ink past notebook and phone chargers"
+    },
+    {
+      "id": "nt1024",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1024",
+      "split": "natural",
+      "prompt": "cherge point plug inserts into ev socket"
+    },
+    {
+      "id": "nt1025",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1025",
+      "split": "natural",
+      "prompt": "Dark Knight from anime, 4k, black armor"
+    },
+    {
+      "id": "nt1026",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1026",
+      "split": "natural",
+      "prompt": "the shoe is bouncing high and down, sunset"
+    },
+    {
+      "id": "nt1027",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1027",
+      "split": "natural",
+      "prompt": "foggy sun light sunset orange sunset"
+    },
+    {
+      "id": "nt1028",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1028",
+      "split": "natural",
+      "prompt": "1970s grizzly bear wearing sunglasses dancing in a disco"
+    },
+    {
+      "id": "nt1029",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1029",
+      "split": "natural",
+      "prompt": "Start the adventure with the character discovering a magical strawberry garden."
+    },
+    {
+      "id": "nt1030",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1030",
+      "split": "natural",
+      "prompt": "two emo twins male and female with magic powers"
+    },
+    {
+      "id": "nt1031",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1031",
+      "split": "natural",
+      "prompt": "beautiful girl in the city in a red dress"
+    },
+    {
+      "id": "nt1032",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1032",
+      "split": "natural",
+      "prompt": "cat celebritiy pulls up in a limo"
+    },
+    {
+      "id": "nt1033",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1033",
+      "split": "natural",
+      "prompt": "Artificial intelligence talking to the camera"
+    },
+    {
+      "id": "nt1034",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1034",
+      "split": "natural",
+      "prompt": "90s commercial shot of people drinking brown liquid from mason jars"
+    },
+    {
+      "id": "nt1035",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1035",
+      "split": "natural",
+      "prompt": "flying cabriolet in space among stars and planets"
+    },
+    {
+      "id": "nt1036",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1036",
+      "split": "natural",
+      "prompt": "a video of someone crafting a Christmas ornament from home objects"
+    },
+    {
+      "id": "nt1037",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1037",
+      "split": "natural",
+      "prompt": "disney style cartoon village with moving head detailed"
+    },
+    {
+      "id": "nt1038",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1038",
+      "split": "natural",
+      "prompt": "Jesus walking on water, moon light, middle of storm"
+    },
+    {
+      "id": "nt1039",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1039",
+      "split": "natural",
+      "prompt": "video tape is on the table realistic"
+    },
+    {
+      "id": "nt1040",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1040",
+      "split": "natural",
+      "prompt": "solar energy with factory in nature"
+    },
+    {
+      "id": "nt1041",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1041",
+      "split": "natural",
+      "prompt": "a squirrel looking at moon, 3d animation, cartoonish, midnight"
+    },
+    {
+      "id": "nt1042",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1042",
+      "split": "natural",
+      "prompt": "The mushroom was watching from her hand"
+    },
+    {
+      "id": "nt1043",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1043",
+      "split": "natural",
+      "prompt": "The West Lake in Hangzhou that year was crowded with tourists"
+    },
+    {
+      "id": "nt1044",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1044",
+      "split": "natural",
+      "prompt": "Abandoned carousel in the apocalyptic snowy winter without movement"
+    },
+    {
+      "id": "nt1045",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1045",
+      "split": "natural",
+      "prompt": "the blue gray Triceratops in the forest, animate, 16:9"
+    },
+    {
+      "id": "nt1046",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1046",
+      "split": "natural",
+      "prompt": "The kitten watches cartoon with a phone in his hand"
+    },
+    {
+      "id": "nt1047",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1047",
+      "split": "natural",
+      "prompt": "A handsome man in the desert in old Egypt"
+    },
+    {
+      "id": "nt1048",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1048",
+      "split": "natural",
+      "prompt": "morphing between \"blueberry spaghetti\" and \"strawberry spaghetti\""
+    },
+    {
+      "id": "nt1049",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1049",
+      "split": "natural",
+      "prompt": "a girl walking alone in rainforest night scene Anime like looking"
+    },
+    {
+      "id": "nt1050",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1050",
+      "split": "natural",
+      "prompt": "wolf vs unicorn on a moonlit night"
+    },
+    {
+      "id": "nt1051",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1051",
+      "split": "natural",
+      "prompt": "man shock by watching scary ghost"
+    },
+    {
+      "id": "nt1052",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1052",
+      "split": "natural",
+      "prompt": "Jupiter has a massive storm known as the \"Great Red Spot.\""
+    },
+    {
+      "id": "nt1053",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1053",
+      "split": "natural",
+      "prompt": "inside a realistic mystical home and female is receiving a document"
+    },
+    {
+      "id": "nt1054",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1054",
+      "split": "natural",
+      "prompt": "close up boy speak, inside house"
+    },
+    {
+      "id": "nt1055",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1055",
+      "split": "natural",
+      "prompt": "fallout 76 . nuclear explosion in the wasteland"
+    },
+    {
+      "id": "nt1056",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1056",
+      "split": "natural",
+      "prompt": "A dog rides on a cat"
+    },
+    {
+      "id": "nt1057",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1057",
+      "split": "natural",
+      "prompt": "Super Mario mixed with Sonic the Hedgehog"
+    },
+    {
+      "id": "nt1058",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1058",
+      "split": "natural",
+      "prompt": "a boy one day see suddenly magic door."
+    },
+    {
+      "id": "nt1059",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1059",
+      "split": "natural",
+      "prompt": "a yellow river, with many black sharks swimming"
+    },
+    {
+      "id": "nt1060",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1060",
+      "split": "natural",
+      "prompt": "eagle on the mountain, realistic, 4k"
+    },
+    {
+      "id": "nt1061",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1061",
+      "split": "natural",
+      "prompt": "(Make an entry video for Solulu, transforming colorful petals into text)"
+    },
+    {
+      "id": "nt1062",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1062",
+      "split": "natural",
+      "prompt": "Dr. Fatima Shehab and her groundbreaking discovery of synthetic cells."
+    },
+    {
+      "id": "nt1063",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1063",
+      "split": "natural",
+      "prompt": "Disney style male cartoon character 10 second animation"
+    },
+    {
+      "id": "nt1064",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1064",
+      "split": "natural",
+      "prompt": "ship in oceans, moving, zoom in"
+    },
+    {
+      "id": "nt1065",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1065",
+      "split": "natural",
+      "prompt": "seven moons are floating in the sky"
+    },
+    {
+      "id": "nt1066",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1066",
+      "split": "natural",
+      "prompt": "ray tracing rendering of cave scenes with waving flowers and plants"
+    },
+    {
+      "id": "nt1067",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1067",
+      "split": "natural",
+      "prompt": "a tree blowing in the wind, high detail"
+    },
+    {
+      "id": "nt1068",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1068",
+      "split": "natural",
+      "prompt": "golden retriever with N64 game style"
+    },
+    {
+      "id": "nt1069",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1069",
+      "split": "natural",
+      "prompt": "hd, 8k, sharp, a cat chasing a squirrel in winter"
+    },
+    {
+      "id": "nt1070",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1070",
+      "split": "natural",
+      "prompt": "fungus growing from the soil to 23 feet tall"
+    },
+    {
+      "id": "nt1071",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1071",
+      "split": "natural",
+      "prompt": "Real life, bamboo forests, mineral springs"
+    },
+    {
+      "id": "nt1072",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1072",
+      "split": "natural",
+      "prompt": "Robotic Monkey Dancing , cinermatic shot, Sharp focus"
+    },
+    {
+      "id": "nt1073",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1073",
+      "split": "natural",
+      "prompt": "little boy making fun with villagers"
+    },
+    {
+      "id": "nt1074",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1074",
+      "split": "natural",
+      "prompt": "Mowgli in the streets of British India"
+    },
+    {
+      "id": "nt1075",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1075",
+      "split": "natural",
+      "prompt": "Lord Buddha was roaming in a city"
+    },
+    {
+      "id": "nt1076",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1076",
+      "split": "natural",
+      "prompt": "falling from roof, graphic, slow motion"
+    },
+    {
+      "id": "nt1077",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1077",
+      "split": "natural",
+      "prompt": "cinematic dog and cat on a boxing ring"
+    },
+    {
+      "id": "nt1078",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1078",
+      "split": "natural",
+      "prompt": "Double jasmine at the evening sun, windy day"
+    },
+    {
+      "id": "nt1079",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1079",
+      "split": "natural",
+      "prompt": "Generate a car inspired by an F15 taking to the skies"
+    },
+    {
+      "id": "nt1080",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1080",
+      "split": "natural",
+      "prompt": "Monkeys eating bananas, exaggerated movements, jumping in the woods, simple colors"
+    },
+    {
+      "id": "nt1081",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1081",
+      "split": "natural",
+      "prompt": "A bright moon hangs in the desert at night"
+    },
+    {
+      "id": "nt1082",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1082",
+      "split": "natural",
+      "prompt": "a gothic residential building in mars"
+    },
+    {
+      "id": "nt1083",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1083",
+      "split": "natural",
+      "prompt": "3d render,pixar style,party in starship,space ship,porthole"
+    },
+    {
+      "id": "nt1084",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1084",
+      "split": "natural",
+      "prompt": "hancuffs made from ice are put on hands"
+    },
+    {
+      "id": "nt1085",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1085",
+      "split": "natural",
+      "prompt": "a guy on his 30's with a god-tier level superpower"
+    },
+    {
+      "id": "nt1086",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1086",
+      "split": "natural",
+      "prompt": "a cartoon illustration of little Indian girl draping his mom's saree by looking into mirror beautiful smile clear face"
+    },
+    {
+      "id": "nt1087",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1087",
+      "split": "natural",
+      "prompt": "Timelapse video of a flower blooming from beginning to end in under 3 seconds."
+    },
+    {
+      "id": "nt1088",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1088",
+      "split": "natural",
+      "prompt": "A indian boy named Vicky is with the teachers in a class room"
+    },
+    {
+      "id": "nt1089",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1089",
+      "split": "natural",
+      "prompt": "dark scary tunnel, smoky atmosphere, cowboy chopper shoes walking by floating dirty water steps"
+    },
+    {
+      "id": "nt1090",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1090",
+      "split": "natural",
+      "prompt": "slowly zoom in shot,biryani pots opens up & displayed a name in background Biryanian,high octane render 75mm screen"
+    },
+    {
+      "id": "nt1091",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1091",
+      "split": "natural",
+      "prompt": "A waterdrop drops into the leaf, that moment the leaf's clolor changed into the lightgreen"
+    },
+    {
+      "id": "nt1092",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1092",
+      "split": "natural",
+      "prompt": "19th century writer with sideburns writes at night at a table by candlelight, turning sideways"
+    },
+    {
+      "id": "nt1093",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1093",
+      "split": "natural",
+      "prompt": "photorealistic portrayal of a man having to choose beteen a room of many doors with a creature coming out of each of them"
+    },
+    {
+      "id": "nt1094",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1094",
+      "split": "natural",
+      "prompt": "picture of a village in kerala during sunrise near the paddy fields"
+    },
+    {
+      "id": "nt1095",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1095",
+      "split": "natural",
+      "prompt": "Flying dragon hovering China tourist downtown, uhd, flycam view high speed, cinematic motion 48k"
+    },
+    {
+      "id": "nt1096",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1096",
+      "split": "natural",
+      "prompt": "a visually appealing and realistic tattoo pen with awesome lightings, in a scene"
+    },
+    {
+      "id": "nt1097",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1097",
+      "split": "natural",
+      "prompt": "One Latin Grandmother with 4 year old granddaughter running with love into her arms in Telluride Colorado"
+    },
+    {
+      "id": "nt1098",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1098",
+      "split": "natural",
+      "prompt": "The camera follows a shimmering light, representing the Spirit's journey through the cosmos, igniting life as it goes"
+    },
+    {
+      "id": "nt1099",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1099",
+      "split": "natural",
+      "prompt": "Joshua and the people of Israel who were in the midst of a great battle. Bible story"
+    },
+    {
+      "id": "nt1100",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1100",
+      "split": "natural",
+      "prompt": "a man's face; image split into 2 side-by-side, shot from different angles"
+    },
+    {
+      "id": "nt1101",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1101",
+      "split": "natural",
+      "prompt": "Red Riding Hood weeping by the wolf's side, a moment of introspection and sorrow."
+    },
+    {
+      "id": "nt1102",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1102",
+      "split": "natural",
+      "prompt": "Standing on top a mountainside watching the sunset with the vivid pinks red orange showing from the fire colored sky."
+    },
+    {
+      "id": "nt1103",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1103",
+      "split": "natural",
+      "prompt": "The once-familiar surroundings now hold a magical allure as he reaches home.\" hyper-realistic, 8K, Ultra hd, pixel style, Disney style, cinema 4d"
+    },
+    {
+      "id": "nt1104",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1104",
+      "split": "natural",
+      "prompt": "1970s film about a rusty space ship flying through a nebula, by Ridley Scott, Stanley Kubrick"
+    },
+    {
+      "id": "nt1105",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1105",
+      "split": "natural",
+      "prompt": "\"and he ruled over all the animals with fear\" - The lion sitting atop a large rock, surrounded by fearful and submissive animals."
+    },
+    {
+      "id": "nt1106",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1106",
+      "split": "natural",
+      "prompt": "A beautiful blonde with long hair is sitting at a computer in an ultra-modern office, everything in dark tones."
+    },
+    {
+      "id": "nt1107",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1107",
+      "split": "natural",
+      "prompt": "90s Documentary dark film showing Interview with suspected person at the desk"
+    },
+    {
+      "id": "nt1108",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1108",
+      "split": "natural",
+      "prompt": "A majestic mountain range in the background, covered in lush greenery, and towering into the clouds."
+    },
+    {
+      "id": "nt1109",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1109",
+      "split": "natural",
+      "prompt": "planet earth in space a lot of ufos are flying around it"
+    },
+    {
+      "id": "nt1110",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1110",
+      "split": "natural",
+      "prompt": "Land of the Lustrous\" - The otherworldly landscape with Phos and the Gems. Route motion"
+    },
+    {
+      "id": "nt1111",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1111",
+      "split": "natural",
+      "prompt": "An image of a server for the game Dayz called The Last Battle for Survival"
+    },
+    {
+      "id": "nt1112",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1112",
+      "split": "natural",
+      "prompt": "two people walking around and looking at an expensive loudspeaker, 8K, cinematic, wide Shot"
+    },
+    {
+      "id": "nt1113",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1113",
+      "split": "natural",
+      "prompt": "Zoro walking with 3 flamy swords one in each hand and one held in mouth, then flexing his muscles and lats"
+    },
+    {
+      "id": "nt1114",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1114",
+      "split": "natural",
+      "prompt": "big bear lake California, water flowing, waves, thunderstorms in the background, lightning"
+    },
+    {
+      "id": "nt1115",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1115",
+      "split": "natural",
+      "prompt": "admiral sloan has landed her star cruiser on mars she starts to explore the red planet"
+    },
+    {
+      "id": "nt1116",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1116",
+      "split": "natural",
+      "prompt": "Xbox logo sphere levitating in the air and sound waves under the sphere"
+    },
+    {
+      "id": "nt1117",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1117",
+      "split": "natural",
+      "prompt": "prompt:sony a7 s3 shot of a cyborg lying dead, animated, grey dusty atmospheric sci-fi abandoned environment, sinking in low clouds, night, depth of field"
+    },
+    {
+      "id": "nt1118",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1118",
+      "split": "natural",
+      "prompt": "a prince exploring and working a farm and his village in 3d images an images"
+    },
+    {
+      "id": "nt1119",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1119",
+      "split": "natural",
+      "prompt": "close-up of a zombie hand coming up from under the sand at a beach on an eerie spooky moonlight night, 30 fps"
+    },
+    {
+      "id": "nt1120",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1120",
+      "split": "natural",
+      "prompt": "mythic Enkidu in animal skins, in the wilderness, sleeping surrounded by wild animals"
+    },
+    {
+      "id": "nt1121",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1121",
+      "split": "natural",
+      "prompt": "a dark moody silhoutte of a woman sitting in a chair infront of a full red moon video loop"
+    },
+    {
+      "id": "nt1122",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1122",
+      "split": "natural",
+      "prompt": "car with eyes and mouth roaming in the city while eating an ice cream"
+    },
+    {
+      "id": "nt1123",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1123",
+      "split": "natural",
+      "prompt": "photorealistic video of a students coming out of tuition center called \"Thought Wing Coaching\""
+    },
+    {
+      "id": "nt1124",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1124",
+      "split": "natural",
+      "prompt": "a animated wizard and witch in a duel, on a clif, UHD 128K , zoom in, Ultrafine quality"
+    },
+    {
+      "id": "nt1125",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1125",
+      "split": "natural",
+      "prompt": "The origin video of Yu's surname is about 3 minutes long, with a cartoon style"
+    },
+    {
+      "id": "nt1126",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1126",
+      "split": "natural",
+      "prompt": "Create an abstract design with geometric shapes and lighting effects for a modern and stylish look."
+    },
+    {
+      "id": "nt1127",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1127",
+      "split": "natural",
+      "prompt": "father forgets to buy birthday cake for his daughter, superman comes into rescue by bring a birthday cake"
+    },
+    {
+      "id": "nt1128",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1128",
+      "split": "natural",
+      "prompt": "a piece of salmon sushi becoming alive with two big eyes"
+    },
+    {
+      "id": "nt1129",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1129",
+      "split": "natural",
+      "prompt": "make a video for me that there is a light coming from above the mountains and then a peacock homes out of it"
+    },
+    {
+      "id": "nt1130",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1130",
+      "split": "natural",
+      "prompt": "The Queen of Egypt is walking down the aisle and people are watching"
+    },
+    {
+      "id": "nt1131",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1131",
+      "split": "natural",
+      "prompt": "Residents in a small town are mortally scared and afraid of every rustle."
+    },
+    {
+      "id": "nt1132",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1132",
+      "split": "natural",
+      "prompt": "JAMA masjid, beutifull place, green, water, mountain, dates trees, rounds of JAMA masjid"
+    },
+    {
+      "id": "nt1133",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1133",
+      "split": "natural",
+      "prompt": "A mysterious hooded figure with a purple glow coming from the inside of its hood standing down a hallway staring at the camera"
+    },
+    {
+      "id": "nt1134",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1134",
+      "split": "natural",
+      "prompt": "Ella ELEPHANT and her friends facing challenges while crossing a wobbly bridge"
+    },
+    {
+      "id": "nt1135",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1135",
+      "split": "natural",
+      "prompt": "a girl studying in her room with her large windows in Amsterdam at night. Her cat move the tail. In anime style"
+    },
+    {
+      "id": "nt1136",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1136",
+      "split": "natural",
+      "prompt": "A fortune telling man sitting at a table predicting the future wit"
+    },
+    {
+      "id": "nt1137",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1137",
+      "split": "natural",
+      "prompt": "Countdown, starting at 3,ending at 1,big red background, special effects on the numbers,8K,16:9"
+    },
+    {
+      "id": "nt1138",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1138",
+      "split": "natural",
+      "prompt": "piece of white sheet of blank paper waving on a green background"
+    },
+    {
+      "id": "nt1139",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1139",
+      "split": "natural",
+      "prompt": "Describe a magical forest with tall trees, colorful flowers, and a bright, sunny morning."
+    },
+    {
+      "id": "nt1140",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1140",
+      "split": "natural",
+      "prompt": "brown haired girl is boasting infront of a well when a handsome boy walks up to her"
+    },
+    {
+      "id": "nt1141",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1141",
+      "split": "natural",
+      "prompt": "Zhuge Liang held a guitar and sang lyrics, surrounded by soldiers in gold armor"
+    },
+    {
+      "id": "nt1142",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1142",
+      "split": "natural",
+      "prompt": "a thoughtful accountant is toiling with an old accounting software and are deraming of the future"
+    },
+    {
+      "id": "nt1143",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1143",
+      "split": "natural",
+      "prompt": "Visual: Service-based business professionals nodding in approval, viewing the improved website on various devices. Purpose: To specifically engage your target audience."
+    },
+    {
+      "id": "nt1144",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1144",
+      "split": "natural",
+      "prompt": "A panoramic shot of Dunkirk beaches filled with a lot of soldiers shouting"
+    },
+    {
+      "id": "nt1145",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1145",
+      "split": "natural",
+      "prompt": "color photo of a wide screen wall for a corporate IT training on modern technology"
+    },
+    {
+      "id": "nt1146",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1146",
+      "split": "natural",
+      "prompt": "Birbal is seen asking the first question, his body language confident. Akbar's enemies are trying to answer with expressions of confusion and doubt"
+    },
+    {
+      "id": "nt1147",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1147",
+      "split": "natural",
+      "prompt": "chaotic movement of thoughts in the brain, which becomes orderly and structural"
+    },
+    {
+      "id": "nt1148",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1148",
+      "split": "natural",
+      "prompt": "Old 1990s VHS style realistic footage of a dark scifi/Cyberpunk type street corner (1990s/early 2000s footage)"
+    },
+    {
+      "id": "nt1149",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1149",
+      "split": "natural",
+      "prompt": "Unlike solid bodies like Earth, the Sun is a gaseous sphere primarily composed of hydrogen and helium."
+    },
+    {
+      "id": "nt1150",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1150",
+      "split": "natural",
+      "prompt": "people walking on a trail with colorful hills, colorful woodcarvings, fluid formations, rich color palettes"
+    },
+    {
+      "id": "nt1151",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1151",
+      "split": "natural",
+      "prompt": "Visualize a brief moment where Ultraman transforms from his human form. Focus on the instant the transformation completes."
+    },
+    {
+      "id": "nt1152",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1152",
+      "split": "natural",
+      "prompt": "creat an insprirational youtube short about Joel chapter 2 verse 25 and 26"
+    },
+    {
+      "id": "nt1153",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1153",
+      "split": "natural",
+      "prompt": "Elysia crosses a treacherous mountain pass, with Nightshade flying by her side yper-realistic, 8K,Ultra hd, pixel style, Disney style, cinema 4d"
+    },
+    {
+      "id": "nt1154",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1154",
+      "split": "natural",
+      "prompt": "wet paper towel around a drink bottle , background should be light color"
+    },
+    {
+      "id": "nt1155",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1155",
+      "split": "natural",
+      "prompt": "An Alice in wonderland with mushrooms and hobbits stlye photo with modern effects 4k in 9:16 potrait"
+    },
+    {
+      "id": "nt1156",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1156",
+      "split": "natural",
+      "prompt": "Man walking towards camera, Car parked beside with headlight on, at Dusk Time, Dark Purple Sky, Long wide Shot, Japanese Anime Style"
+    },
+    {
+      "id": "nt1157",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1157",
+      "split": "natural",
+      "prompt": "(Tiger vs. Lion, on the grassland, dusk, distant view, action, ferocity, confrontation, warm tones, telephoto lens, side lighting, intense, stunning.)"
+    },
+    {
+      "id": "nt1158",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1158",
+      "split": "natural",
+      "prompt": "darkness in space out in the deepest reaches of space, suddenly there is a spark and then millions of objects flying towards the camera"
+    },
+    {
+      "id": "nt1159",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1159",
+      "split": "natural",
+      "prompt": "Urban streets showing interaction between humans and AI, like assistive robots and smart navigation, movie style,camera pan right"
+    },
+    {
+      "id": "nt1160",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1160",
+      "split": "natural",
+      "prompt": "headquarters room, low lighting, people, drama, high quality, 8k photorealistic, extremely sharp, extremely detailed"
+    },
+    {
+      "id": "nt1161",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1161",
+      "split": "natural",
+      "prompt": "cat's head grooving to a bouncing song, psychadelic colours around its head"
+    },
+    {
+      "id": "nt1162",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1162",
+      "split": "natural",
+      "prompt": "Describe the kitchen of a small stone vlillage house, a stone cupboard, a stone table and chairs, a stone stove for cooking rice, cartoon-16:9"
+    },
+    {
+      "id": "nt1163",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1163",
+      "split": "natural",
+      "prompt": "the monk Signifi a big tree in forest at night animation cartoon"
+    },
+    {
+      "id": "nt1164",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1164",
+      "split": "natural",
+      "prompt": "Mandelbrot Doppler effect in kaleidoscope glass purple/green 3D art In the form of a mannequin head, light painting, 360 degree rotation, time-lapse"
+    },
+    {
+      "id": "nt1165",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1165",
+      "split": "natural",
+      "prompt": "create Produce a video that depicts the inside of the sea whale's belly, with Jonah praying fervently"
+    },
+    {
+      "id": "nt1166",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1166",
+      "split": "natural",
+      "prompt": "As they grew older, Lily and Sam passed down the crystal ball to the next generation."
+    },
+    {
+      "id": "nt1167",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1167",
+      "split": "natural",
+      "prompt": "Luna extending her hand towards the shy creatures, their timid faces gradually lighting up with curiosity and trust./"
+    },
+    {
+      "id": "nt1168",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1168",
+      "split": "natural",
+      "prompt": "cinematic moving background of a white snowing background with a reindeer sleigh"
+    },
+    {
+      "id": "nt1169",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1169",
+      "split": "natural",
+      "prompt": "Explore the role of animals in the creation story and how they were brought into existence by God."
+    },
+    {
+      "id": "nt1170",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1170",
+      "split": "natural",
+      "prompt": "astrophotography flying through stars towards ursa maior constellation astrocartography it turns into a question mark"
+    },
+    {
+      "id": "nt1171",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1171",
+      "split": "natural",
+      "prompt": "young couple drinking coffee at night, apartment dark lights, cinematic lights, far view camera"
+    },
+    {
+      "id": "nt1172",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1172",
+      "split": "natural",
+      "prompt": "Decoration of Chinese Qin and Han Dynasties and fierce burning flames, cyberpunk style, star wars, style detailed scenes, earthy naturalism, teal and yellow, frostpunk, innermost scenes, cinestill 50d - original style"
+    },
+    {
+      "id": "nt1173",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1173",
+      "split": "natural",
+      "prompt": "n the anime, there is a boy named Luo Ye. The boy is 17 years old, 178 centimeters tall, with black hair and bangs. He was wearing a white sweatshirt, brown jacket, jeans and white sneakers. Sitting on the sofa at home, playing mobile games. View from a distance, the whole picture."
+    },
+    {
+      "id": "nt1174",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1174",
+      "split": "natural",
+      "prompt": "a winding road through a scenic landscape, symbolizing life's journey. In a quaint little town nestled by the mountains, lived a loving couple, Ella and Daniel. They were the epitome of love, support, and companionship. Every day, they walked along the winding road, hand in hand, through life's ups and downs."
+    },
+    {
+      "id": "nt1175",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1175",
+      "split": "natural",
+      "prompt": "\"Capture a stunning apocalyptic scene that balances beauty and devastation. Utilize AI to immortalize a post-apocalyptic world with meticulous attention to intricate details. Play with light and darkness, showcasing haunting beauty emerging from the ashes. Push boundaries with unconventional perspectives."
+    },
+    {
+      "id": "nt1176",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1176",
+      "split": "natural",
+      "prompt": "Depict a young boy named Max lying in his cozy bed, surrounded by a warm, soft glow. Max's eyes are closed as he drifts into a peaceful slumber"
+    },
+    {
+      "id": "nt1177",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1177",
+      "split": "natural",
+      "prompt": "A person's hand reaching for a walnut, mid-bite. The focus is on the person's hand and the walnut being held, with blurred background to convey the act of enjoying walnuts.*"
+    },
+    {
+      "id": "nt1178",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1178",
+      "split": "natural",
+      "prompt": "Visualize the changing seasons and the gradual loosening of the drought's grip on Eldoria, symbolized by the flourishing landscape and the vibrant colors returning to the once arid land."
+    },
+    {
+      "id": "nt1179",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1179",
+      "split": "natural",
+      "prompt": "A vibrant, bustling cityscape drenched in a gentle rain. People of all ages and backgrounds joyfully dance and move through the streets, embracing the refreshing essence of water."
+    },
+    {
+      "id": "nt1180",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1180",
+      "split": "natural",
+      "prompt": "Silent Dance in an Abandoned Hall: In a large, abandoned ballroom with dusty chandeliers, a couple dances gracefully, wordlessly communicating through their movements. Their dance is emotive and intimate, highlighting their deep connection."
+    },
+    {
+      "id": "nt1181",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1181",
+      "split": "natural",
+      "prompt": "Cinematic Portrait beautiful woman, detailed face :: Circular portal in a desert leading towards modern temples, in the style of biblical drama, monumental figures, voluminous mass"
+    },
+    {
+      "id": "nt1182",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1182",
+      "split": "natural",
+      "prompt": "The mood and atmosphere evoke a sense of peace and serenity, inviting the viewer to immerse themselves in the tranquil beauty of the natural world. It is a moment of quiet contemplation, where the whispers of the divine can be heard in the gentle rustle of leaves and the melodic songs of birds."
+    },
+    {
+      "id": "nt1183",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1183",
+      "split": "natural",
+      "prompt": "3d video Sulley scratched his furry head, his eyebrows knitted together in concern. \"What are we going to do, Mike? We can't let Randall and Mr. Waternoose get their hands on Boo.\""
+    },
+    {
+      "id": "nt1184",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1184",
+      "split": "natural",
+      "prompt": "A medieval Italian with curly hair and a beard, with antique bronze skin kneeling on both knees on the left side of the picture. On the right side of the picture is Genghis Khan sitting there surrounded by guards, with a palace as the background"
+    },
+    {
+      "id": "nt1185",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1185",
+      "split": "natural",
+      "prompt": "a modern and chic restaurant with dark booths and white tables, in the style of muted colours, nora heysen, reimagined by industrial light and magic, green and brown, dark orange and beige, bentwood, elba damast"
+    },
+    {
+      "id": "nt1186",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1186",
+      "split": "natural",
+      "prompt": "20 Year old princess on the garden,wearing blue dress, her eyes are blue and have long golden messy hair, she is moving , butterfly are flying, flowers are moving in the wind, HIGHLY DETAILED"
+    },
+    {
+      "id": "nt1187",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1187",
+      "split": "natural",
+      "prompt": "horseman of the Apocalypse - War, depicting War in vivid detail, his face reflecting a fiery rage, the setting is a thriving landscape being dramatically transformed by the onslaught of war, the lighting is intensely cinematic, creating a sense of high drama, the style is distinctly apocalypsecore, it's to be created as if it's a character portrait shot by Annie Leibovitz and retouched by Pratik Naik"
+    },
+    {
+      "id": "nt1188",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1188",
+      "split": "natural",
+      "prompt": "high in the Amazon rainforest, the image of the plane crash seen from inside the cabin. in Real Photo style, hyper-realistic, high dynamic range, rich colors, realistic textures, 4K resolution, high contrast, high color depth."
+    },
+    {
+      "id": "nt1189",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1189",
+      "split": "natural",
+      "prompt": "One evening, as the villagers gathered to celebrate their newfound happiness, Mr. Grumbleton stood apart, still complaining. Sam approached him and said, \"Why don't you give gratitude a chance, Mr. Grumbleton? You might find it brings more joy than grumbling ever will.\""
+    },
+    {
+      "id": "nt1190",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1190",
+      "split": "natural",
+      "prompt": "A postage stamp that captures the chaos of a blizzard as it engulfs a fluffy puppy, leaving behind a trail of paw prints in the snow. Rendered in stunning 4K resolution, this stamp is a true masterpiece."
+    },
+    {
+      "id": "nt1191",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1191",
+      "split": "natural",
+      "prompt": "Lucifer, fallen angel, Christian mythology, intense gaze, raven wings, dramatic lighting, celestial aura, infernal realm, gothic aesthetics, dark charisma, sinister elegance, infernal throne, brooding atmosphere, nefarious smile, flaming background, rebellious spirit, ethereal beauty, power and grace, rebellious defiance, extreme contrast"
+    },
+    {
+      "id": "nt1192",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1192",
+      "split": "natural",
+      "prompt": "Many photovoltaic panels installed on the roofs of industrial warehouses, seen flying in low flight very, very fast over them towards the horizon and leaving them behind, in very real images"
+    },
+    {
+      "id": "nt1193",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1193",
+      "split": "natural",
+      "prompt": "Mr. Thompson's clock shop was a treasure trove of ticking wonders. Grandfather clocks stood tall, their pendulums swinging with a rhythmic precision that echoed through the shop. Pocket watches lay nestled in velvet-lined cases, their delicate hands frozen in time. But the true marvel of the shop was a magical wall clock that hung at the back, a clock that seemed to have a life of its own."
+    },
+    {
+      "id": "nt1194",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1194",
+      "split": "natural",
+      "prompt": "/a highly detailed,Open up shot enterHistorical ghost hunting in a creepy abandoned asylum,Three young explorers with headlamps enter the decaying asylum, backpacks full of equipment"
+    },
+    {
+      "id": "nt1195",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1195",
+      "split": "natural",
+      "prompt": "Milo in his treehouse: A vibrant, lush jungle with Milo's treehouse perched high in the trees. Milo is surrounded by books, gadgets, and playful decorations."
+    },
+    {
+      "id": "nt1196",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1196",
+      "split": "natural",
+      "prompt": "Dante's Hell, Dante's Inferno, clifs made out of petrified people, drone view, photorealism, ultra realistic, photographic, 8k ultra HD, detailed, cinematic angle, cinematic light, realistic, 4K, blender, NIKON, Vray, fear"
+    },
+    {
+      "id": "nt1197",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1197",
+      "split": "natural",
+      "prompt": "\"Create a spooky Halloween 2023 image with dark clouds covering the night sky, a full moon glistening above, and a haunted house shrouded in mist. Include sharply carved pumpkins and eerie lighting to accentuate the frightful atmosphere. The image should be in a 3:2 aspect ratio, uplit, with a size of 400, and an image brightness of 6.5.\""
+    },
+    {
+      "id": "nt1198",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1198",
+      "split": "natural",
+      "prompt": "A woman fires a .38, a scene from a 2013 film, captured by a Sony zv - e10, 50 mm lens f1. 8, wide shot, natural lighting, cinematic lighting, oscar winner film, intricate details, oscar winner VFX, hyper-realistic, clean sharp focus, cinematic color grading, detailed 8k resolution, sharp, photorealistic"
+    },
+    {
+      "id": "nt1199",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1199",
+      "split": "natural",
+      "prompt": "Create an image of a black hair girl with bob hair with a purple ribbon. This girl is smiling brightly looking at you. The girl is wearing purple clothes full of lace. (bright purple eyes), (an animated picture)"
+    },
+    {
+      "id": "nt1200",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1200",
+      "split": "natural",
+      "prompt": "Our experienced photographers will ensure you feel comfortable in front of the camera. They'll guide you every step of the way, helping you express your emotions and tell your story through the lens."
+    },
+    {
+      "id": "nt1201",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1201",
+      "split": "natural",
+      "prompt": "doomsday,destruction, the destruction of the world, the destruction of the world, the woman who is alone in peace, the chaotic situation and people behind her"
+    },
+    {
+      "id": "nt1202",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1202",
+      "split": "natural",
+      "prompt": "A magnificent gray wolf, its thick fur glistening under the soft Amsterdam sunlight, confidently striding through the bustling streets, capturing the essence of both wilderness and urban life, romanticism, a poetic portrayal of the wolf's journey, with dreamlike visuals and a touch of surrealism, slow tracking shots and natural lighting, emphasizing the contrast between the cityscape and the wolf's untamed spirit, 4K"
+    },
+    {
+      "id": "nt1203",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1203",
+      "split": "natural",
+      "prompt": "/create prompt:Cover theme of the month: fashion brands for Slavic beauties, magazine cover (model in brand clothing, brand logo in high-tech style and Russian-folk ornament of the future), (main name: concept neuro trade union by neurosyndicate), walking in the Moscow's street in megapolic 2089 year, sunset, 4K"
+    },
+    {
+      "id": "nt1204",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1204",
+      "split": "natural",
+      "prompt": "Create video with a visual style unique to Disney Pixar. Create unique characters with vivid facial expressions and colorful, detailed backgrounds. Make sure this image expresses the warmth and whimsy usually seen in Disney Pixar films, a student walking home from campus wearing a maroon shirt"
+    },
+    {
+      "id": "nt1205",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1205",
+      "split": "natural",
+      "prompt": "But when the big game against their arch-rivals, the Hawks, arrived, Tom's confidence wavered. The entire town was watching, and he was gripped by stage fright."
+    },
+    {
+      "id": "nt1206",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1206",
+      "split": "natural",
+      "prompt": "A young Indian musician, surrounded by the serene beauty of a countryside crop field, performing on his flute, filmed with a documentary style that captures the authenticity of this rural musical moment,Highly detailed, very sharp, hyper realistic, ultra cinematic, 64K resolution, 1000fps."
+    },
+    {
+      "id": "nt1207",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1207",
+      "split": "natural",
+      "prompt": "the light from a light source and plants in dark water, in the style of otherworldly creatures, video montages, calming symmetry, nature-inspired imagery, shiny eyes"
+    },
+    {
+      "id": "nt1208",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1208",
+      "split": "natural",
+      "prompt": "Capture the essence of longing in a few lines, describing the melancholy beauty of a fading sunset as someone reflects on memories that time can't erase."
+    },
+    {
+      "id": "nt1209",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1209",
+      "split": "natural",
+      "prompt": "An opaque ocal shaped, 6 feet in diameter Time Machine is in the center of a concrete room emitting Plasma and white steam. Cinematic, Film Grain, High Detail, Hyperreal"
+    },
+    {
+      "id": "nt1210",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1210",
+      "split": "natural",
+      "prompt": "As the brother and sister stand in the room, the sister can't help but compare their heights. She beams with joy as she realizes she has surpassed her brother in height. The hyper realistic cartoon image captures the moment perfectly, with every detail of their expressions and body language rendered in stunning detail."
+    },
+    {
+      "id": "nt1211",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1211",
+      "split": "natural",
+      "prompt": "early Indigenous Peoples: Before the arrival of European settlers, the land now known as the United States was inhabited by numerous indigenous tribes and nations. These Native Americans had diverse cultures, languages, and societies."
+    },
+    {
+      "id": "nt1212",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1212",
+      "split": "natural",
+      "prompt": "A bright sunny day in the garden of Eden when God first created it, beautiful lushed grasses, trees, different species of animals and water fall with different colors of lights arrays to bring out the beauty of this garden"
+    },
+    {
+      "id": "nt1213",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1213",
+      "split": "natural",
+      "prompt": "Generates a picture of a dark night, abandoned factory looking like it's about to collapse, inside, out of reach and in disarray, flashlights illuminating rugged paths - C 10 ."
+    },
+    {
+      "id": "nt1214",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1214",
+      "split": "natural",
+      "prompt": "Create an old-school style tattoo featuring a noodle bowl where spaghetti strands serve as the water in a soup. In this vibrant hand-drawn design, imagine a ship gracefully crossing this sea of soup, inspired by the whimsical and artistic style of Miyazaki."
+    },
+    {
+      "id": "nt1215",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1215",
+      "split": "natural",
+      "prompt": "A muscular body like in anime jo jo with a pear head and face fights with muscular fists in an epic battle against flying inflated wasps with an evil look. Against the background of light effects, explosions, destruction."
+    },
+    {
+      "id": "nt1216",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1216",
+      "split": "natural",
+      "prompt": "collage edit in a crazy scrapbook style of images about propaganda in social networks - pages in social networks, portraits of influencers, fashion, cooking, politics, in a flashy collage style, vibrant colors, bold effects, crazy motion design, advertisement style"
+    },
+    {
+      "id": "nt1217",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1217",
+      "split": "natural",
+      "prompt": "An animation of an adult lioness in the African plains patiently prowling and stalking its prey, in the animation style of old disney movies movie like cinderella and beauty and the beast."
+    },
+    {
+      "id": "nt1218",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1218",
+      "split": "natural",
+      "prompt": "Portrait of a queen with long marsala color braided hair, royal guard clothing, elegant, highly detailed, digital painting, artstation, concept art, smooth, sharp focus, illustration, art by artgerm and greg rutkowski"
+    },
+    {
+      "id": "nt1219",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1219",
+      "split": "natural",
+      "prompt": "there is a boy standing with regret and disbelief.while his best friend walks away flirting with his girlfriend behind him leaving him alone.there is a break in friend ship due to the girl he found.The style for the painting is 19th century painterly style."
+    },
+    {
+      "id": "nt1220",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1220",
+      "split": "natural",
+      "prompt": "grasshopper just laughed,and said to couple of aunt \"Why worry about the future? There's plenty of food now, and the sun is shining. I'll worry about winter when it comes.\""
+    },
+    {
+      "id": "nt1221",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1221",
+      "split": "natural",
+      "prompt": "\"I endured for three years, just waiting for an opportunity! I want to stand up for myself, not to prove how great I am! I intend to tell others that what I lost, I must reclaim!\""
+    },
+    {
+      "id": "nt1222",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1222",
+      "split": "natural",
+      "prompt": "Camera movement: Majestic aerial shot sweeping over the main habitat, capturing the vibrant Martian landscape with sprawling mountains in the backdrop. Resolution: 8K for crisp, lifelike detail. Style: Cinematic, with vibrant colors and high contrast. Atmosphere: Warm, golden hues cast by the Martian sunset, creating a picturesque scene. Added feature: As the camera pans, subtle dust devils dance across the Martian surface, hinting at the planet's dynamic environment. Seed: 12345"
+    },
+    {
+      "id": "nt1223",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1223",
+      "split": "natural",
+      "prompt": "\"Join our animated sumo wrestler as they take on the challenge of sumo wrestling on a trampoline! Can they maintain their balance and technique in this bouncy showdown?\""
+    },
+    {
+      "id": "nt1224",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1224",
+      "split": "natural",
+      "prompt": "A solitary bird perched on a withered tree in the vast expanse of a barren desert, capturing the essence of isolation and survival, realism, warm and desolate color palette, wide-angle shots to showcase the vastness of the desert landscape, natural lighting casting long shadows, 4K"
+    },
+    {
+      "id": "nt1225",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1225",
+      "split": "natural",
+      "prompt": "The middle-aged man confidently dribbled the basketball towards the three-point line, his experienced eyes sizing up the distance. With a smooth motion, he elevated into a jump, releasing a precise three-point jump shot. The ball sailed through the air, arcing gracefully before swishing through the net, accompanied by cheers from onlookers."
+    },
+    {
+      "id": "nt1226",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1226",
+      "split": "natural",
+      "prompt": "I do my homework at the office which is close to the large spacious window and I look out the window as the cars pass on the boulevard which is close to my window and the movement of the cars does not disturb my study because I listen to the music focused, motion 4, lights and colors, ar 16:9"
+    },
+    {
+      "id": "nt1227",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1227",
+      "split": "natural",
+      "prompt": "Beautiful young woman with long red and blue wavey hair laughing, black choker, smooth skin, pretty face, three quarter pose, skin shader, character concept art, studio portrait, 8k cgi rendered in octane high detail, realistic"
+    },
+    {
+      "id": "nt1228",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1228",
+      "split": "natural",
+      "prompt": "A majestic silhouette of the cross of Jesus set against a vibrant sunset or sunrise, radiating with divine light and beauty, no human presence, spiritual and serene atmosphere, evoking a sense of awe and reverence, realism, slow and gentle camera movements, warm and soft lighting, 4K"
+    },
+    {
+      "id": "nt1229",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1229",
+      "split": "natural",
+      "prompt": "Pharaoh Psammetichus II, shrouded in power, seeks answers. But not from the gods of Egypt. His gaze turns west, towards a curious land called... Greece."
+    },
+    {
+      "id": "nt1230",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1230",
+      "split": "natural",
+      "prompt": "\"Create an action-packed 3-second video where Doraemon engages in a high-speed battle against his dark counterpart. The fight should be filled with futuristic gadgets, fast-paced movement, and intense energy. Add 'Doraemon vs. Dark Doraemon' as a text overlay.\""
+    },
+    {
+      "id": "nt1231",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1231",
+      "split": "natural",
+      "prompt": "Boris, despite being a formidable opponent, was not one to seek conflict or boast about his abilities. He replied, \"My lord, I have no desire to fight you. We can live in harmony and peace in this beautiful forest.\""
+    },
+    {
+      "id": "nt1232",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1232",
+      "split": "natural",
+      "prompt": "an adorable scene of 3D animated dinos from Land Before Time in the style of Sony Animation Studio, high quality diigtal render, realistic subsurface scattering, soft diffusted lighting, ambient occlusion, chromatic aberration, PBR textures, smooth animation, 24 fps, 4k resolution, IMAX, award winning animation, unreal engine, redshift, octane render"
+    },
+    {
+      "id": "nt1233",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1233",
+      "split": "natural",
+      "prompt": "Close-ups of engineering students typing on laptops, experimenting in labs with tools, piloting drones in the air, and programming humanoid robots with holographic AI algorithms hovering around them"
+    },
+    {
+      "id": "nt1234",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1234",
+      "split": "natural",
+      "prompt": "The boy in white is running on the grassland, the boy chases the angel in white flying in the sky, and is injured and bleeding after running to the thorn bush, the angel looks down at the injured boy indifferently, the boy looks up at the angel and sheds tears, (Style: American anime, weight: 0.8)"
+    },
+    {
+      "id": "nt1235",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1235",
+      "split": "natural",
+      "prompt": "plotter and computer in front of corridor, while corridor is being illuminated by light lines and points starting from background going to foreground, technological feeling"
+    },
+    {
+      "id": "nt1236",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1236",
+      "split": "natural",
+      "prompt": "Luminous soul leaving the body in a mesmerizing universe of galaxies of vibrant colors. Celestial Cascade: A seamless flow of deep blues and purples, reminiscent of a cascading cosmic waterfall. macro bohen light sunshaft"
+    },
+    {
+      "id": "nt1237",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1237",
+      "split": "natural",
+      "prompt": "a beautiful big moon is captured with a rainbow in the background, creating a stunning and serene scene. The moon is set against a backdrop of a field with tall grass and trees, while a group of birds flies in the sky above. The combination of the sunset, rainbow, and the presence of birds creates a visually appealing and peaceful atmosphere"
+    },
+    {
+      "id": "nt1238",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1238",
+      "split": "natural",
+      "prompt": "A symphony orchestra is performing in the middle of a hall, which is full of spectators who are behind the picture, all of them are drunk and crazy about the music, and the whole space is filled with the feeling of creating a fantastic work of art, an extreme long shot hyper real image with many details of lighting and color. are cinematic"
+    },
+    {
+      "id": "nt1239",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1239",
+      "split": "natural",
+      "prompt": "blkmndy, very very very very high mystical Burmese waterfall, hyper realistically detailed, hyper realistically detailed, great realistic detail, Burmese art, Burmese, Burmese, myanmar, yama zatdaw, ramayana, octane render, high definition, 8k, 8k render, detailed Burmese river, detailed Burmese forest, detailed Burmese waterfall, detailed Burmese waterfall, realistic lighting, volumetric lighting, black and white, comic style"
+    },
+    {
+      "id": "nt1240",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1240",
+      "split": "natural",
+      "prompt": "Display a hand sanitizer bottle prominently in the frame, with a hand reaching for it, signifying the importance of having sanitizer on hand when dealing with cash."
+    },
+    {
+      "id": "nt1241",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1241",
+      "split": "natural",
+      "prompt": "A montage revealing the diversity of alien lifeforms, mysterious ancient temples, and breathtaking cosmic landscapes. It teases the rich, expansive universe and the wonders that lie within it."
+    },
+    {
+      "id": "nt1242",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1242",
+      "split": "natural",
+      "prompt": ": A lone astronaut crash-lands on a vibrant alien planet, teeming with bioluminescent flora and fauna. The camera pans across the stunning landscape as the astronaut marvels at the otherworldly beauty, their initial fear giving way to awe. (Think Avatar meets Annihilation.)"
+    },
+    {
+      "id": "nt1243",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1243",
+      "split": "natural",
+      "prompt": "a promotional video for training video creation services, featuring a tech video on a laptop that slowly slides from the top right to the bottom left of the screen, text on screen says \"do you want your videos to look like this?\", ending with the company logo"
+    },
+    {
+      "id": "nt1244",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1244",
+      "split": "natural",
+      "prompt": "subject Woman with her back to us as if she wasn't expecting what is about to happen, close-up on the eyes worriedly checking what is happening, the subject starts to run away"
+    },
+    {
+      "id": "nt1245",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1245",
+      "split": "natural",
+      "prompt": "Create a visually captivating video sequence featuring a metro train speeding by in the background while a stylish man stands confidently in the foreground, meticulously grooming and smoothing his luscious, silky hair. The video should exude an urban, modern vibe with a focus on the juxtaposition of the fast-paced metro and the man's serene grooming routine. Capture the essence of metropolitan sophistication and style in this dynamic scene."
+    },
+    {
+      "id": "nt1246",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "low",
+      "family_id": "nat1246",
+      "split": "natural",
+      "prompt": "a cool anime boy with wavy hair riding his stakeboard down the street, it is sunset and there is beautiful lighting and the wind is blowing"
+    },
+    {
+      "id": "nt1247",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1247",
+      "split": "natural",
+      "prompt": "Epic space battle, space ships, explosions, ultra hd, realistic, vivid colors, highly detailed, UHD drawing, pen and ink, perfect composition, beautiful detailed intricate insanely detailed octane render trending on artstation, 8k artistic photography, photorealistic concept art, soft natural volumetric cinematic perfect light"
+    },
+    {
+      "id": "nt1248",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1248",
+      "split": "natural",
+      "prompt": "The camera captures a tranquil sunset with deep oranges and purples blending into a darkening blue sky. Gentle movements of leaves in a soft breeze and the gradual appearance of the first evening stars set a peaceful tone."
+    },
+    {
+      "id": "nt1249",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1249",
+      "split": "natural",
+      "prompt": "A girl with an angel ring on her head, long light yellow hair, pink eyes of lotus flowers and wearing a white dress over the knees, with large white wings on her back, the girl holds a golden bow, wears a pair of light brown heels. Magnificent, she sits on a throne with little angels around. High quality images, aspect ratio is 16:9"
+    },
+    {
+      "id": "nt1250",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "low",
+      "family_id": "nat1250",
+      "split": "natural",
+      "prompt": "A knowledge gathering from the pre-Islamic era of men sitting in a sitting room in the mosque, and there is a man speaking and they listen carefully to him"
+    },
+    {
+      "id": "nt1251",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1251",
+      "split": "natural",
+      "prompt": "masterpiece, best quality, underwater scene, (Gingerbread man:1.1) swimming diving with snorkel, bubbles, corals, fish, sunny, holiday , tropic, amazing photograph, 8K, high quality, photorealistic, realism, volumetric lighting, octane render, unreal engine 5, rendered with nanite sharp focus, breathtaking, intricate natural lighting"
+    },
+    {
+      "id": "nt1252",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1252",
+      "split": "natural",
+      "prompt": "A set of different scenes with mountain and mountain views, in the style of fantastical otherworldly visions, muted colorscape mastery, richly colored skies, national geographic photo, panel composition mastery, energy - filled illustrations"
+    },
+    {
+      "id": "nt1253",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1253",
+      "split": "natural",
+      "prompt": "Jesus flying slowly towards clouds, cinematic visuals, hyper-realistic scenes, lifelike details, and immersive atmosphere. Utilize 8K resolution, dramatic lighting, ray tracing, and intricate textures to achieve a truly cinematic and hyper-realistic experience."
+    },
+    {
+      "id": "nt1254",
+      "origin": "natural_vidprom_v1",
+      "motion": "low",
+      "detail": "high",
+      "family_id": "nat1254",
+      "split": "natural",
+      "prompt": "Underwater Cove Introduction: Scene: Explore the mesmerizing underwater cove where mermaids gather. Keywords: Enchanted Ocean, Vibrant Coral Reefs, Playful Dolphins, Sparkling Turquoise Scales. Resolution: 4K"
+    },
+    {
+      "id": "nt1255",
+      "origin": "natural_vidprom_v1",
+      "motion": "high",
+      "detail": "high",
+      "family_id": "nat1255",
+      "split": "natural",
+      "prompt": "super-resolution, extremely detailed scene focusing on a gorilla gundam executing sword attack downwards against a green tank, accurate laser sword, consistent sword shape, no wobbling, accurate mechanical smooth movements, particle effects included."
+    }
+  ],
+  "evaluation": {
+    "quality_dimensions": [
+      "subject_consistency",
+      "background_consistency",
+      "motion_smoothness",
+      "aesthetic_quality",
+      "imaging_quality"
+    ],
+    "diagnostic_dimensions": [
+      "dynamic_degree",
+      "overall_consistency"
+    ],
+    "metric_epsilon": 0.001
+  },
+  "rcm": {
+    "code_repository": "https://github.com/NVlabs/rcm",
+    "inference_script": "rcm/inference/wan2pt1_t2v_rcm_infer.py",
+    "weights_repository": "worstcoder/rcm-Wan",
+    "weights_revision": "142d77a331f1516fea772607c1bf25a2785a2505",
+    "weights_file": "rCM_Wan2.1_T2V_1.3B_480p.pt",
+    "weights_sha256": "3baa20e8e64c7f1ee6e4a377f5a04b8e4d193e0a1a1241814879a004fd77370a",
+    "weights_bytes": 2838262729,
+    "sigma_max": 80.0,
+    "mid_t": [
+      1.5,
+      1.4,
+      1.0
+    ],
+    "guidance": "none",
+    "preset_source": "Official script defaults (sigma_max 80, 'better visual quality' mid_t). Frames 81 instead of the script default 77 so every arm shares the 832x480x81 canvas."
+  },
+  "reference": {
+    "arm": "FULL50",
+    "expected_root": "outputs/published_wan21_platform_natural"
+  }
+}

@@ -1,0 +1,866 @@
+{
+  "reproext_v0000_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9939761649817228,
+    "background_consistency": 0.992791748046875,
+    "motion_smoothness": 0.9959502833618757,
+    "aesthetic_quality": 0.6394605040550232,
+    "imaging_quality": 0.7846262293686102,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.29621097445487976
+  },
+  "reproext_v0000_s42__DVG_D050": {
+    "subject_consistency": 0.9973182722926139,
+    "background_consistency": 0.9918609619140625,
+    "motion_smoothness": 0.9955019665451651,
+    "aesthetic_quality": 0.4337981045246124,
+    "imaging_quality": 0.7928174835958599,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.28471866250038147
+  },
+  "reproext_v0020_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9995628416538238,
+    "background_consistency": 0.9961395263671875,
+    "motion_smoothness": 0.9973288372507122,
+    "aesthetic_quality": 0.7121625542640686,
+    "imaging_quality": 0.7629282416826413,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2706892490386963
+  },
+  "reproext_v0020_s42__DVG_D050": {
+    "subject_consistency": 0.9938143145292997,
+    "background_consistency": 0.9818634033203125,
+    "motion_smoothness": 0.9951159405702719,
+    "aesthetic_quality": 0.6554298996925354,
+    "imaging_quality": 0.7972068711269048,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.23995034396648407
+  },
+  "reproext_v0040_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.998919390514493,
+    "background_consistency": 0.9944091796875,
+    "motion_smoothness": 0.9915646884688705,
+    "aesthetic_quality": 0.7159922122955322,
+    "imaging_quality": 0.7849940952253931,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2747827172279358
+  },
+  "reproext_v0040_s42__DVG_D050": {
+    "subject_consistency": 0.9965869542211294,
+    "background_consistency": 0.993212890625,
+    "motion_smoothness": 0.9941235879367772,
+    "aesthetic_quality": 0.7687025666236877,
+    "imaging_quality": 0.7926365247184848,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2736411988735199
+  },
+  "reproext_v0060_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9824316930025816,
+    "background_consistency": 0.9690185546875,
+    "motion_smoothness": 0.9870516895660507,
+    "aesthetic_quality": 0.6559447646141052,
+    "imaging_quality": 0.699008305867513,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.29346463084220886
+  },
+  "reproext_v0060_s42__DVG_D050": {
+    "subject_consistency": 0.9447787210345269,
+    "background_consistency": 0.9670806884765625,
+    "motion_smoothness": 0.9899045611867877,
+    "aesthetic_quality": 0.6250252723693848,
+    "imaging_quality": 0.7433565643687307,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.29168444871902466
+  },
+  "reproext_v0080_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9856852620840073,
+    "background_consistency": 0.977642822265625,
+    "motion_smoothness": 0.9900586749256326,
+    "aesthetic_quality": 0.6569743156433105,
+    "imaging_quality": 0.7771698939947435,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.23801156878471375
+  },
+  "reproext_v0080_s42__DVG_D050": {
+    "subject_consistency": 0.9795205239206553,
+    "background_consistency": 0.9839691162109375,
+    "motion_smoothness": 0.9871784083291437,
+    "aesthetic_quality": 0.7112684845924377,
+    "imaging_quality": 0.7965489714822651,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.19651073217391968
+  },
+  "reproext_v0101_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.8129854869097471,
+    "background_consistency": 0.8863250732421875,
+    "motion_smoothness": 0.9871716423565285,
+    "aesthetic_quality": 0.5707423686981201,
+    "imaging_quality": 0.7280165825361087,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.2485790103673935
+  },
+  "reproext_v0101_s42__DVG_D050": {
+    "subject_consistency": 0.9852430332452059,
+    "background_consistency": 0.9871612548828125,
+    "motion_smoothness": 0.9954268641918573,
+    "aesthetic_quality": 0.5984878540039062,
+    "imaging_quality": 0.7101529646508488,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.27106836438179016
+  },
+  "reproext_v0121_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9814170870929957,
+    "background_consistency": 0.970013427734375,
+    "motion_smoothness": 0.9851462196540609,
+    "aesthetic_quality": 0.7371329069137573,
+    "imaging_quality": 0.728698302845896,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.2866027355194092
+  },
+  "reproext_v0121_s42__DVG_D050": {
+    "subject_consistency": 0.9717250891029835,
+    "background_consistency": 0.970611572265625,
+    "motion_smoothness": 0.9820693500123072,
+    "aesthetic_quality": 0.7363267540931702,
+    "imaging_quality": 0.7155315436845945,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.30154234170913696
+  },
+  "reproext_v0141_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.998001117631793,
+    "background_consistency": 0.9942413330078125,
+    "motion_smoothness": 0.9966429030730214,
+    "aesthetic_quality": 0.8356446027755737,
+    "imaging_quality": 0.6069953569953824,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.30422332882881165
+  },
+  "reproext_v0141_s42__DVG_D050": {
+    "subject_consistency": 0.9909032959491014,
+    "background_consistency": 0.95115966796875,
+    "motion_smoothness": 0.9941216810458825,
+    "aesthetic_quality": 0.7314028739929199,
+    "imaging_quality": 0.7149705910388334,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.26421141624450684
+  },
+  "reproext_v0161_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9535046022385358,
+    "background_consistency": 0.9600189208984375,
+    "motion_smoothness": 0.9871940204817904,
+    "aesthetic_quality": 0.6685900688171387,
+    "imaging_quality": 0.6529193072848849,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.28726425766944885
+  },
+  "reproext_v0161_s42__DVG_D050": {
+    "subject_consistency": 0.9287240110337734,
+    "background_consistency": 0.918463134765625,
+    "motion_smoothness": 0.9803332250718797,
+    "aesthetic_quality": 0.5313421487808228,
+    "imaging_quality": 0.6676266785609869,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.31172046065330505
+  },
+  "reproext_v0181_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9712878599762916,
+    "background_consistency": 0.9598419189453125,
+    "motion_smoothness": 0.9852899136166887,
+    "aesthetic_quality": 0.6624512672424316,
+    "imaging_quality": 0.639459565245075,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.24468514323234558
+  },
+  "reproext_v0181_s42__DVG_D050": {
+    "subject_consistency": 0.9649070937186479,
+    "background_consistency": 0.9631988525390625,
+    "motion_smoothness": 0.9843715727025987,
+    "aesthetic_quality": 0.593543529510498,
+    "imaging_quality": 0.6965301301744249,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.24695545434951782
+  },
+  "reproext_v0201_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9569971833378077,
+    "background_consistency": 0.964984130859375,
+    "motion_smoothness": 0.9869870578873912,
+    "aesthetic_quality": 0.6076552867889404,
+    "imaging_quality": 0.7530458709340038,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.28465735912323
+  },
+  "reproext_v0201_s42__DVG_D050": {
+    "subject_consistency": 0.898068442940712,
+    "background_consistency": 0.9507354736328125,
+    "motion_smoothness": 0.9823917585129671,
+    "aesthetic_quality": 0.5544171929359436,
+    "imaging_quality": 0.7023386882263937,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.24685519933700562
+  },
+  "reproext_v0221_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.8771889481693507,
+    "background_consistency": 0.9427764892578125,
+    "motion_smoothness": 0.9799255860029642,
+    "aesthetic_quality": 0.5658844709396362,
+    "imaging_quality": 0.7035878814885647,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.14333464205265045
+  },
+  "reproext_v0221_s42__DVG_D050": {
+    "subject_consistency": 0.9375896744430066,
+    "background_consistency": 0.962738037109375,
+    "motion_smoothness": 0.985616996344478,
+    "aesthetic_quality": 0.540261447429657,
+    "imaging_quality": 0.7800701602888697,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.16703122854232788
+  },
+  "reproext_v0241_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9838149681687355,
+    "background_consistency": 0.977099609375,
+    "motion_smoothness": 0.9876144039613709,
+    "aesthetic_quality": 0.6877753734588623,
+    "imaging_quality": 0.7598201017026548,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.265378475189209
+  },
+  "reproext_v0241_s42__DVG_D050": {
+    "subject_consistency": 0.9647342275828124,
+    "background_consistency": 0.9518035888671875,
+    "motion_smoothness": 0.9860889261871282,
+    "aesthetic_quality": 0.6433103680610657,
+    "imaging_quality": 0.7470960376880786,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2875131368637085
+  },
+  "reproext_v0261_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9389206793159246,
+    "background_consistency": 0.961224365234375,
+    "motion_smoothness": 0.9813167549288011,
+    "aesthetic_quality": 0.5829377174377441,
+    "imaging_quality": 0.7082152792848188,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.24648326635360718
+  },
+  "reproext_v0261_s42__DVG_D050": {
+    "subject_consistency": 0.9527605585753918,
+    "background_consistency": 0.9598236083984375,
+    "motion_smoothness": 0.9762275747404998,
+    "aesthetic_quality": 0.5892475247383118,
+    "imaging_quality": 0.7231184585006148,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.24318057298660278
+  },
+  "reproext_v0281_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9356771439313889,
+    "background_consistency": 0.959381103515625,
+    "motion_smoothness": 0.9816965910162141,
+    "aesthetic_quality": 0.7589665055274963,
+    "imaging_quality": 0.7809343775996456,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.33342933654785156
+  },
+  "reproext_v0281_s42__DVG_D050": {
+    "subject_consistency": 0.9573354844003916,
+    "background_consistency": 0.94573974609375,
+    "motion_smoothness": 0.9844085805262276,
+    "aesthetic_quality": 0.7414977550506592,
+    "imaging_quality": 0.7263673739963107,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.32362115383148193
+  },
+  "reproext_v0302_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9630062498152256,
+    "background_consistency": 0.969073486328125,
+    "motion_smoothness": 0.9804236962145969,
+    "aesthetic_quality": 0.608416736125946,
+    "imaging_quality": 0.6341026786521629,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.2905884385108948
+  },
+  "reproext_v0302_s42__DVG_D050": {
+    "subject_consistency": 0.9542345583438874,
+    "background_consistency": 0.975274658203125,
+    "motion_smoothness": 0.9886555208104209,
+    "aesthetic_quality": 0.6386853456497192,
+    "imaging_quality": 0.5475646327454367,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2837138772010803
+  },
+  "reproext_v0322_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9444443780928851,
+    "background_consistency": 0.97298583984375,
+    "motion_smoothness": 0.9811644340094479,
+    "aesthetic_quality": 0.7031464576721191,
+    "imaging_quality": 0.7261046647436825,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.26580727100372314
+  },
+  "reproext_v0322_s42__DVG_D050": {
+    "subject_consistency": 0.918571538105607,
+    "background_consistency": 0.945166015625,
+    "motion_smoothness": 0.9761165160825949,
+    "aesthetic_quality": 0.6656585335731506,
+    "imaging_quality": 0.7167743960721994,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.24957796931266785
+  },
+  "reproext_v0342_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9880592338740826,
+    "background_consistency": 0.972625732421875,
+    "motion_smoothness": 0.9914411704969782,
+    "aesthetic_quality": 0.6596676111221313,
+    "imaging_quality": 0.7256403228383006,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.24666906893253326
+  },
+  "reproext_v0342_s42__DVG_D050": {
+    "subject_consistency": 0.9364098317921161,
+    "background_consistency": 0.9598876953125,
+    "motion_smoothness": 0.9901832607826117,
+    "aesthetic_quality": 0.61879563331604,
+    "imaging_quality": 0.7430583972695434,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2097567617893219
+  },
+  "reproext_v0362_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9854326169937849,
+    "background_consistency": 0.9836090087890625,
+    "motion_smoothness": 0.9944025111747423,
+    "aesthetic_quality": 0.73628169298172,
+    "imaging_quality": 0.4492141530543198,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.22316226363182068
+  },
+  "reproext_v0362_s42__DVG_D050": {
+    "subject_consistency": 0.9457407429814338,
+    "background_consistency": 0.9533294677734375,
+    "motion_smoothness": 0.9895289585886438,
+    "aesthetic_quality": 0.6891269683837891,
+    "imaging_quality": 0.6210856656674986,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.2209925353527069
+  },
+  "reproext_v0382_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9901959132403135,
+    "background_consistency": 0.981268310546875,
+    "motion_smoothness": 0.9937348946222452,
+    "aesthetic_quality": 0.7099937200546265,
+    "imaging_quality": 0.7786917990225333,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2655983567237854
+  },
+  "reproext_v0382_s42__DVG_D050": {
+    "subject_consistency": 0.9645282261073589,
+    "background_consistency": 0.9612152099609375,
+    "motion_smoothness": 0.9821242546080264,
+    "aesthetic_quality": 0.6909187436103821,
+    "imaging_quality": 0.7728892093234592,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.25671252608299255
+  },
+  "reproext_v0402_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9986647866666317,
+    "background_consistency": 0.9946746826171875,
+    "motion_smoothness": 0.9973540395842498,
+    "aesthetic_quality": 0.7276540994644165,
+    "imaging_quality": 0.6288343033967194,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.33615946769714355
+  },
+  "reproext_v0402_s42__DVG_D050": {
+    "subject_consistency": 0.9725864596664906,
+    "background_consistency": 0.938665771484375,
+    "motion_smoothness": 0.9940330852075739,
+    "aesthetic_quality": 0.7399449348449707,
+    "imaging_quality": 0.7141051972942587,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.3149683475494385
+  },
+  "reproext_v0422_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9726344466209411,
+    "background_consistency": 0.9696014404296875,
+    "motion_smoothness": 0.9872316071727837,
+    "aesthetic_quality": 0.7375328540802002,
+    "imaging_quality": 0.6751492064676167,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.2580408453941345
+  },
+  "reproext_v0422_s42__DVG_D050": {
+    "subject_consistency": 0.9469011485576629,
+    "background_consistency": 0.957720947265625,
+    "motion_smoothness": 0.98124215771378,
+    "aesthetic_quality": 0.6644237041473389,
+    "imaging_quality": 0.6428951108014143,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.23953086137771606
+  },
+  "reproext_v0442_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.8179184783250093,
+    "background_consistency": 0.9165252685546875,
+    "motion_smoothness": 0.978637413980015,
+    "aesthetic_quality": 0.6441961526870728,
+    "imaging_quality": 0.6554756423573436,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.2926660180091858
+  },
+  "reproext_v0442_s42__DVG_D050": {
+    "subject_consistency": 0.9412917826324702,
+    "background_consistency": 0.9313201904296875,
+    "motion_smoothness": 0.9730742619563851,
+    "aesthetic_quality": 0.6287349462509155,
+    "imaging_quality": 0.7642727679970824,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.28674256801605225
+  },
+  "reproext_v0462_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9996235765516758,
+    "background_consistency": 0.99608154296875,
+    "motion_smoothness": 0.9965436286293363,
+    "aesthetic_quality": 0.7382263541221619,
+    "imaging_quality": 0.7387967333381559,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.35166656970977783
+  },
+  "reproext_v0462_s42__DVG_D050": {
+    "subject_consistency": 0.9813291765749454,
+    "background_consistency": 0.9854156494140625,
+    "motion_smoothness": 0.9921150131877671,
+    "aesthetic_quality": 0.6640698313713074,
+    "imaging_quality": 0.687722413804796,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.30993807315826416
+  },
+  "reproext_v0483_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9997295796871185,
+    "background_consistency": 0.9988311767578125,
+    "motion_smoothness": 0.9969981465442748,
+    "aesthetic_quality": 0.6378622651100159,
+    "imaging_quality": 0.7378920208966291,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2591339945793152
+  },
+  "reproext_v0483_s42__DVG_D050": {
+    "subject_consistency": 0.9967073693871498,
+    "background_consistency": 0.996405029296875,
+    "motion_smoothness": 0.9909350954992039,
+    "aesthetic_quality": 0.6889160871505737,
+    "imaging_quality": 0.6406008991194361,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.21766071021556854
+  },
+  "reproext_v0503_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9913693625479937,
+    "background_consistency": 0.996075439453125,
+    "motion_smoothness": 0.9943654782292191,
+    "aesthetic_quality": 0.66446453332901,
+    "imaging_quality": 0.8122449964358484,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.22827115654945374
+  },
+  "reproext_v0503_s42__DVG_D050": {
+    "subject_consistency": 0.9948031470179558,
+    "background_consistency": 0.9938629150390625,
+    "motion_smoothness": 0.9935402592677697,
+    "aesthetic_quality": 0.7277848124504089,
+    "imaging_quality": 0.7809933179690515,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.26220154762268066
+  },
+  "reproext_v0523_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9903566773980856,
+    "background_consistency": 0.994964599609375,
+    "motion_smoothness": 0.9967466022433279,
+    "aesthetic_quality": 0.7473971247673035,
+    "imaging_quality": 0.6860007184817468,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2947613596916199
+  },
+  "reproext_v0523_s42__DVG_D050": {
+    "subject_consistency": 0.9937525980174542,
+    "background_consistency": 0.992523193359375,
+    "motion_smoothness": 0.9918124075317895,
+    "aesthetic_quality": 0.7560166716575623,
+    "imaging_quality": 0.713849900799033,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.23859518766403198
+  },
+  "reproext_v0543_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9502728395164013,
+    "background_consistency": 0.9729766845703125,
+    "motion_smoothness": 0.9937139265144493,
+    "aesthetic_quality": 0.6747505068778992,
+    "imaging_quality": 0.6866605264169199,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.267080157995224
+  },
+  "reproext_v0543_s42__DVG_D050": {
+    "subject_consistency": 0.9731060042977333,
+    "background_consistency": 0.9786651611328125,
+    "motion_smoothness": 0.990486976875419,
+    "aesthetic_quality": 0.5829631686210632,
+    "imaging_quality": 0.7005080762321566,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.22583205997943878
+  },
+  "reproext_v0563_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9854971949011088,
+    "background_consistency": 0.969512939453125,
+    "motion_smoothness": 0.9799617873892346,
+    "aesthetic_quality": 0.6411384344100952,
+    "imaging_quality": 0.7755113267309872,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.18063205480575562
+  },
+  "reproext_v0563_s42__DVG_D050": {
+    "subject_consistency": 0.9858934670686722,
+    "background_consistency": 0.968243408203125,
+    "motion_smoothness": 0.9870824764066952,
+    "aesthetic_quality": 0.6184114217758179,
+    "imaging_quality": 0.7773028131178867,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.1931268572807312
+  },
+  "reproext_v0583_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9725971996784211,
+    "background_consistency": 0.9837066650390625,
+    "motion_smoothness": 0.9898676393667777,
+    "aesthetic_quality": 0.810126781463623,
+    "imaging_quality": 0.7793003317750531,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.14593304693698883
+  },
+  "reproext_v0583_s42__DVG_D050": {
+    "subject_consistency": 0.9867095902562142,
+    "background_consistency": 0.9816986083984375,
+    "motion_smoothness": 0.9928615897363886,
+    "aesthetic_quality": 0.7502228021621704,
+    "imaging_quality": 0.6909126423023365,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.14741750061511993
+  },
+  "reproext_v0603_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.991125363856554,
+    "background_consistency": 0.9896575927734375,
+    "motion_smoothness": 0.9872691216894744,
+    "aesthetic_quality": 0.7095499038696289,
+    "imaging_quality": 0.6422746484073591,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.23373325169086456
+  },
+  "reproext_v0603_s42__DVG_D050": {
+    "subject_consistency": 0.9735335953533649,
+    "background_consistency": 0.9828277587890625,
+    "motion_smoothness": 0.9912178439751969,
+    "aesthetic_quality": 0.689784586429596,
+    "imaging_quality": 0.6954397790225936,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.21964587271213531
+  },
+  "reproext_v0623_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.8936522338539362,
+    "background_consistency": 0.94769287109375,
+    "motion_smoothness": 0.9831863595314595,
+    "aesthetic_quality": 0.6043757796287537,
+    "imaging_quality": 0.5614377071239329,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.353840708732605
+  },
+  "reproext_v0623_s42__DVG_D050": {
+    "subject_consistency": 0.9087660152465105,
+    "background_consistency": 0.9383544921875,
+    "motion_smoothness": 0.9672276886482425,
+    "aesthetic_quality": 0.6750742793083191,
+    "imaging_quality": 0.7809072913652585,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.26273781061172485
+  },
+  "reproext_v0643_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9876947268843651,
+    "background_consistency": 0.981787109375,
+    "motion_smoothness": 0.9890779007032167,
+    "aesthetic_quality": 0.7226828932762146,
+    "imaging_quality": 0.7145435191966869,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.15215179324150085
+  },
+  "reproext_v0643_s42__DVG_D050": {
+    "subject_consistency": 0.9784082625061273,
+    "background_consistency": 0.9669677734375,
+    "motion_smoothness": 0.9875634921920825,
+    "aesthetic_quality": 0.686103343963623,
+    "imaging_quality": 0.7901536682505665,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.2122182697057724
+  },
+  "reproext_v0664_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9689013175666332,
+    "background_consistency": 0.9827911376953125,
+    "motion_smoothness": 0.9933492852452813,
+    "aesthetic_quality": 0.7140706181526184,
+    "imaging_quality": 0.6112192379986798,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.2900776267051697
+  },
+  "reproext_v0664_s42__DVG_D050": {
+    "subject_consistency": 0.98686519600451,
+    "background_consistency": 0.990093994140625,
+    "motion_smoothness": 0.9897485957924836,
+    "aesthetic_quality": 0.6909555792808533,
+    "imaging_quality": 0.675566128389335,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2619336247444153
+  },
+  "reproext_v0684_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.952132124453783,
+    "background_consistency": 0.9741943359375,
+    "motion_smoothness": 0.9841949877974695,
+    "aesthetic_quality": 0.6838214993476868,
+    "imaging_quality": 0.7337174036473404,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.24817752838134766
+  },
+  "reproext_v0684_s42__DVG_D050": {
+    "subject_consistency": 0.9625133339315652,
+    "background_consistency": 0.98045654296875,
+    "motion_smoothness": 0.990758148658769,
+    "aesthetic_quality": 0.6836099028587341,
+    "imaging_quality": 0.7164056754406587,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2698274254798889
+  },
+  "reproext_v0704_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9477143328636884,
+    "background_consistency": 0.9448883056640625,
+    "motion_smoothness": 0.9837836522913787,
+    "aesthetic_quality": 0.6915394067764282,
+    "imaging_quality": 0.7427313166488836,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.19281809031963348
+  },
+  "reproext_v0704_s42__DVG_D050": {
+    "subject_consistency": 0.904370104894042,
+    "background_consistency": 0.93609619140625,
+    "motion_smoothness": 0.9814583946242093,
+    "aesthetic_quality": 0.6837947964668274,
+    "imaging_quality": 0.6939853757693445,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.2038319706916809
+  },
+  "reproext_v0724_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9608396470546723,
+    "background_consistency": 0.98079833984375,
+    "motion_smoothness": 0.9906392525426303,
+    "aesthetic_quality": 0.6442473530769348,
+    "imaging_quality": 0.6832012162385164,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.2669060528278351
+  },
+  "reproext_v0724_s42__DVG_D050": {
+    "subject_consistency": 0.9887424994260072,
+    "background_consistency": 0.987744140625,
+    "motion_smoothness": 0.9942600760890627,
+    "aesthetic_quality": 0.501535177230835,
+    "imaging_quality": 0.7240958451636044,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.25929415225982666
+  },
+  "reproext_v0744_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9862396392971278,
+    "background_consistency": 0.99256591796875,
+    "motion_smoothness": 0.9965706831911451,
+    "aesthetic_quality": 0.722488284111023,
+    "imaging_quality": 0.7513963807659384,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.27020499110221863
+  },
+  "reproext_v0744_s42__DVG_D050": {
+    "subject_consistency": 0.9952665496617555,
+    "background_consistency": 0.990478515625,
+    "motion_smoothness": 0.9960730115079551,
+    "aesthetic_quality": 0.5853812098503113,
+    "imaging_quality": 0.6202019561955958,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2549765706062317
+  },
+  "reproext_v0764_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9537533279508352,
+    "background_consistency": 0.9728057861328125,
+    "motion_smoothness": 0.9627907638332444,
+    "aesthetic_quality": 0.6981684565544128,
+    "imaging_quality": 0.7398177818015769,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.32384729385375977
+  },
+  "reproext_v0764_s42__DVG_D050": {
+    "subject_consistency": 0.9078597873449326,
+    "background_consistency": 0.9096893310546875,
+    "motion_smoothness": 0.9481909671487452,
+    "aesthetic_quality": 0.6556377410888672,
+    "imaging_quality": 0.7360718592890987,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.34254956245422363
+  },
+  "reproext_v0784_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9956785816699266,
+    "background_consistency": 0.98739013671875,
+    "motion_smoothness": 0.996367935674203,
+    "aesthetic_quality": 0.7415781617164612,
+    "imaging_quality": 0.7684306627438392,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2909923195838928
+  },
+  "reproext_v0784_s42__DVG_D050": {
+    "subject_consistency": 0.9970275186002254,
+    "background_consistency": 0.9905120849609375,
+    "motion_smoothness": 0.9952844201048474,
+    "aesthetic_quality": 0.705766499042511,
+    "imaging_quality": 0.7888596504117236,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.24961447715759277
+  },
+  "reproext_v0804_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9343227401375771,
+    "background_consistency": 0.9510711669921875,
+    "motion_smoothness": 0.9825795998270435,
+    "aesthetic_quality": 0.6409133672714233,
+    "imaging_quality": 0.7436491846155238,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.33569425344467163
+  },
+  "reproext_v0804_s42__DVG_D050": {
+    "subject_consistency": 0.9502175111323595,
+    "background_consistency": 0.971356201171875,
+    "motion_smoothness": 0.9876915658190359,
+    "aesthetic_quality": 0.6443347334861755,
+    "imaging_quality": 0.7073413001166449,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.33679986000061035
+  },
+  "reproext_v0824_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9995237685739994,
+    "background_consistency": 0.9988037109375,
+    "motion_smoothness": 0.9973579167026719,
+    "aesthetic_quality": 0.6126726269721985,
+    "imaging_quality": 0.6945814071466893,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.2833167314529419
+  },
+  "reproext_v0824_s42__DVG_D050": {
+    "subject_consistency": 0.9986539389938116,
+    "background_consistency": 0.9873779296875,
+    "motion_smoothness": 0.9966602872602701,
+    "aesthetic_quality": 0.6842766404151917,
+    "imaging_quality": 0.7775997331407335,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.31138700246810913
+  },
+  "reproext_v0844_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9735353220254183,
+    "background_consistency": 0.976593017578125,
+    "motion_smoothness": 0.9941499322118003,
+    "aesthetic_quality": 0.6712769269943237,
+    "imaging_quality": 0.7556670341962649,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.2796151638031006
+  },
+  "reproext_v0844_s42__DVG_D050": {
+    "subject_consistency": 0.8554120760411024,
+    "background_consistency": 0.9212982177734375,
+    "motion_smoothness": 0.9830359637511522,
+    "aesthetic_quality": 0.533912181854248,
+    "imaging_quality": 0.7519912201681255,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.21906931698322296
+  },
+  "reproext_v0865_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9835756160318851,
+    "background_consistency": 0.9657501220703125,
+    "motion_smoothness": 0.9837859720978402,
+    "aesthetic_quality": 0.8006719946861267,
+    "imaging_quality": 0.7771523275493104,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.22665050625801086
+  },
+  "reproext_v0865_s42__DVG_D050": {
+    "subject_consistency": 0.9392876110970974,
+    "background_consistency": 0.9638092041015625,
+    "motion_smoothness": 0.9827209192387558,
+    "aesthetic_quality": 0.8073105216026306,
+    "imaging_quality": 0.7669441289077571,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.27583664655685425
+  },
+  "reproext_v0885_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9500806022435426,
+    "background_consistency": 0.9650787353515625,
+    "motion_smoothness": 0.9935379953513856,
+    "aesthetic_quality": 0.5350098013877869,
+    "imaging_quality": 0.7628882702486014,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.22333815693855286
+  },
+  "reproext_v0885_s42__DVG_D050": {
+    "subject_consistency": 0.9625936266034841,
+    "background_consistency": 0.978271484375,
+    "motion_smoothness": 0.9879179207156287,
+    "aesthetic_quality": 0.45239874720573425,
+    "imaging_quality": 0.7774079103823062,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.15682581067085266
+  },
+  "reproext_v0905_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.999250202998519,
+    "background_consistency": 0.9966644287109375,
+    "motion_smoothness": 0.9937731629594279,
+    "aesthetic_quality": 0.5864012241363525,
+    "imaging_quality": 0.7856049149124711,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.222726508975029
+  },
+  "reproext_v0905_s42__DVG_D050": {
+    "subject_consistency": 0.9981185860931874,
+    "background_consistency": 0.997613525390625,
+    "motion_smoothness": 0.9949160202074954,
+    "aesthetic_quality": 0.6208353638648987,
+    "imaging_quality": 0.7728863506552613,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.20527513325214386
+  },
+  "reproext_v0925_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9969268478453159,
+    "background_consistency": 0.996112060546875,
+    "motion_smoothness": 0.9966516837070031,
+    "aesthetic_quality": 0.6916790008544922,
+    "imaging_quality": 0.7267231872935354,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.23060472309589386
+  },
+  "reproext_v0925_s42__DVG_D050": {
+    "subject_consistency": 0.8493402056396008,
+    "background_consistency": 0.9423919677734375,
+    "motion_smoothness": 0.9931174084417421,
+    "aesthetic_quality": 0.5731964111328125,
+    "imaging_quality": 0.66979573002568,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.22605881094932556
+  },
+  "reproext_v0945_s42__FULL_NATIVE_50": {
+    "subject_consistency": 0.9422988563776016,
+    "background_consistency": 0.9658721923828125,
+    "motion_smoothness": 0.9858591056965654,
+    "aesthetic_quality": 0.6307740211486816,
+    "imaging_quality": 0.7799430357379679,
+    "dynamic_degree": 1.0,
+    "overall_consistency": 0.21568387746810913
+  },
+  "reproext_v0945_s42__DVG_D050": {
+    "subject_consistency": 0.951454222202301,
+    "background_consistency": 0.974468994140625,
+    "motion_smoothness": 0.991681751668683,
+    "aesthetic_quality": 0.5463018417358398,
+    "imaging_quality": 0.741874737209744,
+    "dynamic_degree": 0.0,
+    "overall_consistency": 0.22628644108772278
+  }
+}

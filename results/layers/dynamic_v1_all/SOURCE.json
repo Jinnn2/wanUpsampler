@@ -1,0 +1,14 @@
+{
+ "archive": "dynamic_v1_all_analysis.tgz",
+ "sha256": "2ab7b2b377dcf76e059f50f534303413f5cc0505a22ca92543492ddd0d19d8bd",
+ "ingested": "2026-10-27",
+ "note": "semantic layer, all dev+dev2 arms",
+ "kept": [
+  "dynamic_by_video.csv",
+  "report.txt"
+ ],
+ "skipped_by_suffix": {
+  ".json": 12289,
+  ".csv": 1
+ }
+}

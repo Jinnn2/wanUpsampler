@@ -1,0 +1,13 @@
+{
+ "archive": "official_check.tgz",
+ "sha256": "35cf2e71fd831c70f912f8916581b9be11042d97fadeabd7c8a87f2ee9b0f8ab",
+ "ingested": "2026-10-27",
+ "note": "",
+ "kept": [
+  "prompts.jsonl",
+  "run.log"
+ ],
+ "skipped_by_suffix": {
+  ".mp4": 7
+ }
+}

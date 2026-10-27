@@ -1,0 +1,17 @@
+{
+ "archive": "published_wan21_analysis.tgz",
+ "sha256": "ac6fefa2bf332397bc8e723c371ca316b4d0550bdba7d539c68f478a4a22b4c2",
+ "ingested": "2026-10-27",
+ "note": "platform arms on dev prompts (v1)",
+ "kept": [
+  "base_observability_review.csv",
+  "calibration_audit.json",
+  "metrics/paired_deltas.csv",
+  "metrics/quality_by_video.csv",
+  "metrics/report.json",
+  "metrics/score_provenance.json"
+ ],
+ "skipped_by_suffix": {
+  ".json": 1217
+ }
+}

@@ -1,0 +1,66 @@
+[
+  {
+    "id": "A5_collapse_v0161",
+    "figure": "A",
+    "prompt": "A person is clapping",
+    "note": "DVG short-prompt collapse (VBench prompt, seed 42); _ext = same prompt extended",
+    "rows": [
+      {
+        "label": "FULL",
+        "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0161_s42__FULL_NATIVE_50.mp4"
+      },
+      {
+        "label": "DVG_D050",
+        "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0161_s42__DVG_D050.mp4"
+      }
+    ]
+  },
+  {
+    "id": "A5_collapse_v0342",
+    "figure": "A",
+    "prompt": "a bench",
+    "note": "DVG short-prompt collapse (VBench prompt, seed 42); _ext = same prompt extended",
+    "rows": [
+      {
+        "label": "FULL",
+        "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0342_s42__FULL_NATIVE_50.mp4"
+      },
+      {
+        "label": "DVG_D050",
+        "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0342_s42__DVG_D050.mp4"
+      }
+    ]
+  },
+  {
+    "id": "A5_collapse_v0804",
+    "figure": "A",
+    "prompt": "downtown",
+    "note": "DVG short-prompt collapse (VBench prompt, seed 42); _ext = same prompt extended",
+    "rows": [
+      {
+        "label": "FULL",
+        "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0804_s42__FULL_NATIVE_50.mp4"
+      },
+      {
+        "label": "DVG_D050",
+        "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0804_s42__DVG_D050.mp4"
+      }
+    ]
+  },
+  {
+    "id": "A5_collapse_v0844",
+    "figure": "A",
+    "prompt": "shower",
+    "note": "DVG short-prompt collapse (VBench prompt, seed 42); _ext = same prompt extended",
+    "rows": [
+      {
+        "label": "FULL",
+        "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0844_s42__FULL_NATIVE_50.mp4"
+      },
+      {
+        "label": "DVG_D050",
+        "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0844_s42__DVG_D050.mp4"
+      }
+    ]
+  }
+]

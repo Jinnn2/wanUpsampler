@@ -1,0 +1,14 @@
+{
+ "archive": "requirements_v2_gen_full2.tgz",
+ "sha256": "2a5e95a4d960677b02e791a83635307aa7770760e623b837d12ebff5d9433966",
+ "ingested": "2026-10-27",
+ "note": "full2 = final checklist used by the dynamic layer",
+ "kept": [
+  "checklist.jsonl",
+  "collect.txt"
+ ],
+ "skipped_by_suffix": {
+  ".log": 8,
+  ".json": 128
+ }
+}

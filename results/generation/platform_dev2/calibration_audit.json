@@ -1,0 +1,159 @@
+{
+  "plan_sha256": "f97fa893f114f82d5f0d28928447e87bc4f62f1c2f7d43e975d4e8b973b1af14",
+  "passed": true,
+  "checks": [
+    {
+      "group": "cal_mug_s12345",
+      "arm": "FULL50",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 102.13087105378509,
+      "passed": true
+    },
+    {
+      "group": "cal_mug_s12345",
+      "arm": "STEP25",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 56.352697014808655,
+      "passed": true
+    },
+    {
+      "group": "cal_mug_s12345",
+      "arm": "STEP20",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 47.10073205828667,
+      "passed": true
+    },
+    {
+      "group": "cal_mug_s12345",
+      "arm": "TEA008",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 54.661327231675386,
+      "passed": true
+    },
+    {
+      "group": "cal_mug_s12345",
+      "arm": "TEA015",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 43.39357282221317,
+      "passed": true
+    },
+    {
+      "group": "cal_mug_s12345",
+      "arm": "SCALING10",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 53.64025096595287,
+      "passed": true
+    },
+    {
+      "group": "cal_mug_s12345",
+      "arm": "TEA_OFF",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 102.32756367698312,
+      "passed": true,
+      "sample_mae": 0.0,
+      "sample_max": 0.0
+    },
+    {
+      "group": "cal_mug_s12345",
+      "arm": "SCALING_OFF",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 101.63949450850487,
+      "passed": true,
+      "sample_mae": 0.0,
+      "sample_max": 0.0
+    },
+    {
+      "group": "cal_wave_s12345",
+      "arm": "FULL50",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 102.47822497412562,
+      "passed": true
+    },
+    {
+      "group": "cal_wave_s12345",
+      "arm": "STEP25",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 56.42873262986541,
+      "passed": true
+    },
+    {
+      "group": "cal_wave_s12345",
+      "arm": "STEP20",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 47.17818783223629,
+      "passed": true
+    },
+    {
+      "group": "cal_wave_s12345",
+      "arm": "TEA008",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 54.27165122330189,
+      "passed": true
+    },
+    {
+      "group": "cal_wave_s12345",
+      "arm": "TEA015",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 43.4402019828558,
+      "passed": true
+    },
+    {
+      "group": "cal_wave_s12345",
+      "arm": "SCALING10",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 55.46557776629925,
+      "passed": true
+    },
+    {
+      "group": "cal_wave_s12345",
+      "arm": "TEA_OFF",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 102.32032259181142,
+      "passed": true,
+      "sample_mae": 0.0,
+      "sample_max": 0.0
+    },
+    {
+      "group": "cal_wave_s12345",
+      "arm": "SCALING_OFF",
+      "noise_match": true,
+      "sampling_match": true,
+      "environment_match": true,
+      "pipeline_seconds": 101.95565642043948,
+      "passed": true,
+      "sample_mae": 0.0,
+      "sample_max": 0.0
+    }
+  ],
+  "caveat": "Raw float subsample checks implementation compatibility; this is not exhaustive pixel equality. Thresholds are preregistered, not adjusted based on pilot output."
+}

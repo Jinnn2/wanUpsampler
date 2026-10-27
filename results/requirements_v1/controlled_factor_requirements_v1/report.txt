@@ -1,0 +1,83 @@
+64 prompts / 16 families
+
+### vbench5
+| action | mean dvbench5 (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| CACHE_ONLY_D050 | -1.14 | 1.00 | [0.49, 1.76] | 0.48 | 0.17 | +0.17 [-0.99, +1.27] | +1.57 [+0.62, +2.58] | -2.39 (low motion/high detail) |
+| SPATIAL_ONLY_D050 | -1.41 | 0.51 | [0.19, 0.75] | 0.18 | 0.09 | +0.03 [-1.16, +1.13] | -1.01 [-2.23, +0.10] | -2.50 (high motion/high detail) |
+| TEMPORAL_ONLY_RT036_CAL | -0.44 | 0.42 | [0.08, 0.86] | 0.24 | 0.24 | +0.44 [-0.39, +1.33] | -1.85 [-2.82, -0.97] | -1.79 (high motion/low detail) |
+
+### imaging_quality
+| action | mean dimaging_quality (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| CACHE_ONLY_D050 | -1.78 | 0.66 | [0.34, 1.03] | 0.40 | 0.24 | +5.09 [+1.45, +8.79] | +3.13 [+0.88, +5.45] | -4.93 (low motion/low detail) |
+| SPATIAL_ONLY_D050 | -2.57 | 0.52 | [0.29, 0.81] | 0.30 | 0.16 | +2.75 [-0.25, +5.76] | -1.65 [-4.89, +1.49] | -5.50 (low motion/low detail) |
+| TEMPORAL_ONLY_RT036_CAL | +0.25 | 0.23 | [0.00, 0.49] | 0.23 | 0.15 | +0.68 [-1.73, +2.97] | -3.12 [-5.75, -0.93] | -2.51 (high motion/low detail) |
+
+### req_all
+| action | mean dreq_all (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| CACHE_ONLY_D050 | -6.28 | 0.95 | [0.36, 1.62] | 0.41 | 0.10 | -3.69 [-9.99, +2.51] | +5.88 [-0.29, +12.65] | -12.53 (low motion/high detail) |
+| SPATIAL_ONLY_D050 | -0.59 | 0.50 | [0.19, 0.83] | 0.27 | 0.17 | +8.03 [+3.11, +13.01] | +2.57 [-0.42, +5.57] | -5.73 (low motion/low detail) |
+| TEMPORAL_ONLY_RT036_CAL | +0.74 | 0.12 | [-0.04, 0.31] | 0.09 | 0.10 | +3.65 [+0.07, +7.06] | -2.25 [-5.38, +0.26] | -2.49 (high motion/low detail) |
+
+### log_laplacian_var
+| action | mean dlog_laplacian_var (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| CACHE_ONLY_D050 | +0.97 | 5.95 | [3.36, 9.40] | 0.86 | 0.45 | +153.11 [+109.60, +195.17] | +40.91 [+7.35, +76.84] | -100.93 (low motion/low detail) |
+| SPATIAL_ONLY_D050 | +13.08 | 0.42 | [0.15, 0.77] | 0.32 | 0.24 | +51.28 [+34.02, +69.76] | +24.62 [-1.17, +50.70] | -28.79 (low motion/low detail) |
+| TEMPORAL_ONLY_RT036_CAL | +11.54 | 0.89 | [0.29, 2.08] | 0.41 | 0.07 | -4.40 [-39.70, +26.60] | -28.08 [-48.07, -5.85] | -10.56 (high motion/high detail) |
+
+### hf_share
+| action | mean dhf_share (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| CACHE_ONLY_D050 | +4.19 | 2.97 | [1.20, 6.30] | 0.75 | 0.20 | +7.63 [+3.69, +12.03] | -1.68 [-5.34, +1.89] | +0.27 (low motion/low detail) |
+| SPATIAL_ONLY_D050 | +0.04 | 0.75 | [-0.03, 1.20] | 0.27 | 0.06 | +0.01 [-1.02, +0.74] | +1.12 [-0.47, +3.48] | -1.06 (low motion/high detail) |
+| TEMPORAL_ONLY_RT036_CAL | +0.36 | 0.10 | [-0.16, 1.21] | 0.41 | 0.05 | +0.25 [-0.51, +0.98] | +0.38 [-0.23, +1.06] | +0.09 (low motion/high detail) |
+
+### edge_density
+| action | mean dedge_density (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| CACHE_ONLY_D050 | +2.89 | 8.29 | [4.43, 13.12] | 0.83 | 0.32 | +6.12 [+3.40, +8.98] | -0.18 [-1.22, +1.05] | -0.29 (low motion/low detail) |
+| SPATIAL_ONLY_D050 | -0.17 | 0.77 | [0.29, 1.74] | 0.44 | 0.01 | -0.36 [-1.49, +0.85] | +0.10 [-0.94, +1.09] | -0.51 (high motion/high detail) |
+| TEMPORAL_ONLY_RT036_CAL | -0.32 | 1.15 | [0.41, 2.51] | 0.49 | 0.07 | -1.02 [-2.15, +0.09] | -0.17 [-0.87, +0.49] | -0.92 (high motion/high detail) |
+
+### log_flow_magnitude
+| action | mean dlog_flow_magnitude (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| CACHE_ONLY_D050 | -34.23 | 0.91 | [0.38, 2.10] | 0.57 | 0.06 | +1.67 [-42.72, +44.60] | -34.21 [-76.71, +9.85] | -65.18 (high motion/low detail) |
+| SPATIAL_ONLY_D050 | -30.38 | 0.91 | [0.32, 1.85] | 0.33 | 0.16 | -39.59 [-82.46, +2.49] | +61.33 [+5.58, +115.49] | -98.74 (low motion/high detail) |
+| TEMPORAL_ONLY_RT036_CAL | +5.82 | 0.92 | [0.60, 1.36] | 0.50 | 0.10 | -48.01 [-88.17, -7.85] | +31.72 [-3.96, +69.71] | -40.94 (low motion/high detail) |
+
+### warp_error
+| action | mean dwarp_error (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| CACHE_ONLY_D050 | +0.25 | 0.30 | [-0.10, 0.90] | 0.35 | 0.14 | +0.58 [+0.12, +1.05] | +0.29 [-0.13, +0.76] | -0.06 (high motion/low detail) |
+| SPATIAL_ONLY_D050 | -0.21 | 0.27 | [0.02, 0.83] | 0.21 | 0.08 | -0.40 [-0.91, +0.06] | -0.24 [-0.68, +0.17] | -0.69 (high motion/high detail) |
+| TEMPORAL_ONLY_RT036_CAL | -0.03 | 0.98 | [0.33, 1.82] | 0.52 | 0.29 | -0.85 [-1.21, -0.53] | -0.14 [-0.62, +0.34] | -0.84 (high motion/high detail) |
+
+### requirement retention (FULL-satisfied -> kept), by action/type
+CACHE_ONLY_D050            detail   detail=high 65/97 = 0.670
+CACHE_ONLY_D050            motion   detail=high 19/28 = 0.679
+CACHE_ONLY_D050            motion   detail=low  10/14 = 0.714
+CACHE_ONLY_D050            plain    detail=low  100/111 = 0.901
+CACHE_ONLY_D050            static   detail=high 6/9 = 0.667
+CACHE_ONLY_D050            static   detail=low  20/24 = 0.833
+CACHE_ONLY_D050            subject  detail=high 81/97 = 0.835
+CACHE_ONLY_D050            subject  detail=low  111/130 = 0.854
+SPATIAL_ONLY_D050          detail   detail=high 83/97 = 0.856
+SPATIAL_ONLY_D050          motion   detail=high 27/28 = 0.964
+SPATIAL_ONLY_D050          motion   detail=low  9/14 = 0.643
+SPATIAL_ONLY_D050          plain    detail=low  89/111 = 0.802
+SPATIAL_ONLY_D050          static   detail=high 1/9 = 0.111
+SPATIAL_ONLY_D050          static   detail=low  17/24 = 0.708
+SPATIAL_ONLY_D050          subject  detail=high 92/97 = 0.948
+SPATIAL_ONLY_D050          subject  detail=low  116/130 = 0.892
+TEMPORAL_ONLY_RT036_CAL    detail   detail=high 84/97 = 0.866
+TEMPORAL_ONLY_RT036_CAL    motion   detail=high 27/28 = 0.964
+TEMPORAL_ONLY_RT036_CAL    motion   detail=low  11/14 = 0.786
+TEMPORAL_ONLY_RT036_CAL    plain    detail=low  100/111 = 0.901
+TEMPORAL_ONLY_RT036_CAL    static   detail=high 6/9 = 0.667
+TEMPORAL_ONLY_RT036_CAL    static   detail=low  20/24 = 0.833
+TEMPORAL_ONLY_RT036_CAL    subject  detail=high 93/97 = 0.959
+TEMPORAL_ONLY_RT036_CAL    subject  detail=low  118/130 = 0.908

@@ -1,0 +1,19 @@
+{
+ "archive": "dvg_wan21_requirements_v1_analysis.tgz",
+ "sha256": "62d79c4d066b882206ce1f28045bcb369871abbc44ad667a4615936723f6c58a",
+ "ingested": "2026-10-27",
+ "note": "",
+ "kept": [
+  "analysis/contrasts.csv",
+  "analysis/motion.csv",
+  "analysis/quality_with_requirements.csv",
+  "analysis/requirement_retention.csv",
+  "analysis/summary.json",
+  "analysis/tails.csv",
+  "analysis/variance.csv",
+  "report.txt"
+ ],
+ "skipped_by_suffix": {
+  ".json": 1153
+ }
+}

@@ -1,0 +1,99 @@
+64 prompts / 16 families
+
+### vbench5
+| action | mean dvbench5 (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| LR41_FLASH_RIFE | -0.74 | 0.12 | [-0.10, 0.44] | 0.06 | 0.03 | -0.31 [-1.24, +0.70] | +0.80 [-0.58, +2.16] | -1.14 (low motion/low detail) |
+| RCM1 | -2.88 | 0.44 | [0.03, 0.98] | 0.32 | 0.14 | +0.05 [-1.53, +1.71] | +0.65 [-0.55, +1.81] | -4.28 (low motion/high detail) |
+| RCM2 | -1.77 | 0.58 | [0.11, 1.18] | 0.32 | 0.15 | +0.30 [-1.23, +1.99] | +1.64 [+0.50, +2.77] | -3.26 (low motion/high detail) |
+| RCM4 | -1.18 | 0.65 | [0.20, 1.19] | 0.35 | 0.19 | -0.50 [-2.09, +1.15] | +1.93 [+0.88, +2.97] | -3.21 (low motion/high detail) |
+
+### imaging_quality
+| action | mean dimaging_quality (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| LR41_FLASH_RIFE | +0.81 | 0.25 | [0.09, 0.41] | 0.20 | 0.08 | -3.45 [-7.19, +0.52] | +0.99 [-2.89, +4.43] | -1.66 (high motion/high detail) |
+| RCM1 | -1.81 | 0.43 | [0.05, 1.01] | 0.26 | 0.13 | -3.83 [-7.31, -0.65] | +0.25 [-1.77, +2.36] | -5.61 (low motion/high detail) |
+| RCM2 | -0.44 | 0.96 | [0.34, 1.64] | 0.38 | 0.19 | -6.28 [-10.37, -2.51] | +2.83 [+0.36, +5.19] | -6.30 (low motion/high detail) |
+| RCM4 | -0.20 | 1.15 | [0.55, 1.77] | 0.50 | 0.30 | -9.04 [-13.34, -4.81] | +3.05 [+0.77, +5.02] | -7.45 (low motion/high detail) |
+
+### req_all
+| action | mean dreq_all (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| LR41_FLASH_RIFE | -9.42 | 0.39 | [0.10, 0.76] | 0.28 | 0.15 | -6.23 [-10.40, -1.99] | -3.57 [-8.03, +0.90] | -14.82 (high motion/high detail) |
+| RCM1 | -11.39 | 0.40 | [0.16, 0.61] | 0.26 | 0.12 | -2.61 [-6.18, +0.95] | +5.12 [-0.08, +9.85] | -17.10 (low motion/high detail) |
+| RCM2 | -7.69 | 0.79 | [0.32, 1.36] | 0.45 | 0.20 | +5.25 [+0.45, +9.85] | +7.54 [+2.57, +12.63] | -13.25 (low motion/low detail) |
+| RCM4 | -7.56 | 1.21 | [0.68, 1.76] | 0.54 | 0.32 | +9.24 [+4.17, +14.04] | +9.89 [+4.58, +15.34] | -16.57 (low motion/low detail) |
+
+### log_laplacian_var
+| action | mean dlog_laplacian_var (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| LR41_FLASH_RIFE | -18.98 | 0.83 | [0.45, 1.41] | 0.46 | 0.18 | -48.72 [-73.85, -24.68] | +11.71 [-11.27, +33.71] | -53.55 (low motion/high detail) |
+| RCM1 | -46.72 | 2.44 | [1.73, 3.28] | 0.74 | 0.47 | -132.68 [-178.22, -87.82] | +36.26 [+4.25, +69.80] | -149.98 (low motion/high detail) |
+| RCM2 | -34.36 | 2.46 | [1.77, 3.39] | 0.73 | 0.48 | -129.38 [-170.63, -88.96] | +49.66 [+12.78, +86.95] | -140.50 (low motion/high detail) |
+| RCM4 | -18.50 | 2.37 | [1.72, 3.23] | 0.73 | 0.50 | -137.11 [-174.73, -99.02] | +51.38 [+13.06, +92.69] | -127.80 (low motion/high detail) |
+
+### hf_share
+| action | mean dhf_share (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| LR41_FLASH_RIFE | -0.71 | 0.37 | [0.18, 1.05] | 0.42 | 0.14 | -1.57 [-2.79, -0.58] | +0.24 [-0.72, +1.01] | -1.72 (low motion/high detail) |
+| RCM1 | -0.81 | 0.39 | [0.18, 1.64] | 0.56 | 0.23 | -2.24 [-3.49, -1.24] | +0.36 [-0.62, +1.12] | -2.33 (low motion/high detail) |
+| RCM2 | -0.86 | 0.39 | [0.19, 1.76] | 0.60 | 0.24 | -2.28 [-3.50, -1.31] | +0.44 [-0.51, +1.17] | -2.44 (low motion/high detail) |
+| RCM4 | -0.86 | 0.42 | [0.23, 1.76] | 0.63 | 0.26 | -2.41 [-3.70, -1.45] | +0.44 [-0.55, +1.18] | -2.51 (low motion/high detail) |
+
+### edge_density
+| action | mean dedge_density (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| LR41_FLASH_RIFE | -1.87 | 1.60 | [0.73, 2.70] | 0.60 | 0.45 | -3.20 [-4.14, -2.26] | +0.61 [+0.19, +1.08] | -4.01 (low motion/high detail) |
+| RCM1 | -2.31 | 3.26 | [2.02, 4.95] | 0.74 | 0.59 | -4.38 [-5.63, -3.15] | +1.94 [+1.16, +2.72] | -6.30 (low motion/high detail) |
+| RCM2 | -2.00 | 3.25 | [1.92, 5.31] | 0.75 | 0.58 | -4.48 [-5.75, -3.29] | +1.84 [+1.04, +2.62] | -5.93 (low motion/high detail) |
+| RCM4 | -1.79 | 3.24 | [1.92, 5.23] | 0.76 | 0.58 | -4.70 [-5.94, -3.44] | +1.76 [+0.98, +2.59] | -5.75 (low motion/high detail) |
+
+### log_flow_magnitude
+| action | mean dlog_flow_magnitude (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| LR41_FLASH_RIFE | -43.06 | 0.20 | [-0.01, 0.50] | 0.28 | 0.32 | -8.10 [-44.07, +27.21] | -124.69 [-174.58, -77.43] | -113.25 (high motion/high detail) |
+| RCM1 | +120.78 | 1.73 | [0.94, 3.00] | 0.67 | 0.68 | +13.21 [-35.96, +52.61] | -274.45 [-338.93, -210.12] | -65.97 (high motion/high detail) |
+| RCM2 | +140.25 | 1.79 | [0.97, 3.11] | 0.66 | 0.68 | +30.47 [-17.66, +69.94] | -270.13 [-334.46, -208.27] | -36.63 (high motion/high detail) |
+| RCM4 | +155.26 | 1.71 | [0.90, 3.07] | 0.65 | 0.69 | +32.61 [-16.27, +74.17] | -270.08 [-332.70, -207.91] | -23.64 (high motion/high detail) |
+
+### warp_error
+| action | mean dwarp_error (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| LR41_FLASH_RIFE | -0.28 | 0.32 | [-0.05, 0.81] | 0.25 | 0.19 | -0.53 [-0.96, -0.08] | -0.51 [-0.90, -0.14] | -0.99 (high motion/high detail) |
+| RCM1 | +0.37 | 1.29 | [0.67, 1.91] | 0.61 | 0.45 | -0.48 [-0.89, -0.12] | -0.83 [-1.15, -0.52] | -0.78 (high motion/high detail) |
+| RCM2 | +0.43 | 1.53 | [0.78, 2.21] | 0.65 | 0.42 | -0.62 [-1.10, -0.21] | -0.74 [-1.08, -0.42] | -0.74 (high motion/high detail) |
+| RCM4 | +0.37 | 1.67 | [0.87, 2.46] | 0.65 | 0.39 | -0.63 [-1.12, -0.17] | -0.75 [-1.07, -0.42] | -0.80 (high motion/high detail) |
+
+### requirement retention (FULL-satisfied -> kept), by action/type
+LR41_FLASH_RIFE            detail   detail=high 74/107 = 0.692
+LR41_FLASH_RIFE            motion   detail=high 23/37 = 0.622
+LR41_FLASH_RIFE            motion   detail=low  6/12 = 0.500
+LR41_FLASH_RIFE            plain    detail=low  92/109 = 0.844
+LR41_FLASH_RIFE            static   detail=high 3/8 = 0.375
+LR41_FLASH_RIFE            static   detail=low  19/26 = 0.731
+LR41_FLASH_RIFE            subject  detail=high 87/103 = 0.845
+LR41_FLASH_RIFE            subject  detail=low  104/122 = 0.852
+RCM1                       detail   detail=high 65/107 = 0.607
+RCM1                       motion   detail=high 32/37 = 0.865
+RCM1                       motion   detail=low  11/12 = 0.917
+RCM1                       plain    detail=low  72/109 = 0.661
+RCM1                       static   detail=high 3/8 = 0.375
+RCM1                       static   detail=low  13/26 = 0.500
+RCM1                       subject  detail=high 83/103 = 0.806
+RCM1                       subject  detail=low  104/122 = 0.852
+RCM2                       detail   detail=high 83/107 = 0.776
+RCM2                       motion   detail=high 31/37 = 0.838
+RCM2                       motion   detail=low  9/12 = 0.750
+RCM2                       plain    detail=low  67/109 = 0.615
+RCM2                       static   detail=high 2/8 = 0.250
+RCM2                       static   detail=low  15/26 = 0.577
+RCM2                       subject  detail=high 91/103 = 0.883
+RCM2                       subject  detail=low  109/122 = 0.893
+RCM4                       detail   detail=high 88/107 = 0.822
+RCM4                       motion   detail=high 31/37 = 0.838
+RCM4                       motion   detail=low  9/12 = 0.750
+RCM4                       plain    detail=low  54/109 = 0.495
+RCM4                       static   detail=high 2/8 = 0.250
+RCM4                       static   detail=low  14/26 = 0.538
+RCM4                       subject  detail=high 94/103 = 0.913
+RCM4                       subject  detail=low  112/122 = 0.918

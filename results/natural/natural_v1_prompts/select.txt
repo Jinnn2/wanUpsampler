@@ -1,0 +1,19 @@
+manually excluded: 5 of 5 listed
+669/768 candidates pass the screen; wrote 256 prompts to /mnt/afs_2/houze/wanUpsampler/outputs/natural_v1_prompts/univ_natural_v1.jsonl
+predicted cells {'hh': 56, 'hl': 65, 'lh': 55, 'll': 80}; per length bin [86, 86, 84]
+examples rejected by the screen:
+  3 slender Arab giants speak to Abraham
+  glass gar in a cyber world
+  make intro with text write "Make Joke Crime"
+  for mussic in telegram about car
+  a Wizzard Monkey who holds a joint, Full Hd, PhotoRealistic
+  Joe biden in a police uniform in front of Hollywood sign
+  Corpses came to life and tore up the ground
+  Alien colonizing earth video, real life
+  10 principles for living around a man on a sunny beach
+  Gym doing splits on top of the piano cover
+  george washington riding a horse in battle
+  istanbul spagetti monsters invasion, loki fight to spagetti,action scene
+  Conjoined Humanoid Electron Micropscope Alfred Stieglitz grainy black and white 1900s
+  Variant fish, with strange fish heads, terrifying, and group fights.
+  peacock But the pond did not answer him

@@ -1,0 +1,27 @@
+{
+  "source": "WenhaoWang/VidProM/VidProM_semantic_unique.csv",
+  "csv_sha256": "dbdee4a3a7d3d021a7328ca18bd710f33ea85b5fe7f93a78ec73000bbfe7a12c",
+  "rows": 1038805,
+  "eligible_per_bin": [
+    237259,
+    191174,
+    90382
+  ],
+  "bins": [
+    [
+      6,
+      12
+    ],
+    [
+      12,
+      25
+    ],
+    [
+      25,
+      71
+    ]
+  ],
+  "nsfw_max": 0.02,
+  "seed": 20261027,
+  "candidates": 768
+}

@@ -1,0 +1,14 @@
+{
+ "archive": "route_v1_gate_analysis.tgz",
+ "sha256": "ecf788a615a4901156a411aa3e5e8e836f99f29a83648ae0cf82c92a0744d066",
+ "ingested": "2026-10-27",
+ "note": "variant: column quality_kept_gate",
+ "kept": [
+  "route_eval.csv",
+  "route_report.md",
+  "route_rules.json",
+  "route_table.csv",
+  "table_inputs.json"
+ ],
+ "skipped_by_suffix": {}
+}

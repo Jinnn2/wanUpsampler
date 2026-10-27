@@ -1,0 +1,16 @@
+{
+ "archive": "twostage_wan21_analysis.tgz",
+ "sha256": "68776e12dbb640842b2380e5d17527daa435a3d5ed6634548eda7a5f7e8fe7c3",
+ "ingested": "2026-10-27",
+ "note": "two-stage arms v1 (LR_FLASH/LR_BICUBIC/F41) on dev prompts",
+ "kept": [
+  "metrics/paired_deltas.csv",
+  "metrics/quality_by_video.csv",
+  "metrics/report.json",
+  "metrics/score_provenance.json"
+ ],
+ "skipped_by_suffix": {
+  ".json": 1379,
+  ".log": 70
+ }
+}

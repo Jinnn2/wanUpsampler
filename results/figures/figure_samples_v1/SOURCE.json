@@ -1,0 +1,18 @@
+{
+ "archive": "figure_samples_v1.tgz",
+ "sha256": "f81076d4c38009b0bb29ae9ab9299b310f699836012c6d1882e62872d240debd",
+ "ingested": "2026-10-27",
+ "note": "pngs/mp4 not kept; see the tgz",
+ "kept": [
+  "candidates.csv",
+  "manifest.json",
+  "pins.json",
+  "select.log"
+ ],
+ "skipped_by_suffix": {
+  ".png": 94,
+  ".mp4": 12,
+  ".html": 1,
+  ".json": 1
+ }
+}

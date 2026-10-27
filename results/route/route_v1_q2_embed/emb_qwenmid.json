@@ -1,0 +1,6 @@
+{
+  "encoder": "/mnt/afs_2/houze/models/Qwen3-VL-32B-Instruct middle hidden layer (mean pool)",
+  "n": 128,
+  "dim": 5120,
+  "npz_sha256": "3449b6718f5bd9304796390593b30639e943d6d1140bcf31567214fbe48ba9a7"
+}

@@ -1,0 +1,13 @@
+A1_freeze          main_p106_s2024    FULL / DVG_D050                          48/67 failing clips VBench-blind, 143 clips
+A2_judder          main_p009_s2024    FULL / F41_DUP / F41_RIFE                157/188 failing clips VBench-blind, 336 clips
+A3_static_motion   main_p133_s42      FULL / RCM4                              36/164 failing clips VBench-blind, 192 clips
+A4_semantic_loss   main_p100_s100     FULL / RCM4                              63/209 failing clips VBench-blind, 336 clips
+B_hh               main_p016_s100     FULL / STEP20 / TEA015 / RCM4 / F41_RIFE / LR_FLASH 57 groups, distance 0.199
+B_hl               main_p146_s2024    FULL / STEP20 / TEA015 / RCM4 / F41_RIFE / LR_FLASH 78 groups, distance 0.230
+B_lh               main_p137_s100     FULL / STEP20 / TEA015 / RCM4 / F41_RIFE / LR_FLASH 96 groups, distance 0.127
+B_ll               main_p032_s100     FULL / STEP20 / TEA015 / RCM4 / F41_RIFE / LR_FLASH 96 groups, distance 0.256
+A5_collapse_v0161  -                  FULL / DVG_D050                          DVG short-prompt collapse (VBench prompt, seed 42); _ext = same prompt extended
+A5_collapse_v0342  -                  FULL / DVG_D050                          DVG short-prompt collapse (VBench prompt, seed 42); _ext = same prompt extended
+A5_collapse_v0804  -                  FULL / DVG_D050                          DVG short-prompt collapse (VBench prompt, seed 42); _ext = same prompt extended
+A5_collapse_v0844  -                  FULL / DVG_D050                          DVG short-prompt collapse (VBench prompt, seed 42); _ext = same prompt extended
+wrote /mnt/afs_2/houze/wanUpsampler/outputs/figure_samples_v1/manifest.json (12 panels), /mnt/afs_2/houze/wanUpsampler/outputs/figure_samples_v1/candidates.csv (344 rows)

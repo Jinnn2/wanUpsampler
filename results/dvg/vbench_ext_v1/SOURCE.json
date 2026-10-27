@@ -1,0 +1,14 @@
+{
+ "archive": "dvg_wan21_vbench_ext_v1_analysis.tgz",
+ "sha256": "e80a874f7ad02331250e88e5c17b913bbd24d5f8b075f485190412c3cdbc4e18",
+ "ingested": "2026-10-27",
+ "note": "",
+ "kept": [
+  "repro_ext_by_video.csv",
+  "repro_ext_summary.md",
+  "vbench_scores.json"
+ ],
+ "skipped_by_suffix": {
+  ".json": 97
+ }
+}

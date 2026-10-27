@@ -1,0 +1,13 @@
+{
+ "archive": "quality_v1_analysis.tgz",
+ "sha256": "50620eed13c71c57fb61897c481b9377402d8421b057deed4f48871d224537e5",
+ "ingested": "2026-10-27",
+ "note": "quality layer v1; NOT the v2 file route_v1_q2 used",
+ "kept": [
+  "quality_by_video.csv",
+  "report.txt"
+ ],
+ "skipped_by_suffix": {
+  ".json": 12289
+ }
+}

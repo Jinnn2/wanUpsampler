@@ -1,0 +1,614 @@
+{
+  "schema": "univ_figure_samples_v1",
+  "fixed_plan_sha256": "d6bfa2deacb60935e0b5833ada19b6de6593278090782dae907cbd4e82c5207f",
+  "dynamic_sha256": "7554a435f885afab32d2dee5c7d4c7bb7dd842027a1204f46355c6e98968f404",
+  "quality_sha256": "894d33cb8714b420ec0f9f2ad5845dee7d87df06972d7210ab07fafee0b3f528",
+  "pins_sha256": "7589c42b11576722bd3342ba6f24f750b739080e0ce59f5882f29568e27896e3",
+  "arms_b": [
+    "STEP20",
+    "TEA015",
+    "RCM4",
+    "F41_RIFE",
+    "LR_FLASH"
+  ],
+  "metric": "min",
+  "blind_pp": -0.5,
+  "notes": [],
+  "panels": [
+    {
+      "id": "A1_freeze",
+      "figure": "A",
+      "cell": "hl",
+      "group_id": "main_p106_s2024",
+      "seed": 2024,
+      "prompt_id": 106,
+      "prompt": "One oversized plain black chess king slides and spins rapidly back and forth across an empty white surface, wobbling and changing direction quickly. The background stays blank and the camera does not move.",
+      "rule": "median severity among failing and VBench-blind clips",
+      "rank": 24,
+      "arm_clips": 143,
+      "failing": 67,
+      "failing_and_vbench_blind": 48,
+      "fail_rule": "high-motion clip loses more than half its flow",
+      "blind_rule": "VBench-5 drop vs FULL > -0.5pp",
+      "rows": [
+        {
+          "label": "FULL",
+          "source": "dvg_wan21_study_dev2",
+          "stem": "main_p106_s2024__FULL_NATIVE_50",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_dev2/videos/main_p106_s2024__FULL_NATIVE_50.mp4",
+          "video_sha256": "470d81b31e04b3c669dd6a4d9e74a454806dc97b099fca9b63f4abc19b796caa"
+        },
+        {
+          "label": "DVG_D050",
+          "source": "dvg_wan21_study_dev2",
+          "stem": "main_p106_s2024__DVG_D050",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_dev2/videos/main_p106_s2024__DVG_D050.mp4",
+          "video_sha256": "482aa08917fa8a4227f11dd334979df79898ab296879c4f956d32c096ea3519d",
+          "d_vbench5_pp": 7.6510524601668735,
+          "lr_flow": -1.9954176428302368,
+          "retention": 1.0,
+          "quality_kept": 1.0
+        }
+      ]
+    },
+    {
+      "id": "A2_judder",
+      "figure": "A",
+      "cell": "hl",
+      "group_id": "main_p009_s2024",
+      "seed": 2024,
+      "prompt_id": 9,
+      "prompt": "A fixed camera watches one oversized plain silver pocket watch swing quickly like a pendulum across an empty dark backdrop. The large watch has smooth unmarked surfaces, crosses a wide arc every second, and stays sharply visible under constant light. No small tools or decorative textures appear.",
+      "rule": "median severity among failing and VBench-blind clips",
+      "rank": 78,
+      "arm_clips": 336,
+      "failing": 188,
+      "failing_and_vbench_blind": 157,
+      "fail_rule": "frame-hold judder flagged by the fixed layer",
+      "blind_rule": "VBench-5 drop vs F41_RIFE > -0.5pp",
+      "rows": [
+        {
+          "label": "FULL",
+          "source": "published_wan21_twostage_v1",
+          "stem": "pilot_cf009_s2024_FULL50",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_v1/videos/stage1/HR81/gen_cf009_s2024_HR81.mp4",
+          "video_sha256": "22d28b287af4e5344d5e10fa0dad3de96085a1e08b53ea5c7c49f0dbd94dc256"
+        },
+        {
+          "label": "F41_DUP",
+          "source": "published_wan21_twostage_v1",
+          "stem": "pilot_cf009_s2024_F41_DUP",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_v1/videos/final/F41_DUP/pilot_cf009_s2024_F41_DUP.mp4",
+          "video_sha256": "f132f4034ce6bdcc38f544b7416d1c633e7a2f41105f51f0c86b98e6e2c1f734",
+          "d_vbench5_pp": -3.9307829987960563,
+          "lr_flow": 2.8845949753357427,
+          "retention": 0.75,
+          "quality_kept": 0.4
+        },
+        {
+          "label": "F41_RIFE",
+          "source": "published_wan21_twostage_v1",
+          "stem": "pilot_cf009_s2024_F41_RIFE",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_v1/videos/final/F41_RIFE/pilot_cf009_s2024_F41_RIFE.mp4",
+          "video_sha256": "1bdd78d91c410013bd6bc0ec048acb8dc296a0736286ab6fa6bed0c0da7f45f7",
+          "d_vbench5_pp": -3.8663376519781245,
+          "lr_flow": 2.840713489177377,
+          "retention": 0.75,
+          "quality_kept": 0.6
+        }
+      ]
+    },
+    {
+      "id": "A3_static_motion",
+      "figure": "A",
+      "cell": "lh",
+      "group_id": "main_p133_s42",
+      "seed": 42,
+      "prompt_id": 133,
+      "prompt": "A fixed camera shows a complete drum kit with chrome lugs, tension rods, engraved cymbals with fine concentric grooves, coiled cables, and small screws. No one plays and every part remains perfectly still.",
+      "rule": "median severity among failing and VBench-blind clips",
+      "rank": 18,
+      "arm_clips": 192,
+      "failing": 164,
+      "failing_and_vbench_blind": 36,
+      "fail_rule": "low-motion prompt gets more than twice FULL's flow",
+      "blind_rule": "VBench-5 drop vs FULL > -0.5pp",
+      "rows": [
+        {
+          "label": "FULL",
+          "source": "published_wan21_twostage_dev2",
+          "stem": "pilot_cf133_s42_FULL50",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_dev2/videos/pilot/FULL50/pilot_cf133_s42_FULL50.mp4",
+          "video_sha256": "5ffe3925f3ef8e83dc83fbd04c7c0a6894c3cb6b3fc064c556776c4dc2c359aa"
+        },
+        {
+          "label": "RCM4",
+          "source": "published_wan21_twostage_dev2",
+          "stem": "pilot_cf133_s42_RCM4",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_dev2/videos/stage1/RCM4/gen_cf133_s42_RCM4.mp4",
+          "video_sha256": "da393e43ad4bbdf1dc5173fa7055497169796cb7b171f7b7b16be614904ae643",
+          "d_vbench5_pp": 0.29315422991459394,
+          "lr_flow": 2.1689239266716993,
+          "retention": 0.0,
+          "quality_kept": 0.4
+        }
+      ]
+    },
+    {
+      "id": "A4_semantic_loss",
+      "figure": "A",
+      "cell": "ll",
+      "group_id": "main_p100_s100",
+      "seed": 100,
+      "prompt_id": 100,
+      "prompt": "A single large plain white paper crane sits motionless on an empty light gray table. The locked camera frames its broad smooth folds, there are no patterns or other objects, and the soft even lighting never changes.",
+      "rule": "median severity among failing and VBench-blind clips",
+      "rank": 31,
+      "arm_clips": 336,
+      "failing": 209,
+      "failing_and_vbench_blind": 63,
+      "fail_rule": "keeps at most half of the requirements FULL satisfies",
+      "blind_rule": "VBench-5 drop vs FULL > -0.5pp",
+      "rows": [
+        {
+          "label": "FULL",
+          "source": "published_wan21_twostage_dev2",
+          "stem": "pilot_cf100_s100_FULL50",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_dev2/videos/pilot/FULL50/pilot_cf100_s100_FULL50.mp4",
+          "video_sha256": "ce75940b97e82593754c1b3866023430c7368a2a6df251615f27a70a536d6e2c"
+        },
+        {
+          "label": "RCM4",
+          "source": "published_wan21_twostage_dev2",
+          "stem": "pilot_cf100_s100_RCM4",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_dev2/videos/stage1/RCM4/gen_cf100_s100_RCM4.mp4",
+          "video_sha256": "93bc41c27c36ca515a6bb8abc98176abbce1caa78593cfebfd23b3c10b998d8a",
+          "d_vbench5_pp": 1.8477739577996477,
+          "lr_flow": 1.2842632769637259,
+          "retention": 0.3333333333333333,
+          "quality_kept": 0.0
+        }
+      ]
+    },
+    {
+      "id": "B_hh",
+      "figure": "B",
+      "cell": "hh",
+      "group_id": "main_p016_s100",
+      "seed": 100,
+      "prompt_id": 16,
+      "prompt": "Under a locked overhead camera, hundreds of tiny capacitors, pins, microchips, and bright solder beads travel quickly along branching copper tracks on a dense circuit board. Minute components rotate and switch lanes while blinking micro-lights create rapid local changes among sharp high-frequency details.",
+      "metric": "min",
+      "rule": "score vector closest to the cell mean",
+      "rank": 0,
+      "groups_in_cell": 57,
+      "cell_mean": {
+        "STEP20": 0.4472291840712895,
+        "TEA015": 0.44327485380116965,
+        "RCM4": 0.30386382623224717,
+        "F41_RIFE": 0.3071428571428571,
+        "LR_FLASH": 0.07176274018379285
+      },
+      "distance": 0.19850695716955674,
+      "rows": [
+        {
+          "label": "FULL",
+          "source": "published_wan21_platform_v1",
+          "stem": "pilot_cf016_s100_FULL50",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_v1/videos/pilot/FULL50/pilot_cf016_s100_FULL50.mp4",
+          "video_sha256": "d8595cfce45bc7cfb95992f1d59096323b40160edbb3ac7cd13d50800755fe09"
+        },
+        {
+          "label": "STEP20",
+          "source": "published_wan21_platform_v1",
+          "stem": "pilot_cf016_s100_STEP20",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_v1/videos/pilot/STEP20/pilot_cf016_s100_STEP20.mp4",
+          "video_sha256": "cff8e3827e2af8dd0101220ec882733920bd77282704dcef312cd12c87d572b7",
+          "d_vbench5_pp": 1.195927326549029,
+          "lr_flow": -0.35060023067351725,
+          "retention": 0.3333333333333333,
+          "quality_kept": 0.4,
+          "score": 0.3333333333333333
+        },
+        {
+          "label": "TEA015",
+          "source": "published_wan21_platform_v1",
+          "stem": "pilot_cf016_s100_TEA015",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_v1/videos/pilot/TEA015/pilot_cf016_s100_TEA015.mp4",
+          "video_sha256": "75309a6899c8d74c3b9dd7ad7960b011ea1b4f93a5ea69769aa95c1b1dc730cd",
+          "d_vbench5_pp": 0.03439640012389278,
+          "lr_flow": 0.05439559644689066,
+          "retention": 0.6666666666666666,
+          "quality_kept": 0.4,
+          "score": 0.4
+        },
+        {
+          "label": "RCM4",
+          "source": "published_wan21_twostage_v2b",
+          "stem": "pilot_cf016_s100_RCM4",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_v2b/videos/stage1/RCM4/gen_cf016_s100_RCM4.mp4",
+          "video_sha256": "742cb667ad7ba5a51a916d1c0e779dd3198bc759ded19b9e8fadd89fab98342b",
+          "d_vbench5_pp": -3.2305172895773615,
+          "lr_flow": 0.08469281037321617,
+          "retention": 0.25,
+          "quality_kept": 0.2,
+          "score": 0.2
+        },
+        {
+          "label": "F41_RIFE",
+          "source": "published_wan21_twostage_v1",
+          "stem": "pilot_cf016_s100_F41_RIFE",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_v1/videos/final/F41_RIFE/pilot_cf016_s100_F41_RIFE.mp4",
+          "video_sha256": "d447a9ab01e76b5ef2a1b748aa25652c06a6f5510ac231e07a43ce7b5d926c1a",
+          "d_vbench5_pp": -0.0031049104140978834,
+          "lr_flow": -0.2586092928787355,
+          "retention": 0.4166666666666667,
+          "quality_kept": 0.4,
+          "score": 0.4
+        },
+        {
+          "label": "LR_FLASH",
+          "source": "published_wan21_twostage_v1",
+          "stem": "pilot_cf016_s100_LR_FLASH",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_v1/videos/final/LR_FLASH/pilot_cf016_s100_LR_FLASH.mp4",
+          "video_sha256": "b233ad34cf709dc668b3ff265225fa307f7a627475cdcddc104f19b2e6e5163a",
+          "d_vbench5_pp": -7.91206760701475,
+          "lr_flow": -0.35331813104442145,
+          "retention": 0.3333333333333333,
+          "quality_kept": 0.0,
+          "score": 0.0
+        }
+      ]
+    },
+    {
+      "id": "B_hl",
+      "figure": "B",
+      "cell": "hl",
+      "group_id": "main_p146_s2024",
+      "seed": 2024,
+      "prompt_id": 146,
+      "prompt": "One large plain silver ball shoots very fast across an empty flat black surface, ricocheting off invisible walls and reversing direction repeatedly. The camera is locked and the background is blank.",
+      "metric": "min",
+      "rule": "score vector closest to the cell mean",
+      "rank": 0,
+      "groups_in_cell": 78,
+      "cell_mean": {
+        "STEP20": 0.5455636955636957,
+        "TEA015": 0.7108516483516484,
+        "RCM4": 0.13141025641025644,
+        "F41_RIFE": 0.4280906593406594,
+        "LR_FLASH": 0.32617521367521374
+      },
+      "distance": 0.22961692360441324,
+      "rows": [
+        {
+          "label": "FULL",
+          "source": "published_wan21_platform_dev2",
+          "stem": "pilot_cf146_s2024_FULL50",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_dev2/videos/pilot/FULL50/pilot_cf146_s2024_FULL50.mp4",
+          "video_sha256": "23c39b01a3374fa1e952ac1ef6014c758d59c6fc0f362c3a4ed91d4139e994f1"
+        },
+        {
+          "label": "STEP20",
+          "source": "published_wan21_platform_dev2",
+          "stem": "pilot_cf146_s2024_STEP20",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_dev2/videos/pilot/STEP20/pilot_cf146_s2024_STEP20.mp4",
+          "video_sha256": "0c988c6648f7ba70867d957dd0a0d5fc6cf1d194348ff748dd44f81c171224a9",
+          "d_vbench5_pp": -2.553743544897502,
+          "lr_flow": -0.5373420017547033,
+          "retention": 0.5,
+          "quality_kept": 0.6,
+          "score": 0.5
+        },
+        {
+          "label": "TEA015",
+          "source": "published_wan21_platform_dev2",
+          "stem": "pilot_cf146_s2024_TEA015",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_dev2/videos/pilot/TEA015/pilot_cf146_s2024_TEA015.mp4",
+          "video_sha256": "7e81ac2edc2cae0c84d0a7836811a7731c2c67437ea75890a98a627079ddd5e6",
+          "d_vbench5_pp": -0.7782302189355828,
+          "lr_flow": -0.3714899279673536,
+          "retention": 1.0,
+          "quality_kept": 0.6,
+          "score": 0.6
+        },
+        {
+          "label": "RCM4",
+          "source": "published_wan21_twostage_dev2",
+          "stem": "pilot_cf146_s2024_RCM4",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_dev2/videos/stage1/RCM4/gen_cf146_s2024_RCM4.mp4",
+          "video_sha256": "61db80ad44cfc2749ea711499fded3e071300ffaf011ec4a3eac81a32920b023",
+          "d_vbench5_pp": 3.6778972931279075,
+          "lr_flow": 0.1700943982758402,
+          "retention": 0.0,
+          "quality_kept": 0.2,
+          "score": 0.0
+        },
+        {
+          "label": "F41_RIFE",
+          "source": "published_wan21_twostage_dev2",
+          "stem": "pilot_cf146_s2024_F41_RIFE",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_dev2/videos/final/F41_RIFE/pilot_cf146_s2024_F41_RIFE.mp4",
+          "video_sha256": "78f08f9197b92a4f1aeead9f3f916ddecdd9bba74b02d111f44299e21260ce8e",
+          "d_vbench5_pp": 3.319515984720667,
+          "lr_flow": -1.8815940999005332,
+          "retention": 0.5,
+          "quality_kept": 1.0,
+          "score": 0.5
+        },
+        {
+          "label": "LR_FLASH",
+          "source": "published_wan21_twostage_dev2",
+          "stem": "pilot_cf146_s2024_LR_FLASH",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_dev2/videos/final/LR_FLASH/pilot_cf146_s2024_LR_FLASH.mp4",
+          "video_sha256": "3abbcf554cf3123f7d78f2858a42930d195afc4606e131192444e2181f63fa54",
+          "d_vbench5_pp": 4.046589150892499,
+          "lr_flow": -3.070720519280337,
+          "retention": 0.5,
+          "quality_kept": 0.2,
+          "score": 0.2
+        }
+      ]
+    },
+    {
+      "id": "B_lh",
+      "figure": "B",
+      "cell": "lh",
+      "group_id": "main_p137_s100",
+      "seed": 100,
+      "prompt_id": 137,
+      "prompt": "A locked camera shows a collector's table covered with dozens of small antique spinning tops, each painted with fine stripes, tiny dots, and engraved metal tips, arranged in neat rows. All of them stand completely still.",
+      "metric": "min",
+      "rule": "score vector closest to the cell mean",
+      "rank": 0,
+      "groups_in_cell": 96,
+      "cell_mean": {
+        "STEP20": 0.7891927083333333,
+        "TEA015": 0.8011925429894179,
+        "RCM4": 0.2610697751322751,
+        "F41_RIFE": 0.7451678240740742,
+        "LR_FLASH": 0.2678695436507936
+      },
+      "distance": 0.12692781632860767,
+      "rows": [
+        {
+          "label": "FULL",
+          "source": "published_wan21_platform_dev2",
+          "stem": "pilot_cf137_s100_FULL50",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_dev2/videos/pilot/FULL50/pilot_cf137_s100_FULL50.mp4",
+          "video_sha256": "fbd6d37afbe4a0a40b4bae5396afde957f3c4b797b6abca0c7015b5fbea2b261"
+        },
+        {
+          "label": "STEP20",
+          "source": "published_wan21_platform_dev2",
+          "stem": "pilot_cf137_s100_STEP20",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_dev2/videos/pilot/STEP20/pilot_cf137_s100_STEP20.mp4",
+          "video_sha256": "a011ffa8ff9ec37bf9b1892eb60e452a417b24dc8a717269a6f0f552b208ae20",
+          "d_vbench5_pp": 2.358980086892992,
+          "lr_flow": -0.1028018407420267,
+          "retention": 0.75,
+          "quality_kept": 1.0,
+          "score": 0.75
+        },
+        {
+          "label": "TEA015",
+          "source": "published_wan21_platform_dev2",
+          "stem": "pilot_cf137_s100_TEA015",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_dev2/videos/pilot/TEA015/pilot_cf137_s100_TEA015.mp4",
+          "video_sha256": "83c62391925cda3aea121251c3227bb475f37a7fa31c867120a5063476e6460c",
+          "d_vbench5_pp": -0.674727530768815,
+          "lr_flow": -0.11104745940040175,
+          "retention": 0.8333333333333334,
+          "quality_kept": 1.0,
+          "score": 0.8333333333333334
+        },
+        {
+          "label": "RCM4",
+          "source": "published_wan21_twostage_dev2",
+          "stem": "pilot_cf137_s100_RCM4",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_dev2/videos/stage1/RCM4/gen_cf137_s100_RCM4.mp4",
+          "video_sha256": "39d00a8b251c35c3c976b8fda884fd21b4cd125f26ddb70f6af5c2d0c765ad09",
+          "d_vbench5_pp": -1.3993566846487115,
+          "lr_flow": 3.212547802572409,
+          "retention": 0.16666666666666666,
+          "quality_kept": 0.6,
+          "score": 0.16666666666666666
+        },
+        {
+          "label": "F41_RIFE",
+          "source": "published_wan21_twostage_dev2",
+          "stem": "pilot_cf137_s100_F41_RIFE",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_dev2/videos/final/F41_RIFE/pilot_cf137_s100_F41_RIFE.mp4",
+          "video_sha256": "6767b3749fa78a5a3de54c67504be32990df94e757ca25ddbcfa2a3274919c34",
+          "d_vbench5_pp": -1.1551624506505376,
+          "lr_flow": 0.0165701591082882,
+          "retention": 0.75,
+          "quality_kept": 0.8,
+          "score": 0.75
+        },
+        {
+          "label": "LR_FLASH",
+          "source": "published_wan21_twostage_dev2",
+          "stem": "pilot_cf137_s100_LR_FLASH",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_dev2/videos/final/LR_FLASH/pilot_cf137_s100_LR_FLASH.mp4",
+          "video_sha256": "16d461b10f9133a39b1139672c232abca5c2233fc7a799347d2a240fe3f1f6dc",
+          "d_vbench5_pp": 4.185179766545377,
+          "lr_flow": 0.028116837775063835,
+          "retention": 0.6666666666666666,
+          "quality_kept": 0.2,
+          "score": 0.2
+        }
+      ]
+    },
+    {
+      "id": "B_ll",
+      "figure": "B",
+      "cell": "ll",
+      "group_id": "main_p032_s100",
+      "seed": 100,
+      "prompt_id": 32,
+      "prompt": "A large plain white paper boat rests motionless on perfectly calm blue water, filling most of a fixed composition. The folded surfaces are broad and unmarked, the horizon is empty, and neither the boat nor the camera moves.",
+      "metric": "min",
+      "rule": "score vector closest to the cell mean",
+      "rank": 0,
+      "groups_in_cell": 96,
+      "cell_mean": {
+        "STEP20": 0.8293588789682541,
+        "TEA015": 0.9398437500000001,
+        "RCM4": 0.2973028273809522,
+        "F41_RIFE": 0.7492931547619045,
+        "LR_FLASH": 0.6072317294973546
+      },
+      "distance": 0.25645444508021786,
+      "rows": [
+        {
+          "label": "FULL",
+          "source": "published_wan21_platform_v1",
+          "stem": "pilot_cf032_s100_FULL50",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_v1/videos/pilot/FULL50/pilot_cf032_s100_FULL50.mp4",
+          "video_sha256": "e3a8086a92ae48b429db0d6a4f5765138a292f9527111b7c6942c9c7a6fcedbf"
+        },
+        {
+          "label": "STEP20",
+          "source": "published_wan21_platform_v1",
+          "stem": "pilot_cf032_s100_STEP20",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_v1/videos/pilot/STEP20/pilot_cf032_s100_STEP20.mp4",
+          "video_sha256": "898f95001290bcd5039b96c9d13ea4be2682b122cec31e809fd65c1ab95866be",
+          "d_vbench5_pp": -4.731441514902468,
+          "lr_flow": 0.09249858107764354,
+          "retention": 1.0,
+          "quality_kept": 0.8,
+          "score": 0.8
+        },
+        {
+          "label": "TEA015",
+          "source": "published_wan21_platform_v1",
+          "stem": "pilot_cf032_s100_TEA015",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_v1/videos/pilot/TEA015/pilot_cf032_s100_TEA015.mp4",
+          "video_sha256": "89b1f96624c16da7ce718dc68e7d7c5507e998e39f01bf56f53555f915a8328f",
+          "d_vbench5_pp": -3.5818582992477754,
+          "lr_flow": 0.07231505612285827,
+          "retention": 1.0,
+          "quality_kept": 1.0,
+          "score": 1.0
+        },
+        {
+          "label": "RCM4",
+          "source": "published_wan21_twostage_v2b",
+          "stem": "pilot_cf032_s100_RCM4",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_v2b/videos/stage1/RCM4/gen_cf032_s100_RCM4.mp4",
+          "video_sha256": "e4e2b249b726bf73504e5cd748ce4e782b163ca2d3a6ec40ff3422fa54132b2e",
+          "d_vbench5_pp": -7.9969612891541475,
+          "lr_flow": 2.113227128204829,
+          "retention": 0.16666666666666666,
+          "quality_kept": 0.2,
+          "score": 0.16666666666666666
+        },
+        {
+          "label": "F41_RIFE",
+          "source": "published_wan21_twostage_v1",
+          "stem": "pilot_cf032_s100_F41_RIFE",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_v1/videos/final/F41_RIFE/pilot_cf032_s100_F41_RIFE.mp4",
+          "video_sha256": "a42a21db5e073a7a738c55464ec6d369840ef6ffd3a3b49b58b1514690945f90",
+          "d_vbench5_pp": -1.1519411182054573,
+          "lr_flow": 1.2092685959945828,
+          "retention": 0.8333333333333334,
+          "quality_kept": 1.0,
+          "score": 0.8333333333333334
+        },
+        {
+          "label": "LR_FLASH",
+          "source": "published_wan21_twostage_v1",
+          "stem": "pilot_cf032_s100_LR_FLASH",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_twostage_v1/videos/final/LR_FLASH/pilot_cf032_s100_LR_FLASH.mp4",
+          "video_sha256": "4c3caf138faabd41880dfffe4bf224b8f4383c0ee26f25ad25645407a319a480",
+          "d_vbench5_pp": -2.98679691687036,
+          "lr_flow": -0.2351476039960436,
+          "retention": 1.0,
+          "quality_kept": 0.8,
+          "score": 0.8
+        }
+      ]
+    },
+    {
+      "id": "A5_collapse_v0161",
+      "figure": "A",
+      "pinned": true,
+      "note": "DVG short-prompt collapse (VBench prompt, seed 42); _ext = same prompt extended",
+      "prompt": "A person is clapping",
+      "rule": "pinned by hand (outside the fixed plan)",
+      "rows": [
+        {
+          "label": "FULL",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0161_s42__FULL_NATIVE_50.mp4",
+          "video_sha256": "6749de65cd263f1b1bb0b82a920b2cba9f0cd7a1290f7486b108f4689f3cb4e9"
+        },
+        {
+          "label": "DVG_D050",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0161_s42__DVG_D050.mp4",
+          "video_sha256": "19bdf02c74805cf0b43a7e6e39d7587295d9713b6a7b388fd67470f68d48af4e"
+        }
+      ]
+    },
+    {
+      "id": "A5_collapse_v0342",
+      "figure": "A",
+      "pinned": true,
+      "note": "DVG short-prompt collapse (VBench prompt, seed 42); _ext = same prompt extended",
+      "prompt": "a bench",
+      "rule": "pinned by hand (outside the fixed plan)",
+      "rows": [
+        {
+          "label": "FULL",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0342_s42__FULL_NATIVE_50.mp4",
+          "video_sha256": "4c1bef1f3cc9a5cf97fa0259e5cf4394fd4949c0963a6799cef11044c92667ee"
+        },
+        {
+          "label": "DVG_D050",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0342_s42__DVG_D050.mp4",
+          "video_sha256": "c68503151c047fe66a950fb5dd81b31270b09288181ae77405bd88df71f651c8"
+        }
+      ]
+    },
+    {
+      "id": "A5_collapse_v0804",
+      "figure": "A",
+      "pinned": true,
+      "note": "DVG short-prompt collapse (VBench prompt, seed 42); _ext = same prompt extended",
+      "prompt": "downtown",
+      "rule": "pinned by hand (outside the fixed plan)",
+      "rows": [
+        {
+          "label": "FULL",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0804_s42__FULL_NATIVE_50.mp4",
+          "video_sha256": "4bc1b076654f0599af961e669d330ddaf7278be4b1dbf095c67a79a09b378f4e"
+        },
+        {
+          "label": "DVG_D050",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0804_s42__DVG_D050.mp4",
+          "video_sha256": "740ee073d4cfd66e7a276feb33f2b975679c41c0b04591b5d4c769699cf8d1a2"
+        }
+      ]
+    },
+    {
+      "id": "A5_collapse_v0844",
+      "figure": "A",
+      "pinned": true,
+      "note": "DVG short-prompt collapse (VBench prompt, seed 42); _ext = same prompt extended",
+      "prompt": "shower",
+      "rule": "pinned by hand (outside the fixed plan)",
+      "rows": [
+        {
+          "label": "FULL",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0844_s42__FULL_NATIVE_50.mp4",
+          "video_sha256": "b6aab596409487035e86a527875dea972cf446f28ac3b358a305a552137f7ba4"
+        },
+        {
+          "label": "DVG_D050",
+          "video_path": "/mnt/afs_2/houze/wanUpsampler/outputs/dvg_wan21_study_v1/videos/repro_v0844_s42__DVG_D050.mp4",
+          "video_sha256": "2f2354cfae309b57898c164a06dd704c981107023ee53fff16e8c63085e242f6"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+ "archive": "dynamic_v1_pilot_analysis.tgz",
+ "sha256": "4be88a6589637fb45c6011f283e54e39f169e8604b7175d50c30ace0a13647b8",
+ "ingested": "2026-10-27",
+ "note": "",
+ "kept": [
+  "dynamic_by_question.csv",
+  "dynamic_by_video.csv",
+  "report.txt"
+ ],
+ "skipped_by_suffix": {
+  ".json": 1537
+ }
+}

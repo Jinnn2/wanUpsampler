@@ -1,0 +1,18 @@
+{
+ "archive": "route_v1_q2_embed_analysis.tgz",
+ "sha256": "6645e59007d5891e31b6b6f4a7aa29a88c7b7cd453fd9a9369c3b4ec9e18a66f",
+ "ingested": "2026-10-27",
+ "note": "vector router CV; npz embeddings not kept",
+ "kept": [
+  "emb_qwen.json",
+  "emb_qwenmid.json",
+  "emb_t5.json",
+  "embed_evaluate.log",
+  "route_embed_eval.csv",
+  "route_embed_report.md",
+  "route_table.csv"
+ ],
+ "skipped_by_suffix": {
+  ".npz": 3
+ }
+}

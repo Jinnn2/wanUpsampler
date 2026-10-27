@@ -1,0 +1,67 @@
+64 prompts / 16 families
+
+### vbench5
+| action | mean dvbench5 (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| DVG_D050 | +0.15 | 0.18 | [-0.09, 0.59] | 0.14 | 0.03 | +0.76 [-0.66, +2.14] | +0.91 [-0.75, +2.73] | -0.68 (low motion/low detail) |
+| DVG_D070 | -0.77 | -0.05 | [-0.16, 0.10] | -0.04 | 0.02 | +0.81 [-0.32, +2.01] | -0.03 [-1.33, +1.28] | -1.18 (high motion/low detail) |
+
+### imaging_quality
+| action | mean dimaging_quality (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| DVG_D050 | +3.10 | 0.05 | [-0.11, 0.33] | 0.13 | 0.06 | +2.09 [-1.01, +5.46] | +2.40 [-0.32, +5.41] | +1.01 (low motion/low detail) |
+| DVG_D070 | +2.25 | -0.03 | [-0.13, 0.13] | 0.08 | 0.01 | +1.21 [-1.37, +4.03] | -0.09 [-2.43, +2.46] | +1.43 (low motion/low detail) |
+
+### req_all
+| action | mean dreq_all (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| DVG_D050 | -4.40 | 0.31 | [0.07, 0.66] | 0.23 | 0.24 | +10.09 [+4.85, +15.59] | +2.53 [-1.97, +7.24] | -10.19 (low motion/low detail) |
+| DVG_D070 | -6.43 | 0.28 | [0.06, 0.59] | 0.28 | 0.26 | +8.66 [+3.05, +13.90] | +4.71 [+0.81, +8.78] | -14.22 (low motion/low detail) |
+
+### log_laplacian_var
+| action | mean dlog_laplacian_var (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| DVG_D050 | +55.72 | 0.32 | [0.04, 0.74] | 0.30 | 0.24 | +12.80 [-14.90, +40.75] | +61.74 [+40.89, +85.33] | +17.12 (low motion/low detail) |
+| DVG_D070 | +52.46 | 0.01 | [-0.16, 0.28] | 0.07 | 0.07 | +11.49 [-14.69, +36.83] | +24.50 [+3.87, +48.07] | +33.93 (low motion/low detail) |
+
+### hf_share
+| action | mean dhf_share (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| DVG_D050 | +0.33 | 0.48 | [0.02, 1.42] | 0.15 | 0.02 | +0.01 [-1.11, +0.95] | +0.60 [-0.44, +1.51] | -0.03 (low motion/high detail) |
+| DVG_D070 | +0.19 | 0.49 | [-0.15, 1.86] | -0.07 | 0.01 | +0.02 [-1.08, +0.82] | -0.29 [-1.54, +0.57] | -0.01 (high motion/high detail) |
+
+### edge_density
+| action | mean dedge_density (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| DVG_D050 | +1.06 | 0.12 | [-0.02, 0.30] | 0.20 | 0.20 | +0.71 [-0.43, +1.79] | +1.44 [+0.90, +2.00] | +0.25 (low motion/high detail) |
+| DVG_D070 | +0.45 | -0.10 | [-0.20, -0.01] | 0.07 | 0.11 | -0.39 [-1.34, +0.52] | +0.72 [+0.22, +1.21] | -0.54 (low motion/high detail) |
+
+### log_flow_magnitude
+| action | mean dlog_flow_magnitude (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| DVG_D050 | -48.78 | 0.68 | [0.28, 1.29] | 0.38 | 0.32 | +1.01 [-43.93, +45.89] | -163.00 [-235.77, -90.82] | -140.63 (high motion/high detail) |
+| DVG_D070 | -18.01 | 0.28 | [0.06, 0.55] | 0.22 | 0.10 | +18.24 [-21.11, +56.31] | -62.09 [-108.77, -14.49] | -49.07 (high motion/low detail) |
+
+### warp_error
+| action | mean dwarp_error (x100) | prompt/seed var | 95% CI | cross-seed rho | cell R2 | detail (pp) | motion (pp) | worst cell (pp) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| DVG_D050 | +0.12 | 0.43 | [-0.15, 1.59] | 0.20 | 0.00 | -0.01 [-0.65, +0.55] | +0.01 [-0.64, +0.55] | +0.11 (low motion/high detail) |
+| DVG_D070 | +0.20 | 0.12 | [-0.11, 0.38] | 0.15 | 0.05 | +0.21 [-0.23, +0.59] | +0.27 [-0.23, +0.68] | +0.06 (low motion/high detail) |
+
+### requirement retention (FULL-satisfied -> kept), by action/type
+DVG_D050                   detail   detail=high 97/106 = 0.915
+DVG_D050                   motion   detail=high 27/33 = 0.818
+DVG_D050                   motion   detail=low  4/13 = 0.308
+DVG_D050                   plain    detail=low  79/108 = 0.731
+DVG_D050                   static   detail=high 3/7 = 0.429
+DVG_D050                   static   detail=low  13/23 = 0.565
+DVG_D050                   subject  detail=high 89/97 = 0.918
+DVG_D050                   subject  detail=low  107/124 = 0.863
+DVG_D070                   detail   detail=high 94/106 = 0.887
+DVG_D070                   motion   detail=high 28/33 = 0.848
+DVG_D070                   motion   detail=low  8/13 = 0.615
+DVG_D070                   plain    detail=low  82/108 = 0.759
+DVG_D070                   static   detail=high 4/7 = 0.571
+DVG_D070                   static   detail=low  12/23 = 0.522
+DVG_D070                   subject  detail=high 89/97 = 0.918
+DVG_D070                   subject  detail=low  104/124 = 0.839

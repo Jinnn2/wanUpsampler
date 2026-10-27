@@ -1,0 +1,16 @@
+{
+ "archive": "natural_v1_prompts.tgz",
+ "sha256": "036776647da07b246ddea93b589c2cfbae2f0e774247086bb2861199d8f086f6",
+ "ingested": "2026-10-27",
+ "note": "",
+ "kept": [
+  "candidates.jsonl",
+  "candidates_meta.json",
+  "published_wan21_platform_natural.json",
+  "published_wan21_twostage_natural.json",
+  "screen.json",
+  "select.txt",
+  "univ_natural_v1.jsonl"
+ ],
+ "skipped_by_suffix": {}
+}

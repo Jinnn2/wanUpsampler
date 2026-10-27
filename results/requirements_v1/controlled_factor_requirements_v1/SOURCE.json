@@ -1,0 +1,19 @@
+{
+ "archive": "controlled_factor_requirements_v1_analysis.tgz",
+ "sha256": "e18bc4388cead705fd23b65f01470cd22112e9eb00169eaffe61bfb52a3301f7",
+ "ingested": "2026-10-27",
+ "note": "",
+ "kept": [
+  "analysis/contrasts.csv",
+  "analysis/motion.csv",
+  "analysis/quality_with_requirements.csv",
+  "analysis/requirement_retention.csv",
+  "analysis/summary.json",
+  "analysis/tails.csv",
+  "analysis/variance.csv",
+  "report.txt"
+ ],
+ "skipped_by_suffix": {
+  ".json": 1537
+ }
+}

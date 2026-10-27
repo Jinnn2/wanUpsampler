@@ -1,0 +1,256 @@
+{
+  "plan_sha256": "4ebfebfcce4e92f1a95372ed066d818f3c45b8c9c9ad79c1636c65930cb5fedd",
+  "vbench": {
+    "FULL50": {
+      "schema": "strict_vbench_case_result_v1",
+      "completed_at_utc": "2026-10-18T17:02:54.968658+00:00",
+      "request_sha256": "aa53fa1f81497d5f2532d1daa2f20f0a14321ba4ffa3efad43caea0f125bd330",
+      "request_file": "score_request.json",
+      "result_file": "results_2026-10-18-16:59:31_eval_results.json",
+      "result_sha256": "c6a96ae11274d26b11183bc2f1ade328401bea20ba437ad9e8bd89d093b288a7",
+      "full_info_file": "results_2026-10-18-16:59:31_full_info.json",
+      "full_info_sha256": "26bb28ffd2d9483eba80e5b91aa509b87bbce5b59725275d77eccbeb2c1cf1fa",
+      "equivalent_extra_full_info": [
+        {
+          "file": "results_2026-10-18-16:59:30_full_info.json",
+          "sha256": "26bb28ffd2d9483eba80e5b91aa509b87bbce5b59725275d77eccbeb2c1cf1fa"
+        }
+      ],
+      "video_count": 192,
+      "dimensions": [
+        "subject_consistency",
+        "background_consistency",
+        "motion_smoothness",
+        "aesthetic_quality",
+        "imaging_quality",
+        "dynamic_degree",
+        "overall_consistency"
+      ],
+      "quality_dimensions": [
+        "subject_consistency",
+        "background_consistency",
+        "motion_smoothness",
+        "aesthetic_quality",
+        "imaging_quality"
+      ],
+      "diagnostic_dimensions": [
+        "dynamic_degree",
+        "overall_consistency"
+      ],
+      "vbench": {
+        "git_commit": "fd18b3d055cb0fc6f066ca90fe2c3c8cbb698490",
+        "tracked_dirty": false,
+        "tracked_dirty_paths": [],
+        "evaluate_py_sha256": "ba202dcfc15237e5b556a41efdf2cf3aaa13f94f6e62c6d9308d59f2e6649ff6"
+      },
+      "run_manifest_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_v1/metrics/vbench/FULL50/runs/run_20261018T165925219974Z_aa53fa1f8149_90748/score_run_manifest.json"
+    },
+    "STEP25": {
+      "schema": "strict_vbench_case_result_v1",
+      "completed_at_utc": "2026-10-18T17:06:27.189655+00:00",
+      "request_sha256": "85a1604d9761f7b34005a95ed4b5ec45a723db520c5669c7f5668482d5fb153c",
+      "request_file": "score_request.json",
+      "result_file": "results_2026-10-18-17:03:04_eval_results.json",
+      "result_sha256": "3af08b8d559d9dcc31677f9c107b0b22afdb8e085c6c49176bfa7f964e46d3c7",
+      "full_info_file": "results_2026-10-18-17:03:04_full_info.json",
+      "full_info_sha256": "1772c7dfc0ebe084d29803208d2c0475275eda403e25882fa39472c52c92fdf6",
+      "equivalent_extra_full_info": [
+        {
+          "file": "results_2026-10-18-17:03:03_full_info.json",
+          "sha256": "1772c7dfc0ebe084d29803208d2c0475275eda403e25882fa39472c52c92fdf6"
+        }
+      ],
+      "video_count": 192,
+      "dimensions": [
+        "subject_consistency",
+        "background_consistency",
+        "motion_smoothness",
+        "aesthetic_quality",
+        "imaging_quality",
+        "dynamic_degree",
+        "overall_consistency"
+      ],
+      "quality_dimensions": [
+        "subject_consistency",
+        "background_consistency",
+        "motion_smoothness",
+        "aesthetic_quality",
+        "imaging_quality"
+      ],
+      "diagnostic_dimensions": [
+        "dynamic_degree",
+        "overall_consistency"
+      ],
+      "vbench": {
+        "git_commit": "fd18b3d055cb0fc6f066ca90fe2c3c8cbb698490",
+        "tracked_dirty": false,
+        "tracked_dirty_paths": [],
+        "evaluate_py_sha256": "ba202dcfc15237e5b556a41efdf2cf3aaa13f94f6e62c6d9308d59f2e6649ff6"
+      },
+      "run_manifest_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_v1/metrics/vbench/STEP25/runs/run_20261018T170258657022Z_85a1604d9761_90748/score_run_manifest.json"
+    },
+    "STEP20": {
+      "schema": "strict_vbench_case_result_v1",
+      "completed_at_utc": "2026-10-18T17:10:04.896072+00:00",
+      "request_sha256": "4b6615f362b5e55dedc5e546aaffad84bfdce9929c8749a47dc19677678ee6c9",
+      "request_file": "score_request.json",
+      "result_file": "results_2026-10-18-17:06:37_eval_results.json",
+      "result_sha256": "6c15d6f22e03937cdb2a209d36ea7ddadb1c561d69d227e8c9f9194989bc7947",
+      "full_info_file": "results_2026-10-18-17:06:37_full_info.json",
+      "full_info_sha256": "766b9ca200d60609e81a4133405a748b943119f1aba55ca38b64cfe537b94a45",
+      "equivalent_extra_full_info": [],
+      "video_count": 192,
+      "dimensions": [
+        "subject_consistency",
+        "background_consistency",
+        "motion_smoothness",
+        "aesthetic_quality",
+        "imaging_quality",
+        "dynamic_degree",
+        "overall_consistency"
+      ],
+      "quality_dimensions": [
+        "subject_consistency",
+        "background_consistency",
+        "motion_smoothness",
+        "aesthetic_quality",
+        "imaging_quality"
+      ],
+      "diagnostic_dimensions": [
+        "dynamic_degree",
+        "overall_consistency"
+      ],
+      "vbench": {
+        "git_commit": "fd18b3d055cb0fc6f066ca90fe2c3c8cbb698490",
+        "tracked_dirty": false,
+        "tracked_dirty_paths": [],
+        "evaluate_py_sha256": "ba202dcfc15237e5b556a41efdf2cf3aaa13f94f6e62c6d9308d59f2e6649ff6"
+      },
+      "run_manifest_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_v1/metrics/vbench/STEP20/runs/run_20261018T170631250959Z_4b6615f362b5_90748/score_run_manifest.json"
+    },
+    "TEA008": {
+      "schema": "strict_vbench_case_result_v1",
+      "completed_at_utc": "2026-10-18T17:13:41.918657+00:00",
+      "request_sha256": "e79b6d50b728ffa4faa2d9d10d5fe236799e031b8f58230bc3ab3234c759cba5",
+      "request_file": "score_request.json",
+      "result_file": "results_2026-10-18-17:10:14_eval_results.json",
+      "result_sha256": "b82cf0c4fff2fb1cb129d4ed3159444f59d7993df725752395d79faef24b419f",
+      "full_info_file": "results_2026-10-18-17:10:14_full_info.json",
+      "full_info_sha256": "2f9eeb2a76ecc5800d2a359b01d70f871540ad3646a4992dfdbed229703cd538",
+      "equivalent_extra_full_info": [],
+      "video_count": 192,
+      "dimensions": [
+        "subject_consistency",
+        "background_consistency",
+        "motion_smoothness",
+        "aesthetic_quality",
+        "imaging_quality",
+        "dynamic_degree",
+        "overall_consistency"
+      ],
+      "quality_dimensions": [
+        "subject_consistency",
+        "background_consistency",
+        "motion_smoothness",
+        "aesthetic_quality",
+        "imaging_quality"
+      ],
+      "diagnostic_dimensions": [
+        "dynamic_degree",
+        "overall_consistency"
+      ],
+      "vbench": {
+        "git_commit": "fd18b3d055cb0fc6f066ca90fe2c3c8cbb698490",
+        "tracked_dirty": false,
+        "tracked_dirty_paths": [],
+        "evaluate_py_sha256": "ba202dcfc15237e5b556a41efdf2cf3aaa13f94f6e62c6d9308d59f2e6649ff6"
+      },
+      "run_manifest_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_v1/metrics/vbench/TEA008/runs/run_20261018T171008869338Z_e79b6d50b728_90748/score_run_manifest.json"
+    },
+    "TEA015": {
+      "schema": "strict_vbench_case_result_v1",
+      "completed_at_utc": "2026-10-18T17:17:24.869530+00:00",
+      "request_sha256": "ce35d08f841e6ebbee2019acb3ca7f6087159c1cd64321e8a735def63f074f4f",
+      "request_file": "score_request.json",
+      "result_file": "results_2026-10-18-17:13:52_eval_results.json",
+      "result_sha256": "b6021c046eefdee5ffdaf9d6bbcc1b63b6bd65673fb31f0fc5a0affb4a02bc77",
+      "full_info_file": "results_2026-10-18-17:13:52_full_info.json",
+      "full_info_sha256": "3b632c0caafed9547114ff6eecb61748908b87ef3e5974d9b81fdb5e44b7a574",
+      "equivalent_extra_full_info": [],
+      "video_count": 192,
+      "dimensions": [
+        "subject_consistency",
+        "background_consistency",
+        "motion_smoothness",
+        "aesthetic_quality",
+        "imaging_quality",
+        "dynamic_degree",
+        "overall_consistency"
+      ],
+      "quality_dimensions": [
+        "subject_consistency",
+        "background_consistency",
+        "motion_smoothness",
+        "aesthetic_quality",
+        "imaging_quality"
+      ],
+      "diagnostic_dimensions": [
+        "dynamic_degree",
+        "overall_consistency"
+      ],
+      "vbench": {
+        "git_commit": "fd18b3d055cb0fc6f066ca90fe2c3c8cbb698490",
+        "tracked_dirty": false,
+        "tracked_dirty_paths": [],
+        "evaluate_py_sha256": "ba202dcfc15237e5b556a41efdf2cf3aaa13f94f6e62c6d9308d59f2e6649ff6"
+      },
+      "run_manifest_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_v1/metrics/vbench/TEA015/runs/run_20261018T171346263356Z_ce35d08f841e_90748/score_run_manifest.json"
+    },
+    "SCALING10": {
+      "schema": "strict_vbench_case_result_v1",
+      "completed_at_utc": "2026-10-18T17:20:59.917001+00:00",
+      "request_sha256": "86ae441bbea1897582e2f6eca6a6170ee0338586a7685ff466a1df689e229c31",
+      "request_file": "score_request.json",
+      "result_file": "results_2026-10-18-17:17:34_eval_results.json",
+      "result_sha256": "b05a90492602d51b24468b05413200ec4ed9c40b5780c2ee432e2b73e2652f15",
+      "full_info_file": "results_2026-10-18-17:17:34_full_info.json",
+      "full_info_sha256": "5c384edb72f9ec7cfa4f7875888fbd7ed1b38fa9a852f04f950f8cdae8d1dd64",
+      "equivalent_extra_full_info": [
+        {
+          "file": "results_2026-10-18-17:17:33_full_info.json",
+          "sha256": "5c384edb72f9ec7cfa4f7875888fbd7ed1b38fa9a852f04f950f8cdae8d1dd64"
+        }
+      ],
+      "video_count": 192,
+      "dimensions": [
+        "subject_consistency",
+        "background_consistency",
+        "motion_smoothness",
+        "aesthetic_quality",
+        "imaging_quality",
+        "dynamic_degree",
+        "overall_consistency"
+      ],
+      "quality_dimensions": [
+        "subject_consistency",
+        "background_consistency",
+        "motion_smoothness",
+        "aesthetic_quality",
+        "imaging_quality"
+      ],
+      "diagnostic_dimensions": [
+        "dynamic_degree",
+        "overall_consistency"
+      ],
+      "vbench": {
+        "git_commit": "fd18b3d055cb0fc6f066ca90fe2c3c8cbb698490",
+        "tracked_dirty": false,
+        "tracked_dirty_paths": [],
+        "evaluate_py_sha256": "ba202dcfc15237e5b556a41efdf2cf3aaa13f94f6e62c6d9308d59f2e6649ff6"
+      },
+      "run_manifest_path": "/mnt/afs_2/houze/wanUpsampler/outputs/published_wan21_platform_v1/metrics/vbench/SCALING10/runs/run_20261018T171728700610Z_86ae441bbea1_90748/score_run_manifest.json"
+    }
+  },
+  "quality_csv_sha256": "bedf9cb0d4b61c284fea4024d931f026858b7ca840ee8e066b8dda294565b30a",
+  "aggregate": "vbench5 is an exploratory raw five-dimension mean, NOT normalized official VBench Total; diagnostics are not included"
+}

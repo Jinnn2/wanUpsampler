@@ -1,0 +1,15 @@
+{
+ "archive": "requirements_v2_gen_pilot.tgz",
+ "sha256": "61e59366d4e6cd36c1b3dff2456254c4d87b23f5a9aab4b0e17d5aad29389e13",
+ "ingested": "2026-10-27",
+ "note": "",
+ "kept": [
+  "pilot/checklist.jsonl",
+  "pilot/collect.txt",
+  "pilot/compare.md"
+ ],
+ "skipped_by_suffix": {
+  ".log": 8,
+  ".json": 12
+ }
+}

@@ -1,0 +1,22 @@
+wrote /mnt/afs_2/houze/wanUpsampler/outputs/dynamic_v1_all/dynamic_by_question.csv (69267 rows)
+wrote /mnt/afs_2/houze/wanUpsampler/outputs/dynamic_v1_all/dynamic_by_video.csv (7104 rows)
+
+mean retention by case (type-balanced, among requirements FULL satisfies); satisfaction minus FULL's
+case                retain   d_sat     hh     hl     lh     ll  frames  video   flow
+DVG_D050             0.592  -0.027  0.432  0.577  0.644  0.687  0.610  0.226  0.655
+DVG_D070             0.605  -0.020  0.420  0.549  0.660  0.758  0.585  0.266  0.692
+F41_DUP              0.718  -0.007  0.485  0.690  0.780  0.868  0.732  0.418  0.711
+F41_RIFE             0.689  -0.005  0.468  0.645  0.784  0.813  0.732  0.417  0.624
+LR41_FLASH_RIFE      0.568  -0.097  0.231  0.591  0.593  0.788  0.525  0.154  0.658
+LR_BICUBIC           0.584  -0.082  0.258  0.614  0.596  0.801  0.548  0.238  0.668
+LR_FLASH             0.594  -0.076  0.283  0.616  0.608  0.805  0.565  0.242  0.675
+RCM1                 0.413  -0.085  0.433  0.396  0.256  0.572  0.455  0.228  0.361
+RCM2                 0.467  -0.045  0.516  0.431  0.384  0.548  0.527  0.350  0.364
+RCM4                 0.464  -0.060  0.542  0.450  0.375  0.506  0.525  0.372  0.365
+SCALING10            0.963  -0.005  0.899  0.979  0.964  0.998  0.955  0.871  0.986
+STEP20               0.824  -0.020  0.749  0.743  0.879  0.911  0.827  0.606  0.840
+STEP25               0.869  -0.007  0.775  0.822  0.942  0.917  0.868  0.669  0.893
+TEA008               0.927  -0.005  0.818  0.932  0.958  0.978  0.924  0.751  0.965
+TEA015               0.885   0.030  0.738  0.887  0.933  0.950  0.872  0.674  0.939
+
+FULL satisfaction: mean 0.674 over 1344 clips
