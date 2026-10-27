@@ -16,5 +16,8 @@ of which dev (train+validation) = 64 and dev2 = 61 scored (3 dev2 prompts droppe
   - router/blind values are expected values under the per-cell arm distribution (no sampling).
   - _lo/_hi = 95% family bootstrap (2000).
 - `scoreboard_dev2_policies.json`: the dev-fit per-cell distributions (router) and the blind mixture per tau.
-- `fixed_arms_by_cell_dev2.csv`: RCM4 / LR_FLASH / LR_BICUBIC per cell on dev2.
-- `fig1_export.py`: the script (reuses route_v1.Data / solve).
+- `fixed_arms_by_cell_dev2.csv`: all 15 arms x 4 cells on dev2 (speedup, retention, quality_kept, min_ret_q, d_vbench5_pp).
+  DVG arms: d_vbench5_pp is against the DVG study's own FULL clip (same prompt and seed; `dvg/study_dev2`), the
+  other arms against the published FULL50. Updated 2026-10-27 (was RCM4 / LR_FLASH / LR_BICUBIC only).
+- `fig1_export.py`: the script (reuses route_v1.Data / solve). Args: repo, route_v1_q2 dir, platform_dev2 and
+  twostage_dev2 quality_by_video.csv, out dir, optional DVG dev2 quality_by_video.csv.

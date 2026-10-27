@@ -3,6 +3,7 @@ import csv, json, sys, collections
 from pathlib import Path
 import numpy as np
 REPO, RQ2, PF, TS, OUT = map(Path, sys.argv[1:6])
+DVG = Path(sys.argv[6]) if len(sys.argv) > 6 else None  # DVG study dev2 quality_by_video.csv (its own FULL)
 sys.path.insert(0, str(REPO))
 from UNIV_adaptor.scripts.data import route_v1 as rv
 
@@ -18,6 +19,13 @@ for f in (PF, TS):
 vbm = collections.defaultdict(list)
 for (p, a, s), v in vb.items():
     vbm[(p, a)].append(np.mean(v))  # FULL50 appears in both files with the same video
+if DVG:  # DVG arms: delta vs the DVG study's own FULL clip of the same prompt and seed
+    rows = list(csv.DictReader(open(DVG, encoding="utf-8-sig")))
+    full_vb = {(r["prompt_id"], r["base_seed"]): float(r["vbench5"]) for r in rows if r["case_id"] == FULL}
+    dvg_d = collections.defaultdict(list)
+    for r in rows:
+        if r["case_id"] != FULL:
+            dvg_d[(int(r["prompt_id"]), r["case_id"])].append(float(r["vbench5"]) - full_vb[(r["prompt_id"], r["base_seed"])])
 dv = np.full(data.tf.shape, np.nan)
 for i, p in enumerate(data.pids):
     if (p, FULL) in vbm:
@@ -25,6 +33,10 @@ for i, p in enumerate(data.pids):
         for j, a in enumerate(A):
             if (p, a) in vbm:
                 dv[i, j] = np.mean(vbm[(p, a)]) - base
+    if DVG:
+        for j, a in enumerate(A):
+            if (p, a) in dvg_d:
+                dv[i, j] = np.mean(dvg_d[(p, a)])
 dev = np.isin(data.split, ["train", "validation"])
 te = np.where(~dev)[0]
 assert np.isfinite(dv[te][:, [A.index(a) for a in A if not a.startswith("DVG")]]).all()
@@ -63,7 +75,7 @@ for tau in (0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.60):
         rows.append({"policy": name, "tau": tau, **agg(policy_cols(x))})
 # per-cell fixed-arm profile on dev2 (for panel a)
 cells = []
-for arm in ("RCM4", "LR_FLASH", "LR_BICUBIC"):
+for arm in [a for a in A if a != FULL]:
     j = A.index(arm)
     for c, cn in enumerate(rv.CELLS):
         m = te[data.cell[te] == c]
