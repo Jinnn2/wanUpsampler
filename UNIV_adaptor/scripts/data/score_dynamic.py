@@ -194,6 +194,22 @@ class Judge:
         return self.torch.sigmoid(yes - no).cpu().tolist()
 
 
+def p_yes_split(judge, prompts, per_prompt):
+    """judge.p_yes over prompts, halving the batch on CUDA OOM (a clip with many video questions batches them all).
+    per_prompt: {"images"/"videos"/"metadata": one item list per prompt}. A batch that fits is scored as before."""
+    try:
+        return judge.p_yes(prompts, **{k: v for k, v in per_prompt.items() if v})
+    except Exception as e:  # torch.OutOfMemoryError, without importing torch here
+        if type(e).__name__ != "OutOfMemoryError" or len(prompts) == 1:
+            raise
+    torch = getattr(judge, "torch", None)
+    if torch is not None:
+        torch.cuda.empty_cache()
+    h = len(prompts) // 2
+    return [*p_yes_split(judge, prompts[:h], {k: v[:h] if v else v for k, v in per_prompt.items()}),
+            *p_yes_split(judge, prompts[h:], {k: v[h:] if v else v for k, v in per_prompt.items()})]
+
+
 def vlm_questions(record):
     return [q for q in record["questions"] if rv2.JUDGE[q["type"]].startswith("vlm")]
 
@@ -207,14 +223,14 @@ def score_single(judge, frames, fps, questions):
         per = []
         for i in pick(len(frames), FRAME_COUNT):
             prompts = [["image", SINGLE.format(what="frame", q=q["question"])] for q in fq]
-            per.append(judge.p_yes(prompts, images=[frames[i]] * len(fq)))
+            per.append(p_yes_split(judge, prompts, {"images": [frames[i]] * len(fq)}))
         for k, q in enumerate(fq):
             ps = [p[k] for p in per]
             out[q["id"]] = {"p_yes": float(np.mean(ps)), "p_frames": [round(p, 5) for p in ps]}
     if vq:
         clip, meta = video_clip(frames, fps)
         prompts = [["video", SINGLE.format(what="video", q=q["question"])] for q in vq]
-        for q, p in zip(vq, judge.p_yes(prompts, videos=[clip] * len(vq), metadata=[meta] * len(vq))):
+        for q, p in zip(vq, p_yes_split(judge, prompts, {"videos": [clip] * len(vq), "metadata": [meta] * len(vq)})):
             out[q["id"]] = {"p_yes": float(p)}
     return out
 

@@ -30,6 +30,38 @@ class FakeJudge:
         return [0.9 if "B satisfy" in p[-1] else 0.2 for p in prompts]
 
 
+class OutOfMemoryError(RuntimeError):
+    pass
+
+
+class TightJudge(FakeJudge):
+    """Runs out of memory on any batch larger than `limit`."""
+
+    def __init__(self, limit):
+        super().__init__()
+        self.limit = limit
+
+    def p_yes(self, prompts, images=None, videos=None, metadata=None):
+        if len(prompts) > self.limit:
+            raise OutOfMemoryError("CUDA out of memory")
+        self.calls.append((prompts, images, videos))
+        return [0.1 * len(p[-1]) % 1 for p in prompts]
+
+
+class SplitTest(unittest.TestCase):
+    def test_oom_halves_the_batch_and_keeps_order(self):
+        prompts = [["video", f"q{'x' * i}"] for i in range(7)]
+        extra = {"videos": [f"v{i}" for i in range(7)], "metadata": [{"i": i} for i in range(7)]}
+        want = TightJudge(99).p_yes(prompts)
+        judge = TightJudge(2)
+        self.assertEqual(sd.p_yes_split(judge, prompts, extra), want)
+        self.assertEqual(sum(len(c[0]) for c in judge.calls), 7)
+
+    def test_other_errors_and_single_prompts_raise(self):
+        with self.assertRaises(OutOfMemoryError):
+            sd.p_yes_split(TightJudge(0), [["video", "q"]], {"videos": ["v"]})
+
+
 class DecisionTest(unittest.TestCase):
     def test_gate_propagates_failures_down_dependencies(self):
         qs = [{"id": "q0", "depends_on": []}, {"id": "q1", "depends_on": ["q0"]},
