@@ -20,6 +20,10 @@ the clips show the cell's average ranking rather than the most extreme prompt.
 Every rule is fixed here before looking at the clips. candidates.csv lists the next clips in the same order, so a
 human swap (e.g. an unreadable scene) is recorded as a rank, never as a free pick.
 
+Paper Figure 1a (fig1): for each of RCM4 and LR_FLASH and each cell, the dev2 seed-42 clip at the lower median
+of min(retention, quality_kept) within that (arm, cell), with 5 evenly spaced single frames of it and of its FULL
+clip, and a per-frame-pair optical flow magnitude for both (OpenCV Farneback at 416 px width, mean pixels).
+
 Pins (--pins): clips outside the fixed plan, e.g. DVG's short-VBench-prompt collapse, which comes from a separate
 study. They are rendered the same way and marked as pinned in the manifest.
 
@@ -274,17 +278,7 @@ def pins_dvg(args):
 
 
 def select(args):
-    fixed_path = Path(args.fixed_root) / "plan.json"
-    fixed = json.loads(fixed_path.read_text(encoding="utf-8"))
-    prompts = {}
-    for p in args.prompts or DEFAULT_PROMPTS:
-        for line in Path(p).read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                r = json.loads(line)
-                prompts[int(r["prompt_id"])] = r["prompt"]
-    clips, has_judder = clip_records(fixed, read_csv(Path(args.fixed_root) / "fixed_by_video.csv"), read_csv(args.dynamic),
-                                     read_csv(args.quality), vbench_by_video(fixed), prompts)
-    clips = [c for c in clips if c["split"] != "test"]
+    fixed_path, clips, has_judder = load_clips(args)
     pa, ca, na = select_a(clips, has_judder)
     pb, cb, nb = select_b(clips, tuple(args.arms_b), args.metric)
     panels = pa + pb + (load_pins(args.pins) if args.pins else [])
@@ -307,6 +301,131 @@ def select(args):
     for n in na + nb:
         print("note:", n)
     print(f"wrote {out / 'manifest.json'} ({len(panels)} panels), {out / 'candidates.csv'} ({len(rows)} rows)")
+
+
+FIG1_ARMS = ("RCM4", "LR_FLASH")
+FIG1_SPLIT, FIG1_SEED, FIG1_FRAMES, FLOW_WIDTH = "dev2", 42, 5, 416
+
+
+def select_fig1(clips, arms=FIG1_ARMS):
+    """(arm, cell) -> (sorted pool, chosen index). Lower median of min(retention, quality_kept), ties by prompt id."""
+    out = {}
+    for arm in arms:
+        for cell in CELLS:
+            pool = [c for c in clips if c["case_id"] == arm and c["cell"] == cell and c["split"] == FIG1_SPLIT
+                    and c["seed"] == FIG1_SEED and math.isfinite(min(c["retention"], c["quality_kept"]))]
+            if not pool:
+                raise ValueError(f"no {FIG1_SPLIT} seed-{FIG1_SEED} clips for {arm} in cell {cell}")
+            pool.sort(key=lambda c: (min(c["retention"], c["quality_kept"]), c["prompt_id"]))
+            out[(arm, cell)] = (pool, (len(pool) - 1) // 2)
+    return out
+
+
+def read_frames(path):
+    import cv2
+
+    cap = cv2.VideoCapture(str(path))
+    frames = []
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        frames.append(frame)
+    cap.release()
+    if len(frames) < 2:
+        raise ValueError(f"could not decode video: {path}")
+    return frames
+
+
+def flow_series(frames):
+    """Mean Farneback flow magnitude (pixels at FLOW_WIDTH) for each consecutive frame pair."""
+    import cv2
+
+    h = round(frames[0].shape[0] * FLOW_WIDTH / frames[0].shape[1])
+    gray = [cv2.cvtColor(cv2.resize(f, (FLOW_WIDTH, h), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2GRAY) for f in frames]
+    return [float(np.linalg.norm(cv2.calcOpticalFlowFarneback(a, b, None, 0.5, 3, 15, 3, 5, 1.2, 0), axis=2).mean())
+            for a, b in zip(gray, gray[1:])]
+
+
+def export_fig1(clips, out):
+    import cv2
+
+    picks = select_fig1(clips)
+    out.mkdir(parents=True, exist_ok=True)
+    samples = []
+    lines = ["# Figure 1a samples", "",
+             f"Rule (fixed before rendering): {FIG1_SPLIT} prompts, seed {FIG1_SEED}; within each (arm, cell) the clips "
+             "are sorted by min(retention, quality_kept) (ties: prompt id) and the lower median (index (n-1)//2) is "
+             "taken. No hand picking.", "",
+             f"Frames: {FIG1_FRAMES} evenly spaced (first and last included); the arm's frames are resized to FULL's "
+             f"size. Flow: OpenCV Farneback, mean magnitude in pixels at {FLOW_WIDTH} px width, one value per "
+             "consecutive frame pair (not the RAFT flow of the fixed layer).", ""]
+    for (arm, cell), (pool, k) in picks.items():
+        c = pool[k]
+        if sha256_file(c["video_path"]) != c["video_sha256"] or sha256_file(c["full_video_path"]) != c["full_video_sha256"]:
+            raise ValueError(f"video hash mismatch: {c['stem']}")
+        sid = f"{arm}_{cell}"
+        sdir = out / sid
+        sdir.mkdir(parents=True, exist_ok=True)
+        full, acc = read_frames(c["full_video_path"]), read_frames(c["video_path"])
+        size = (full[0].shape[1], full[0].shape[0])
+        files = {}
+        for label, frames in (("FULL", full), (arm, acc)):
+            n = len(frames)
+            idx = sorted({round(i * (n - 1) / (FIG1_FRAMES - 1)) for i in range(FIG1_FRAMES)})
+            files[label] = {"frames": idx, "native_size": [frames[0].shape[1], frames[0].shape[0]], "png": []}
+            for i in idx:
+                name = f"{label}_f{i:03d}.png"
+                frame = frames[i]
+                if (frame.shape[1], frame.shape[0]) != size:
+                    frame = cv2.resize(frame, size, interpolation=cv2.INTER_AREA)
+                cv2.imwrite(str(sdir / name), frame)
+                files[label]["png"].append(name)
+        ff, fa = flow_series(full), flow_series(acc)
+        with (sdir / "flow.csv").open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["pair", "FULL", arm])
+            for i in range(max(len(ff), len(fa))):
+                writer.writerow([i, f"{ff[i]:.4f}" if i < len(ff) else "", f"{fa[i]:.4f}" if i < len(fa) else ""])
+        pool_rows = [{"prompt_id": x["prompt_id"], "stem": x["stem"], "retention": x["retention"],
+                      "quality_kept": x["quality_kept"], "min_ret_q": min(x["retention"], x["quality_kept"]),
+                      "d_vbench5_pp": x["d_vbench5_pp"]} for x in pool]
+        sample = {"id": sid, "arm": arm, "cell": cell, "prompt_id": c["prompt_id"], "prompt": c["prompt"],
+                  "seed": c["seed"], "stem": c["stem"], "full_stem": c["full_stem"], "retention": c["retention"],
+                  "quality_kept": c["quality_kept"], "min_ret_q": pool_rows[k]["min_ret_q"],
+                  "d_vbench5_pp": c["d_vbench5_pp"], "rank": k, "pool_size": len(pool), "files": files, "pool": pool_rows}
+        samples.append(sample)
+        lines += [f"## {sid}: prompt {c['prompt_id']} (rank {k} of {len(pool)})", "", c["prompt"], "",
+                  f"retention {c['retention']:.3f}, quality_kept {c['quality_kept']:.3f}, min {sample['min_ret_q']:.3f}, "
+                  f"dVBench5 {c['d_vbench5_pp']:+.2f} pp", "",
+                  "| rank | prompt id | min(ret, Q) | retention | quality_kept | dVBench5 pp |",
+                  "| --- | --- | --- | --- | --- | --- |"]
+        lines += [f"| {i}{' (chosen)' if i == k else ''} | {x['prompt_id']} | {x['min_ret_q']:.3f} | {x['retention']:.3f} "
+                  f"| {x['quality_kept']:.3f} | {x['d_vbench5_pp']:+.2f} |" for i, x in enumerate(pool_rows)]
+        lines.append("")
+        print(f"[fig1] {sid}: prompt {c['prompt_id']} rank {k}/{len(pool)} min {sample['min_ret_q']:.3f} "
+              f"dVB {c['d_vbench5_pp']:+.2f}pp", flush=True)
+    write_json_atomic(out / "samples.json", clean({"schema": "univ_fig1_samples_v1", "samples": samples}))
+    (out / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"wrote {out / 'samples.json'} and {out / 'README.md'} ({len(samples)} samples)")
+
+
+def load_clips(args):
+    fixed_path = Path(args.fixed_root) / "plan.json"
+    fixed = json.loads(fixed_path.read_text(encoding="utf-8"))
+    prompts = {}
+    for p in args.prompts or DEFAULT_PROMPTS:
+        for line in Path(p).read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                r = json.loads(line)
+                prompts[int(r["prompt_id"])] = r["prompt"]
+    clips, has_judder = clip_records(fixed, read_csv(Path(args.fixed_root) / "fixed_by_video.csv"), read_csv(args.dynamic),
+                                     read_csv(args.quality), vbench_by_video(fixed), prompts)
+    return fixed_path, [c for c in clips if c["split"] != "test"], has_judder
+
+
+def fig1(args):
+    export_fig1(load_clips(args)[1], Path(args.out))
 
 
 # ---------------------------------------------------------------- render
@@ -431,6 +550,12 @@ def main(argv=None):
     p.add_argument("--arms-b", nargs="+", default=list(ARMS_B))
     p.add_argument("--metric", choices=sorted(JOINT), default="min")
     p.add_argument("--out", required=True)
+    p = sub.add_parser("fig1", help="paper Figure 1a: median clips per (arm, cell) on dev2, frames + flow")
+    p.add_argument("--fixed-root", required=True)
+    p.add_argument("--dynamic", required=True)
+    p.add_argument("--quality", required=True, help="quality v2 CSV")
+    p.add_argument("--prompts", nargs="*")
+    p.add_argument("--out", required=True)
     p = sub.add_parser("pins-dvg")
     p.add_argument("--dvg-study", required=True, help="dvg_wan21_study root with the repro set")
     p.add_argument("--prompts", nargs="+", default=list(COLLAPSE_PROMPTS))
@@ -443,7 +568,7 @@ def main(argv=None):
     p.add_argument("--crf", type=int, default=12)
     p.add_argument("--panels", nargs="*", help="render only these panel ids")
     args = parser.parse_args(argv)
-    {"select": select, "pins-dvg": pins_dvg, "render": render}[args.mode](args)
+    {"select": select, "fig1": fig1, "pins-dvg": pins_dvg, "render": render}[args.mode](args)
 
 
 if __name__ == "__main__":

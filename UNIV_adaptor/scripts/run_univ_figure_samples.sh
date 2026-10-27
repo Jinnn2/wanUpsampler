@@ -6,6 +6,7 @@
 #   bash UNIV_adaptor/scripts/run_univ_figure_samples.sh render   # strips / slices / compare.mp4 / index.html
 #   bash UNIV_adaptor/scripts/run_univ_figure_samples.sh pack     # tgz to download
 #   bash UNIV_adaptor/scripts/run_univ_figure_samples.sh all      # pins -> select -> render -> pack
+#   bash UNIV_adaptor/scripts/run_univ_figure_samples.sh fig1     # paper Figure 1a: dev2 median clips, frames + flow, tgz
 # select adds PINS (default: the file pins writes, when present); PINS= (empty) leaves the pins out.
 # ARMS_B="STEP20 TEA015 ..." and METRIC=min|avg|geo set figure B; PANELS="A1_freeze B_hh" renders a subset.
 set -euo pipefail
@@ -18,6 +19,7 @@ DYN_CSV="${DYN_CSV:-${REPO_ROOT}/outputs/dynamic_v1_all/dynamic_by_video.csv}"
 Q_CSV="${Q_CSV:-${REPO_ROOT}/outputs/quality_v1_v2/quality_by_video.csv}"
 DVG_STUDY="${DVG_STUDY:-${REPO_ROOT}/outputs/dvg_wan21_study_v1}"
 FIG_ROOT="${FIG_ROOT:-${REPO_ROOT}/outputs/figure_samples_v1}"
+FIG1_ROOT="${FIG1_ROOT:-${REPO_ROOT}/outputs/fig1_samples_v1}"
 PINS="${PINS-${FIG_ROOT}/pins.json}"
 ARMS_B="${ARMS_B:-STEP20 TEA015 RCM4 F41_RIFE LR_FLASH}"
 METRIC="${METRIC:-min}"
@@ -47,11 +49,17 @@ case "${MODE}" in
     tar czf "${FIG_ROOT}.tgz" -C "$(dirname "${FIG_ROOT}")" "$(basename "${FIG_ROOT}")"
     echo "Download: ${FIG_ROOT}.tgz (open render/index.html)"
     ;;
+  fig1)
+    "${BASE_PYTHON}" "${DRIVER}" fig1 --fixed-root "${FIXED_ROOT}" --dynamic "${DYN_CSV}" --quality "${Q_CSV}" --out "${FIG1_ROOT}" | tee "${FIG1_ROOT}.log"
+    cp "${FIG1_ROOT}.log" "${FIG1_ROOT}/select.log"
+    tar czf "${FIG1_ROOT}.tgz" -C "$(dirname "${FIG1_ROOT}")" "$(basename "${FIG1_ROOT}")"
+    echo "Download: ${FIG1_ROOT}.tgz"
+    ;;
   all)
     bash "$0" pins && bash "$0" select && bash "$0" render && bash "$0" pack
     ;;
   *)
-    sed -n '2,10p' "$0"
+    sed -n '2,11p' "$0"
     exit 1
     ;;
 esac

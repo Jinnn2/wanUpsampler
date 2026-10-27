@@ -121,6 +121,38 @@ class FigureSamplesTest(unittest.TestCase):
         self.assertEqual(xt.shape[:2], (9, 208))
         self.assertTrue((out / "render" / "index.html").exists())
 
+    def test_fig1(self):
+        full, arm = self.tmp / "full.mp4", self.tmp / "arm.mp4"
+        video(full, 1)
+        video(arm, 6)
+        clips = []
+        for a in fs.FIG1_ARMS:
+            for cell in fs.CELLS:
+                # 4 prompts per (arm, cell); min(ret, q) = 0.4, 0.1, 0.3, 0.2 -> sorted 0.1 0.2 0.3 0.4, lower median 0.2
+                for pid, (ret, q) in enumerate([(0.4, 0.9), (0.1, 0.9), (0.9, 0.3), (0.2, 0.2)]):
+                    base = {"case_id": a, "cell": cell, "split": "dev2", "seed": 42, "prompt_id": 100 + pid,
+                            "prompt": f"p{pid}", "stem": f"{a}_{cell}_{pid}", "full_stem": f"FULL_{cell}_{pid}",
+                            "retention": ret, "quality_kept": q, "d_vbench5_pp": 0.1 * pid,
+                            "video_path": str(arm), "video_sha256": sha256_file(arm),
+                            "full_video_path": str(full), "full_video_sha256": sha256_file(full)}
+                    clips.append(base)
+                    clips.append({**base, "seed": 100, "retention": 0.0})  # other seed: ignored
+                    clips.append({**base, "split": "train", "retention": 0.0})  # dev split: ignored
+        picks = fs.select_fig1(clips)
+        self.assertEqual(len(picks), 8)
+        pool, k = picks[("RCM4", "hl")]
+        self.assertEqual((len(pool), k, pool[k]["prompt_id"]), (4, 1, 103))
+        out = self.tmp / "fig1"
+        with contextlib.redirect_stdout(io.StringIO()):
+            fs.export_fig1(clips, out)
+        s = json.loads((out / "samples.json").read_text(encoding="utf-8"))["samples"]
+        self.assertEqual([x["prompt_id"] for x in s], [103] * 8)
+        self.assertEqual(s[0]["files"]["FULL"]["frames"], [0, 2, 4, 6, 8])
+        rows = list(csv.DictReader((out / "RCM4_hh" / "flow.csv").open(encoding="utf-8")))
+        self.assertEqual(len(rows), 8)
+        self.assertGreater(float(rows[3]["RCM4"]), float(rows[3]["FULL"]))  # 6 px vs 1 px per frame
+        self.assertIn("(chosen)", (out / "README.md").read_text(encoding="utf-8"))
+
     def test_pins_dvg(self):
         from UNIV_adaptor.scripts.data import dvg_wan21_study as dvg
 
