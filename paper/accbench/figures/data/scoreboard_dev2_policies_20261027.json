@@ -1,0 +1,155 @@
+{
+ "n_dev2_prompts": 61,
+ "n_dev_prompts": 64,
+ "families_dev2": 16,
+ "policies_dev_fit": {
+  "0.95": {
+   "router": {
+    "hh": {
+     "RCM4": 0.018,
+     "FULL_NATIVE_50": 0.982
+    },
+    "hl": {
+     "SCALING10": 1.0
+    },
+    "lh": {
+     "F41_RIFE": 0.587,
+     "TEA008": 0.413
+    },
+    "ll": {
+     "TEA015": 1.0
+    }
+   },
+   "blind": {
+    "SCALING10": 0.44,
+    "FULL_NATIVE_50": 0.56
+   }
+  },
+  "0.9": {
+   "router": {
+    "hh": {
+     "RCM4": 0.331,
+     "FULL_NATIVE_50": 0.669
+    },
+    "hl": {
+     "SCALING10": 1.0
+    },
+    "lh": {
+     "F41_RIFE": 1.0
+    },
+    "ll": {
+     "TEA015": 1.0
+    }
+   },
+   "blind": {
+    "SCALING10": 0.881,
+    "FULL_NATIVE_50": 0.119
+   }
+  },
+  "0.85": {
+   "router": {
+    "hh": {
+     "RCM4": 0.676,
+     "FULL_NATIVE_50": 0.324
+    },
+    "hl": {
+     "SCALING10": 1.0
+    },
+    "lh": {
+     "F41_RIFE": 1.0
+    },
+    "ll": {
+     "TEA015": 1.0
+    }
+   },
+   "blind": {
+    "RCM4": 0.083,
+    "SCALING10": 0.917
+   }
+  },
+  "0.8": {
+   "router": {
+    "hh": {
+     "RCM4": 1.0
+    },
+    "hl": {
+     "LR41_FLASH_RIFE": 0.024,
+     "SCALING10": 0.976
+    },
+    "lh": {
+     "F41_RIFE": 1.0
+    },
+    "ll": {
+     "TEA015": 1.0
+    }
+   },
+   "blind": {
+    "RCM4": 0.197,
+    "SCALING10": 0.803
+   }
+  },
+  "0.75": {
+   "router": {
+    "hh": {
+     "RCM4": 1.0
+    },
+    "hl": {
+     "LR41_FLASH_RIFE": 0.402,
+     "SCALING10": 0.598
+    },
+    "lh": {
+     "F41_RIFE": 1.0
+    },
+    "ll": {
+     "TEA015": 1.0
+    }
+   },
+   "blind": {
+    "RCM4": 0.311,
+    "SCALING10": 0.689
+   }
+  },
+  "0.7": {
+   "router": {
+    "hh": {
+     "RCM4": 1.0
+    },
+    "hl": {
+     "LR41_FLASH_RIFE": 0.78,
+     "SCALING10": 0.22
+    },
+    "lh": {
+     "F41_RIFE": 1.0
+    },
+    "ll": {
+     "TEA015": 1.0
+    }
+   },
+   "blind": {
+    "RCM4": 0.425,
+    "SCALING10": 0.575
+   }
+  },
+  "0.6": {
+   "router": {
+    "hh": {
+     "RCM4": 1.0
+    },
+    "hl": {
+     "LR41_FLASH_RIFE": 1.0
+    },
+    "lh": {
+     "F41_RIFE": 0.253,
+     "RCM4": 0.747
+    },
+    "ll": {
+     "TEA015": 1.0
+    }
+   },
+   "blind": {
+    "RCM4": 0.653,
+    "SCALING10": 0.347
+   }
+  }
+ }
+}

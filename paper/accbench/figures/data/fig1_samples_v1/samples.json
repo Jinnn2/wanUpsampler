@@ -1,0 +1,1429 @@
+{
+  "schema": "univ_fig1_samples_v1",
+  "samples": [
+    {
+      "id": "RCM4_hh",
+      "arm": "RCM4",
+      "cell": "hh",
+      "prompt_id": 127,
+      "prompt": "Hundreds of bees swarm rapidly over a detailed honeycomb in front of a fixed macro camera, their veined wings blurring as they dart across hexagonal cells and glistening honey, constantly crossing and occluding one another.",
+      "seed": 42,
+      "stem": "pilot_cf127_s42_RCM4",
+      "full_stem": "pilot_cf127_s42_FULL50",
+      "retention": 0.5,
+      "quality_kept": 0.2,
+      "min_ret_q": 0.2,
+      "d_vbench5_pp": -4.999158194504627,
+      "rank": 5,
+      "pool_size": 11,
+      "files": {
+        "FULL": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "FULL_f000.png",
+            "FULL_f020.png",
+            "FULL_f040.png",
+            "FULL_f060.png",
+            "FULL_f080.png"
+          ]
+        },
+        "RCM4": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "RCM4_f000.png",
+            "RCM4_f020.png",
+            "RCM4_f040.png",
+            "RCM4_f060.png",
+            "RCM4_f080.png"
+          ]
+        }
+      },
+      "pool": [
+        {
+          "prompt_id": 107,
+          "stem": "pilot_cf107_s42_RCM4",
+          "retention": 0.2222222222222222,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -1.3418487289969083
+        },
+        {
+          "prompt_id": 111,
+          "stem": "pilot_cf111_s42_RCM4",
+          "retention": 0.0,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 8.852426775188682
+        },
+        {
+          "prompt_id": 123,
+          "stem": "pilot_cf123_s42_RCM4",
+          "retention": 0.8333333333333334,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -3.8951750112464656
+        },
+        {
+          "prompt_id": 147,
+          "stem": "pilot_cf147_s42_RCM4",
+          "retention": 1.0,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 0.6906380375137133
+        },
+        {
+          "prompt_id": 119,
+          "stem": "pilot_cf119_s42_RCM4",
+          "retention": 0.16666666666666666,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.16666666666666666,
+          "d_vbench5_pp": -5.307235829453571
+        },
+        {
+          "prompt_id": 127,
+          "stem": "pilot_cf127_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -4.999158194504627
+        },
+        {
+          "prompt_id": 115,
+          "stem": "pilot_cf115_s42_RCM4",
+          "retention": 0.4,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.4,
+          "d_vbench5_pp": 13.339929963936326
+        },
+        {
+          "prompt_id": 143,
+          "stem": "pilot_cf143_s42_RCM4",
+          "retention": 0.8,
+          "quality_kept": 0.4,
+          "min_ret_q": 0.4,
+          "d_vbench5_pp": -4.134133647949301
+        },
+        {
+          "prompt_id": 163,
+          "stem": "pilot_cf163_s42_RCM4",
+          "retention": 0.7142857142857143,
+          "quality_kept": 0.4,
+          "min_ret_q": 0.4,
+          "d_vbench5_pp": -3.252856873348975
+        },
+        {
+          "prompt_id": 155,
+          "stem": "pilot_cf155_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.5,
+          "d_vbench5_pp": 0.35043396559817364
+        },
+        {
+          "prompt_id": 135,
+          "stem": "pilot_cf135_s42_RCM4",
+          "retention": 0.8571428571428571,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.8,
+          "d_vbench5_pp": -0.9710256660894201
+        }
+      ]
+    },
+    {
+      "id": "RCM4_hl",
+      "arm": "RCM4",
+      "cell": "hl",
+      "prompt_id": 134,
+      "prompt": "A single large plain white drum bounces and rolls rapidly across an empty dark stage, wobbling and changing direction. Nothing else is present and the camera stays locked.",
+      "seed": 42,
+      "stem": "pilot_cf134_s42_RCM4",
+      "full_stem": "pilot_cf134_s42_FULL50",
+      "retention": 0.0,
+      "quality_kept": 0.0,
+      "min_ret_q": 0.0,
+      "d_vbench5_pp": 1.503150904745132,
+      "rank": 7,
+      "pool_size": 16,
+      "files": {
+        "FULL": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "FULL_f000.png",
+            "FULL_f020.png",
+            "FULL_f040.png",
+            "FULL_f060.png",
+            "FULL_f080.png"
+          ]
+        },
+        "RCM4": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "RCM4_f000.png",
+            "RCM4_f020.png",
+            "RCM4_f040.png",
+            "RCM4_f060.png",
+            "RCM4_f080.png"
+          ]
+        }
+      },
+      "pool": [
+        {
+          "prompt_id": 102,
+          "stem": "pilot_cf102_s42_RCM4",
+          "retention": 0.0,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 9.616743432365094
+        },
+        {
+          "prompt_id": 106,
+          "stem": "pilot_cf106_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -2.804008245832823
+        },
+        {
+          "prompt_id": 110,
+          "stem": "pilot_cf110_s42_RCM4",
+          "retention": 0.125,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 10.597322655682994
+        },
+        {
+          "prompt_id": 114,
+          "stem": "pilot_cf114_s42_RCM4",
+          "retention": 0.0,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -3.550647038966881
+        },
+        {
+          "prompt_id": 118,
+          "stem": "pilot_cf118_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -5.731796508155529
+        },
+        {
+          "prompt_id": 122,
+          "stem": "pilot_cf122_s42_RCM4",
+          "retention": 0.2,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -2.632692013607707
+        },
+        {
+          "prompt_id": 130,
+          "stem": "pilot_cf130_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -4.4424834758959975
+        },
+        {
+          "prompt_id": 134,
+          "stem": "pilot_cf134_s42_RCM4",
+          "retention": 0.0,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 1.503150904745132
+        },
+        {
+          "prompt_id": 138,
+          "stem": "pilot_cf138_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 3.9752586259496514
+        },
+        {
+          "prompt_id": 142,
+          "stem": "pilot_cf142_s42_RCM4",
+          "retention": 0.4166666666666667,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 8.066351827880624
+        },
+        {
+          "prompt_id": 146,
+          "stem": "pilot_cf146_s42_RCM4",
+          "retention": 0.625,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -0.23696149307619319
+        },
+        {
+          "prompt_id": 150,
+          "stem": "pilot_cf150_s42_RCM4",
+          "retention": 0.375,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -5.126971512904854
+        },
+        {
+          "prompt_id": 154,
+          "stem": "pilot_cf154_s42_RCM4",
+          "retention": 0.0,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 7.540136166732259
+        },
+        {
+          "prompt_id": 158,
+          "stem": "pilot_cf158_s42_RCM4",
+          "retention": 0.0,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -0.2951717521788355
+        },
+        {
+          "prompt_id": 162,
+          "stem": "pilot_cf162_s42_RCM4",
+          "retention": 0.5625,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -3.771812242854855
+        },
+        {
+          "prompt_id": 126,
+          "stem": "pilot_cf126_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.5,
+          "d_vbench5_pp": 8.388755947123416
+        }
+      ]
+    },
+    {
+      "id": "RCM4_lh",
+      "arm": "RCM4",
+      "cell": "lh",
+      "prompt_id": 105,
+      "prompt": "A fixed overhead camera shows a carved wooden chessboard mid-game with all pieces in place: intricate knights with fine manes, crenellated rooks, tiny crosses on the kings, and visible wood grain on every square. Everything remains perfectly still.",
+      "seed": 42,
+      "stem": "pilot_cf105_s42_RCM4",
+      "full_stem": "pilot_cf105_s42_FULL50",
+      "retention": 0.3,
+      "quality_kept": 0.6,
+      "min_ret_q": 0.3,
+      "d_vbench5_pp": 0.04449362041115679,
+      "rank": 7,
+      "pool_size": 16,
+      "files": {
+        "FULL": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "FULL_f000.png",
+            "FULL_f020.png",
+            "FULL_f040.png",
+            "FULL_f060.png",
+            "FULL_f080.png"
+          ]
+        },
+        "RCM4": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "RCM4_f000.png",
+            "RCM4_f020.png",
+            "RCM4_f040.png",
+            "RCM4_f060.png",
+            "RCM4_f080.png"
+          ]
+        }
+      },
+      "pool": [
+        {
+          "prompt_id": 125,
+          "stem": "pilot_cf125_s42_RCM4",
+          "retention": 0.16666666666666666,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -3.7551845297280506
+        },
+        {
+          "prompt_id": 133,
+          "stem": "pilot_cf133_s42_RCM4",
+          "retention": 0.0,
+          "quality_kept": 0.4,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 0.29315422991459394
+        },
+        {
+          "prompt_id": 113,
+          "stem": "pilot_cf113_s42_RCM4",
+          "retention": 0.16666666666666666,
+          "quality_kept": 0.4,
+          "min_ret_q": 0.16666666666666666,
+          "d_vbench5_pp": -3.916399675283133
+        },
+        {
+          "prompt_id": 137,
+          "stem": "pilot_cf137_s42_RCM4",
+          "retention": 0.16666666666666666,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.16666666666666666,
+          "d_vbench5_pp": -5.391748966720744
+        },
+        {
+          "prompt_id": 117,
+          "stem": "pilot_cf117_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -2.3353942934857153
+        },
+        {
+          "prompt_id": 121,
+          "stem": "pilot_cf121_s42_RCM4",
+          "retention": 0.6,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -0.3796997230178345
+        },
+        {
+          "prompt_id": 129,
+          "stem": "pilot_cf129_s42_RCM4",
+          "retention": 0.75,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -1.9342440393080529
+        },
+        {
+          "prompt_id": 105,
+          "stem": "pilot_cf105_s42_RCM4",
+          "retention": 0.3,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.3,
+          "d_vbench5_pp": 0.04449362041115679
+        },
+        {
+          "prompt_id": 145,
+          "stem": "pilot_cf145_s42_RCM4",
+          "retention": 0.3333333333333333,
+          "quality_kept": 0.4,
+          "min_ret_q": 0.3333333333333333,
+          "d_vbench5_pp": -2.6938835225392754
+        },
+        {
+          "prompt_id": 109,
+          "stem": "pilot_cf109_s42_RCM4",
+          "retention": 0.6190476190476192,
+          "quality_kept": 0.4,
+          "min_ret_q": 0.4,
+          "d_vbench5_pp": -1.351854863240598
+        },
+        {
+          "prompt_id": 141,
+          "stem": "pilot_cf141_s42_RCM4",
+          "retention": 0.4166666666666667,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.4166666666666667,
+          "d_vbench5_pp": -5.742383487193448
+        },
+        {
+          "prompt_id": 101,
+          "stem": "pilot_cf101_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.5,
+          "d_vbench5_pp": -7.1924507552017625
+        },
+        {
+          "prompt_id": 149,
+          "stem": "pilot_cf149_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.5,
+          "d_vbench5_pp": -3.260467838290093
+        },
+        {
+          "prompt_id": 153,
+          "stem": "pilot_cf153_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.5,
+          "d_vbench5_pp": -0.3956474966967716
+        },
+        {
+          "prompt_id": 161,
+          "stem": "pilot_cf161_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.5,
+          "d_vbench5_pp": -4.965402926408869
+        },
+        {
+          "prompt_id": 157,
+          "stem": "pilot_cf157_s42_RCM4",
+          "retention": 0.6666666666666666,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.6666666666666666,
+          "d_vbench5_pp": -1.762637208728135
+        }
+      ]
+    },
+    {
+      "id": "RCM4_ll",
+      "arm": "RCM4",
+      "cell": "ll",
+      "prompt_id": 112,
+      "prompt": "One large smooth orange maple leaf lies flat and motionless on a plain gray concrete floor. The camera is locked, the leaf has broad simple color without visible veins, and the empty background never changes.",
+      "seed": 42,
+      "stem": "pilot_cf112_s42_RCM4",
+      "full_stem": "pilot_cf112_s42_FULL50",
+      "retention": 0.5714285714285714,
+      "quality_kept": 0.2,
+      "min_ret_q": 0.2,
+      "d_vbench5_pp": -2.159070093555193,
+      "rank": 7,
+      "pool_size": 16,
+      "files": {
+        "FULL": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "FULL_f000.png",
+            "FULL_f020.png",
+            "FULL_f040.png",
+            "FULL_f060.png",
+            "FULL_f080.png"
+          ]
+        },
+        "RCM4": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "RCM4_f000.png",
+            "RCM4_f020.png",
+            "RCM4_f040.png",
+            "RCM4_f060.png",
+            "RCM4_f080.png"
+          ]
+        }
+      },
+      "pool": [
+        {
+          "prompt_id": 100,
+          "stem": "pilot_cf100_s42_RCM4",
+          "retention": 0.3333333333333333,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 1.1913610875551317
+        },
+        {
+          "prompt_id": 108,
+          "stem": "pilot_cf108_s42_RCM4",
+          "retention": 0.3125,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 0.022654711011127482
+        },
+        {
+          "prompt_id": 120,
+          "stem": "pilot_cf120_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -2.9142836228023494
+        },
+        {
+          "prompt_id": 128,
+          "stem": "pilot_cf128_s42_RCM4",
+          "retention": 0.611111111111111,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -7.8731799222300225
+        },
+        {
+          "prompt_id": 144,
+          "stem": "pilot_cf144_s42_RCM4",
+          "retention": 0.7142857142857143,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 1.5508435484842709
+        },
+        {
+          "prompt_id": 148,
+          "stem": "pilot_cf148_s42_RCM4",
+          "retention": 0.7,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 4.989204220642107
+        },
+        {
+          "prompt_id": 124,
+          "stem": "pilot_cf124_s42_RCM4",
+          "retention": 0.1875,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.1875,
+          "d_vbench5_pp": -2.3420815596788214
+        },
+        {
+          "prompt_id": 112,
+          "stem": "pilot_cf112_s42_RCM4",
+          "retention": 0.5714285714285714,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -2.159070093555193
+        },
+        {
+          "prompt_id": 104,
+          "stem": "pilot_cf104_s42_RCM4",
+          "retention": 0.21428571428571427,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.21428571428571427,
+          "d_vbench5_pp": -2.5494033114273895
+        },
+        {
+          "prompt_id": 152,
+          "stem": "pilot_cf152_s42_RCM4",
+          "retention": 0.47619047619047616,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.47619047619047616,
+          "d_vbench5_pp": 3.1666151273598175
+        },
+        {
+          "prompt_id": 116,
+          "stem": "pilot_cf116_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.5,
+          "d_vbench5_pp": -2.7397815038206264
+        },
+        {
+          "prompt_id": 136,
+          "stem": "pilot_cf136_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.5,
+          "d_vbench5_pp": 3.752081570573129
+        },
+        {
+          "prompt_id": 140,
+          "stem": "pilot_cf140_s42_RCM4",
+          "retention": 0.5,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.5,
+          "d_vbench5_pp": -1.4885674059922693
+        },
+        {
+          "prompt_id": 132,
+          "stem": "pilot_cf132_s42_RCM4",
+          "retention": 0.8333333333333333,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.8,
+          "d_vbench5_pp": 2.64075869127941
+        },
+        {
+          "prompt_id": 160,
+          "stem": "pilot_cf160_s42_RCM4",
+          "retention": 0.9285714285714286,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.9285714285714286,
+          "d_vbench5_pp": -3.210455223592512
+        },
+        {
+          "prompt_id": 156,
+          "stem": "pilot_cf156_s42_RCM4",
+          "retention": 1.0,
+          "quality_kept": 1.0,
+          "min_ret_q": 1.0,
+          "d_vbench5_pp": -1.3976095211077677
+        }
+      ]
+    },
+    {
+      "id": "LR_FLASH_hh",
+      "arm": "LR_FLASH",
+      "cell": "hh",
+      "prompt_id": 163,
+      "prompt": "Hundreds of old books with gilded spines tumble rapidly off tall library shelves, pages fluttering open, books colliding and occluding one another as they fall past brass rails and ornate wood carvings. Fixed camera.",
+      "seed": 42,
+      "stem": "pilot_cf163_s42_LR_FLASH",
+      "full_stem": "pilot_cf163_s42_FULL50",
+      "retention": 0.5714285714285714,
+      "quality_kept": 0.0,
+      "min_ret_q": 0.0,
+      "d_vbench5_pp": -1.6237604719547716,
+      "rank": 5,
+      "pool_size": 11,
+      "files": {
+        "FULL": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "FULL_f000.png",
+            "FULL_f020.png",
+            "FULL_f040.png",
+            "FULL_f060.png",
+            "FULL_f080.png"
+          ]
+        },
+        "LR_FLASH": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "LR_FLASH_f000.png",
+            "LR_FLASH_f020.png",
+            "LR_FLASH_f040.png",
+            "LR_FLASH_f060.png",
+            "LR_FLASH_f080.png"
+          ]
+        }
+      },
+      "pool": [
+        {
+          "prompt_id": 115,
+          "stem": "pilot_cf115_s42_LR_FLASH",
+          "retention": 0.0,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 1.8787649935997797
+        },
+        {
+          "prompt_id": 127,
+          "stem": "pilot_cf127_s42_LR_FLASH",
+          "retention": 0.5,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -2.333476169757398
+        },
+        {
+          "prompt_id": 135,
+          "stem": "pilot_cf135_s42_LR_FLASH",
+          "retention": 0.7142857142857143,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -2.135003478079367
+        },
+        {
+          "prompt_id": 143,
+          "stem": "pilot_cf143_s42_LR_FLASH",
+          "retention": 0.0,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -9.882992603897634
+        },
+        {
+          "prompt_id": 147,
+          "stem": "pilot_cf147_s42_LR_FLASH",
+          "retention": 0.625,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 1.1600339435959728
+        },
+        {
+          "prompt_id": 163,
+          "stem": "pilot_cf163_s42_LR_FLASH",
+          "retention": 0.5714285714285714,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -1.6237604719547716
+        },
+        {
+          "prompt_id": 107,
+          "stem": "pilot_cf107_s42_LR_FLASH",
+          "retention": 0.2222222222222222,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": 2.9332348651693763
+        },
+        {
+          "prompt_id": 111,
+          "stem": "pilot_cf111_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": 15.2902149666435
+        },
+        {
+          "prompt_id": 119,
+          "stem": "pilot_cf119_s42_LR_FLASH",
+          "retention": 0.6666666666666666,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -0.9820791705727361
+        },
+        {
+          "prompt_id": 155,
+          "stem": "pilot_cf155_s42_LR_FLASH",
+          "retention": 0.2,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -1.2390717958780662
+        },
+        {
+          "prompt_id": 123,
+          "stem": "pilot_cf123_s42_LR_FLASH",
+          "retention": 0.3333333333333333,
+          "quality_kept": 0.4,
+          "min_ret_q": 0.3333333333333333,
+          "d_vbench5_pp": 4.649663276946159
+        }
+      ]
+    },
+    {
+      "id": "LR_FLASH_hl",
+      "arm": "LR_FLASH",
+      "cell": "hl",
+      "prompt_id": 114,
+      "prompt": "One large smooth orange maple leaf is blown violently across a plain gray concrete floor, flipping and skidding quickly from side to side. Nothing else is in the frame and the camera does not move.",
+      "seed": 42,
+      "stem": "pilot_cf114_s42_LR_FLASH",
+      "full_stem": "pilot_cf114_s42_FULL50",
+      "retention": 1.0,
+      "quality_kept": 0.6,
+      "min_ret_q": 0.6,
+      "d_vbench5_pp": 2.028966225334583,
+      "rank": 7,
+      "pool_size": 16,
+      "files": {
+        "FULL": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "FULL_f000.png",
+            "FULL_f020.png",
+            "FULL_f040.png",
+            "FULL_f060.png",
+            "FULL_f080.png"
+          ]
+        },
+        "LR_FLASH": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "LR_FLASH_f000.png",
+            "LR_FLASH_f020.png",
+            "LR_FLASH_f040.png",
+            "LR_FLASH_f060.png",
+            "LR_FLASH_f080.png"
+          ]
+        }
+      },
+      "pool": [
+        {
+          "prompt_id": 102,
+          "stem": "pilot_cf102_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 5.814836844450921
+        },
+        {
+          "prompt_id": 122,
+          "stem": "pilot_cf122_s42_LR_FLASH",
+          "retention": 0.6,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 1.4445832610227693
+        },
+        {
+          "prompt_id": 134,
+          "stem": "pilot_cf134_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -5.362218931684626
+        },
+        {
+          "prompt_id": 138,
+          "stem": "pilot_cf138_s42_LR_FLASH",
+          "retention": 0.5,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": 10.104326730119418
+        },
+        {
+          "prompt_id": 150,
+          "stem": "pilot_cf150_s42_LR_FLASH",
+          "retention": 0.875,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -0.3532398375509893
+        },
+        {
+          "prompt_id": 158,
+          "stem": "pilot_cf158_s42_LR_FLASH",
+          "retention": 0.14285714285714285,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -3.4056622453158103
+        },
+        {
+          "prompt_id": 162,
+          "stem": "pilot_cf162_s42_LR_FLASH",
+          "retention": 0.625,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -1.8573782783687265
+        },
+        {
+          "prompt_id": 114,
+          "stem": "pilot_cf114_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.6,
+          "d_vbench5_pp": 2.028966225334583
+        },
+        {
+          "prompt_id": 118,
+          "stem": "pilot_cf118_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.6,
+          "d_vbench5_pp": 1.9863145619603895
+        },
+        {
+          "prompt_id": 126,
+          "stem": "pilot_cf126_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.6,
+          "d_vbench5_pp": 7.669131159558917
+        },
+        {
+          "prompt_id": 130,
+          "stem": "pilot_cf130_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.6,
+          "d_vbench5_pp": -1.3640255167910897
+        },
+        {
+          "prompt_id": 146,
+          "stem": "pilot_cf146_s42_LR_FLASH",
+          "retention": 0.625,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.6,
+          "d_vbench5_pp": 2.2796688003262178
+        },
+        {
+          "prompt_id": 142,
+          "stem": "pilot_cf142_s42_LR_FLASH",
+          "retention": 0.6666666666666666,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.6666666666666666,
+          "d_vbench5_pp": 11.762630393634222
+        },
+        {
+          "prompt_id": 154,
+          "stem": "pilot_cf154_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.8,
+          "d_vbench5_pp": 2.1266563660333304
+        },
+        {
+          "prompt_id": 106,
+          "stem": "pilot_cf106_s42_LR_FLASH",
+          "retention": 0.875,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.875,
+          "d_vbench5_pp": -0.06955952807411458
+        },
+        {
+          "prompt_id": 110,
+          "stem": "pilot_cf110_s42_LR_FLASH",
+          "retention": 0.875,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.875,
+          "d_vbench5_pp": 4.264850992787261
+        }
+      ]
+    },
+    {
+      "id": "LR_FLASH_lh",
+      "arm": "LR_FLASH",
+      "cell": "lh",
+      "prompt_id": 129,
+      "prompt": "A locked wide shot shows dozens of hot air balloons with intricate patchwork patterns, thin ropes, wicker baskets, and tiny figures, parked above a field of fine grass. All balloons are tethered and completely still.",
+      "seed": 42,
+      "stem": "pilot_cf129_s42_LR_FLASH",
+      "full_stem": "pilot_cf129_s42_FULL50",
+      "retention": 0.375,
+      "quality_kept": 0.2,
+      "min_ret_q": 0.2,
+      "d_vbench5_pp": -0.6030212177137062,
+      "rank": 7,
+      "pool_size": 16,
+      "files": {
+        "FULL": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "FULL_f000.png",
+            "FULL_f020.png",
+            "FULL_f040.png",
+            "FULL_f060.png",
+            "FULL_f080.png"
+          ]
+        },
+        "LR_FLASH": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "LR_FLASH_f000.png",
+            "LR_FLASH_f020.png",
+            "LR_FLASH_f040.png",
+            "LR_FLASH_f060.png",
+            "LR_FLASH_f080.png"
+          ]
+        }
+      },
+      "pool": [
+        {
+          "prompt_id": 113,
+          "stem": "pilot_cf113_s42_LR_FLASH",
+          "retention": 0.3333333333333333,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -0.7531039131819184
+        },
+        {
+          "prompt_id": 149,
+          "stem": "pilot_cf149_s42_LR_FLASH",
+          "retention": 0.6666666666666666,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -3.104266342012141
+        },
+        {
+          "prompt_id": 161,
+          "stem": "pilot_cf161_s42_LR_FLASH",
+          "retention": 0.7857142857142857,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -1.2083915688160918
+        },
+        {
+          "prompt_id": 141,
+          "stem": "pilot_cf141_s42_LR_FLASH",
+          "retention": 0.16666666666666666,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.16666666666666666,
+          "d_vbench5_pp": -1.2629741077606726
+        },
+        {
+          "prompt_id": 101,
+          "stem": "pilot_cf101_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -3.662283042325676
+        },
+        {
+          "prompt_id": 105,
+          "stem": "pilot_cf105_s42_LR_FLASH",
+          "retention": 0.7,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": 1.8432093064351451
+        },
+        {
+          "prompt_id": 125,
+          "stem": "pilot_cf125_s42_LR_FLASH",
+          "retention": 0.5,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -2.7992215061572567
+        },
+        {
+          "prompt_id": 129,
+          "stem": "pilot_cf129_s42_LR_FLASH",
+          "retention": 0.375,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -0.6030212177137062
+        },
+        {
+          "prompt_id": 145,
+          "stem": "pilot_cf145_s42_LR_FLASH",
+          "retention": 0.75,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -3.6887478904846893
+        },
+        {
+          "prompt_id": 153,
+          "stem": "pilot_cf153_s42_LR_FLASH",
+          "retention": 0.5,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -3.273827391046824
+        },
+        {
+          "prompt_id": 157,
+          "stem": "pilot_cf157_s42_LR_FLASH",
+          "retention": 0.3333333333333333,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -0.7356884652002904
+        },
+        {
+          "prompt_id": 117,
+          "stem": "pilot_cf117_s42_LR_FLASH",
+          "retention": 0.3333333333333333,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.3333333333333333,
+          "d_vbench5_pp": -0.544294097989817
+        },
+        {
+          "prompt_id": 121,
+          "stem": "pilot_cf121_s42_LR_FLASH",
+          "retention": 0.4,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.4,
+          "d_vbench5_pp": 0.5413476380768945
+        },
+        {
+          "prompt_id": 133,
+          "stem": "pilot_cf133_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.6,
+          "d_vbench5_pp": -1.075891040548449
+        },
+        {
+          "prompt_id": 137,
+          "stem": "pilot_cf137_s42_LR_FLASH",
+          "retention": 0.75,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.75,
+          "d_vbench5_pp": -1.4329006182389081
+        },
+        {
+          "prompt_id": 109,
+          "stem": "pilot_cf109_s42_LR_FLASH",
+          "retention": 0.9047619047619049,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.8,
+          "d_vbench5_pp": -5.128763473014497
+        }
+      ]
+    },
+    {
+      "id": "LR_FLASH_ll",
+      "arm": "LR_FLASH",
+      "cell": "ll",
+      "prompt_id": 124,
+      "prompt": "A single large smooth golden wax block rests motionless on an empty beige table. The locked camera shows broad plain surfaces with no cells, no bees, and no change in lighting.",
+      "seed": 42,
+      "stem": "pilot_cf124_s42_LR_FLASH",
+      "full_stem": "pilot_cf124_s42_FULL50",
+      "retention": 0.875,
+      "quality_kept": 0.8,
+      "min_ret_q": 0.8,
+      "d_vbench5_pp": -0.46578033494520943,
+      "rank": 7,
+      "pool_size": 16,
+      "files": {
+        "FULL": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "FULL_f000.png",
+            "FULL_f020.png",
+            "FULL_f040.png",
+            "FULL_f060.png",
+            "FULL_f080.png"
+          ]
+        },
+        "LR_FLASH": {
+          "frames": [
+            0,
+            20,
+            40,
+            60,
+            80
+          ],
+          "native_size": [
+            832,
+            480
+          ],
+          "png": [
+            "LR_FLASH_f000.png",
+            "LR_FLASH_f020.png",
+            "LR_FLASH_f040.png",
+            "LR_FLASH_f060.png",
+            "LR_FLASH_f080.png"
+          ]
+        }
+      },
+      "pool": [
+        {
+          "prompt_id": 140,
+          "stem": "pilot_cf140_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -5.234986758695626
+        },
+        {
+          "prompt_id": 120,
+          "stem": "pilot_cf120_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -0.9363295587393905
+        },
+        {
+          "prompt_id": 136,
+          "stem": "pilot_cf136_s42_LR_FLASH",
+          "retention": 0.5,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.5,
+          "d_vbench5_pp": 2.3803187189623376
+        },
+        {
+          "prompt_id": 100,
+          "stem": "pilot_cf100_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.6,
+          "d_vbench5_pp": -0.37415845051482766
+        },
+        {
+          "prompt_id": 116,
+          "stem": "pilot_cf116_s42_LR_FLASH",
+          "retention": 0.875,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.6,
+          "d_vbench5_pp": 1.3823017989790576
+        },
+        {
+          "prompt_id": 108,
+          "stem": "pilot_cf108_s42_LR_FLASH",
+          "retention": 0.875,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.8,
+          "d_vbench5_pp": 2.902371520408764
+        },
+        {
+          "prompt_id": 112,
+          "stem": "pilot_cf112_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.8,
+          "d_vbench5_pp": 0.4191954136844256
+        },
+        {
+          "prompt_id": 124,
+          "stem": "pilot_cf124_s42_LR_FLASH",
+          "retention": 0.875,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.8,
+          "d_vbench5_pp": -0.46578033494520943
+        },
+        {
+          "prompt_id": 148,
+          "stem": "pilot_cf148_s42_LR_FLASH",
+          "retention": 0.8,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.8,
+          "d_vbench5_pp": 3.3419384190197743
+        },
+        {
+          "prompt_id": 152,
+          "stem": "pilot_cf152_s42_LR_FLASH",
+          "retention": 0.8095238095238094,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.8095238095238094,
+          "d_vbench5_pp": 4.574754417797633
+        },
+        {
+          "prompt_id": 128,
+          "stem": "pilot_cf128_s42_LR_FLASH",
+          "retention": 0.861111111111111,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.861111111111111,
+          "d_vbench5_pp": -0.6889026239451979
+        },
+        {
+          "prompt_id": 104,
+          "stem": "pilot_cf104_s42_LR_FLASH",
+          "retention": 0.9285714285714286,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.9285714285714286,
+          "d_vbench5_pp": -1.2563534994609826
+        },
+        {
+          "prompt_id": 132,
+          "stem": "pilot_cf132_s42_LR_FLASH",
+          "retention": 0.9583333333333333,
+          "quality_kept": 1.0,
+          "min_ret_q": 0.9583333333333333,
+          "d_vbench5_pp": 1.5867917508177065
+        },
+        {
+          "prompt_id": 144,
+          "stem": "pilot_cf144_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 1.0,
+          "min_ret_q": 1.0,
+          "d_vbench5_pp": 1.1279966148917797
+        },
+        {
+          "prompt_id": 156,
+          "stem": "pilot_cf156_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 1.0,
+          "min_ret_q": 1.0,
+          "d_vbench5_pp": -1.4891538177041252
+        },
+        {
+          "prompt_id": 160,
+          "stem": "pilot_cf160_s42_LR_FLASH",
+          "retention": 1.0,
+          "quality_kept": 1.0,
+          "min_ret_q": 1.0,
+          "d_vbench5_pp": 0.21131688575956042
+        }
+      ]
+    }
+  ]
+}
