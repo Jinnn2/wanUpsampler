@@ -111,7 +111,7 @@ def table(args):
     # dropped here. A prompt scored for only some of its clips is still an error.
     by_video = {(v["source"], v["stem"]): int(v["prompt_id"]) for v in fixed["videos"]}
     scored = {by_video[k] for k in dyn if k in by_video}
-    unscored = sorted({int(v["prompt_id"]) for v in fixed["videos"] if v["split"] != "test"} - scored)
+    unscored = sorted({int(v["prompt_id"]) for v in fixed["videos"] if v["split"] != "test" and v["case_id"] != FULL} - scored)
     if unscored:
         print(f"dropping {len(unscored)} prompts with no dynamic score (no valid checklist): {unscored}")
     for v in fixed["videos"]:
