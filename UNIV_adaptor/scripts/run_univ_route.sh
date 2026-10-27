@@ -25,6 +25,8 @@ export PYTHONDONTWRITEBYTECODE=1
 T5_PYTHON="${T5_PYTHON:-${BASE_PYTHON}}"
 DRIVER="${REPO_ROOT}/UNIV_adaptor/scripts/data/route_v1.py"
 EMBED="${REPO_ROOT}/UNIV_adaptor/scripts/data/route_embed.py"
+PROMPT_ARGS=()
+[[ -n "${PROMPT_FILES:-}" ]] && read -r -a PROMPT_ARGS <<< "--prompts ${PROMPT_FILES}"
 cd "${REPO_ROOT}"
 
 case "${MODE}" in
@@ -42,13 +44,13 @@ case "${MODE}" in
     echo "Download: ${ROUTE_ROOT}_analysis.tgz"
     ;;
   embed-t5)
-    CUDA_VISIBLE_DEVICES="${GPU}" "${T5_PYTHON}" "${EMBED}" embed-t5 --out "${ROUTE_ROOT}"
+    CUDA_VISIBLE_DEVICES="${GPU}" "${T5_PYTHON}" "${EMBED}" embed-t5 --out "${ROUTE_ROOT}" "${PROMPT_ARGS[@]}"
     ;;
   embed-qwen)
-    CUDA_VISIBLE_DEVICES="${GPU}" "${VLM_PYTHON}" "${EMBED}" embed-qwen --model "${JUDGE_MODEL}" --out "${ROUTE_ROOT}"
+    CUDA_VISIBLE_DEVICES="${GPU}" "${VLM_PYTHON}" "${EMBED}" embed-qwen --model "${JUDGE_MODEL}" --out "${ROUTE_ROOT}" "${PROMPT_ARGS[@]}"
     ;;
   embed-eval)
-    "${BASE_PYTHON}" "${EMBED}" evaluate --out "${ROUTE_ROOT}" | tee "${ROUTE_ROOT}/embed_evaluate.log"
+    "${BASE_PYTHON}" "${EMBED}" evaluate --out "${ROUTE_ROOT}" "${PROMPT_ARGS[@]}" | tee "${ROUTE_ROOT}/embed_evaluate.log"
     files=(route_table.csv route_embed_eval.csv route_embed_report.md embed_evaluate.log)
     for f in "${ROUTE_ROOT}"/emb_*.json "${ROUTE_ROOT}"/emb_*.npz; do [[ -f "$f" ]] && files+=("$(basename "$f")"); done
     tar czf "${ROUTE_ROOT}_embed_analysis.tgz" -C "${ROUTE_ROOT}" "${files[@]}"

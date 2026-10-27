@@ -69,7 +69,7 @@ def published_rows(root):
     for record in manifest["records"]:
         job = record["job"]
         p = prompts[job["prompt_id"]]
-        if p["origin"] not in ("controlled_factor_v1", "controlled_factor_dev2"):
+        if p["origin"] not in ("controlled_factor_v1", "controlled_factor_dev2", "natural_vidprom_v1"):
             raise ValueError(f"not a controlled-factor prompt: {p['id']}")
         pid = int(p["id"][2:])
         arm = job["arm"]["id"]

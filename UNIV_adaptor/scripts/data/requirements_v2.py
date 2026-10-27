@@ -88,6 +88,8 @@ def validate_record(rec, prompt):
     if "camera" in text or "locked" in text or "stationary" in text:
         if "camera" not in types:
             errs.append(f"p{pid}: prompt constrains the camera but no camera question")
+    if prompt.get("cell_source") == "predicted":  # natural prompts: levels are a classifier's guess, not the design
+        return errs
     if prompt["motion_level"] == "high" and not types & {"motion", "action"}:
         errs.append(f"p{pid}: high-motion prompt without a motion/action question")
     if prompt["motion_level"] == "low" and "static" not in types:
