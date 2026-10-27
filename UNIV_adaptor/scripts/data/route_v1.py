@@ -118,7 +118,7 @@ def table(args):
         a = acc[(pid, v["case_id"])]
         a["tf"].append(seconds[key] / full_s[(v["source"], v["group_id"])])
         a["retention"].append(flt(dyn[key]["retention"]))  # NaN when FULL satisfies none of the requirements
-        a["quality_kept"].append(flt(qual[key]["quality_kept"]))
+        a["quality_kept"].append(flt(qual[key][args.quality_column]))
     rows = []
     for (pid, arm), a in sorted(acc.items()):
         r = {k: float(np.nanmean(x)) if np.isfinite(x).any() else float("nan") for k, x in a.items()}
@@ -131,7 +131,8 @@ def table(args):
         writer.writerows(rows)
     write_json_atomic(out / "table_inputs.json", {"fixed_plan_sha256": sha256_file(fixed_path),
                                                   "dynamic_sha256": sha256_file(args.dynamic),
-                                                  "quality_sha256": sha256_file(args.quality)})
+                                                  "quality_sha256": sha256_file(args.quality),
+                                                  "quality_column": args.quality_column})
     print(f"wrote {out / 'route_table.csv'}: {len(meta)} prompts, {len({r['arm'] for r in rows})} arms")
 
 
@@ -416,6 +417,8 @@ def main(argv=None):
     p.add_argument("--fixed-root", required=True)
     p.add_argument("--dynamic", required=True)
     p.add_argument("--quality", required=True)
+    p.add_argument("--quality-column", default="quality_kept",
+                   help="e.g. quality_kept_gate from quality_v2.py for the stricter variant")
     p.add_argument("--out", required=True)
     p = sub.add_parser("classify")
     p.add_argument("--prompts", nargs="+", default=[str(x) for x in DEFAULT_PROMPTS])

@@ -14,6 +14,7 @@ JUDGE_MODEL="${JUDGE_MODEL:-/mnt/afs_2/houze/models/Qwen3-VL-32B-Instruct}"
 FIXED_ROOT="${FIXED_ROOT:-${REPO_ROOT}/outputs/fixed_metrics_v1}"
 DYN_CSV="${DYN_CSV:-${REPO_ROOT}/outputs/dynamic_v1_all/dynamic_by_video.csv}"
 Q_CSV="${Q_CSV:-${REPO_ROOT}/outputs/quality_v1/quality_by_video.csv}"
+Q_COL="${Q_COL:-quality_kept}"  # quality_kept_gate: stricter v2 variant
 ROUTE_ROOT="${ROUTE_ROOT:-${REPO_ROOT}/outputs/route_v1}"
 GPU="${GPU:-0}"
 export PYTHONDONTWRITEBYTECODE=1
@@ -22,7 +23,7 @@ cd "${REPO_ROOT}"
 
 case "${MODE}" in
   table)
-    "${BASE_PYTHON}" "${DRIVER}" table --fixed-root "${FIXED_ROOT}" --dynamic "${DYN_CSV}" --quality "${Q_CSV}" --out "${ROUTE_ROOT}"
+    "${BASE_PYTHON}" "${DRIVER}" table --fixed-root "${FIXED_ROOT}" --dynamic "${DYN_CSV}" --quality "${Q_CSV}" --quality-column "${Q_COL}" --out "${ROUTE_ROOT}"
     ;;
   classify)
     CUDA_VISIBLE_DEVICES="${GPU}" "${VLM_PYTHON}" "${DRIVER}" classify --model "${JUDGE_MODEL}" --out "${ROUTE_ROOT}"

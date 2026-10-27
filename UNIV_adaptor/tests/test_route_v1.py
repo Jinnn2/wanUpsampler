@@ -91,7 +91,7 @@ class TableTest(unittest.TestCase):
                 w.writerows(rows)
         with mock.patch.object(rt, "seconds_by_video", return_value=secs), contextlib.redirect_stdout(io.StringIO()):
             rt.table(Namespace(fixed_root=str(self.tmp / "fixed"), dynamic=str(self.tmp / "dyn.csv"),
-                               quality=str(self.tmp / "q.csv"), out=str(self.tmp / "out")))
+                               quality=str(self.tmp / "q.csv"), quality_column="quality_kept", out=str(self.tmp / "out")))
         rows = rt.read_csv(self.tmp / "out" / "route_table.csv")
         self.assertEqual(len(rows), 1)
         self.assertEqual((rows[0]["arm"], rows[0]["cell"], rows[0]["n"]), ("FAST", "hl", "2"))

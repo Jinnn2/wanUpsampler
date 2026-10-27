@@ -6,6 +6,7 @@
 #   bash UNIV_adaptor/scripts/run_univ_quality.sh check     # one clip + one pair on one GPU, with timings
 #   bash UNIV_adaptor/scripts/run_univ_quality.sh run       # vlm -> pair -> report on all GPUs
 #   DOVER_ROOT=/path/to/DOVER bash UNIV_adaptor/scripts/run_univ_quality.sh dover   # optional, then report again
+#   bash UNIV_adaptor/scripts/run_univ_quality.sh v2        # + fixed-layer judder/flicker -> ${Q_ROOT}_v2/
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODE="${1:-help}"
@@ -90,6 +91,13 @@ PY
     echo "Download: ${Q_ROOT}_analysis.tgz"
     ;;
   run) bash "$0" vlm && bash "$0" pair && bash "$0" report ;;
+  v2)
+    # Adds the fixed-layer judder/flicker checks (quality_v2.py); thresholds from the FULL clips of CALIB_FIXED.
+    mkdir -p "${Q_ROOT}_v2"
+    "${BASE_PYTHON}" "${REPO_ROOT}/UNIV_adaptor/scripts/data/quality_v2.py" --quality "${Q_ROOT}/quality_by_video.csv" \
+      --fixed "${FIXED_ROOT}/fixed_by_video.csv" --calibration-fixed "${CALIB_FIXED:-${FIXED_ROOT}/fixed_by_video.csv}" \
+      --out "${Q_ROOT}_v2/quality_by_video.csv" | tee "${Q_ROOT}_v2/report.txt"
+    ;;
   status)
     echo "vlm: $(ls "${Q_ROOT}/vlm" 2>/dev/null | wc -l) clips; pair: $(ls "${Q_ROOT}/pair" 2>/dev/null | wc -l) pairs;" \
       "dover: $(ls "${Q_ROOT}/dover" 2>/dev/null | wc -l) clips"
