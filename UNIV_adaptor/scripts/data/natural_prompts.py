@@ -8,7 +8,7 @@ at any generation outcome:
               <= 0.02 plus a keyword block list) prompts without URLs, handles or Pika flags; deduplicate; draw
               CANDIDATES prompts stratified over three length bins (seed SEED)
   screen      Qwen3-VL-32B text-only: P(renderable, safe scene) and the route_v1 motion/detail questions (unchanged)
-  select      keep P(ok) >= 0.5, draw N per length bin in candidate order -> univ_natural_v1.jsonl
+  select      keep P(ok) >= 0.5 minus the manual EXCLUDE list, draw N per length bin in candidate order -> univ_natural_v1.jsonl
               (prompt ids 1000+, family = the prompt itself, split "natural", motion/detail = the screen's labels
               with cell_source "predicted")
   configs     generation configs for the platform (FULL50 STEP20 TEA015 SCALING10) and two-stage (LR_FLASH F41_RIFE
@@ -41,6 +41,17 @@ BLOCK = re.compile(r"\b(nude|naked|nsfw|sex\w*|porn\w*|boob\w*|breast\w*|nipple\
                    r"child|children|kid|kids|loli\w*|teen\w*|underage)\b", re.I)
 JUNK = re.compile(r"https?://|www\.|@|#|<|>|\{|\}|\[|\]|\battachment\b|\bmessage:", re.I)
 FLAG = re.compile(r"\s-{1,2}[a-z]+(\s|$)", re.I)  # Pika parameters (-gs 12 -motion 2 -ar 16:9 -neg ...) end a prompt
+# Pika parameters left inside the text after the first cut (-fps24 -motion0, ,--ar 16:9, --ar3:2, (ar-16:9), ,-camera)
+PARAM = re.compile(r"\(ar-\d+:\d+\)|-{1,2}(?:ar|gs|motion|fps|seed|neg)\s*\d+(?:\s*:\s*\d*)?", re.I)
+CAMERA_FLAG = re.compile(r"(?<!\w)-{1,2}camera\b", re.I)
+# Manual review of the first draw (2026-10-27), before any generation; the next candidate in the bin takes the slot.
+EXCLUDE = {
+    "073c59f5-7dbd-5ea8-8be8-3199841f9987": "named real person (Walt Disney)",
+    "06914f78-2e37-5971-82f0-88b53bb27b7a": "swimsuit focus on a character who is a minor in canon (Spider-Gwen)",
+    "c815e358-665e-58a2-b3c5-53882bb4d175": "likeness of a named real actress",
+    "00fc5a95-1c0f-587e-aa31-03d3786e5a9b": "named real person (Joe Coulombe)",
+    "5358894f-b5ff-5891-99f8-6adf713d240c": "sexualized body imagery",
+}
 BINS = ((6, 12), (12, 25), (25, 71))  # word-count bins [lo, hi)
 CANDIDATES = 768
 N = 256
@@ -61,6 +72,13 @@ def clean(text):
     if m:
         text = text[:m.start()]
     return text.strip(" ,;")
+
+
+def tidy(text):
+    """Second pass on drawn candidates only (eligibility and the draw use clean()): drop leftover Pika parameters."""
+    text = CAMERA_FLAG.sub("camera", PARAM.sub(" ", text))
+    text = re.sub(r",(?:\s*,)+", ",", " ".join(text.split()))  # commas left around a removed parameter
+    return text.strip(" ,;-")
 
 
 def keep(text, row):
@@ -105,7 +123,7 @@ def candidates(args):
     chosen = []
     for b, pool in enumerate(pools):
         pool.sort(key=lambda r: r["uuid"])  # file order is not a promise; uuid order is
-        chosen += [{**r, "length_bin": b} for r in rng.sample(pool, per)]
+        chosen += [{**r, "prompt": tidy(r["prompt"]), "length_bin": b} for r in rng.sample(pool, per)]
     (out / "candidates.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in chosen), encoding="utf-8")
     write_json_atomic(out / "candidates_meta.json", {
         "source": f"{REPO_ID}/{FILE}", "csv_sha256": sha256_file(path), "rows": total,
@@ -141,7 +159,8 @@ def select(args):
     if value["questions"] != {"ok": OK_QUESTION, **rt.QUESTIONS}:
         raise ValueError("screen.json was made with different questions; rerun screen")
     s = value["prompts"]
-    ok = [r for r in rows if s[r["uuid"]]["p_ok"] >= 0.5]
+    ok = [r for r in rows if s[r["uuid"]]["p_ok"] >= 0.5 and r["uuid"] not in EXCLUDE]
+    print(f"manually excluded: {sum(r['uuid'] in EXCLUDE for r in rows)} of {len(EXCLUDE)} listed")
     per = N // len(BINS) + 1
     picked = []
     for b in range(len(BINS)):

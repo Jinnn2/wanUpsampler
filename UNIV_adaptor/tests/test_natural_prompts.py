@@ -15,6 +15,14 @@ class FilterTest(unittest.TestCase):
                          "a red fox runs through snow at dawn")
         self.assertEqual(nat.clean("a sign saying &quot;hi&quot; &amp; a fox"), 'a sign saying "hi" & a fox')
 
+    def test_tidy_drops_inline_parameters(self):
+        self.assertEqual(nat.tidy("a tree in the wind, high detail -fps24 -motion0 -gs15"), "a tree in the wind, high detail")
+        self.assertEqual(nat.tidy("windy day,-ar 9:16"), "windy day")
+        self.assertEqual(nat.tidy("cinema 4d, --ar3:2"), "cinema 4d")
+        self.assertEqual(nat.tidy("full of equipment,(ar-16:9)"), "full of equipment")
+        self.assertEqual(nat.tidy("movie style,-camera pan right"), "movie style,camera pan right")
+        self.assertEqual(nat.tidy("Dancing , slow motion 2x, a car"), "Dancing , slow motion 2x, a car")  # text kept
+
     def test_keep(self):
         ok = "a red fox runs through fresh snow at dawn"
         self.assertTrue(nat.keep(ok, CLEAN))

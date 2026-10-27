@@ -26,6 +26,12 @@ whether method preferences have regions beyond them. This set tests that on prom
   - motion/detail are the zero-shot route_v1 questions (P(Yes) ≥ 0.5), marked `cell_source: predicted`. They exist
     so that the frozen drivers' four-cell check passes, and as the "predicted cell" router baseline.
   - The checklist generator does not force static or motion questions on predicted cells.
+- **First-draw review (2026-10-27, before any generation):**
+  - Pika parameters inside the text (`-fps24 -motion0`, `,--ar 16:9`, `(ar-16:9)`) survived the first cut, so a
+    second pass, `tidy()`, now cleans only the drawn candidates. The draw itself is unchanged.
+  - Five prompts are listed in `EXCLUDE` by VidProM uuid: named real people or a real actress's likeness, a minor
+    character in a swimsuit, and sexualized body imagery. The next screened candidate in the same length bin
+    takes each slot.
 - **Review:** the prompt file and the generation configs are reviewed and committed before generation:
   `prompts/univ_natural_v1.jsonl`, `configs/published_wan21_{platform,twostage}_natural.json`.
 
