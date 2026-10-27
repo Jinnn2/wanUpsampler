@@ -1,0 +1,13 @@
+248 valid, 8 failed, 0 not generated
+attempts needed: 1: 209, 2: 38, 3: 1
+FAILED p1010: p1010/q3: question must end with '?'
+FAILED p1169: p1169: no questions
+FAILED p1182: p1182: no questions
+FAILED p1189: p1189/q3: evidence is not an exact span of the prompt: "said, 'Why don't you give gratitude a chance, Mr. Grumbleton'"
+FAILED p1200: p1200: no questions; p1200: prompt constrains the camera but no camera question
+FAILED p1208: p1208: no questions
+FAILED p1221: p1221: no questions
+FAILED p1231: p1231: no questions
+248 prompts, 1813 questions (7.3 per prompt)
+by type: entity 444, attribute 381, negative 260, spatial 205, action 200, motion 83, camera 66, integrity 45, detail 41, static 33, lighting 33, count 18, focus 4
+by judge: vlm_frames 1349, vlm_video 245, flow 182, luma 33, sharpness 4

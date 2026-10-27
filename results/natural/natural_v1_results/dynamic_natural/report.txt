@@ -1,0 +1,14 @@
+wrote /mnt/afs_2/houze/wanUpsampler/outputs/dynamic_natural/dynamic_by_question.csv (16317 rows)
+wrote /mnt/afs_2/houze/wanUpsampler/outputs/dynamic_natural/dynamic_by_video.csv (2232 rows)
+
+mean retention by case (type-balanced, among requirements FULL satisfies); satisfaction minus FULL's
+case                retain   d_sat     hh     hl     lh     ll  frames  video   flow
+F41_RIFE             0.757   0.022  0.694  0.695  0.798  0.825  0.773  0.536  0.765
+LR41_FLASH_RIFE      0.517  -0.128  0.404  0.474  0.572  0.594  0.539  0.175  0.591
+LR_FLASH             0.514  -0.116  0.379  0.568  0.503  0.578  0.551  0.232  0.553
+RCM4                 0.610  -0.024  0.633  0.567  0.580  0.655  0.692  0.456  0.293
+SCALING10            0.955  -0.003  0.937  0.950  0.930  0.990  0.965  0.839  1.000
+STEP20               0.850   0.012  0.818  0.817  0.857  0.897  0.864  0.713  0.924
+TEA015               0.868  -0.004  0.807  0.843  0.898  0.912  0.890  0.630  0.947
+
+FULL satisfaction: mean 0.545 over 496 clips

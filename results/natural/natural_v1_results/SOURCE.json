@@ -1,0 +1,42 @@
+{
+ "archive": "natural_v1_results.tgz",
+ "sha256": "b4e2df79773a29dece8e555c1e250ebd7ab6537f90e247a9e1b1b3d4ec77fdef",
+ "ingested": "2026-10-28",
+ "note": "natural set v1: 256 VidProM prompts (248 valid checklists), 8 arms, seed 42; fixed/dynamic/quality/route. Dynamic OOM fixed 276f3ed; route table drops 8 no-checklist prompts (5d1ac9d; table_inputs.json lists 136 incl. 128 FULL-only ids, real drop = 8, see 58b1c00)",
+ "kept": [
+  "dynamic_natural/dynamic_by_question.csv",
+  "dynamic_natural/dynamic_by_video.csv",
+  "dynamic_natural/report.txt",
+  "fixed_metrics_natural/fixed_by_video.csv",
+  "fixed_metrics_natural/report.txt",
+  "natural_v1.log",
+  "published_wan21_platform_natural/exports/published_wan21/base_observability_review.csv",
+  "published_wan21_platform_natural/exports/published_wan21/calibration_audit.json",
+  "published_wan21_platform_natural/exports/published_wan21/metrics/paired_deltas.csv",
+  "published_wan21_platform_natural/exports/published_wan21/metrics/quality_by_video.csv",
+  "published_wan21_platform_natural/exports/published_wan21/metrics/report.json",
+  "published_wan21_platform_natural/exports/published_wan21/metrics/score_provenance.json",
+  "published_wan21_twostage_natural/exports/twostage_wan21/metrics/paired_deltas.csv",
+  "published_wan21_twostage_natural/exports/twostage_wan21/metrics/quality_by_video.csv",
+  "published_wan21_twostage_natural/exports/twostage_wan21/metrics/report.json",
+  "published_wan21_twostage_natural/exports/twostage_wan21/metrics/score_provenance.json",
+  "quality_natural/quality_by_video.csv",
+  "quality_natural/report.txt",
+  "quality_natural_v2/quality_by_video.csv",
+  "quality_natural_v2/report.txt",
+  "requirements_natural/checklist.jsonl",
+  "requirements_natural/collect.txt",
+  "route_natural_embed/emb_qwen.json",
+  "route_natural_embed/emb_qwenmid.json",
+  "route_natural_embed/emb_t5.json",
+  "route_natural_embed/embed_evaluate.log",
+  "route_natural_embed/route_embed_eval.csv",
+  "route_natural_embed/route_embed_report.md",
+  "route_natural_embed/route_table.csv"
+ ],
+ "skipped_by_suffix": {
+  ".json": 15834,
+  ".log": 72,
+  ".npz": 3
+ }
+}

@@ -42,11 +42,12 @@ Cells: motion x detail, written `hl` = high motion, low detail.
 | `figures/figure_samples_v1` | sample selection for qualitative figures (candidates, pins, manifest); images only in the tgz | figure_samples_v1.tgz |
 | `figures/fig1_samples_v1` | Figure 1a v1: dev2 seed-42 lower-median clip per (RCM4 / LR_FLASH, cell); candidate pools, scores, per-pair flow; PNG frames only in the tgz | fig1_samples_v1.tgz |
 | `natural/natural_v1_prompts` | natural prompt set v1 build: candidates, Qwen screen, selection log, configs | natural_v1_prompts.tgz |
+| `natural/natural_v1_results` | natural set v1: generation metrics, fixed / dynamic / quality v2 layers, checklist, vector-router eval (236 scored prompts) | natural_v1_results.tgz |
+| `derived/natural_v1` | natural set v1 verdict against the pre-registered rule, and arm x cell interaction replication vs dev2; computed locally | computed locally |
 | `misc/official_check` | official Wan sample check log | official_check.tgz |
 | `misc/batch_dev2.log`, `misc/batch_dev2_SOURCE.json` | dev2 batch log; source record of the batch tgz split into the folders above | batch_dev2_results.tgz |
 
 ## Not here yet
 
 - Quality layer v2 per-video csv (input of route_v1_q2).
-- Natural set v1 results (`outputs/natural_v1_results.tgz`, running).
 - Human annotation results (annotation sessions own those files).
