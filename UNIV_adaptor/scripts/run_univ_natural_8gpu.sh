@@ -114,7 +114,7 @@ prompts() {
   "${BASE_PYTHON}" "${d}" configs --prompts "${SEL}/univ_natural_v1.jsonl" --config-dir "${SEL}"
   tar czf "${SEL}.tgz" -C "${OUT}" "$(basename "${SEL}")/univ_natural_v1.jsonl" "$(basename "${SEL}")/select.txt" \
     "$(basename "${SEL}")/candidates.jsonl" "$(basename "${SEL}")/candidates_meta.json" "$(basename "${SEL}")/screen.json" \
-    "$(basename "${SEL}")"/published_wan21_*_natural.json
+    "$(basename "${SEL}")/published_wan21_platform_natural.json" "$(basename "${SEL}")/published_wan21_twostage_natural.json"
   echo "SEND THIS: ${SEL}.tgz"
 }
 

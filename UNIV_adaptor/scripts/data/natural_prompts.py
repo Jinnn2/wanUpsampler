@@ -19,8 +19,8 @@ Usage: see run_univ_natural_8gpu.sh.
 from __future__ import annotations
 
 import argparse
-import copy
 import csv
+import html
 import json
 import random
 import re
@@ -56,7 +56,7 @@ SEEDS = [42]
 
 
 def clean(text):
-    text = " ".join(text.split())
+    text = " ".join(html.unescape(text).split())  # VidProM stores quotes as &quot;
     m = FLAG.search(text)
     if m:
         text = text[:m.start()]

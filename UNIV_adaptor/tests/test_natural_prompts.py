@@ -13,6 +13,7 @@ class FilterTest(unittest.TestCase):
     def test_clean_strips_pika_flags(self):
         self.assertEqual(nat.clean("a red fox runs through snow at dawn -gs 12 -motion 2 -ar 16:9"),
                          "a red fox runs through snow at dawn")
+        self.assertEqual(nat.clean("a sign saying &quot;hi&quot; &amp; a fox"), 'a sign saying "hi" & a fox')
 
     def test_keep(self):
         ok = "a red fox runs through fresh snow at dawn"
