@@ -1,0 +1,845 @@
+{
+  "schema": "univ_fig1_samples_v2",
+  "samples": [
+    {
+      "cell": "hh",
+      "prompt_id": 119,
+      "prompt": "An elaborate tower of hundreds of tiny grained wooden blocks collapses rapidly in front of a fixed camera, blocks with small painted windows and thin arches tumbling, bouncing, and occluding one another as they scatter.",
+      "seed": 42,
+      "mean_min_ret_q": 0.18333333333333335,
+      "rank": 5,
+      "pool_size": 11,
+      "routed_arm": "RCM4",
+      "videos": [
+        {
+          "label": "FULL",
+          "stem": "pilot_cf119_s42_FULL50",
+          "routed": false,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "FULL_f000.png",
+              "FULL_f020.png",
+              "FULL_f040.png",
+              "FULL_f060.png",
+              "FULL_f080.png"
+            ]
+          }
+        },
+        {
+          "label": "RCM4",
+          "stem": "pilot_cf119_s42_RCM4",
+          "source": "published_wan21_twostage_dev2",
+          "routed": true,
+          "retention": 0.16666666666666666,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.16666666666666666,
+          "d_vbench5_pp": -5.307235829453571,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "RCM4_f000.png",
+              "RCM4_f020.png",
+              "RCM4_f040.png",
+              "RCM4_f060.png",
+              "RCM4_f080.png"
+            ]
+          }
+        },
+        {
+          "label": "LR_FLASH",
+          "stem": "pilot_cf119_s42_LR_FLASH",
+          "source": "published_wan21_twostage_dev2",
+          "routed": false,
+          "retention": 0.6666666666666666,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -0.9820791705727361,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "LR_FLASH_f000.png",
+              "LR_FLASH_f020.png",
+              "LR_FLASH_f040.png",
+              "LR_FLASH_f060.png",
+              "LR_FLASH_f080.png"
+            ]
+          }
+        }
+      ],
+      "pool": [
+        {
+          "prompt_id": 147,
+          "mean_min_ret_q": 0.0,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 107,
+          "mean_min_ret_q": 0.1,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.2
+        },
+        {
+          "prompt_id": 111,
+          "mean_min_ret_q": 0.1,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.2
+        },
+        {
+          "prompt_id": 127,
+          "mean_min_ret_q": 0.1,
+          "min_RCM4": 0.2,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 123,
+          "mean_min_ret_q": 0.16666666666666666,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.3333333333333333
+        },
+        {
+          "prompt_id": 119,
+          "mean_min_ret_q": 0.18333333333333335,
+          "min_RCM4": 0.16666666666666666,
+          "min_LR_FLASH": 0.2
+        },
+        {
+          "prompt_id": 115,
+          "mean_min_ret_q": 0.2,
+          "min_RCM4": 0.4,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 143,
+          "mean_min_ret_q": 0.2,
+          "min_RCM4": 0.4,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 163,
+          "mean_min_ret_q": 0.2,
+          "min_RCM4": 0.4,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 155,
+          "mean_min_ret_q": 0.35,
+          "min_RCM4": 0.5,
+          "min_LR_FLASH": 0.2
+        },
+        {
+          "prompt_id": 135,
+          "mean_min_ret_q": 0.4,
+          "min_RCM4": 0.8,
+          "min_LR_FLASH": 0.0
+        }
+      ]
+    },
+    {
+      "cell": "hl",
+      "prompt_id": 114,
+      "prompt": "One large smooth orange maple leaf is blown violently across a plain gray concrete floor, flipping and skidding quickly from side to side. Nothing else is in the frame and the camera does not move.",
+      "seed": 42,
+      "mean_min_ret_q": 0.3,
+      "rank": 7,
+      "pool_size": 16,
+      "routed_arm": "SCALING10",
+      "videos": [
+        {
+          "label": "FULL",
+          "stem": "pilot_cf114_s42_FULL50",
+          "routed": false,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "FULL_f000.png",
+              "FULL_f020.png",
+              "FULL_f040.png",
+              "FULL_f060.png",
+              "FULL_f080.png"
+            ]
+          }
+        },
+        {
+          "label": "RCM4",
+          "stem": "pilot_cf114_s42_RCM4",
+          "source": "published_wan21_twostage_dev2",
+          "routed": false,
+          "retention": 0.0,
+          "quality_kept": 0.0,
+          "min_ret_q": 0.0,
+          "d_vbench5_pp": -3.550647038966881,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "RCM4_f000.png",
+              "RCM4_f020.png",
+              "RCM4_f040.png",
+              "RCM4_f060.png",
+              "RCM4_f080.png"
+            ]
+          }
+        },
+        {
+          "label": "LR_FLASH",
+          "stem": "pilot_cf114_s42_LR_FLASH",
+          "source": "published_wan21_twostage_dev2",
+          "routed": false,
+          "retention": 1.0,
+          "quality_kept": 0.6,
+          "min_ret_q": 0.6,
+          "d_vbench5_pp": 2.028966225334583,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "LR_FLASH_f000.png",
+              "LR_FLASH_f020.png",
+              "LR_FLASH_f040.png",
+              "LR_FLASH_f060.png",
+              "LR_FLASH_f080.png"
+            ]
+          }
+        },
+        {
+          "label": "SCALING10",
+          "stem": "pilot_cf114_s42_SCALING10",
+          "source": "published_wan21_platform_dev2",
+          "routed": true,
+          "retention": 1.0,
+          "quality_kept": 1.0,
+          "min_ret_q": 1.0,
+          "d_vbench5_pp": -0.5507882389671703,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "SCALING10_f000.png",
+              "SCALING10_f020.png",
+              "SCALING10_f040.png",
+              "SCALING10_f060.png",
+              "SCALING10_f080.png"
+            ]
+          }
+        }
+      ],
+      "pool": [
+        {
+          "prompt_id": 102,
+          "mean_min_ret_q": 0.0,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 122,
+          "mean_min_ret_q": 0.0,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 134,
+          "mean_min_ret_q": 0.0,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 138,
+          "mean_min_ret_q": 0.0,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 150,
+          "mean_min_ret_q": 0.0,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 158,
+          "mean_min_ret_q": 0.0,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 162,
+          "mean_min_ret_q": 0.0,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 114,
+          "mean_min_ret_q": 0.3,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.6
+        },
+        {
+          "prompt_id": 118,
+          "mean_min_ret_q": 0.3,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.6
+        },
+        {
+          "prompt_id": 130,
+          "mean_min_ret_q": 0.3,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.6
+        },
+        {
+          "prompt_id": 146,
+          "mean_min_ret_q": 0.3,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.6
+        },
+        {
+          "prompt_id": 142,
+          "mean_min_ret_q": 0.3333333333333333,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.6666666666666666
+        },
+        {
+          "prompt_id": 154,
+          "mean_min_ret_q": 0.4,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.8
+        },
+        {
+          "prompt_id": 106,
+          "mean_min_ret_q": 0.4375,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.875
+        },
+        {
+          "prompt_id": 110,
+          "mean_min_ret_q": 0.4375,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.875
+        },
+        {
+          "prompt_id": 126,
+          "mean_min_ret_q": 0.55,
+          "min_RCM4": 0.5,
+          "min_LR_FLASH": 0.6
+        }
+      ]
+    },
+    {
+      "cell": "lh",
+      "prompt_id": 145,
+      "prompt": "A locked overhead camera shows the playfield of a vintage pinball machine with intricate illustrated artwork, tiny bumpers, thin metal rails, small star rollovers, and dense rows of inserts. The machine is off and nothing moves.",
+      "seed": 42,
+      "mean_min_ret_q": 0.26666666666666666,
+      "rank": 7,
+      "pool_size": 16,
+      "routed_arm": "F41_RIFE",
+      "videos": [
+        {
+          "label": "FULL",
+          "stem": "pilot_cf145_s42_FULL50",
+          "routed": false,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "FULL_f000.png",
+              "FULL_f020.png",
+              "FULL_f040.png",
+              "FULL_f060.png",
+              "FULL_f080.png"
+            ]
+          }
+        },
+        {
+          "label": "RCM4",
+          "stem": "pilot_cf145_s42_RCM4",
+          "source": "published_wan21_twostage_dev2",
+          "routed": false,
+          "retention": 0.3333333333333333,
+          "quality_kept": 0.4,
+          "min_ret_q": 0.3333333333333333,
+          "d_vbench5_pp": -2.6938835225392754,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "RCM4_f000.png",
+              "RCM4_f020.png",
+              "RCM4_f040.png",
+              "RCM4_f060.png",
+              "RCM4_f080.png"
+            ]
+          }
+        },
+        {
+          "label": "LR_FLASH",
+          "stem": "pilot_cf145_s42_LR_FLASH",
+          "source": "published_wan21_twostage_dev2",
+          "routed": false,
+          "retention": 0.75,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -3.6887478904846893,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "LR_FLASH_f000.png",
+              "LR_FLASH_f020.png",
+              "LR_FLASH_f040.png",
+              "LR_FLASH_f060.png",
+              "LR_FLASH_f080.png"
+            ]
+          }
+        },
+        {
+          "label": "F41_RIFE",
+          "stem": "pilot_cf145_s42_F41_RIFE",
+          "source": "published_wan21_twostage_dev2",
+          "routed": true,
+          "retention": 1.0,
+          "quality_kept": 1.0,
+          "min_ret_q": 1.0,
+          "d_vbench5_pp": 0.6070622884834731,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "F41_RIFE_f000.png",
+              "F41_RIFE_f020.png",
+              "F41_RIFE_f040.png",
+              "F41_RIFE_f060.png",
+              "F41_RIFE_f080.png"
+            ]
+          }
+        }
+      ],
+      "pool": [
+        {
+          "prompt_id": 113,
+          "mean_min_ret_q": 0.08333333333333333,
+          "min_RCM4": 0.16666666666666666,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 125,
+          "mean_min_ret_q": 0.1,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.2
+        },
+        {
+          "prompt_id": 129,
+          "mean_min_ret_q": 0.2,
+          "min_RCM4": 0.2,
+          "min_LR_FLASH": 0.2
+        },
+        {
+          "prompt_id": 105,
+          "mean_min_ret_q": 0.25,
+          "min_RCM4": 0.3,
+          "min_LR_FLASH": 0.2
+        },
+        {
+          "prompt_id": 149,
+          "mean_min_ret_q": 0.25,
+          "min_RCM4": 0.5,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 161,
+          "mean_min_ret_q": 0.25,
+          "min_RCM4": 0.5,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 117,
+          "mean_min_ret_q": 0.26666666666666666,
+          "min_RCM4": 0.2,
+          "min_LR_FLASH": 0.3333333333333333
+        },
+        {
+          "prompt_id": 145,
+          "mean_min_ret_q": 0.26666666666666666,
+          "min_RCM4": 0.3333333333333333,
+          "min_LR_FLASH": 0.2
+        },
+        {
+          "prompt_id": 141,
+          "mean_min_ret_q": 0.2916666666666667,
+          "min_RCM4": 0.4166666666666667,
+          "min_LR_FLASH": 0.16666666666666666
+        },
+        {
+          "prompt_id": 133,
+          "mean_min_ret_q": 0.3,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.6
+        },
+        {
+          "prompt_id": 121,
+          "mean_min_ret_q": 0.30000000000000004,
+          "min_RCM4": 0.2,
+          "min_LR_FLASH": 0.4
+        },
+        {
+          "prompt_id": 101,
+          "mean_min_ret_q": 0.35,
+          "min_RCM4": 0.5,
+          "min_LR_FLASH": 0.2
+        },
+        {
+          "prompt_id": 153,
+          "mean_min_ret_q": 0.35,
+          "min_RCM4": 0.5,
+          "min_LR_FLASH": 0.2
+        },
+        {
+          "prompt_id": 157,
+          "mean_min_ret_q": 0.43333333333333335,
+          "min_RCM4": 0.6666666666666666,
+          "min_LR_FLASH": 0.2
+        },
+        {
+          "prompt_id": 137,
+          "mean_min_ret_q": 0.4583333333333333,
+          "min_RCM4": 0.16666666666666666,
+          "min_LR_FLASH": 0.75
+        },
+        {
+          "prompt_id": 109,
+          "mean_min_ret_q": 0.6000000000000001,
+          "min_RCM4": 0.4,
+          "min_LR_FLASH": 0.8
+        }
+      ]
+    },
+    {
+      "cell": "ll",
+      "prompt_id": 112,
+      "prompt": "One large smooth orange maple leaf lies flat and motionless on a plain gray concrete floor. The camera is locked, the leaf has broad simple color without visible veins, and the empty background never changes.",
+      "seed": 42,
+      "mean_min_ret_q": 0.5,
+      "rank": 7,
+      "pool_size": 16,
+      "routed_arm": "TEA015",
+      "videos": [
+        {
+          "label": "FULL",
+          "stem": "pilot_cf112_s42_FULL50",
+          "routed": false,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "FULL_f000.png",
+              "FULL_f020.png",
+              "FULL_f040.png",
+              "FULL_f060.png",
+              "FULL_f080.png"
+            ]
+          }
+        },
+        {
+          "label": "RCM4",
+          "stem": "pilot_cf112_s42_RCM4",
+          "source": "published_wan21_twostage_dev2",
+          "routed": false,
+          "retention": 0.5714285714285714,
+          "quality_kept": 0.2,
+          "min_ret_q": 0.2,
+          "d_vbench5_pp": -2.159070093555193,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "RCM4_f000.png",
+              "RCM4_f020.png",
+              "RCM4_f040.png",
+              "RCM4_f060.png",
+              "RCM4_f080.png"
+            ]
+          }
+        },
+        {
+          "label": "LR_FLASH",
+          "stem": "pilot_cf112_s42_LR_FLASH",
+          "source": "published_wan21_twostage_dev2",
+          "routed": false,
+          "retention": 1.0,
+          "quality_kept": 0.8,
+          "min_ret_q": 0.8,
+          "d_vbench5_pp": 0.4191954136844256,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "LR_FLASH_f000.png",
+              "LR_FLASH_f020.png",
+              "LR_FLASH_f040.png",
+              "LR_FLASH_f060.png",
+              "LR_FLASH_f080.png"
+            ]
+          }
+        },
+        {
+          "label": "TEA015",
+          "stem": "pilot_cf112_s42_TEA015",
+          "source": "published_wan21_platform_dev2",
+          "routed": true,
+          "retention": 1.0,
+          "quality_kept": 1.0,
+          "min_ret_q": 1.0,
+          "d_vbench5_pp": 0.6717268891745176,
+          "files": {
+            "frames": [
+              0,
+              20,
+              40,
+              60,
+              80
+            ],
+            "native_size": [
+              832,
+              480
+            ],
+            "png": [
+              "TEA015_f000.png",
+              "TEA015_f020.png",
+              "TEA015_f040.png",
+              "TEA015_f060.png",
+              "TEA015_f080.png"
+            ]
+          }
+        }
+      ],
+      "pool": [
+        {
+          "prompt_id": 120,
+          "mean_min_ret_q": 0.1,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.2
+        },
+        {
+          "prompt_id": 140,
+          "mean_min_ret_q": 0.25,
+          "min_RCM4": 0.5,
+          "min_LR_FLASH": 0.0
+        },
+        {
+          "prompt_id": 100,
+          "mean_min_ret_q": 0.3,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.6
+        },
+        {
+          "prompt_id": 108,
+          "mean_min_ret_q": 0.4,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.8
+        },
+        {
+          "prompt_id": 148,
+          "mean_min_ret_q": 0.4,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.8
+        },
+        {
+          "prompt_id": 128,
+          "mean_min_ret_q": 0.4305555555555555,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 0.861111111111111
+        },
+        {
+          "prompt_id": 124,
+          "mean_min_ret_q": 0.49375,
+          "min_RCM4": 0.1875,
+          "min_LR_FLASH": 0.8
+        },
+        {
+          "prompt_id": 112,
+          "mean_min_ret_q": 0.5,
+          "min_RCM4": 0.2,
+          "min_LR_FLASH": 0.8
+        },
+        {
+          "prompt_id": 136,
+          "mean_min_ret_q": 0.5,
+          "min_RCM4": 0.5,
+          "min_LR_FLASH": 0.5
+        },
+        {
+          "prompt_id": 144,
+          "mean_min_ret_q": 0.5,
+          "min_RCM4": 0.0,
+          "min_LR_FLASH": 1.0
+        },
+        {
+          "prompt_id": 116,
+          "mean_min_ret_q": 0.55,
+          "min_RCM4": 0.5,
+          "min_LR_FLASH": 0.6
+        },
+        {
+          "prompt_id": 104,
+          "mean_min_ret_q": 0.5714285714285714,
+          "min_RCM4": 0.21428571428571427,
+          "min_LR_FLASH": 0.9285714285714286
+        },
+        {
+          "prompt_id": 152,
+          "mean_min_ret_q": 0.6428571428571428,
+          "min_RCM4": 0.47619047619047616,
+          "min_LR_FLASH": 0.8095238095238094
+        },
+        {
+          "prompt_id": 132,
+          "mean_min_ret_q": 0.8791666666666667,
+          "min_RCM4": 0.8,
+          "min_LR_FLASH": 0.9583333333333333
+        },
+        {
+          "prompt_id": 160,
+          "mean_min_ret_q": 0.9642857142857143,
+          "min_RCM4": 0.9285714285714286,
+          "min_LR_FLASH": 1.0
+        },
+        {
+          "prompt_id": 156,
+          "mean_min_ret_q": 1.0,
+          "min_RCM4": 1.0,
+          "min_LR_FLASH": 1.0
+        }
+      ]
+    }
+  ]
+}

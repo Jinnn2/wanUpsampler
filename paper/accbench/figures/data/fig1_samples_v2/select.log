@@ -1,0 +1,5 @@
+[fig1-v2] hh: prompt 119 rank 5/11 mean min 0.183; RCM4 0.167/-5.31pp, LR_FLASH 0.200/-0.98pp
+[fig1-v2] hl: prompt 114 rank 7/16 mean min 0.300; RCM4 0.000/-3.55pp, LR_FLASH 0.600/+2.03pp, SCALING10 1.000/-0.55pp
+[fig1-v2] lh: prompt 145 rank 7/16 mean min 0.267; RCM4 0.333/-2.69pp, LR_FLASH 0.200/-3.69pp, F41_RIFE 1.000/+0.61pp
+[fig1-v2] ll: prompt 112 rank 7/16 mean min 0.500; RCM4 0.200/-2.16pp, LR_FLASH 0.800/+0.42pp, TEA015 1.000/+0.67pp
+wrote /mnt/afs_2/houze/wanUpsampler/outputs/fig1_samples_v2/samples.json and /mnt/afs_2/houze/wanUpsampler/outputs/fig1_samples_v2/README.md (4 cells)

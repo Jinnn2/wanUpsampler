@@ -9,7 +9,10 @@ Data (all exported by the main line on 2026-10-27 from outputs/fig1_v1, see ../R
 - (a) per-cell numbers: data/fixed_arms_by_cell_dev2_20261027.csv   (dev2, 61 prompts, 3 seeds averaged)
 - scorecards:           data/scoreboard_dev2_20261027.csv            (dev2; router/blind policies fit on dev only)
 - (b) routed arms:      data/scoreboard_dev2_policies_20261027.json  (dev-fit per-cell distributions, argmax shown)
-- frame strips: TODO, main line decodes them on the server (median sample by min(retention, quality), dev2 seed 42).
+- frame strips:         data/fig1_samples_v2/<cell>/{FULL,RCM4,LR_FLASH,<routed>}_f{000,040,080}.jpg
+                        one dev2 prompt per cell (seed 42), chosen by the pre-registered v2 rule (see its README):
+                        lower median over the cell's prompts of mean_{RCM4, LR_FLASH} min(retention, quality_kept).
+                        Both bands show the same prompt per row: (a) FULL | rCM | LR+FlashVSR, (b) FULL | routed arm.
 
 Usage: python fig1_overview.py [--tau 0.8]  -> ../fig1_overview.pdf and .png
 """
@@ -29,7 +32,9 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, Rectangle
 HERE = Path(__file__).resolve().parent
 DATA = HERE.parent / "data"
 OUT = HERE.parent / "fig1_overview"
-SAMPLES = DATA / "fig1_samples_v1"   # median clips per (arm, cell), dev2 seed 42; 416-px copies of the server export
+SAMPLES = DATA / "fig1_samples_v2"   # one prompt per cell, dev2 seed 42; 416-px JPEG copies of the server export
+FRAMES = (0, 40, 80)                 # accelerated clip; FULL shows frame 40 only
+FW = 28                              # frame width in canvas units (0.29 in); height follows 832x480
 
 CELLS = ["hh", "hl", "lh", "ll"]
 CELL_LABEL = {"hh": "high motion\nhigh detail", "hl": "high motion\nlow detail",
@@ -78,25 +83,46 @@ def arrow(ax, p, q, color=C_EDGE):
                                  shrinkA=0, shrinkB=0))
 
 
-def strip(ax, x, y, w, h, label, kept, label_color=None, frames=None, header=False):
-    """One output row, tinted by min(retention, quality_kept) like the profile inset.
-    frames = [FULL frame, arm frame 0, arm frame 40, arm frame 80] (paths): the FULL reference at the left, then
-    three frames of the accelerated clip. Without frames an empty 4-frame placeholder is drawn."""
-    ax.add_patch(Rectangle((x, y), w, h, fc=GREENS(0.1 + 0.6 * kept), ec=C_EDGE, lw=0.5))
-    fw = (w - 8) / 4; fh = fw / (832 / 480); fy = y + h * 0.92 - fh
-    for i in range(4):
-        fx = x + 2 + i * (fw + 1.5) + (1.5 if i else 0)        # extra gap between FULL and the arm frames
-        if frames is None:
-            ax.add_patch(Rectangle((fx, fy), fw, fh, fc="#FFFFFF", ec="#C9C7BE", lw=0.4))
-        else:
-            ax.imshow(plt.imread(frames[i]), extent=(fx, fx + fw, fy, fy + fh), aspect="auto",
-                      interpolation="lanczos", zorder=2)
+ROW_H = 26
+FH = FW / (832 / 480)
+
+
+def frame(ax, x, fy, path):
+    """One 832x480 frame at (x, fy); a white placeholder when the file is missing."""
+    if path is not None and path.exists():
+        ax.imshow(plt.imread(path), extent=(x, x + FW, fy, fy + FH), aspect="auto", interpolation="lanczos",
+                  zorder=2)
+    else:
+        ax.add_patch(Rectangle((x, fy), FW, FH, fc="#FFFFFF", ec="#C9C7BE", lw=0.4))
+
+
+def full_frame(ax, x, y, path, header):
+    """The FULL reference (frame 40) at the left of an output row. Returns the next free x."""
+    fy = y + ROW_H - 1.5 - FH
+    frame(ax, x, fy, path)
+    ax.add_patch(Rectangle((x, fy), FW, FH, fc="none", ec=C_EDGE, lw=0.4, zorder=3))
     if header:
-        ax.text(x + 2 + fw / 2, y + h + 1.5, "FULL", ha="center", va="bottom", fontsize=4.3, color=C_MUTE)
-        ax.text(x + 2 + fw + 3 + 1.5 * fw, y + h + 1.5, "accel. f0 / f40 / f80", ha="center",
-                va="bottom", fontsize=4.3, color=C_MUTE)
-    ax.text(x + w / 2, y + h * 0.13, label, ha="center", va="center", fontsize=4.8,
+        ax.text(x + FW / 2, y + ROW_H + 1.5, "FULL (f40)", ha="center", va="bottom", fontsize=4.3, color=C_MUTE)
+    return x + FW + 3
+
+
+def group(ax, x, y, frames, kept, label, header=None, label_color=None):
+    """Three frames of one accelerated clip in a box tinted by min(retention, quality_kept) like the profile
+    inset, with a one-line label under the frames. frames: list of paths (None = placeholder). Returns next x."""
+    w = 3 * FW + 2 * 1.5 + 4
+    ax.add_patch(Rectangle((x, y), w, ROW_H, fc=GREENS(0.1 + 0.6 * kept), ec=C_EDGE, lw=0.5))
+    fy = y + ROW_H - 1.5 - FH
+    for i, p in enumerate(frames):
+        frame(ax, x + 2 + i * (FW + 1.5), fy, p)
+    if header:
+        ax.text(x + w / 2, y + ROW_H + 1.5, header, ha="center", va="bottom", fontsize=4.3, color=C_MUTE)
+    ax.text(x + w / 2, y + 3.4, label, ha="center", va="center", fontsize=4.8,
             color=label_color or (C_TXT if kept < 0.6 else "#F7FBF5"))
+    return x + w + 3
+
+
+def sample_frames(cell, arm):
+    return [SAMPLES / cell / f"{arm}_f{f:03d}.jpg" for f in FRAMES]
 
 
 def band(ax, y0, title):
@@ -181,31 +207,30 @@ def main(tau: float):
     ax.plot([248, 262, 262], [277, 277, 247], color=C_EDGE, lw=0.6)
     ax.plot([248, 270], [247, 247], color=C_EDGE, lw=0.6)
     ax.plot([262], [247], marker="o", ms=2.2, color=C_EDGE)
-    # outputs: two columns of strips (one per fixed arm), four rows (one per cell); tint and numbers from dev2
-    for j, arm in enumerate(FIXED_ARMS):
-        x = 296 + j * 102
-        ax.text(x + 48, 331, ARM_NAME[arm], ha="center", fontsize=5.5, color=C_MUTE)
-        for k, (c, y) in enumerate(zip(CELLS, rows)):
+    # outputs: one row per cell = FULL | rCM f0/f40/f80 | LR+FlashVSR f0/f40/f80, all of the same prompt
+    # (fig1_samples_v2); tint and numbers are the dev2 cell means of the arm, not the shown clip's scores
+    for k, (c, y) in enumerate(zip(CELLS, rows)):
+        x = full_frame(ax, 294, y, SAMPLES / c / "FULL_f040.jpg", header=(k == 0))
+        for arm in FIXED_ARMS:
             r = by_cell[(arm, c)]
-            sd = SAMPLES / f"{arm}_{c}"
-            fr = [sd / "FULL_f040.jpg"] + [sd / f"{arm}_f{f:03d}.jpg" for f in (0, 40, 80)]
-            strip(ax, x, y, 96, 26, f"kept {r['min_ret_q']:.2f}  ·  ΔVB {r['d_vbench5_pp']:+.1f} pp",
-                  r["min_ret_q"], frames=fr if all(p.exists() for p in fr) else None, header=(k == 0))
+            x = group(ax, x, y, sample_frames(c, arm), r["min_ret_q"],
+                      f"kept {r['min_ret_q']:.2f}  ·  ΔVB {r['d_vbench5_pp']:+.1f} pp",
+                      header=f"{ARM_NAME[arm]}  (f0 / f40 / f80)" if k == 0 else None)
     for y in rows:
-        arrow(ax, (270, 247), (294, y + 13))
+        arrow(ax, (270, 247), (292, y + 13))
     # scorecard: speed vs min(semantic, quality) kept on dev2; fixed arms are points, VBench deltas annotated
-    frontier(fig, 538, 198, 94, 100, score, highlight=FIXED_ARMS, curves=False)
+    frontier(fig, 548, 198, 86, 100, score, highlight=FIXED_ARMS, curves=False)
 
     # ---------------- band (b): ours ----------------
     band(ax, 8, "(b) Ours: AccBench  →  method × region profiles  →  prompt-guided routing")
     cells_column(ax, rows_b)
-    arrow(ax, (128, 75), (150, 75))
-    box(ax, 152, 52, 68, 46, "AccBench", fc=C_BENCH, ec=C_OK_E, fs=7, weight="bold",
+    arrow(ax, (128, 75), (148, 75))
+    box(ax, 150, 52, 58, 46, "AccBench", fc=C_BENCH, ec=C_OK_E, fs=7, weight="bold",
         sub="paired to FULL\n3 layers")
-    arrow(ax, (220, 75), (232, 75))
+    arrow(ax, (208, 75), (220, 75))
 
     # profile inset: representative arms x cells, min(retention, quality_kept)
-    ix, iy, cw, ch = 234, 40, 11, 11
+    ix, iy, cw, ch = 222, 40, 11, 11
     vals = np.array([[min(d["r"][a][c][0], d["r"][a][c][1]) for c in CELLS] for a in PROFILE_ARMS])
     for i, a in enumerate(PROFILE_ARMS):
         for j, c in enumerate(CELLS):
@@ -218,18 +243,22 @@ def main(tau: float):
     ax.text(ix + 2 * cw, iy - 8, "min(semantic, quality) kept", ha="center", fontsize=5, color=C_MUTE)
     ax.text(ix + 2 * cw, 114, "profiles", ha="center", fontsize=6.5, color=C_TXT)
 
-    arrow(ax, (318, 75), (338, 75))
-    box(ax, 340, 52, 70, 46, "Router", fc=C_OURS, ec=C_OURS_E, fs=7, weight="bold",
-        sub=f"min time s.t.\nsem., qual. ≥ τ = {tau:.2f}")
-    # outputs: one strip per cell, labelled with the dev-fit routed arm (argmax of the per-cell distribution)
+    arrow(ax, (306, 75), (320, 75))
+    box(ax, 322, 52, 60, 46, "Router", fc=C_OURS, ec=C_OURS_E, fs=6.5, weight="bold",
+        sub=f"min time s.t.\nkept ≥ τ = {tau:.2f}")
+    # outputs: the same prompt as the row above = FULL | routed arm f0/f40/f80 (dev-fit argmax of the per-cell
+    # distribution at tau). Tint = the arm's min(retention, quality_kept) in that cell from the route table
+    # (dev + dev2); per-cell dev2 numbers for the routed arms are not exported yet, so no number is printed.
     routed = pol[f"{tau:g}"]["router"]
-    for c, y in zip(CELLS, rows_b):
+    for k, (c, y) in enumerate(zip(CELLS, rows_b)):
         arm, p = max(routed[c].items(), key=lambda kv: kv[1])
-        arrow(ax, (410, 75), (438, y + 13))
-        strip(ax, 440, y, 70, 26, "→ " + ARM_NAME[arm] + ("" if p > 0.95 else f" ({p:.0%})"), 1.0,
-              label_color="#F7FBF5")
+        arrow(ax, (382, 75), (398, y + 13))
+        kept = min(d["r"][arm][c][0], d["r"][arm][c][1])
+        x = full_frame(ax, 400, y, SAMPLES / c / "FULL_f040.jpg", header=(k == 0))
+        group(ax, x, y, sample_frames(c, arm), kept, "→ " + ARM_NAME[arm] + ("" if p > 0.95 else f" ({p:.0%})"),
+              header="routed arm  (f0 / f40 / f80)" if k == 0 else None)
     # same axes as band (a): fixed arms in grey, router and blind-mixture frontiers (tau 0.95 -> 0.60) on top
-    frontier(fig, 538, 26, 94, 100, score, highlight=[], curves=True, tau_mark=tau)
+    frontier(fig, 548, 26, 86, 100, score, highlight=[], curves=True, tau_mark=tau)
 
     fig.savefig(OUT.with_suffix(".pdf")); fig.savefig(OUT.with_suffix(".png"), dpi=220)
     print("wrote", OUT.with_suffix(".pdf"))
