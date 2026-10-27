@@ -23,6 +23,8 @@ human swap (e.g. an unreadable scene) is recorded as a rank, never as a free pic
 Paper Figure 1a (fig1): for each of RCM4 and LR_FLASH and each cell, the dev2 seed-42 clip at the lower median
 of min(retention, quality_kept) within that (arm, cell), with 5 evenly spaced single frames of it and of its FULL
 clip, and a per-frame-pair optical flow magnitude for both (OpenCV Farneback at 416 px width, mean pixels).
+fig1-v2: one prompt per cell (lower median of the mean over RCM4 and LR_FLASH of that score), exported for FULL,
+RCM4, LR_FLASH and the arm the tau=0.80 dev-fit router sends that cell to, so a row compares all of them.
 
 Pins (--pins): clips outside the fixed plan, e.g. DVG's short-VBench-prompt collapse, which comes from a separate
 study. They are rendered the same way and marked as pinned in the manifest.
@@ -347,9 +349,42 @@ def flow_series(frames):
             for a, b in zip(gray, gray[1:])]
 
 
-def export_fig1(clips, out):
+def write_strips(sdir, videos):
+    """videos: [(label, path)], the first is FULL. 5 evenly spaced PNGs each (resized to FULL's size) and flow.csv
+    with one column per video. Returns {label: {"frames", "native_size", "png"}}."""
     import cv2
 
+    sdir.mkdir(parents=True, exist_ok=True)
+    decoded = [(label, read_frames(path)) for label, path in videos]
+    size = (decoded[0][1][0].shape[1], decoded[0][1][0].shape[0])
+    files, flows = {}, []
+    for label, frames in decoded:
+        n = len(frames)
+        idx = sorted({round(i * (n - 1) / (FIG1_FRAMES - 1)) for i in range(FIG1_FRAMES)})
+        files[label] = {"frames": idx, "native_size": [frames[0].shape[1], frames[0].shape[0]], "png": []}
+        for i in idx:
+            name = f"{label}_f{i:03d}.png"
+            frame = frames[i]
+            if (frame.shape[1], frame.shape[0]) != size:
+                frame = cv2.resize(frame, size, interpolation=cv2.INTER_AREA)
+            cv2.imwrite(str(sdir / name), frame)
+            files[label]["png"].append(name)
+        flows.append(flow_series(frames))
+    with (sdir / "flow.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["pair", *[label for label, _ in videos]])
+        for i in range(max(map(len, flows))):
+            writer.writerow([i, *[f"{f[i]:.4f}" if i < len(f) else "" for f in flows]])
+    return files
+
+
+def check_hashes(*clips):
+    for c in clips:
+        if sha256_file(c["video_path"]) != c["video_sha256"] or sha256_file(c["full_video_path"]) != c["full_video_sha256"]:
+            raise ValueError(f"video hash mismatch: {c['stem']}")
+
+
+def export_fig1(clips, out):
     picks = select_fig1(clips)
     out.mkdir(parents=True, exist_ok=True)
     samples = []
@@ -362,31 +397,9 @@ def export_fig1(clips, out):
              "consecutive frame pair (not the RAFT flow of the fixed layer).", ""]
     for (arm, cell), (pool, k) in picks.items():
         c = pool[k]
-        if sha256_file(c["video_path"]) != c["video_sha256"] or sha256_file(c["full_video_path"]) != c["full_video_sha256"]:
-            raise ValueError(f"video hash mismatch: {c['stem']}")
+        check_hashes(c)
         sid = f"{arm}_{cell}"
-        sdir = out / sid
-        sdir.mkdir(parents=True, exist_ok=True)
-        full, acc = read_frames(c["full_video_path"]), read_frames(c["video_path"])
-        size = (full[0].shape[1], full[0].shape[0])
-        files = {}
-        for label, frames in (("FULL", full), (arm, acc)):
-            n = len(frames)
-            idx = sorted({round(i * (n - 1) / (FIG1_FRAMES - 1)) for i in range(FIG1_FRAMES)})
-            files[label] = {"frames": idx, "native_size": [frames[0].shape[1], frames[0].shape[0]], "png": []}
-            for i in idx:
-                name = f"{label}_f{i:03d}.png"
-                frame = frames[i]
-                if (frame.shape[1], frame.shape[0]) != size:
-                    frame = cv2.resize(frame, size, interpolation=cv2.INTER_AREA)
-                cv2.imwrite(str(sdir / name), frame)
-                files[label]["png"].append(name)
-        ff, fa = flow_series(full), flow_series(acc)
-        with (sdir / "flow.csv").open("w", encoding="utf-8", newline="") as handle:
-            writer = csv.writer(handle)
-            writer.writerow(["pair", "FULL", arm])
-            for i in range(max(len(ff), len(fa))):
-                writer.writerow([i, f"{ff[i]:.4f}" if i < len(ff) else "", f"{fa[i]:.4f}" if i < len(fa) else ""])
+        files = write_strips(out / sid, [("FULL", c["full_video_path"]), (arm, c["video_path"])])
         pool_rows = [{"prompt_id": x["prompt_id"], "stem": x["stem"], "retention": x["retention"],
                       "quality_kept": x["quality_kept"], "min_ret_q": min(x["retention"], x["quality_kept"]),
                       "d_vbench5_pp": x["d_vbench5_pp"]} for x in pool]
@@ -410,6 +423,79 @@ def export_fig1(clips, out):
     print(f"wrote {out / 'samples.json'} and {out / 'README.md'} ({len(samples)} samples)")
 
 
+FIG1_ROUTED = {"hh": "RCM4", "hl": "SCALING10", "lh": "F41_RIFE", "ll": "TEA015"}  # tau=0.80 dev-fit, route_v1_q2
+
+
+def score(c):
+    return min(c["retention"], c["quality_kept"])
+
+
+def select_fig1_v2(clips, arms=FIG1_ARMS, routed=FIG1_ROUTED):
+    """cell -> (sorted candidates, chosen index); a candidate is (mean score over arms, prompt id, {case: clip})."""
+    by = collections.defaultdict(dict)
+    for c in clips:
+        if c["split"] == FIG1_SPLIT and c["seed"] == FIG1_SEED:
+            by[(c["cell"], c["prompt_id"])][c["case_id"]] = c
+    out = {}
+    for cell in CELLS:
+        need = set(arms) | {routed[cell]}
+        pool = [(float(np.mean([score(g[a]) for a in arms])), pid, g) for (cl, pid), g in by.items()
+                if cl == cell and need <= set(g) and all(math.isfinite(score(g[a])) for a in need)]
+        if not pool:
+            raise ValueError(f"no {FIG1_SPLIT} seed-{FIG1_SEED} prompt in cell {cell} has all of {sorted(need)}")
+        pool.sort(key=lambda x: (x[0], x[1]))
+        out[cell] = (pool, (len(pool) - 1) // 2)
+    return out
+
+
+def export_fig1_v2(clips, out, arms=FIG1_ARMS, routed=FIG1_ROUTED):
+    picks = select_fig1_v2(clips, arms, routed)
+    out.mkdir(parents=True, exist_ok=True)
+    samples = []
+    lines = ["# Figure 1 samples v2", "",
+             f"Rule (fixed before rendering): {FIG1_SPLIT} prompts, seed {FIG1_SEED}; within each cell the prompts are "
+             f"sorted by the mean over {' and '.join(arms)} of min(retention, quality_kept) (ties: prompt id) and the "
+             "lower median (index (n-1)//2) is taken. No hand picking. Each chosen prompt is exported for FULL, "
+             f"{', '.join(arms)} and the tau=0.80 dev-fit routed arm ({', '.join(f'{k}->{v}' for k, v in routed.items())}; "
+             "one copy when it is already listed).", "",
+             f"Frames: {FIG1_FRAMES} evenly spaced (first and last included), resized to FULL's size. Flow: OpenCV "
+             f"Farneback, mean magnitude in pixels at {FLOW_WIDTH} px width, one value per consecutive frame pair "
+             "(not the RAFT flow of the fixed layer). FULL rows have no retention / quality_kept (FULL is the reference).", ""]
+    for cell, (pool, k) in picks.items():
+        mean, pid, g = pool[k]
+        cases = list(dict.fromkeys([*arms, routed[cell]]))
+        check_hashes(*(g[a] for a in cases))
+        first = g[arms[0]]
+        fulls = {g[a]["full_video_sha256"] for a in cases}
+        if len(fulls) > 1:
+            raise ValueError(f"cell {cell} prompt {pid}: FULL clip differs across sources")
+        files = write_strips(out / cell, [("FULL", first["full_video_path"])] + [(a, g[a]["video_path"]) for a in cases])
+        videos = [{"label": "FULL", "stem": first["full_stem"], "routed": False}] + [
+            {"label": a, "stem": g[a]["stem"], "source": g[a]["source"], "routed": a == routed[cell],
+             "retention": g[a]["retention"], "quality_kept": g[a]["quality_kept"], "min_ret_q": score(g[a]),
+             "d_vbench5_pp": g[a]["d_vbench5_pp"]} for a in cases]
+        for v in videos:
+            v["files"] = files[v["label"]]
+        pool_rows = [{"prompt_id": q, "mean_min_ret_q": m, **{f"min_{a}": score(h[a]) for a in arms}} for m, q, h in pool]
+        samples.append({"cell": cell, "prompt_id": pid, "prompt": first["prompt"], "seed": first["seed"],
+                        "mean_min_ret_q": mean, "rank": k, "pool_size": len(pool), "routed_arm": routed[cell],
+                        "videos": videos, "pool": pool_rows})
+        lines += [f"## {cell}: prompt {pid} (rank {k} of {len(pool)}), routed arm {routed[cell]}", "", first["prompt"], "",
+                  "| video | retention | quality_kept | min(ret, Q) | dVBench5 pp |", "| --- | --- | --- | --- | --- |"]
+        lines += [f"| {v['label']}{' (routed)' if v['routed'] else ''} | {v['retention']:.3f} | {v['quality_kept']:.3f} | "
+                  f"{v['min_ret_q']:.3f} | {v['d_vbench5_pp']:+.2f} |" for v in videos[1:]]
+        lines += ["", "| rank | prompt id | mean min | " + " | ".join(f"min {a}" for a in arms) + " |",
+                  "| --- | --- | --- | " + " | ".join("---" for _ in arms) + " |"]
+        lines += [f"| {i}{' (chosen)' if i == k else ''} | {r['prompt_id']} | {r['mean_min_ret_q']:.3f} | "
+                  + " | ".join(f"{r[f'min_{a}']:.3f}" for a in arms) + " |" for i, r in enumerate(pool_rows)]
+        lines.append("")
+        print(f"[fig1-v2] {cell}: prompt {pid} rank {k}/{len(pool)} mean min {mean:.3f}; "
+              + ", ".join(f"{v['label']} {v['min_ret_q']:.3f}/{v['d_vbench5_pp']:+.2f}pp" for v in videos[1:]), flush=True)
+    write_json_atomic(out / "samples.json", clean({"schema": "univ_fig1_samples_v2", "samples": samples}))
+    (out / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"wrote {out / 'samples.json'} and {out / 'README.md'} ({len(samples)} cells)")
+
+
 def load_clips(args):
     fixed_path = Path(args.fixed_root) / "plan.json"
     fixed = json.loads(fixed_path.read_text(encoding="utf-8"))
@@ -426,6 +512,10 @@ def load_clips(args):
 
 def fig1(args):
     export_fig1(load_clips(args)[1], Path(args.out))
+
+
+def fig1_v2(args):
+    export_fig1_v2(load_clips(args)[1], Path(args.out))
 
 
 # ---------------------------------------------------------------- render
@@ -556,6 +646,12 @@ def main(argv=None):
     p.add_argument("--quality", required=True, help="quality v2 CSV")
     p.add_argument("--prompts", nargs="*")
     p.add_argument("--out", required=True)
+    p = sub.add_parser("fig1-v2", help="paper Figure 1 v2: one median prompt per cell, FULL / RCM4 / LR_FLASH / routed")
+    p.add_argument("--fixed-root", required=True)
+    p.add_argument("--dynamic", required=True)
+    p.add_argument("--quality", required=True, help="quality v2 CSV")
+    p.add_argument("--prompts", nargs="*")
+    p.add_argument("--out", required=True)
     p = sub.add_parser("pins-dvg")
     p.add_argument("--dvg-study", required=True, help="dvg_wan21_study root with the repro set")
     p.add_argument("--prompts", nargs="+", default=list(COLLAPSE_PROMPTS))
@@ -568,7 +664,7 @@ def main(argv=None):
     p.add_argument("--crf", type=int, default=12)
     p.add_argument("--panels", nargs="*", help="render only these panel ids")
     args = parser.parse_args(argv)
-    {"select": select, "fig1": fig1, "pins-dvg": pins_dvg, "render": render}[args.mode](args)
+    {"select": select, "fig1": fig1, "fig1-v2": fig1_v2, "pins-dvg": pins_dvg, "render": render}[args.mode](args)
 
 
 if __name__ == "__main__":

@@ -153,6 +153,36 @@ class FigureSamplesTest(unittest.TestCase):
         self.assertGreater(float(rows[3]["RCM4"]), float(rows[3]["FULL"]))  # 6 px vs 1 px per frame
         self.assertIn("(chosen)", (out / "README.md").read_text(encoding="utf-8"))
 
+    def test_fig1_v2(self):
+        full, arm = self.tmp / "full.mp4", self.tmp / "arm.mp4"
+        video(full, 1)
+        video(arm, 6)
+        clips = []
+        for cell in fs.CELLS:
+            # 3 prompts; mean of RCM4 / LR_FLASH min scores 0.5, 0.2, 0.35 -> sorted 101, 102, 100, median 102
+            for pid, (a, b) in enumerate([(0.6, 0.4), (0.1, 0.3), (0.3, 0.4)]):
+                for case, sc in (("RCM4", a), ("LR_FLASH", b), (fs.FIG1_ROUTED[cell], 0.9)):
+                    base = {"case_id": case, "cell": cell, "split": "dev2", "seed": 42, "prompt_id": 100 + pid,
+                            "prompt": f"p{pid}", "stem": f"{case}_{cell}_{pid}", "full_stem": f"FULL_{cell}_{pid}",
+                            "source": "s", "retention": sc, "quality_kept": 1.0, "d_vbench5_pp": 0.0,
+                            "video_path": str(arm), "video_sha256": sha256_file(arm),
+                            "full_video_path": str(full), "full_video_sha256": sha256_file(full)}
+                    clips.append(base)
+        clips.append({**clips[0], "prompt_id": 199})  # prompt with only RCM4: not a candidate
+        picks = fs.select_fig1_v2(clips)
+        pool, k = picks["ll"]
+        self.assertEqual(([x[1] for x in pool], k), ([101, 102, 100], 1))
+        out = self.tmp / "fig1v2"
+        with contextlib.redirect_stdout(io.StringIO()):
+            fs.export_fig1_v2(clips, out)
+        s = {x["cell"]: x for x in json.loads((out / "samples.json").read_text(encoding="utf-8"))["samples"]}
+        self.assertEqual([v["label"] for v in s["hh"]["videos"]], ["FULL", "RCM4", "LR_FLASH"])  # routed = RCM4
+        self.assertEqual([v["label"] for v in s["hl"]["videos"]], ["FULL", "RCM4", "LR_FLASH", "SCALING10"])
+        self.assertTrue(s["hl"]["videos"][3]["routed"])
+        header = (out / "lh" / "flow.csv").read_text(encoding="utf-8").splitlines()[0]
+        self.assertEqual(header, "pair,FULL,RCM4,LR_FLASH,F41_RIFE")
+        self.assertEqual(len(list((out / "lh").glob("*.png"))), 20)
+
     def test_pins_dvg(self):
         from UNIV_adaptor.scripts.data import dvg_wan21_study as dvg
 
