@@ -1,0 +1,22 @@
+{
+ "archive": "fig1_samples_v1.tgz",
+ "sha256": "985914673ff2c192cf52aad401cd18da2187dec6427a52511c06bd12a3f035a2",
+ "ingested": "2026-10-27",
+ "note": "Figure 1a v1 median clips; PNG frames only in the tgz",
+ "kept": [
+  "LR_FLASH_hh/flow.csv",
+  "LR_FLASH_hl/flow.csv",
+  "LR_FLASH_lh/flow.csv",
+  "LR_FLASH_ll/flow.csv",
+  "RCM4_hh/flow.csv",
+  "RCM4_hl/flow.csv",
+  "RCM4_lh/flow.csv",
+  "RCM4_ll/flow.csv",
+  "README.md",
+  "samples.json",
+  "select.log"
+ ],
+ "skipped_by_suffix": {
+  ".png": 80
+ }
+}

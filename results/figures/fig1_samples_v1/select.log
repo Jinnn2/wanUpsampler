@@ -1,0 +1,9 @@
+[fig1] RCM4_hh: prompt 127 rank 5/11 min 0.200 dVB -5.00pp
+[fig1] RCM4_hl: prompt 134 rank 7/16 min 0.000 dVB +1.50pp
+[fig1] RCM4_lh: prompt 105 rank 7/16 min 0.300 dVB +0.04pp
+[fig1] RCM4_ll: prompt 112 rank 7/16 min 0.200 dVB -2.16pp
+[fig1] LR_FLASH_hh: prompt 163 rank 5/11 min 0.000 dVB -1.62pp
+[fig1] LR_FLASH_hl: prompt 114 rank 7/16 min 0.600 dVB +2.03pp
+[fig1] LR_FLASH_lh: prompt 129 rank 7/16 min 0.200 dVB -0.60pp
+[fig1] LR_FLASH_ll: prompt 124 rank 7/16 min 0.800 dVB -0.47pp
+wrote /mnt/afs_2/houze/wanUpsampler/outputs/fig1_samples_v1/samples.json and /mnt/afs_2/houze/wanUpsampler/outputs/fig1_samples_v1/README.md (8 samples)
