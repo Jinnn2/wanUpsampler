@@ -189,37 +189,45 @@ def select(args):
     print("examples rejected by the screen:\n  " + "\n  ".join(rejected))
 
 
-def configs(args):
-    prompts = [json.loads(line) for line in Path(args.prompts).read_text(encoding="utf-8").splitlines() if line.strip()]
-    entries = [{"id": f"nt{p['prompt_id']}", "origin": "natural_vidprom_v1", "motion": p["motion_level"],
+def build_configs(prompts, config_dir, tag="natural", seeds=SEEDS, origin="natural_vidprom_v1", source="univ_natural_v1.jsonl",
+                  how="real VidProM user prompts (CC BY-NC 4.0) drawn by natural_prompts.py without looking at any outcome",
+                  name="Natural prompt set v1"):
+    """Platform + two-stage configs for a natural prompt file, built from the dev2 configs with only
+    prompts / seeds / arms changed. The defaults reproduce the natural v1 configs."""
+    entries = [{"id": f"nt{p['prompt_id']}", "origin": origin, "motion": p["motion_level"],
                 "detail": p["detail_level"], "family_id": p["family_id"], "split": p["split"], "prompt": p["prompt"]}
                for p in prompts]
-    note = (f"The {len(entries)} prompts come from prompts/univ_natural_v1.jsonl: real VidProM user prompts "
-            "(CC BY-NC 4.0) drawn by natural_prompts.py without looking at any outcome. motion/detail are Qwen3-VL "
+    note = (f"The {len(entries)} prompts come from prompts/{source}: {how}. motion/detail are Qwen3-VL "
             "zero-shot predictions (route_v1 questions), used only as nominal cells.")
+    n_seeds = "one seed" if len(seeds) == 1 else f"{len(seeds)} seeds"
     cfg_dir = ROOT / "UNIV_adaptor/configs"
     plat = json.loads((cfg_dir / "published_wan21_platform_dev2.json").read_text(encoding="utf-8"))
-    plat["claim"] = ("Natural prompt set v1: frontier platform accelerators on real user prompts, one seed, as a test "
+    plat["claim"] = (f"{name}: frontier platform accelerators on real user prompts, {n_seeds}, as a test "
                      "of whether prompt->method regions extend beyond the designed motion/detail cells.")
-    plat["seeds"] = SEEDS
+    plat["seeds"] = list(seeds)
     plat["disabled_arms"] += [a for a in plat["arms"] if a["id"] not in PLATFORM_ARMS]
     plat["arms"] = [a for a in plat["arms"] if a["id"] in PLATFORM_ARMS]
     plat["prompt_source"]["description"] = note
     plat["prompts"] = entries
     two = json.loads((cfg_dir / "published_wan21_twostage_dev2.json").read_text(encoding="utf-8"))
-    two["claim"] = ("Natural prompt set v1: frontier two-stage and distillation arms on real user prompts, one seed. "
-                    "FULL50 is reused from the platform-natural run on the same machine.")
-    two["seeds"] = SEEDS
+    two["claim"] = (f"{name}: frontier two-stage and distillation arms on real user prompts, {n_seeds}. "
+                    f"FULL50 is reused from the platform-{tag} run on the same machine.")
+    two["seeds"] = list(seeds)
     two["arms"] = [a for a in two["arms"] if a["id"] in TWOSTAGE_ARMS]
     used = {a["generation"] for a in two["arms"]}
     two["generations"] = [g for g in two["generations"] if g["id"] in used]
     two["prompt_source"]["description"] = note
     two["prompts"] = entries
-    two["reference"]["expected_root"] = "outputs/published_wan21_platform_natural"
-    for name, cfg in (("published_wan21_platform_natural", plat), ("published_wan21_twostage_natural", two)):
-        Path(args.config_dir).mkdir(parents=True, exist_ok=True)
-        (Path(args.config_dir) / f"{name}.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        print(f"wrote configs/{name}.json: arms {[a['id'] for a in cfg['arms']]}")
+    two["reference"]["expected_root"] = f"outputs/published_wan21_platform_{tag}"
+    for cname, cfg in ((f"published_wan21_platform_{tag}", plat), (f"published_wan21_twostage_{tag}", two)):
+        Path(config_dir).mkdir(parents=True, exist_ok=True)
+        (Path(config_dir) / f"{cname}.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"wrote configs/{cname}.json: arms {[a['id'] for a in cfg['arms']]}")
+
+
+def configs(args):
+    prompts = [json.loads(line) for line in Path(args.prompts).read_text(encoding="utf-8").splitlines() if line.strip()]
+    build_configs(prompts, args.config_dir)
 
 
 def main(argv=None):

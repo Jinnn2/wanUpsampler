@@ -6,27 +6,34 @@
 #   bash UNIV_adaptor/scripts/run_univ_natural_8gpu.sh prompts   # ~20 min: download, filter, Qwen screen, draw 256
 #        -> send outputs/natural_v1_prompts.tgz; the prompts and configs come back as a commit; git pull
 #   bash UNIV_adaptor/scripts/run_univ_natural_8gpu.sh all       # ~9 h: everything below, in this order
+# Extended set (natural_extend.py: the same 256 prompts rewritten by Wan's prompt extender, seeds 42 and 100):
+#   NATURAL_SET=natural_ext bash UNIV_adaptor/scripts/run_univ_natural_8gpu.sh prompts   # ~40 min: extend + cells
+#        -> send outputs/natural_ext_v1_prompts.tgz; prompts and configs come back as a commit; git pull
+#   NATURAL_SET=natural_ext bash UNIV_adaptor/scripts/run_univ_natural_8gpu.sh all       # ~20 h (two seeds)
 # Stages (each resumes from its own receipts): checklist platform twostage fixed dynamic quality route; status.
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 STAGE="${1:-help}"
+SET="${NATURAL_SET:-natural}"  # natural (short user prompts) or natural_ext (the same prompts, extended)
+[[ "${SET}" == natural || "${SET}" == natural_ext ]] || { echo "NATURAL_SET must be natural or natural_ext" >&2; exit 2; }
+export NATURAL_SET="${SET}"  # the per-stage bash "$0" calls in unattended inherit it
 OUT="${REPO_ROOT}/outputs"
 S="${REPO_ROOT}/UNIV_adaptor/scripts"
 CFG="${REPO_ROOT}/UNIV_adaptor/configs"
 BASE_PYTHON="${BASE_PYTHON:-/opt/conda/bin/python}"
 VLM_PYTHON="${VLM_PYTHON:-${REPO_ROOT}/.venv_vlm3/bin/python}"
 JUDGE_MODEL="${JUDGE_MODEL:-/mnt/afs_2/houze/models/Qwen3-VL-32B-Instruct}"
-PROMPTS="${REPO_ROOT}/prompts/univ_natural_v1.jsonl"
+PROMPTS="${REPO_ROOT}/prompts/univ_${SET}_v1.jsonl"
 CONTROLLED=("${REPO_ROOT}/prompts/univ_controlled_factor_v1.jsonl" "${REPO_ROOT}/prompts/univ_controlled_factor_dev2.jsonl")
-SEL="${OUT}/natural_v1_prompts"
-P="${OUT}/published_wan21_platform_natural"
-T="${OUT}/published_wan21_twostage_natural"
-GEN="${OUT}/requirements_natural"
+SEL="${OUT}/${SET}_v1_prompts"
+P="${OUT}/published_wan21_platform_${SET}"
+T="${OUT}/published_wan21_twostage_${SET}"
+GEN="${OUT}/requirements_${SET}"
 CHECKLIST="${GEN}/checklist.jsonl"
-FIXED="${OUT}/fixed_metrics_natural"
-DYN="${OUT}/dynamic_natural"
-Q="${OUT}/quality_natural"
-ROUTE="${OUT}/route_natural"
+FIXED="${OUT}/fixed_metrics_${SET}"
+DYN="${OUT}/dynamic_${SET}"
+Q="${OUT}/quality_${SET}"
+ROUTE="${OUT}/route_${SET}"
 ALL_GPUS="0,1,2,3,4,5,6,7"
 IFS=',' read -r -a GPUS <<< "${ALL_GPUS}"
 export NGPUS=8 PYTHONDONTWRITEBYTECODE=1
@@ -105,6 +112,7 @@ envcheck() {
 }
 
 prompts() {
+  [[ "${SET}" == natural_ext ]] && { prompts_ext; return; }
   local d="${REPO_ROOT}/UNIV_adaptor/scripts/data/natural_prompts.py"
   say "prompts: VidProM candidates"
   [[ -f "${SEL}/candidates.jsonl" ]] || "${VLM_PYTHON}" "${d}" candidates --out "${SEL}"
@@ -115,6 +123,20 @@ prompts() {
   tar czf "${SEL}.tgz" -C "${OUT}" "$(basename "${SEL}")/univ_natural_v1.jsonl" "$(basename "${SEL}")/select.txt" \
     "$(basename "${SEL}")/candidates.jsonl" "$(basename "${SEL}")/candidates_meta.json" "$(basename "${SEL}")/screen.json" \
     "$(basename "${SEL}")/published_wan21_platform_natural.json" "$(basename "${SEL}")/published_wan21_twostage_natural.json"
+  echo "SEND THIS: ${SEL}.tgz"
+}
+
+prompts_ext() {
+  local d="${REPO_ROOT}/UNIV_adaptor/scripts/data/natural_extend.py" short="${REPO_ROOT}/prompts/univ_natural_v1.jsonl"
+  need "${short}" "the natural v1 prompts are committed"
+  say "prompts: extend the natural v1 prompts with Wan's prompt extender (Qwen3-VL-32B, one GPU, resumable)"
+  mkdir -p "${SEL}"
+  CUDA_VISIBLE_DEVICES="${GPUS[0]}" "${VLM_PYTHON}" "${d}" extend --prompts "${short}" --model "${JUDGE_MODEL}" --out "${SEL}" \
+    | tee "${SEL}/extend.txt"
+  "${BASE_PYTHON}" "${d}" configs --prompts "${SEL}/univ_natural_ext_v1.jsonl" --config-dir "${SEL}"
+  tar czf "${SEL}.tgz" -C "${OUT}" "$(basename "${SEL}")/univ_natural_ext_v1.jsonl" "$(basename "${SEL}")/extend.txt" \
+    "$(basename "${SEL}")/extend.json" "$(basename "${SEL}")/extend_raw.json" \
+    "$(basename "${SEL}")/published_wan21_platform_natural_ext.json" "$(basename "${SEL}")/published_wan21_twostage_natural_ext.json"
   echo "SEND THIS: ${SEL}.tgz"
 }
 
@@ -145,7 +167,7 @@ platform() {
   local m
   for m in check calibrate generate finalize score export; do
     say "platform ${m}"
-    PILOT_CONFIG="${CFG}/published_wan21_platform_natural.json" PUBLISHED_WAN21_ROOT="${P}" \
+    PILOT_CONFIG="${CFG}/published_wan21_platform_${SET}.json" PUBLISHED_WAN21_ROOT="${P}" \
       bash "${S}/run_univ_published_wan21_8gpu.sh" "${m}"
   done
 }
@@ -155,7 +177,7 @@ twostage() {
   gen_env
   bash "${S}/install_twostage_wan21_env.sh" rcm
   need "${P}/dataset_manifest.json" "platform natural must be finalized first"
-  TWOSTAGE_CONFIG="${CFG}/published_wan21_twostage_natural.json" TWOSTAGE_ROOT="${T}" REFERENCE_ROOT="${P}" \
+  TWOSTAGE_CONFIG="${CFG}/published_wan21_twostage_${SET}.json" TWOSTAGE_ROOT="${T}" REFERENCE_ROOT="${P}" \
     bash "${S}/run_univ_twostage_wan21_8gpu.sh" all
 }
 
@@ -196,9 +218,9 @@ route() {
 status() {
   echo "prompts:   $(wc -l < "${PROMPTS}" 2>/dev/null || echo 0)"
   echo "checklist: $(ls "${GEN}/raw" 2>/dev/null | wc -l) generated, $(wc -l < "${CHECKLIST}" 2>/dev/null || echo 0) valid"
-  [[ -f "${P}/plan.json" ]] && PILOT_CONFIG="${CFG}/published_wan21_platform_natural.json" PUBLISHED_WAN21_ROOT="${P}" \
+  [[ -f "${P}/plan.json" ]] && PILOT_CONFIG="${CFG}/published_wan21_platform_${SET}.json" PUBLISHED_WAN21_ROOT="${P}" \
     bash "${S}/run_univ_published_wan21_8gpu.sh" status 2>&1 | tail -3 | sed 's/^/platform  /'
-  [[ -f "${T}/plan.json" ]] && TWOSTAGE_CONFIG="${CFG}/published_wan21_twostage_natural.json" TWOSTAGE_ROOT="${T}" \
+  [[ -f "${T}/plan.json" ]] && TWOSTAGE_CONFIG="${CFG}/published_wan21_twostage_${SET}.json" TWOSTAGE_ROOT="${T}" \
     REFERENCE_ROOT="${P}" bash "${S}/run_univ_twostage_wan21_8gpu.sh" status 2>&1 | sed 's/^/twostage  /'
   echo "fixed:     $(ls "${FIXED}/cache" 2>/dev/null | wc -l) clips"
   echo "dynamic:   vlm $(ls "${DYN}/vlm" 2>/dev/null | wc -l), pair $(ls "${DYN}/pair" 2>/dev/null | wc -l)"
@@ -214,11 +236,11 @@ unattended() {
     bash "$0" "${stage}" || { say "STAGE FAILED: ${stage}"; status; exit 1; }
   done
   status
-  local bundle="${OUT}/natural_v1_results.tgz" files=()
-  mapfile -t files < <(cd "${OUT}" && ls -1 published_wan21_platform_natural/exports/*.tgz published_wan21_twostage_natural/exports/*.tgz \
-    requirements_natural/checklist.jsonl requirements_natural/collect.txt fixed_metrics_natural_analysis.tgz \
-    dynamic_natural_analysis.tgz quality_natural_analysis.tgz quality_natural_v2/quality_by_video.csv \
-    quality_natural_v2/report.txt route_natural_embed_analysis.tgz natural_v1.log 2>/dev/null || true)
+  local bundle="${OUT}/${SET}_v1_results.tgz" files=() s="${SET}"
+  mapfile -t files < <(cd "${OUT}" && ls -1 published_wan21_platform_${s}/exports/*.tgz published_wan21_twostage_${s}/exports/*.tgz \
+    requirements_${s}/checklist.jsonl requirements_${s}/collect.txt fixed_metrics_${s}_analysis.tgz \
+    dynamic_${s}_analysis.tgz quality_${s}_analysis.tgz quality_${s}_v2/quality_by_video.csv \
+    quality_${s}_v2/report.txt route_${s}_embed_analysis.tgz ${s}_v1.log 2>/dev/null || true)
   tar czf "${bundle}" -C "${OUT}" "${files[@]}" && echo "SEND THIS: ${bundle}"
   say "NATURAL BATCH DONE"
 }
