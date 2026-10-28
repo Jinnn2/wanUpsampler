@@ -1,0 +1,17 @@
+retention     controlled n=125  arm 0.37  prompt 0.27  cell x arm 0.089  other prompt x arm 0.27
+   arm means: {'F41_RIFE': np.float64(0.67), 'LR41_FLASH_RIFE': np.float64(0.55), 'LR_FLASH': np.float64(0.58), 'RCM4': np.float64(0.46), 'SCALING10': np.float64(0.96), 'STEP20': np.float64(0.83), 'TEA015': np.float64(0.88)}
+retention     natural    n=236  arm 0.25  prompt 0.28  cell x arm 0.011  other prompt x arm 0.46
+   arm means: {'F41_RIFE': np.float64(0.76), 'LR41_FLASH_RIFE': np.float64(0.52), 'LR_FLASH': np.float64(0.51), 'RCM4': np.float64(0.61), 'SCALING10': np.float64(0.95), 'STEP20': np.float64(0.85), 'TEA015': np.float64(0.87)}
+quality_kept  controlled n=128  arm 0.34  prompt 0.33  cell x arm 0.091  other prompt x arm 0.25
+   arm means: {'F41_RIFE': np.float64(0.67), 'LR41_FLASH_RIFE': np.float64(0.34), 'LR_FLASH': np.float64(0.38), 'RCM4': np.float64(0.4), 'SCALING10': np.float64(0.89), 'STEP20': np.float64(0.7), 'TEA015': np.float64(0.73)}
+quality_kept  natural    n=248  arm 0.49  prompt 0.12  cell x arm 0.006  other prompt x arm 0.38
+   arm means: {'F41_RIFE': np.float64(0.77), 'LR41_FLASH_RIFE': np.float64(0.22), 'LR_FLASH': np.float64(0.24), 'RCM4': np.float64(0.48), 'SCALING10': np.float64(0.96), 'STEP20': np.float64(0.84), 'TEA015': np.float64(0.8)}
+---- FULL measured stats
+{'hh': {'flow_mag': 5.34, 'sharpness': -4.64, 'flow_local': 4.78, 'n': 336}, 'hl': {'flow_mag': 1.82, 'sharpness': -6.52, 'flow_local': 1.65, 'n': 336}, 'lh': {'flow_mag': 0.02, 'sharpness': -3.65, 'flow_local': 0.01, 'n': 336}, 'll': {'flow_mag': 0.04, 'sharpness': -5.97, 'flow_local': 0.02, 'n': 336}}
+{'?': {'flow_mag': 1.24, 'sharpness': -6.08, 'flow_local': 1.16, 'n': 16}, 'hh': {'flow_mag': 0.47, 'sharpness': -5.07, 'flow_local': 0.36, 'n': 112}, 'hl': {'flow_mag': 0.62, 'sharpness': -5.45, 'flow_local': 0.45, 'n': 128}, 'lh': {'flow_mag': 0.16, 'sharpness': -4.7, 'flow_local': 0.11, 'n': 110}, 'll': {'flow_mag': 0.22, 'sharpness': -5.46, 'flow_local': 0.19, 'n': 146}}
+---- controlled retention, single seed (seed 42) vs seed-mean, from dynamic_v1_all
+arms there: ['F41_RIFE', 'LR41_FLASH_RIFE', 'LR_FLASH', 'RCM4', 'SCALING10', 'STEP20', 'TEA015'] seeds: ['100', '2024', '42']
+seed 100: n=121 arm 0.31 prompt 0.24 cell x arm 0.072 other 0.37
+seed 2024: n=121 arm 0.28 prompt 0.26 cell x arm 0.061 other 0.41
+seed 42: n=122 arm 0.25 prompt 0.28 cell x arm 0.065 other 0.41
+seed-to-seed corr of prompt x arm residuals (controlled, retention): 0.311 n prompts 119
