@@ -44,3 +44,29 @@ transfer to natural prompts.
   - The cells are predicted (zero-shot Qwen), not designed.
   - The checklist is machine-only.
   - Natural prompts may rarely hit the extremes that the controlled factors were built to vary.
+
+## Are the cells the problem? (cluster_signal.py, difficulty_signal.py)
+
+Embeddings are the npz files inside the server's `route_natural_embed_analysis.tgz` (not in the repo). Run:
+`python cluster_signal.py route_table.csv emb_t5.npz,emb_qwen.npz,emb_qwenmid.npz labels.json [fixed_by_video.csv]`.
+
+- **Groupings tried:**
+  - k-means (k = 2, 4, 8) on each prompt embedding (L2-normalized, PCA 32).
+  - As an upper bound that no prompt router can reach: k-means on the FULL clip's measured features (flow,
+    flicker, sharpness, color, ...), plus quartiles of flow and sharpness.
+- **Statistics, each against 300 or 100 label permutations:**
+  - the share of variance in group × arm;
+  - held-out (8-fold) R² of the group's arm profile over the global arm profile.
+- **Result:**
+  - No grouping beats its permutation null in a way that matters. Every group × arm share is at most 0.019,
+    against nulls of 0.002–0.014.
+  - Held-out R² is at most +0.004 and mostly below 0.
+  - The few p < 0.05 entries are on quality_kept only, out of 45 tests.
+  - The FULL-video groupings are no better than the prompt clusters.
+- **Difficulty** (a prompt's mean over the 7 arms) is barely predictable either: held-out ridge R² ≤ 0.09 for cell,
+  T5, Qwen and Qwen-mid.
+- **Reading:**
+  - On these 236 prompts × 1 seed there is no group-level prompt → arm structure to find, whether the groups come
+    from cells, embedding clusters or the generated video itself.
+  - Any remaining structure is per-prompt and at the seed-noise level: on controlled prompts the prompt × arm
+    residuals correlate only 0.31 across seeds.

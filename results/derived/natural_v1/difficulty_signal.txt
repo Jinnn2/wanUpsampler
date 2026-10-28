@@ -1,0 +1,4 @@
+held-out R2 of per-prompt difficulty (mean over 7 arms); best ridge lambda in {1,10,100,1000}
+retention {'cell (one-hot)': 0.026, 't5': 0.022, 'qwen': 0.031, 'qwenmid': 0.021}
+quality_kept {'cell (one-hot)': 0.046, 't5': 0.065, 'qwen': 0.028, 'qwenmid': 0.021}
+min {'cell (one-hot)': 0.052, 't5': 0.087, 'qwen': 0.04, 'qwenmid': 0.034}
