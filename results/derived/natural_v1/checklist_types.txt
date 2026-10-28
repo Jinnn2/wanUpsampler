@@ -1,0 +1,6 @@
+controlled all types                          prompts 125  cell x arm share 0.089   RCM4 by cell {np.str_('hh'): np.float64(0.53), np.str_('hl'): np.float64(0.45), np.str_('lh'): np.float64(0.37), np.str_('ll'): np.float64(0.51)}
+controlled content types only                 prompts 122  cell x arm share 0.071   RCM4 by cell {np.str_('hh'): np.float64(0.6), np.str_('hl'): np.float64(0.44), np.str_('lh'): np.float64(0.68), np.str_('ll'): np.float64(0.57)}
+controlled motion/static/camera/detail only   prompts 123  cell x arm share 0.113   RCM4 by cell {np.str_('hh'): np.float64(0.39), np.str_('hl'): np.float64(0.56), np.str_('lh'): np.float64(0.13), np.str_('ll'): np.float64(0.38)}
+natural    all types                          prompts 236  cell x arm share 0.011   RCM4 by cell {np.str_('hh'): np.float64(0.63), np.str_('hl'): np.float64(0.57), np.str_('lh'): np.float64(0.58), np.str_('ll'): np.float64(0.65)}
+natural    content types only                 prompts 231  cell x arm share 0.010   RCM4 by cell {np.str_('hh'): np.float64(0.7), np.str_('hl'): np.float64(0.61), np.str_('lh'): np.float64(0.66), np.str_('ll'): np.float64(0.74)}
+natural    motion/static/camera/detail only   prompts  81  cell x arm share 0.038   RCM4 by cell {np.str_('hh'): np.float64(0.34), np.str_('hl'): np.float64(0.42), np.str_('lh'): np.float64(0.25), np.str_('ll'): np.float64(0.13)}

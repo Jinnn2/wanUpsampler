@@ -70,3 +70,25 @@ Embeddings are the npz files inside the server's `route_natural_embed_analysis.t
     from cells, embedding clusters or the generated video itself.
   - Any remaining structure is per-prompt and at the seed-noise level: on controlled prompts the prompt × arm
     residuals correlate only 0.31 across seeds.
+
+## Why natural differs from controlled (post hoc, 2026-10-28)
+
+- **The checklist mix is not the main cause.**
+  - The natural checklist has few motion, static, camera, detail and count questions: 0.3 / 0.1 / 0.3 / 0.2 / 0.1
+    per prompt, against 0.6 / 0.6 / 1.0 / 0.8 / 0.8 in the controlled frozen v2 checklist. Those are the types
+    where arms differ most; for example, RCM4 keeps 0.18 of static questions against 0.86 of entity questions.
+  - Restricting controlled retention to content types (entity, attribute, negative, spatial, action) keeps cell ×
+    arm at 0.071, against 0.089 with every type. See `checklist_types.py` (input:
+    `dynamic_v1_all/dynamic_by_question.csv` from `dynamic_v1_all_analysis.tgz`, not in the repo).
+- **The effect appears at the motion extremes of natural prompts.**
+  - Compared groups: the top 15% vs the bottom 15% of FULL flow (median 2.79 vs 0.03 px), with the prompt's mean
+    over arms removed and a bootstrap CI:
+    - TEA015: −0.14 [−0.24, −0.04];
+    - RCM4: +0.12 [−0.00, +0.24].
+  - These are the same signs as dev2 (RCM4 best in hh, TEA015 worse in hh). Of 14 such contrasts, only TEA015
+    excludes 0.
+- **The prompt text does not tell which prompts will move.** Held-out R² of log(1+FULL flow) from the prompt:
+  - predicted motion cell: 0.06;
+  - T5 ridge: 0.11; Qwen ridge: 0.19; Qwen-mid ridge: 0.08.
+  - Recall of the top-15% flow prompts is at most 0.31 (chance 0.15).
+  - Natural prompts are short (median 15 words against 33–38 for controlled) and used without prompt extension.
