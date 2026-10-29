@@ -1,0 +1,25 @@
+[extend] 16/256
+[extend] 32/256
+[extend] 48/256
+[extend] 64/256
+[extend] 80/256
+[extend] 96/256
+[extend] 112/256
+[extend] 128/256
+[extend] 144/256
+[extend] 160/256
+[extend] 176/256
+[extend] 192/256
+[extend] 208/256
+[extend] 224/256
+[extend] 240/256
+[extend] 256/256
+wrote 256 extended prompts to /mnt/afs_2/houze/wanUpsampler/outputs/natural_ext_v1_prompts/univ_natural_ext_v1.jsonl
+words: median 103, range 82-137; outside (40, 200): 0 []
+predicted cells {'hh': 158, 'hl': 74, 'lh': 18, 'll': 6}; 148 of 256 differ from the short prompt's cell
+  [1000] a cute puppy runs in circles
+   -> Cute golden retriever puppy with fluffy fur and bright, curious eyes running joyfully in tight circles on a sunlit grassy lawn. The puppy’s tail wags rapidly, ears flapping with motion, and paws kicking up small tufts of grass. The camera follows the puppy in a smooth circular tracking shot, slightly low-angle to emphasize its playful energy. Background features soft-focus green trees and a clear blue sky. Natural daylight with warm golden hour lighting. Lively, heartwarming motion with a cheerful, dynamic pace. Medium shot capturing full-body movement.
+  [1001] calm beautiful view with a puppy
+   -> Serene natural landscape with soft golden sunlight filtering through tall trees, casting gentle dappled shadows on a grassy meadow. A small, fluffy golden puppy with bright, curious eyes sits calmly in the center, tail gently wagging. Its fur glistens in the warm light, and it occasionally lifts its head to sniff the air or glance around with innocent wonder. The background features a calm lake reflecting the sky, with distant hills under a soft blue sky. Gentle breeze rustles the grass and leaves. Cinematic wide shot, slow panning camera movement, peaceful and heartwarming atmosphere.
+  [1002] Very old honey found in Egyptian pyramids
+   -> Documentary-style cinematic footage, a close-up shot of ancient, crystallized honey preserved in a weathered ceramic jar discovered inside an Egyptian pyramid. The honey has a golden-brown, semi-solid texture with visible air bubbles and a faint sheen, indicating its remarkable preservation. The jar rests on a stone floor, surrounded by sand and hieroglyphic carvings on the walls. A beam of sunlight cuts through a narrow opening, illuminating dust particles floating in the air. The camera slowly pans around the jar, then zooms in to reveal intricate details of the honey’s surface. Soft ambient sounds of wind and distant echoes enhance the ancient atmosphere. Wide-angle shot transitioning to macro close-up.

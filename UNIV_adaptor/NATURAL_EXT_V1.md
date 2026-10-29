@@ -70,3 +70,21 @@ Extension changes the generated videos as well as the text. So an extended-vs-sh
 informative text" with "a different video distribution". It is not a pure test of either.
 
 The decision rules above are fixed now and do not change after results arrive.
+
+## Review of the extended prompts (2026-10-29, before any video was scored)
+
+The server run used `natural_ext_v1_prompts.tgz` as-is; the files here are byte-identical to it.
+
+- **Length:** 256 extensions, median 103 words (range 82–137). None falls outside 40–200, and none is a refusal or
+  meta text.
+- **Text kept from the user:** the extensions keep quoted text and titles from the user prompts (11). In 18 of them
+  the extender added sound or music; Wan cannot render sound, so this has no effect on the video.
+- **FIXES:** none.
+- **Predicted cells shift strongly towards high:** hh 158, hl 74, lh 18, ll 6, against 56 / 67 / 55 / 78 for the
+  short prompts.
+  - 148 of the 256 prompts change cell.
+  - The cause is rules 5–6 of Wan's system prompt, which tell the extender to add natural motion and camera
+    movement to every prompt.
+  - With only 24 low-motion prompts, the cell router has little to split on. H1 therefore has less power than it
+    did on natural v1.
+  - The rule is not changed. Whether the videos actually move more is reported under the pairs.

@@ -1,0 +1,11 @@
+{
+  "model": "/mnt/afs_2/houze/models/Qwen3-VL-32B-Instruct",
+  "decoding": "greedy",
+  "max_new_tokens": 320,
+  "system_prompt_sha256": "283ac4b4d7d5b13f5171a57377ab7dc89ed8fe14caff4c1f9ecdbae1f7bc4542",
+  "system_prompt_source": "Wan2.1 wan/utils/prompt_extend.py LM_EN_SYS_PROMPT",
+  "route_questions": {
+    "motion": "Here is a text prompt for a short generated video:\n\"{prompt}\"\nDoes the prompt ask for substantial motion - clearly moving subjects, fast action, or camera movement - rather than a mostly still scene? Answer with only Yes or No.",
+    "detail": "Here is a text prompt for a short generated video:\n\"{prompt}\"\nDoes the prompt ask for dense fine spatial detail - many small objects, intricate textures, or high-frequency patterns filling the frame - rather than a few large, plain, smooth shapes? Answer with only Yes or No."
+  }
+}
