@@ -115,3 +115,42 @@ Quantized attention should show no content interaction.
 - STA / VSA: https://arxiv.org/abs/2502.04507 , https://arxiv.org/abs/2505.13389 , https://github.com/hao-ai-lab/FastVideo
 - Jenga: https://arxiv.org/abs/2505.16864 , https://github.com/JIA-Lab-research/Jenga
 - SLA: https://arxiv.org/html/2509.24006v2
+
+## 4. Mainstream attention acceleration: a taxonomy (2026-11-04)
+
+Written from the survey above and general knowledge of the literature. Speedups are the authors' own figures where §3
+gives them. End-to-end gain is capped by attention's share of DiT time (Amdahl). At 832×480×81 the sequence is about
+32K tokens. Measure the dense FA2 attention share on our H100 before predicting any end-to-end number.
+
+| Family | How it saves time | Representative methods | Training | Lossy? | Content-dependent? | In LightX2V |
+| --- | --- | --- | --- | --- | --- | --- |
+| Exact IO-aware kernels | tiling / fusion, same math | FlashAttention 2/3/4, FlexAttention | none | no | no | flash_attn2/3/4 (our FULL baseline) |
+| Quantized attention | low-bit QK / PV matmuls | SageAttention 1/2/2++/3 (INT8/INT4/FP8/FP4; SA3 needs Blackwell) | none | slightly | no (in principle) | sage_attn2/3 |
+| Static sparse masks | fixed local / decaying pattern | sliding-tile STA, neighborhood attention, Radial Attention | none (STA mask search; Radial LoRA for long videos) | yes | **no**: the same mask for every prompt | radial_attn, nbhd_attn |
+| Dynamic (online) sparse | predicts important blocks per input, then block-sparse kernel | SpargeAttn, SVG1 (spatial/temporal heads), SVG2 (k-means semantic permutation, top-p), draft attention (low-resolution attention map → mask), XAttention-style antidiagonal scoring | none | yes | **yes**: the mask follows the content | sparge_attn / spas_sage_attn2/3, svg_attn, svg2_attn, draft_attn |
+| Trainable sparse / sparse+linear | learned routing or a linear branch for the dropped blocks | VSA, SLA (TurboDiffusion), MoBA-style | fine-tuning required | small after training | yes | sla_attn (needs the fine-tuned weights) |
+| Attention reuse across steps | skip or broadcast attention outputs between timesteps / CFG branches | PAB (pyramid attention broadcast), DiTFastAttn (window + step/CFG sharing) | none | yes | partly | — (overlaps with feature caching: TeaCache / ScalingCache) |
+| Token reduction | shorter sequence (merge / prune tokens) | token merging / pruning for video DiTs | mostly none | yes | yes | — |
+| Multi-GPU sequence parallel | split the sequence over GPUs, exact | Ulysses, Ring attention, xDiT | none | no | no | ulysses, ring (out of scope: changes the hardware budget) |
+
+**What the benchmark gains from each family:**
+
+- **Quantized (SageAttention2).** The near-lossless reference point. It should show no prompt × arm interaction; if it
+  does, that is a finding in itself.
+- **Static sparse (Radial / sliding-tile).** The cleanest test of the content hypothesis. A fixed local mask should
+  lose most where long-range spatio-temporal dependencies matter: large motion and camera movement.
+- **Dynamic sparse (SVG2, SpargeAttn).** The adaptive counterpart. Does adapting the mask to content remove the
+  failures of the static mask, or move them to other content?
+- **Out of scope for a training-free, single-GPU comparison:** trainable sparse (VSA / SLA), sequence-parallel
+  methods, and attention reuse (redundant with the caching arms already in the benchmark).
+
+**Suggested arms:**
+
+| Arm | Family | Settings |
+| --- | --- | --- |
+| SAGE2 | quantized | SageAttention2 8-bit |
+| RADIAL | static sparse | Radial Attention, default settings |
+| SVG2 | dynamic sparse | SVG2, authors' default top-p, 30% dense warm-up |
+| SPARGE (optional) | dynamic sparse | SpargeAttn, if the budget allows |
+
+All arms run on the LightX2V path, with a FULL50 from the same path.
