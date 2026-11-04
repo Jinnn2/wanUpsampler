@@ -1,0 +1,11 @@
+250 valid, 6 failed, 0 not generated
+attempts needed: 1: 169, 2: 75, 3: 6
+FAILED p2061: p2061/q4: evidence is not an exact span of the prompt: "assemble into the name 'Solulu'"
+FAILED p2104: p2104/q6: detail is judged on single frames, which cannot show movement; ask about movement as action or motion, or ask only what one frame shows
+FAILED p2110: p2110/q13: evidence is not an exact span of the prompt: 'of the Lustrous — a surreal, otherworldly landscape'
+FAILED p2152: reply is not a JSON object with a 'questions' list
+FAILED p2217: p2217/q8: spatial is judged on single frames, which cannot show movement; ask about movement as action or motion, or ask only what one frame shows
+FAILED p2230: p2230/q10: evidence is not an exact span of the prompt: "The text 'Doraemon vs. Dark Doraemon' appears in bold, glowing white font at the top center"
+250 prompts, 3430 questions (13.7 per prompt)
+by type: attribute 883, entity 532, action 498, spatial 454, camera 279, lighting 193, motion 190, negative 164, detail 160, focus 26, integrity 24, count 14, static 13
+by judge: vlm_frames 2207, vlm_video 522, flow 482, luma 193, sharpness 26

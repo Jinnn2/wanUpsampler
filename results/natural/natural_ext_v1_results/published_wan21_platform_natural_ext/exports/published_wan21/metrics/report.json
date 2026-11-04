@@ -1,0 +1,183 @@
+{
+  "claim": "Natural prompt set v1, extended: frontier platform accelerators on real user prompts, 2 seeds, as a test of whether prompt->method regions extend beyond the designed motion/detail cells.",
+  "status": "pilot; metric inadequacy and router benefit require independent human/heldout evidence",
+  "partial_exploratory": false,
+  "summary": [
+    {
+      "arm": "SCALING10",
+      "origin": "natural_vidprom_ext_v1",
+      "nominal_cell": "high/high",
+      "groups": 316,
+      "prompts": 158,
+      "mean_speedup": 1.7528186475218193,
+      "mean_delta_vbench5": -0.0019769649468212693,
+      "prompt_bootstrap_ci": [
+        -0.002694976313630511,
+        -0.0012995727974200182
+      ],
+      "close_score_fraction": 0.12025316455696203
+    },
+    {
+      "arm": "SCALING10",
+      "origin": "natural_vidprom_ext_v1",
+      "nominal_cell": "high/low",
+      "groups": 148,
+      "prompts": 74,
+      "mean_speedup": 1.8035203812267755,
+      "mean_delta_vbench5": -0.0013992075799602929,
+      "prompt_bootstrap_ci": [
+        -0.0024019222794055004,
+        -0.00047276401898193704
+      ],
+      "close_score_fraction": 0.20270270270270271
+    },
+    {
+      "arm": "SCALING10",
+      "origin": "natural_vidprom_ext_v1",
+      "nominal_cell": "low/high",
+      "groups": 36,
+      "prompts": 18,
+      "mean_speedup": 1.8269827951965338,
+      "mean_delta_vbench5": 0.00027075181991161816,
+      "prompt_bootstrap_ci": [
+        -0.00185723826048417,
+        0.0023585324280664738
+      ],
+      "close_score_fraction": 0.08333333333333333
+    },
+    {
+      "arm": "SCALING10",
+      "origin": "natural_vidprom_ext_v1",
+      "nominal_cell": "low/low",
+      "groups": 12,
+      "prompts": 6,
+      "mean_speedup": 1.8507374406500499,
+      "mean_delta_vbench5": -0.0011934338417733021,
+      "prompt_bootstrap_ci": [
+        -0.0060753081219319756,
+        0.0018364424340915342
+      ],
+      "close_score_fraction": 0.3333333333333333
+    },
+    {
+      "arm": "STEP20",
+      "origin": "natural_vidprom_ext_v1",
+      "nominal_cell": "high/high",
+      "groups": 316,
+      "prompts": 158,
+      "mean_speedup": 2.1725702593093223,
+      "mean_delta_vbench5": -0.003401471935342188,
+      "prompt_bootstrap_ci": [
+        -0.005621145763634449,
+        -0.0013513285167493147
+      ],
+      "close_score_fraction": 0.05063291139240506
+    },
+    {
+      "arm": "STEP20",
+      "origin": "natural_vidprom_ext_v1",
+      "nominal_cell": "high/low",
+      "groups": 148,
+      "prompts": 74,
+      "mean_speedup": 2.17249908918276,
+      "mean_delta_vbench5": -0.0033463032411434877,
+      "prompt_bootstrap_ci": [
+        -0.006484854477922673,
+        -0.0002901030444615863
+      ],
+      "close_score_fraction": 0.0472972972972973
+    },
+    {
+      "arm": "STEP20",
+      "origin": "natural_vidprom_ext_v1",
+      "nominal_cell": "low/high",
+      "groups": 36,
+      "prompts": 18,
+      "mean_speedup": 2.169223236393043,
+      "mean_delta_vbench5": -0.0042714366653637415,
+      "prompt_bootstrap_ci": [
+        -0.010095737947114707,
+        0.000893858869473947
+      ],
+      "close_score_fraction": 0.027777777777777776
+    },
+    {
+      "arm": "STEP20",
+      "origin": "natural_vidprom_ext_v1",
+      "nominal_cell": "low/low",
+      "groups": 12,
+      "prompts": 6,
+      "mean_speedup": 2.172412177591057,
+      "mean_delta_vbench5": 0.00257896966968151,
+      "prompt_bootstrap_ci": [
+        -0.001221150479689496,
+        0.005802402929201302
+      ],
+      "close_score_fraction": 0.08333333333333333
+    },
+    {
+      "arm": "TEA015",
+      "origin": "natural_vidprom_ext_v1",
+      "nominal_cell": "high/high",
+      "groups": 316,
+      "prompts": 158,
+      "mean_speedup": 2.341564948730292,
+      "mean_delta_vbench5": -0.003757064101643548,
+      "prompt_bootstrap_ci": [
+        -0.005419416283518573,
+        -0.0020818527590036728
+      ],
+      "close_score_fraction": 0.05379746835443038
+    },
+    {
+      "arm": "TEA015",
+      "origin": "natural_vidprom_ext_v1",
+      "nominal_cell": "high/low",
+      "groups": 148,
+      "prompts": 74,
+      "mean_speedup": 2.3422511917459516,
+      "mean_delta_vbench5": -0.005134815252676034,
+      "prompt_bootstrap_ci": [
+        -0.007459354440686117,
+        -0.002736292543950387
+      ],
+      "close_score_fraction": 0.06756756756756757
+    },
+    {
+      "arm": "TEA015",
+      "origin": "natural_vidprom_ext_v1",
+      "nominal_cell": "low/high",
+      "groups": 36,
+      "prompts": 18,
+      "mean_speedup": 2.3382862708358028,
+      "mean_delta_vbench5": -0.0007124588174543441,
+      "prompt_bootstrap_ci": [
+        -0.004938595377124001,
+        0.0038942680862624848
+      ],
+      "close_score_fraction": 0.1111111111111111
+    },
+    {
+      "arm": "TEA015",
+      "origin": "natural_vidprom_ext_v1",
+      "nominal_cell": "low/low",
+      "groups": 12,
+      "prompts": 6,
+      "mean_speedup": 2.34260208646421,
+      "mean_delta_vbench5": -0.0030149722284248857,
+      "prompt_bootstrap_ci": [
+        -0.007491918366795691,
+        0.002048401001091151
+      ],
+      "close_score_fraction": 0
+    }
+  ],
+  "caveats": [
+    "Not official VBench Total or a full paper-table reproduction.",
+    "Published presets have different measured speedups: no latency-matched quality ranking.",
+    "Cells are nominal prompt labels; inspect base_observability_review.csv without excluding base failures after viewing scores.",
+    "Two seeds and very few prompt families cannot establish generalizable prompt-only routing.",
+    "Dynamic degree is a motion diagnostic, not universally higher-is-better.",
+    "Bootstrap conditions on observed seeds and uses prompt clusters; tiny cell intervals may be unavailable."
+  ]
+}

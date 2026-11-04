@@ -1,0 +1,15 @@
+wrote /mnt/afs_2/houze/wanUpsampler/outputs/quality_natural_ext/quality_by_video.csv (5760 rows)
+
+FULL acceptable rate (single-video VLM): 0.94
+
+per case: share kept vs FULL (pairwise, both orders) per aspect; acceptable rate; DOVER and sharpness deltas
+case                 sharp  artifa  aesthe  tempor  accept    all    hh    hl    lh    ll  accept  dDOVER  dSharp
+DVG_D050              0.50    0.43    0.65    0.59    0.47   0.53  0.34  0.40  0.67  0.70    0.80     nan    0.55
+DVG_D070              0.32    0.22    0.46    0.51    0.31   0.36  0.18  0.25  0.50  0.51    0.78     nan    0.59
+F41_RIFE              0.76    0.91    0.95    0.85    0.92   0.88  0.86  0.88  0.97  0.98    0.96     nan   -0.10
+LR41_FLASH_RIFE       0.16    0.28    0.54    0.23    0.23   0.29  0.25  0.33  0.42  0.50    0.82     nan    0.04
+LR_FLASH              0.22    0.35    0.58    0.20    0.25   0.32  0.29  0.33  0.44  0.65    0.78     nan    0.12
+RCM4                  0.70    0.76    0.92    0.54    0.76   0.73  0.71  0.76  0.77  0.83    0.96     nan    0.19
+SCALING10             0.88    0.97    0.98    0.97    0.99   0.96  0.95  0.96  0.99  1.00    0.97     nan   -0.07
+STEP20                0.66    0.89    0.92    0.82    0.88   0.84  0.82  0.85  0.90  0.97    0.96     nan   -0.08
+TEA015                0.71    0.89    0.94    0.86    0.94   0.87  0.85  0.87  0.96  0.97    0.96     nan   -0.16

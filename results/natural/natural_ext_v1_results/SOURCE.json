@@ -1,0 +1,42 @@
+{
+ "archive": "natural_ext_v1_results.tgz",
+ "sha256": "ac09e4ab7305cefd2209895448def6a09ebbe36d18ea948461ea9e383e49b47b",
+ "ingested": "2026-11-04",
+ "note": "natural_ext v1: 256 natural prompts extended with Wan2.1 LM_EN_SYS_PROMPT (Qwen3-VL-32B greedy), seeds 42+100, 8 arms; pre-registration UNIV_adaptor/NATURAL_EXT_V1.md",
+ "kept": [
+  "dynamic_natural_ext/dynamic_by_video.csv",
+  "dynamic_natural_ext/report.txt",
+  "fixed_metrics_natural_ext/fixed_by_video.csv",
+  "fixed_metrics_natural_ext/report.txt",
+  "natural_ext_v1.log",
+  "published_wan21_platform_natural_ext/exports/published_wan21/base_observability_review.csv",
+  "published_wan21_platform_natural_ext/exports/published_wan21/calibration_audit.json",
+  "published_wan21_platform_natural_ext/exports/published_wan21/metrics/paired_deltas.csv",
+  "published_wan21_platform_natural_ext/exports/published_wan21/metrics/quality_by_video.csv",
+  "published_wan21_platform_natural_ext/exports/published_wan21/metrics/report.json",
+  "published_wan21_platform_natural_ext/exports/published_wan21/metrics/score_provenance.json",
+  "published_wan21_twostage_natural_ext/exports/twostage_wan21/metrics/paired_deltas.csv",
+  "published_wan21_twostage_natural_ext/exports/twostage_wan21/metrics/quality_by_video.csv",
+  "published_wan21_twostage_natural_ext/exports/twostage_wan21/metrics/report.json",
+  "published_wan21_twostage_natural_ext/exports/twostage_wan21/metrics/score_provenance.json",
+  "quality_natural_ext/quality_by_video.csv",
+  "quality_natural_ext/report.txt",
+  "quality_natural_ext_v2/quality_by_video.csv",
+  "quality_natural_ext_v2/report.txt",
+  "requirements_natural_ext/checklist.jsonl",
+  "requirements_natural_ext/collect.txt",
+  "route_natural_ext_embed/emb_qwen.json",
+  "route_natural_ext_embed/emb_qwenmid.json",
+  "route_natural_ext_embed/emb_t5.json",
+  "route_natural_ext_embed/embed_evaluate.log",
+  "route_natural_ext_embed/route_embed_eval.csv",
+  "route_natural_ext_embed/route_embed_report.md",
+  "route_natural_ext_embed/route_table.csv"
+ ],
+ "skipped_by_suffix": {
+  ".json": 28573,
+  ".csv": 1,
+  ".log": 72,
+  ".npz": 3
+ }
+}

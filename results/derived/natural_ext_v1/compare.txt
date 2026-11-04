@@ -1,0 +1,44 @@
+
+===== short (seed 42)
+prompts 236 cells {'hh': 52, 'hl': 60, 'lh': 54, 'll': 70}
+retention     arm means F41_RIFE=0.76 LR41_FLA=0.52 LR_FLASH=0.51 RCM4=0.61 SCALING1=0.95 STEP20=0.85 TEA015=0.87  | shares arm=0.253 prompt=0.279 cell_x_arm=0.011 other_prompt_x_arm=0.457
+quality_kept  arm means F41_RIFE=0.77 LR41_FLA=0.22 LR_FLASH=0.24 RCM4=0.48 SCALING1=0.96 STEP20=0.84 TEA015=0.80  | shares arm=0.492 prompt=0.121 cell_x_arm=0.006 other_prompt_x_arm=0.381
+cell x arm sign agreement with dev2: 18/28, r = +0.14
+FULL flow median 0.28 p85 1.45 by cell {'hh': 0.47, 'hl': 0.62, 'lh': 0.16, 'll': 0.22}
+text -> log(1+flow) held-out R2: cell 0.068  t5=0.099 qwen=0.168 qwenmid=0.109
+top-15% vs bottom-15% flow (median 2.79 vs 0.03), min(ret,Q) relative to prompt mean:
+   F41_RIFE +0.019[-0.11,+0.14]  LR41_FLA -0.081[-0.18,+0.01]  LR_FLASH +0.086[-0.03,+0.20]  RCM4 +0.119[-0.00,+0.24]  SCALING1 +0.021[-0.05,+0.09]  STEP20 -0.022[-0.13,+0.08]  TEA015 -0.143[-0.24,-0.04]
+
+===== ext seed 42
+prompts 250 cells {'hh': 154, 'hl': 72, 'lh': 18, 'll': 6}
+retention     arm means F41_RIFE=0.80 LR41_FLA=0.54 LR_FLASH=0.59 RCM4=0.71 SCALING1=0.95 STEP20=0.85 TEA015=0.90  | shares arm=0.342 prompt=0.230 cell_x_arm=0.011 other_prompt_x_arm=0.417
+quality_kept  arm means F41_RIFE=0.90 LR41_FLA=0.34 LR_FLASH=0.32 RCM4=0.74 SCALING1=0.97 STEP20=0.87 TEA015=0.89  | shares arm=0.501 prompt=0.182 cell_x_arm=0.005 other_prompt_x_arm=0.312
+cell x arm sign agreement with dev2: 18/28, r = +0.38
+FULL flow median 0.98 p85 4.41 by cell {'hh': 1.17, 'hl': 0.99, 'lh': 0.19, 'll': 0.11}
+text -> log(1+flow) held-out R2: cell 0.048  t5=0.453 qwen=0.494 qwenmid=0.568
+top-15% vs bottom-15% flow (median 8.33 vs 0.07), min(ret,Q) relative to prompt mean:
+   F41_RIFE -0.113[-0.20,-0.03]  LR41_FLA -0.056[-0.13,+0.03]  LR_FLASH -0.086[-0.18,+0.01]  RCM4 +0.138[+0.04,+0.23]  SCALING1 +0.123[+0.07,+0.17]  STEP20 +0.045[-0.04,+0.13]  TEA015 -0.051[-0.14,+0.03]
+
+===== ext seed 100
+prompts 250 cells {'hh': 154, 'hl': 72, 'lh': 18, 'll': 6}
+retention     arm means F41_RIFE=0.78 LR41_FLA=0.52 LR_FLASH=0.59 RCM4=0.69 SCALING1=0.94 STEP20=0.85 TEA015=0.91  | shares arm=0.356 prompt=0.230 cell_x_arm=0.008 other_prompt_x_arm=0.406
+quality_kept  arm means F41_RIFE=0.86 LR41_FLA=0.24 LR_FLASH=0.33 RCM4=0.73 SCALING1=0.95 STEP20=0.80 TEA015=0.85  | shares arm=0.484 prompt=0.194 cell_x_arm=0.003 other_prompt_x_arm=0.318
+cell x arm sign agreement with dev2: 20/28, r = +0.60
+FULL flow median 0.94 p85 5.58 by cell {'hh': 1.12, 'hl': 1.04, 'lh': 0.46, 'll': 0.07}
+text -> log(1+flow) held-out R2: cell 0.04  t5=0.430 qwen=0.493 qwenmid=0.556
+top-15% vs bottom-15% flow (median 10.69 vs 0.04), min(ret,Q) relative to prompt mean:
+   F41_RIFE -0.119[-0.20,-0.04]  LR41_FLA -0.025[-0.12,+0.08]  LR_FLASH +0.029[-0.08,+0.14]  RCM4 +0.232[+0.13,+0.33]  SCALING1 +0.058[-0.02,+0.14]  STEP20 -0.013[-0.10,+0.07]  TEA015 -0.161[-0.25,-0.07]
+
+===== ext both seeds
+prompts 250 cells {'hh': 154, 'hl': 72, 'lh': 18, 'll': 6}
+retention     arm means F41_RIFE=0.79 LR41_FLA=0.53 LR_FLASH=0.59 RCM4=0.70 SCALING1=0.95 STEP20=0.85 TEA015=0.90  | shares arm=0.455 prompt=0.207 cell_x_arm=0.009 other_prompt_x_arm=0.329
+quality_kept  arm means F41_RIFE=0.88 LR41_FLA=0.29 LR_FLASH=0.32 RCM4=0.73 SCALING1=0.96 STEP20=0.83 TEA015=0.87  | shares arm=0.568 prompt=0.189 cell_x_arm=0.004 other_prompt_x_arm=0.239
+cell x arm sign agreement with dev2: 18/28, r = +0.54
+FULL flow median 0.94 p85 5.5 by cell {'hh': 1.16, 'hl': 0.99, 'lh': 0.33, 'll': 0.08}
+text -> log(1+flow) held-out R2: cell 0.045  t5=0.461 qwen=0.538 qwenmid=0.600
+top-15% vs bottom-15% flow (median 9.57 vs 0.07), min(ret,Q) relative to prompt mean:
+   F41_RIFE -0.080[-0.14,-0.02]  LR41_FLA -0.090[-0.17,-0.01]  LR_FLASH -0.052[-0.14,+0.03]  RCM4 +0.192[+0.11,+0.28]  SCALING1 +0.093[+0.05,+0.14]  STEP20 +0.028[-0.03,+0.09]  TEA015 -0.091[-0.16,-0.02]
+
+ext seed 42 vs 100, retention: corr of prompt x arm residuals 0.234, of prompt means 0.377 (n=250)
+
+ext seed 42 vs 100, quality_kept: corr of prompt x arm residuals 0.311, of prompt means 0.734 (n=250)

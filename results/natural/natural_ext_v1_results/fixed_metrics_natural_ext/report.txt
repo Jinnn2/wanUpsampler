@@ -1,0 +1,12 @@
+wrote /mnt/afs_2/houze/wanUpsampler/outputs/fixed_metrics_natural_ext/fixed_by_video.csv (5760 rows)
+median paired deltas by case (all sources):
+case                lr_flow_mag lr_flow_came flow_alterna      flicker         boil    sharpness   saturation hue_shift_de
+DVG_D050                  0.063        0.132        0.314        0.106        0.011        0.571        0.050        8.862
+DVG_D070                 -0.023       -0.014        0.175        0.072       -0.009        0.607        0.033       10.260
+F41_RIFE                 -0.171        0.079       -0.165        0.211       -0.018       -0.121        0.012        5.745
+LR41_FLASH_RIFE          -0.432       -0.189       -0.120        0.242       -0.044        0.029        0.061        8.185
+LR_FLASH                 -0.032        0.172        0.152        0.109        0.016        0.095        0.050        9.077
+RCM4                      0.756        1.359        0.089        0.086        0.086        0.179       -0.062       11.982
+SCALING10                -0.010        0.001       -0.001       -0.001        0.012       -0.066       -0.005        0.594
+STEP20                   -0.139       -0.074        0.004       -0.003        0.002       -0.063        0.046        4.406
+TEA015                   -0.087       -0.059        0.001       -0.005        0.021       -0.157       -0.015        1.944
