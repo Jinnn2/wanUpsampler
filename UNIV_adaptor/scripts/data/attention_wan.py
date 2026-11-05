@@ -313,8 +313,19 @@ def run(args):
         log = open(out / "logs" / f"worker_gpu{gpu}.log", "a", encoding="utf-8")
         procs.append((gpu, subprocess.Popen(cmd, env={**os.environ, "CUDA_VISIBLE_DEVICES": gpu, "PYTHONDONTWRITEBYTECODE": "1"},
                                             stdout=log, stderr=subprocess.STDOUT)))
-    bad = [gpu for gpu, p in procs if p.wait() != 0]
-    print("all workers finished" if not bad else f"workers failed on GPUs {bad}; see {out / 'logs'}")
+    # Watchdog: tqdm writes every denoising step (~1 s), so a log that stops changing for HANG_SECONDS is a hung kernel
+    # (seen with SpargeAttn at 65% sparsity). Kill that worker; its unfinished jobs have no receipt and rerun next time.
+    hung = []
+    while any(p.poll() is None for _, p in procs):
+        time.sleep(30)
+        for gpu, p in procs:
+            log = out / "logs" / f"worker_gpu{gpu}.log"
+            if p.poll() is None and time.time() - log.stat().st_mtime > args.hang_seconds:
+                p.kill()
+                hung.append(gpu)
+                print(f"GPU {gpu}: no progress for {args.hang_seconds}s, killed (hung kernel); rerun to retry its jobs", flush=True)
+    bad = [gpu for gpu, p in procs if p.returncode != 0]
+    print("all workers finished" if not bad else f"workers failed on GPUs {bad} (hung: {hung}); see {out / 'logs'}")
     sys.exit(1 if bad else 0)
 
 
@@ -397,6 +408,7 @@ def main(argv=None):
     r.add_argument("--seeds", nargs="*", type=int)
     r.add_argument("--first", type=int, help="only the first N prompts of the config (after --prompt-ids)")
     r.add_argument("--model-root", default=DEFAULT_MODEL)
+    r.add_argument("--hang-seconds", type=int, default=600)
     r.add_argument("--python", default=os.environ.get("PYTHON_WAN21", sys.executable))
     w = sub.add_parser("worker")
     for name in ("--jobs", "--out", "--gpu", "--config", "--model-root"):

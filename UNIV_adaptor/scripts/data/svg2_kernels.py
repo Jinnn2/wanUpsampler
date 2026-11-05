@@ -7,6 +7,8 @@ which in turn port github.com/svg-project/Sparse-VideoGen. The LightX2V attentio
 k-means state across videos and has no dense warm-up. attention_wan.py's Svg2Layer replaces it with the per-layer state
 of the official Svg2 processor (svg/models/wan/attention.py).
 """
+from typing import Optional  # used by the svg2_attn.py kernels below
+
 # ---- svg2_attn_utils.py (verbatim) ----
 import torch
 import torch.nn.functional as F
