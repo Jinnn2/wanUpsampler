@@ -142,5 +142,65 @@ class FinalizeTest(unittest.TestCase):
                 aw.finalize(SimpleNamespace(out=str(out), config=str(config), reference=str(ref), arms=["SVG2"]))
 
 
+
+FAKE_WORKER = r'''
+import json, sys, time, pathlib
+a = sys.argv[1:]
+arg = lambda k: a[a.index(k) + 1]
+out, jobs = pathlib.Path(arg("--out")), json.loads(pathlib.Path(arg("--jobs")).read_text())
+print(f"[gpu {arg('--gpu')}] START warmup", flush=True)
+for j in jobs:
+    print(f"[gpu {arg('--gpu')}] START {j['id']}", flush=True)
+    marker = out / ("hung_" + j["id"])
+    if j["id"].endswith(out.joinpath("HANG").read_text()) and (not marker.exists() or "ALWAYS" in j["id"]):
+        marker.write_text("x")
+        time.sleep(600)
+    (out / "records").mkdir(exist_ok=True)
+    (out / "records" / (j["id"] + ".json")).write_text("{}")
+'''
+
+
+class WatchdogTest(unittest.TestCase):
+    def _run(self, tmp, hang_suffix, prompts):
+        import json
+        import subprocess
+        from types import SimpleNamespace
+        from unittest import mock
+        tmp = Path(tmp)
+        (tmp / "HANG").write_text(hang_suffix)
+        fake = tmp / "fake_worker.py"
+        fake.write_text(FAKE_WORKER)
+        cfg = tmp / "cfg.json"
+        cfg.write_text(json.dumps({"prompts": [{"id": p, "prompt": p} for p in prompts], "seeds": [42]}))
+        real_popen = subprocess.Popen
+
+        def popen(cmd, **kw):
+            return real_popen([sys.executable, str(fake), *cmd[3:]], **kw)
+        ok = mock.Mock(returncode=0)
+        args = SimpleNamespace(config=str(cfg), out=str(tmp), arms=["SPARGE50"], gpus="0,1", prompt_ids=None, first=None,
+                               seeds=None, python=sys.executable, model_root="m", hang_seconds=2, max_hangs=2,
+                               max_restarts=5, poll_seconds=0.5)
+        with mock.patch.object(aw.subprocess, "Popen", popen), mock.patch.object(aw.subprocess, "run", return_value=ok):
+            with self.assertRaises(SystemExit) as stop:
+                aw.run(args)
+        return stop.exception.code, json.loads((tmp / "hangs.json").read_text()) if (tmp / "hangs.json").exists() else {}
+
+    def test_hung_job_is_retried_on_the_same_gpu(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            code, hangs = self._run(tmp, "p1_s42_SPARGE50", ["p0", "p1", "p2", "p3"])
+            self.assertEqual(code, 0)
+            self.assertEqual(hangs, {"pilot_p1_s42_SPARGE50": 1})
+            self.assertEqual(len(list(Path(tmp, "records").glob("*.json"))), 4)
+
+    def test_job_that_always_hangs_is_skipped_others_finish(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            code, hangs = self._run(tmp, "ALWAYS_s42_SPARGE50", ["p0", "ALWAYS", "p2", "p3"])
+            self.assertEqual(code, 1)
+            self.assertEqual(hangs, {"pilot_ALWAYS_s42_SPARGE50": 2})
+            self.assertEqual(len(list(Path(tmp, "records").glob("*.json"))), 3)
+
+
 if __name__ == "__main__":
     unittest.main()

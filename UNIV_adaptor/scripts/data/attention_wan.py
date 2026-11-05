@@ -233,6 +233,7 @@ def worker(args):
 
     def execute(job, warmup=False):
         nonlocal patch
+        print(f"[gpu {args.gpu}] START {'warmup' if warmup else job['id']}", flush=True)
         out = Path(args.out)
         video = out / "videos" / job["arm"] / (job["id"] + ".mp4")
         video.parent.mkdir(parents=True, exist_ok=True)
@@ -301,32 +302,64 @@ def run(args):
     print(f"python {args.python}: imports {need} OK")
     gpus = args.gpus.split(",")
     (out / "logs").mkdir(parents=True, exist_ok=True)
-    procs = []
-    for i, gpu in enumerate(gpus):
-        mine = todo[i::len(gpus)]
-        if not mine:
-            continue
+    queues = {gpu: todo[i::len(gpus)] for i, gpu in enumerate(gpus)}
+    hangs_path = out / "hangs.json"
+    hangs = read(hangs_path) if hangs_path.exists() else {}
+    done = lambda j: (out / "records" / (j["id"] + ".json")).exists()
+
+    def remaining(gpu):
+        return [j for j in queues[gpu] if not done(j) and hangs.get(j["id"], 0) < args.max_hangs]
+
+    def launch(gpu):
+        mine = remaining(gpu)
         jf = out / "logs" / f"jobs_gpu{gpu}.json"
         jf.write_text(json.dumps(mine, ensure_ascii=False, indent=1), encoding="utf-8")
         cmd = [args.python, str(Path(__file__).resolve()), "worker", "--jobs", str(jf), "--out", str(out), "--gpu", gpu,
                "--config", str(Path(args.config).resolve()), "--model-root", args.model_root]
         log = open(out / "logs" / f"worker_gpu{gpu}.log", "a", encoding="utf-8")
-        procs.append((gpu, subprocess.Popen(cmd, env={**os.environ, "CUDA_VISIBLE_DEVICES": gpu, "PYTHONDONTWRITEBYTECODE": "1"},
-                                            stdout=log, stderr=subprocess.STDOUT)))
-    # Watchdog: tqdm writes every denoising step (~1 s), so a log that stops changing for HANG_SECONDS is a hung kernel
-    # (seen with SpargeAttn at 65% sparsity). Kill that worker; its unfinished jobs have no receipt and rerun next time.
-    hung = []
-    while any(p.poll() is None for _, p in procs):
-        time.sleep(30)
-        for gpu, p in procs:
+        return subprocess.Popen(cmd, env={**os.environ, "CUDA_VISIBLE_DEVICES": gpu, "PYTHONDONTWRITEBYTECODE": "1"},
+                                stdout=log, stderr=subprocess.STDOUT)
+
+    def running_job(gpu):  # the worker prints "START <job id>" before each video (warm-ups included)
+        lines = (out / "logs" / f"worker_gpu{gpu}.log").read_text(encoding="utf-8", errors="replace").splitlines()
+        return next((line.split("START ", 1)[1].strip() for line in reversed(lines) if "] START " in line), None)
+
+    # Watchdog: tqdm writes every denoising step (~1 s), so a log that stops changing for --hang-seconds is a hung
+    # kernel (SpargeAttn stalls at random steps, at 65% and occasionally at 50% sparsity). The worker is killed and
+    # restarted on the same GPU with its remaining jobs; a job that hangs --max-hangs times is skipped and reported.
+    procs = {gpu: launch(gpu) for gpu in gpus if remaining(gpu)}
+    restarts = {gpu: 0 for gpu in gpus}
+    failed = []
+    while procs:
+        time.sleep(getattr(args, "poll_seconds", 30))
+        for gpu, proc in list(procs.items()):
             log = out / "logs" / f"worker_gpu{gpu}.log"
-            if p.poll() is None and time.time() - log.stat().st_mtime > args.hang_seconds:
-                p.kill()
-                hung.append(gpu)
-                print(f"GPU {gpu}: no progress for {args.hang_seconds}s, killed (hung kernel); rerun to retry its jobs", flush=True)
-    bad = [gpu for gpu, p in procs if p.returncode != 0]
-    print("all workers finished" if not bad else f"workers failed on GPUs {bad} (hung: {hung}); see {out / 'logs'}")
-    sys.exit(1 if bad else 0)
+            killed = False
+            if proc.poll() is None and time.time() - log.stat().st_mtime > args.hang_seconds:
+                proc.kill()
+                proc.wait()
+                killed = True
+                stuck = running_job(gpu)
+                if stuck and stuck != "warmup":
+                    hangs[stuck] = hangs.get(stuck, 0) + 1
+                    hangs_path.write_text(json.dumps(hangs, indent=1), encoding="utf-8")
+                print(f"GPU {gpu}: no progress for {args.hang_seconds}s in {stuck}, killed (hung kernel)", flush=True)
+            if proc.poll() is None:
+                continue
+            del procs[gpu]
+            if proc.returncode != 0 and not killed:
+                print(f"GPU {gpu}: worker crashed (exit {proc.returncode}); see {log}", flush=True)
+                failed.append(gpu)
+                continue
+            if remaining(gpu) and restarts[gpu] < args.max_restarts:
+                restarts[gpu] += 1
+                print(f"GPU {gpu}: restart {restarts[gpu]} with {len(remaining(gpu))} jobs left", flush=True)
+                procs[gpu] = launch(gpu)
+    missing = [j["id"] for j in jobs if not done(j)]
+    skipped = [k for k in missing if hangs.get(k, 0) >= args.max_hangs]
+    print(f"{len(jobs) - len(missing)}/{len(jobs)} done; restarts {restarts}; hung jobs skipped: {skipped}; "
+          f"crashed GPUs: {failed}", flush=True)
+    sys.exit(1 if missing else 0)
 
 
 def records(out):
@@ -537,7 +570,9 @@ def main(argv=None):
     r.add_argument("--seeds", nargs="*", type=int)
     r.add_argument("--first", type=int, help="only the first N prompts of the config (after --prompt-ids)")
     r.add_argument("--model-root", default=DEFAULT_MODEL)
-    r.add_argument("--hang-seconds", type=int, default=600)
+    r.add_argument("--hang-seconds", type=int, default=480)
+    r.add_argument("--max-hangs", type=int, default=3, help="skip a job after this many hangs")
+    r.add_argument("--max-restarts", type=int, default=40, help="per GPU")
     r.add_argument("--python", default=os.environ.get("PYTHON_WAN21", sys.executable))
     w = sub.add_parser("worker")
     for name in ("--jobs", "--out", "--gpu", "--config", "--model-root"):
