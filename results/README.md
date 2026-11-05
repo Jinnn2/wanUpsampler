@@ -47,6 +47,7 @@ Cells: motion x detail, written `hl` = high motion, low detail.
 | `derived/natural_ext_v1` | natural ext v1 verdict (H1-H3), short vs extended pairs, motion-quartile router; computed locally | computed locally |
 | `natural/natural_v1_results` | natural set v1: generation metrics, fixed / dynamic / quality v2 layers, checklist, vector-router eval (236 scored prompts) | natural_v1_results.tgz |
 | `derived/natural_v1` | natural set v1 verdict against the pre-registered rule, and arm x cell interaction replication vs dev2; computed locally | computed locally |
+| `attention/attention_probe` | attention-arm probe on 4x A800 (FULL50_LX / SAGE2 / SVG2 / SPARGE, one prompt): probe.json, configs, timing.txt | attention_probe.tgz |
 | `misc/official_check` | official Wan sample check log | official_check.tgz |
 | `misc/batch_dev2.log`, `misc/batch_dev2_SOURCE.json` | dev2 batch log; source record of the batch tgz split into the folders above | batch_dev2_results.tgz |
 

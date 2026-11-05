@@ -1,0 +1,18 @@
+{
+ "archive": "attention_probe.tgz",
+ "sha256": "81aa80b23030e6c123f6a3e7ba053c96abf3c608e225fa7f22d34e70c3ed920a",
+ "ingested": "2026-11-05",
+ "note": "4x A800 probe, 1 prompt seed 42: FULL50_LX/SAGE2/SVG2/SPARGE via LightX2V; FULL deterministic; DiT speedup SAGE2 1.09x, SVG2 1.02x (1.18x steady), SPARGE 1.77x",
+ "kept": [
+  "configs/FULL50_LX.json",
+  "configs/SAGE2.json",
+  "configs/SPARGE.json",
+  "configs/SVG2.json",
+  "probe.json"
+ ],
+ "skipped_by_suffix": {
+  ".log": 5,
+  ".env": 1,
+  ".mp4": 5
+ }
+}

@@ -1,0 +1,14 @@
+LightX2V profiler lines from the probe logs (logs not kept: too large). 4x A800, 832x480x81, 50 steps, CFG, seed 42,
+four arms started in parallel (one per GPU), FULL50_LX_repeat after SPARGE finished.
+
+arm               DiT total  step median  first step  vs FULL DiT  PSNR vs FULL (81 frames)
+FULL50_LX         150.5 s    2.91 s       3.52 s      1.00x        -
+FULL50_LX_repeat  148.5 s    2.87 s       3.41 s      -            identical (sha256 equal)
+SAGE2             137.5 s    2.65 s       3.20 s      1.09x        22.6 dB
+SVG2              147.2 s    2.54 s       14.81 s     1.02x (1.18x steady state)   16.3 dB
+SPARGE (0.8)       84.9 s    1.59 s       2.21 s      1.77x        11.9 dB
+
+Kernel libraries: sageattention and spas_sage_attn from the base image (/app/SageAttention, /app/SpargeAttn),
+flashinfer 0.5.3, flash_attn 2.8.3, torch 2.8.0+cu128. "Sage2++ NOT enabled" (sm89/90-only path).
+Visual check: SAGE2 = same clip as FULL; SVG2 = same layout and motion, small detail drift;
+SPARGE = different composition (extra car in frame 0), smeared frames 20-40.
