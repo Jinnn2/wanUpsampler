@@ -396,6 +396,135 @@ def report(args):
     Path(args.out, "report.txt").write_text(text + "\n", encoding="utf-8")
 
 
+# ----------------------------------------------------------------------------------------------- dataset (published format)
+# finalize/score turn OUT into a root that score_controlled_factor_requirements.published_rows() reads like a platform or
+# two-stage root: plan.json (config with the prompts), dataset_manifest.json (records), metrics/quality_by_video.csv
+# (VBench). FULL50 is the platform's own record, reused unchanged (the DENSE gate showed the path reproduces it bitwise).
+PLAN_SCHEMA, DATASET_SCHEMA = "attention_wan_plan_v1", "attention_wan_dataset_v1"
+
+
+def digest(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+def reference_full(reference):
+    frozen, manifest = read(Path(reference) / "plan.json"), read(Path(reference) / "dataset_manifest.json")
+    if manifest["plan_sha256"] != frozen["plan_sha256"] or manifest["partial_exploratory"]:
+        raise ValueError(f"{reference} is not a completely finalized platform run")
+    return frozen, {(r["job"]["prompt_id"], r["job"]["seed"]): r for r in manifest["records"] if r["job"]["arm"]["id"] == "FULL50"}
+
+
+def finalize(args):
+    out, cfg = Path(args.out).resolve(), read(args.config)
+    frozen, full = reference_full(args.reference)
+    if [p["id"] for p in frozen["config"]["prompts"]] != [p["id"] for p in cfg["prompts"]] or frozen["config"]["seeds"] != cfg["seeds"]:
+        raise ValueError("Reference platform run has other prompts or seeds than --config")
+    recs = records(out)
+    rows = []
+    for p in cfg["prompts"]:
+        for seed in cfg["seeds"]:
+            ref = full[(p["id"], seed)]
+            if sha256(ref["video_path"]) != ref["video_sha256"]:
+                raise RuntimeError(f"Platform FULL50 changed on disk: {ref['video_path']}")
+            rows.append({"job": ref["job"], "video_path": ref["video_path"], "video_sha256": ref["video_sha256"],
+                         "runtime": {"pipeline_seconds": ref["runtime"]["pipeline_seconds"]}, "reference_job": ref["job"]["id"]})
+            for arm in args.arms:
+                r = recs.get(job_id(p["id"], seed, arm))
+                if r is None:
+                    raise RuntimeError(f"Missing {job_id(p['id'], seed, arm)}; run generation first")
+                if sha256(r["video_path"]) != r["video_sha256"]:
+                    raise RuntimeError(f"Video changed after its receipt: {r['video_path']}")
+                rows.append({"job": {"id": r["job"]["id"], "group_id": f"{p['id']}_s{seed}", "phase": "pilot",
+                                     "prompt_id": p["id"], "prompt": p["prompt"], "seed": seed,
+                                     "arm": {"id": arm, **ARMS[arm]}},
+                             "video_path": r["video_path"], "video_sha256": r["video_sha256"],
+                             "runtime": {"pipeline_seconds": r["runtime"]["pipeline_seconds"]},
+                             "attention": r["attention"]})
+    body = {"schema": PLAN_SCHEMA, "config": cfg, "arms": ["FULL50", *args.arms],
+            "reference": {"root": str(Path(args.reference).resolve()), "plan_sha256": frozen["plan_sha256"]},
+            "implementation": {f.name: sha256(f) for f in (Path(__file__), Path(__file__).with_name("svg2_kernels.py"))}}
+    plan = body | {"plan_sha256": digest(body)}
+    groups = sorted({r["job"]["group_id"] for r in rows})
+    manifest = {"schema": DATASET_SCHEMA, "plan_sha256": plan["plan_sha256"], "partial_exploratory": False,
+                "expected_groups": len(groups), "complete_groups": groups, "records": rows}
+    for name, value in (("plan.json", plan), ("dataset_manifest.json", manifest)):
+        path = out / name
+        if path.exists() and read(path) != value:
+            raise ValueError(f"{path} exists with other content; use a new --out")
+        path.write_text(json.dumps(value, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    print(f"Finalized {len(rows)} videos / {len(groups)} groups (FULL50 reused from {args.reference})")
+
+
+def score(args):
+    """VBench for the attention arms; the FULL50 rows are the platform's own scores (same file, same sha)."""
+    sys.path.insert(0, str(ROOT))
+    import csv
+    import shutil
+    import statistics
+    from changing_resolution_uni.scripts.data.batch_vbench_score_dataset import inspect_vbench_checkout, score_case_directory, warmup_vbench_cache
+    out = Path(args.out).resolve()
+    plan, manifest = read(out / "plan.json"), read(out / "dataset_manifest.json")
+    if manifest["plan_sha256"] != plan["plan_sha256"]:
+        raise ValueError("Manifest does not belong to plan.json")
+    cfg = plan["config"]
+    quality, diagnostic = cfg["evaluation"]["quality_dimensions"], cfg["evaluation"]["diagnostic_dimensions"]
+    prompts = {p["id"]: p for p in cfg["prompts"]}
+    inputs = []
+    for record in manifest["records"]:
+        j, p = record["job"], prompts[record["job"]["prompt_id"]]
+        inputs.append({"observation_id": j["id"], "group_id": j["group_id"], "action_id": j["arm"]["id"],
+                       "prompt": j["prompt"], "prompt_key": j["prompt_id"], "seed": j["seed"], "motion": p["motion"],
+                       "detail": p["detail"], "family_id": p["family_id"], "origin": p["origin"],
+                       "video_path": record["video_path"], "video_sha256": record["video_sha256"],
+                       "pipeline_seconds": record["runtime"]["pipeline_seconds"]})
+    with (Path(plan["reference"]["root"]) / "metrics" / "quality_by_video.csv").open(encoding="utf-8-sig", newline="") as f:
+        platform = {r["observation_id"]: r for r in csv.DictReader(f)}
+    metrics = out / "metrics"
+    metrics.mkdir(parents=True, exist_ok=True)
+    identity = inspect_vbench_checkout(args.vbench_root, expected_commit=args.expected_vbench_commit)
+    warmup_vbench_cache(args.vbench_python, args.vbench_root)
+    output, provenance = [], {"FULL50": "copied from the platform run's metrics/quality_by_video.csv"}
+    for row in (r for r in inputs if r["action_id"] == "FULL50"):
+        src = platform[row["observation_id"]]
+        if src["video_sha256"] != row["video_sha256"]:
+            raise ValueError(f"Platform VBench row is for another video: {row['observation_id']}")
+        output.append(row | {d: float(src[d]) for d in quality + diagnostic} | {"vbench5": float(src["vbench5"])})
+    for arm in plan["arms"][1:]:
+        rows = [r for r in inputs if r["action_id"] == arm]
+        directory = metrics / "inputs" / arm
+        directory.mkdir(parents=True, exist_ok=True)
+        for row in rows:
+            target = directory / (row["observation_id"] + ".mp4")
+            if not target.exists():
+                try:
+                    os.link(row["video_path"], target)
+                except OSError:
+                    shutil.copy2(row["video_path"], target)
+            elif sha256(target) != row["video_sha256"]:
+                raise ValueError(f"Scoring link changed: {target}")
+        prompt_map = directory / "prompt_map.json"
+        prompt_map.write_text(json.dumps({str((directory / (r["observation_id"] + ".mp4")).resolve()): r["prompt"] for r in rows},
+                                         ensure_ascii=False, indent=1), encoding="utf-8")
+        bundle = score_case_directory(args.vbench_root, args.vbench_python, directory, prompt_map, metrics / "vbench" / arm,
+                                      quality + diagnostic, quality, diagnostic, args.ngpus, False, identity)
+        provenance[arm] = bundle.provenance
+        for row in rows:
+            values = bundle.scores[row["observation_id"]]
+            output.append(row | values | {"vbench5": statistics.mean(values[d] for d in quality)})
+    with (metrics / "quality_by_video.csv").open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(output[0]))
+        writer.writeheader()
+        writer.writerows(output)
+    (metrics / "score_provenance.json").write_text(json.dumps({"plan_sha256": plan["plan_sha256"], "vbench": provenance,
+        "quality_csv_sha256": sha256(metrics / "quality_by_video.csv"),
+        "aggregate": "vbench5 is an exploratory raw five-dimension mean, NOT normalized official VBench Total"},
+        indent=1, default=str) + "\n", encoding="utf-8")
+    by = {}
+    for r in output:
+        by.setdefault(r["action_id"], []).append(r["vbench5"])
+    print("mean vbench5: " + "  ".join(f"{a}={statistics.mean(v):.4f} (n={len(v)})" for a, v in by.items()))
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = p.add_subparsers(dest="mode", required=True)
@@ -418,8 +547,19 @@ def main(argv=None):
     g.add_argument("--reference", required=True)
     o = sub.add_parser("report")
     o.add_argument("--out", required=True)
+    f = sub.add_parser("finalize")
+    f.add_argument("--out", required=True)
+    f.add_argument("--config", required=True)
+    f.add_argument("--reference", required=True, help="the finalized platform root with this config's FULL50")
+    f.add_argument("--arms", nargs="+", required=True, choices=[a for a in ARMS if a != "DENSE"])
+    s = sub.add_parser("score")
+    s.add_argument("--out", required=True)
+    s.add_argument("--vbench-root", default="/mnt/afs_2/houze/VBench")
+    s.add_argument("--vbench-python", default="/opt/conda/bin/python")
+    s.add_argument("--expected-vbench-commit", default="fd18b3d055cb0fc6f066ca90fe2c3c8cbb698490")
+    s.add_argument("--ngpus", type=int, default=4)
     args = p.parse_args(argv)
-    {"run": run, "worker": worker, "gate": gate, "report": report}[args.mode](args)
+    {"run": run, "worker": worker, "gate": gate, "report": report, "finalize": finalize, "score": score}[args.mode](args)
 
 
 if __name__ == "__main__":

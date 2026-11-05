@@ -77,5 +77,70 @@ class PatchTest(unittest.TestCase):
         self.assertEqual((patch.calls, patch.layers), (0, {}))
 
 
+
+class FinalizeTest(unittest.TestCase):
+    """finalize writes a root that the scoring pipeline's published_rows() accepts, with FULL50 reused."""
+
+    def test_finalize_reads_back_through_published_rows(self):
+        import csv
+        import json
+        import tempfile
+        from types import SimpleNamespace
+        root = Path(__file__).resolve().parents[2]
+        sys.path.insert(0, str(root))
+        from UNIV_adaptor.scripts.data.score_controlled_factor_requirements import published_rows
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            prompts = [{"id": f"cf00{i}", "prompt": f"prompt {i}", "origin": "controlled_factor_v1", "family_id": "f0",
+                        "split": "train", "motion": "high", "detail": "low"} for i in range(2)]
+            cfg = {"prompts": prompts, "seeds": [42], "evaluation": {"quality_dimensions": ["a"], "diagnostic_dimensions": []}}
+            ref, out = tmp / "platform", tmp / "attn"
+            (ref / "metrics").mkdir(parents=True)
+            (out / "records").mkdir(parents=True)
+            recs = []
+            for p in prompts:
+                for arm in ("FULL50", "SVG2"):
+                    video = tmp / f"{p['id']}_{arm}.mp4"
+                    video.write_bytes(f"{p['id']}{arm}".encode())
+                    job = {"id": aw.job_id(p["id"], 42, arm), "group_id": f"{p['id']}_s42", "prompt_id": p["id"],
+                           "prompt": p["prompt"], "seed": 42, "arm": arm if arm != "FULL50" else {"id": "FULL50"}}
+                    rec = {"job": job, "video_path": str(video), "video_sha256": aw.sha256(video),
+                           "runtime": {"pipeline_seconds": 100.0 if arm == "FULL50" else 90.0},
+                           "attention": {"mean_kept_fraction": 0.2}}
+                    if arm == "FULL50":
+                        recs.append(rec)
+                    else:
+                        (out / "records" / f"{job['id']}.json").write_text(json.dumps(rec), encoding="utf-8")
+            (ref / "plan.json").write_text(json.dumps({"config": cfg, "plan_sha256": "p"}), encoding="utf-8")
+            (ref / "dataset_manifest.json").write_text(json.dumps({"plan_sha256": "p", "partial_exploratory": False, "records": recs}),
+                                                       encoding="utf-8")
+            config = tmp / "cfg.json"
+            config.write_text(json.dumps(cfg), encoding="utf-8")
+            aw.finalize(SimpleNamespace(out=str(out), config=str(config), reference=str(ref), arms=["SVG2"]))
+            manifest = json.loads((out / "dataset_manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(manifest["records"]), 4)
+            # the VBench CSV that `score` writes, faked here
+            (out / "metrics").mkdir()
+            dims = ("subject_consistency", "background_consistency", "motion_smoothness", "aesthetic_quality",
+                    "imaging_quality", "dynamic_degree", "overall_consistency")
+            with (out / "metrics" / "quality_by_video.csv").open("w", newline="", encoding="utf-8") as f:
+                w = csv.DictWriter(f, fieldnames=["observation_id", "video_sha256", "pipeline_seconds", "vbench5", *dims])
+                w.writeheader()
+                for r in manifest["records"]:
+                    w.writerow({"observation_id": r["job"]["id"], "video_sha256": r["video_sha256"],
+                                "pipeline_seconds": r["runtime"]["pipeline_seconds"], "vbench5": 0.8, **{d: 0.8 for d in dims}})
+            rows, _, quality = published_rows(out)
+            cases = sorted({r["case_id"] for r in rows})
+            self.assertEqual(len(rows), 4)
+            self.assertEqual(cases[0] != "FULL50", True)  # FULL50 is renamed to the shared FULL case id
+            self.assertIn("SVG2", cases)
+            self.assertEqual({r["group_id"] for r in rows}, {"main_p000_s42", "main_p001_s42"})
+            # finalize is idempotent and refuses a changed video
+            aw.finalize(SimpleNamespace(out=str(out), config=str(config), reference=str(ref), arms=["SVG2"]))
+            (tmp / "cf000_SVG2.mp4").write_bytes(b"changed")
+            with self.assertRaises(RuntimeError):
+                aw.finalize(SimpleNamespace(out=str(out), config=str(config), reference=str(ref), arms=["SVG2"]))
+
+
 if __name__ == "__main__":
     unittest.main()
