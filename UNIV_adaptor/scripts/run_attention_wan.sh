@@ -19,7 +19,7 @@ done
 [[ -x "${WAN_PYTHON:-}" ]] || WAN_PYTHON=""
 [[ -z "${WAN_PYTHON}" && -x .venv_published_wan21/bin/python ]] && { WAN_PYTHON="${REPO_ROOT}/.venv_published_wan21/bin/python"; ENV_FILE="fallback .venv_published_wan21"; }
 export PYTHON_WAN21="${PYTHON_WAN21:-${WAN_PYTHON:-/opt/conda/bin/python}}"
-PY=/opt/conda/bin/python
+PY="/opt/conda/bin/python -u"  # unbuffered, so the log shows progress under nohup
 A=UNIV_adaptor/scripts/data/attention_wan.py
 CFG=UNIV_adaptor/configs/published_wan21_platform_natural_ext.json
 OUT="outputs/attention_wan_${TAG}"  # one folder per GPU type: timings and bitwise output depend on it
@@ -28,12 +28,12 @@ COMMON=(--config "${CFG}" --out "${OUT}" --first 4 --seeds 42 --gpus "${GPUS:-0,
 echo "GPU ${TAG}; out ${OUT}; worker python: ${PYTHON_WAN21} (from ${ENV_FILE}; env files here: $(ls outputs/twostage_env/ 2>/dev/null | xargs))"
 
 gate() {
-  "${PY}" "${A}" run "${COMMON[@]}" --arms DENSE SPARGE50 SPARGE65 SPARGE80
-  "${PY}" "${A}" gate --out "${OUT}" --reference "${REF}" | tee "${OUT}/gate.txt"
+  ${PY} "${A}" run "${COMMON[@]}" --arms DENSE SPARGE50 SPARGE65 SPARGE80
+  ${PY} "${A}" gate --out "${OUT}" --reference "${REF}" | tee "${OUT}/gate.txt"
 }
-svg2() { "${PY}" "${A}" run "${COMMON[@]}" --arms SVG2; }
+svg2() { ${PY} "${A}" run "${COMMON[@]}" --arms SVG2; }
 pack() {
-  "${PY}" "${A}" report --out "${OUT}"
+  ${PY} "${A}" report --out "${OUT}"
   echo "GPU ${TAG}; out ${OUT}; worker python: ${PYTHON_WAN21}" > "${OUT}/python.txt"
   tar czf "${OUT}.tgz" -C outputs "attention_wan_${TAG}"
   echo "SEND THIS: ${REPO_ROOT}/${OUT}.tgz"
