@@ -338,6 +338,14 @@ def gate(args):
         rows.append((jid, "IDENTICAL" if same else "DIFFERENT", psnr, r["runtime"]["pipeline_seconds"], ref["runtime"]["pipeline_seconds"]))
     for row in rows:
         print(*row)
+    if not rows:
+        print("GATE NOT RUN: no DENSE records yet (see the worker logs)")
+        return
+    new = next(r for r in records(args.out).values() if r["job"]["arm"] == "DENSE")["environment"]
+    old = read(Path(args.reference) / "records" / (job_id(rows[0][0].split("_")[1], 42, "FULL50") + ".json")).get("environment", {})
+    for key in sorted(set(new) | set(old)):
+        if key in ("wan_module", "wan_commit") or new.get(key) != old.get(key):
+            print(f"  env {key}: platform={old.get(key)}  now={new.get(key)}")
     print("GATE PASSED: platform FULL50 can be reused" if ok and rows else
           "GATE FAILED: DENSE does not reproduce the platform FULL50; attention arms need their own DENSE reference")
 
