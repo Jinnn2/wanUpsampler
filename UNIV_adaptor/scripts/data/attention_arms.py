@@ -60,6 +60,7 @@ for name in ("torch", "flash_attn", "sageattention", "spas_sage_attn", "flashinf
         m = importlib.import_module(name); out[name] = [getattr(m, "__version__", "?"), getattr(m, "__file__", "?")]
     except Exception as e:
         out[name] = ["missing", type(e).__name__ + ": " + str(e)[:120]]
+print()
 print(json.dumps(out))"""
 
 
@@ -133,9 +134,11 @@ def probe(args):
     full = {r["tag"]: r for r in results if r["arm"] == "FULL50_LX"}
     deterministic = (len(full) == 2 and all(r["ok"] for r in full.values())
                      and full["FULL50_LX"]["video_sha256"] == full["FULL50_LX_repeat"]["video_sha256"])
-    libs = subprocess.run([args.python, "-c", LIBS], capture_output=True, text=True).stdout
+    # Importing the kernels prints banners (e.g. "Sage2++ NOT enabled") on stdout; the JSON is the last {...} line.
+    libs = subprocess.run([args.python, "-c", LIBS], capture_output=True, text=True).stdout.splitlines()
+    libs = next((json.loads(line) for line in reversed(libs) if line.startswith("{")), None)
     report = {"model": args.model, "lightx2v": args.lightx2v, "prompt": args.prompt, "seed": args.seed,
-              "python": args.python, "libraries": json.loads(libs) if libs.strip() else None,
+              "python": args.python, "libraries": libs,
               "full_deterministic": deterministic, "runs": sorted(results, key=lambda r: r["tag"])}
     (out / "probe.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     base = full.get("FULL50_LX", {}).get("wall_seconds")
