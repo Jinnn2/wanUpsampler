@@ -1,0 +1,16 @@
+{
+ "archive": "attention_wan_nvidiah10080gbhbm3.tgz",
+ "sha256": "05fcdafe403d974142fdc52f48529a27a3bb16aab62add66410658ed2c689083",
+ "ingested": "2026-11-05",
+ "note": "official-Wan path, H100, 4 natural_ext prompts seed 42: DENSE bitwise = platform FULL50; SPARGE50/65/80 1.47/1.55/1.64x; SVG2 1.08x; SPARGE65 hangs",
+ "kept": [
+  "gate.txt",
+  "python.txt",
+  "report.txt"
+ ],
+ "skipped_by_suffix": {
+  ".json": 22,
+  ".log": 4,
+  ".mp4": 18
+ }
+}

@@ -1,0 +1,1 @@
+GPU nvidiah10080gbhbm3; out outputs/attention_wan_nvidiah10080gbhbm3; worker python: /mnt/afs_2/houze/wanUpsampler/.venv_published_wan21/bin/python

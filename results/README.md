@@ -48,6 +48,7 @@ Cells: motion x detail, written `hl` = high motion, low detail.
 | `natural/natural_v1_results` | natural set v1: generation metrics, fixed / dynamic / quality v2 layers, checklist, vector-router eval (236 scored prompts) | natural_v1_results.tgz |
 | `derived/natural_v1` | natural set v1 verdict against the pre-registered rule, and arm x cell interaction replication vs dev2; computed locally | computed locally |
 | `attention/attention_probe` | attention-arm probe on 4x A800 (FULL50_LX / SAGE2 / SVG2 / SPARGE, one prompt): probe.json, configs, timing.txt | attention_probe.tgz |
+| `attention/attention_wan_h100` | attention arms on the official-Wan path, H100 (DENSE gate = platform FULL50 bitwise; SpargeAttn sweep; SVG2): records, report.txt, gate.txt, visual_check.txt | attention_wan_nvidiah10080gbhbm3.tgz |
 | `misc/official_check` | official Wan sample check log | official_check.tgz |
 | `misc/batch_dev2.log`, `misc/batch_dev2_SOURCE.json` | dev2 batch log; source record of the batch tgz split into the folders above | batch_dev2_results.tgz |
 

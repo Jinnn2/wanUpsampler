@@ -1,0 +1,9 @@
+pilot_nt2000_s42_DENSE IDENTICAL None 101.89052486419678 102.30941265821457
+pilot_nt2001_s42_DENSE IDENTICAL None 101.97023117914796 102.79509848356247
+pilot_nt2002_s42_DENSE IDENTICAL None 102.0547186434269 101.37537684291601
+pilot_nt2003_s42_DENSE IDENTICAL None 102.3194739446044 102.54575719684362
+  env dense_attention_backend: platform=flash_attention_2  now=None
+  env safetensors: platform=0.8.0  now=0.7.0
+  env wan_commit: platform=None  now=9737cba9c1c3c4d04b33fcad41c111989865d315
+  env wan_module: platform=/mnt/afs_2/houze/wanUpsampler/UNIV_adaptor/external/wan21/wan/__init__.py  now=/mnt/afs_2/houze/wanUpsampler/UNIV_adaptor/external/wan21/wan/__init__.py
+GATE PASSED: platform FULL50 can be reused

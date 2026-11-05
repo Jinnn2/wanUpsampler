@@ -1,0 +1,10 @@
+Visual check of the 4 prompts (frames 0/20/40/60/80, grids kept locally), H100, seed 42, against DENSE (= platform FULL50):
+- SVG2 (official SAP settings, 20% dense warm-up): nearly the same clip as DENSE in all 4 (PSNR 22.3 dB);
+  a faint noisy texture at frame 0 of nt2003. Kept attention 19% on the 40 sparse steps, but only 1.08x end to end:
+  k-means + flashinfer planning per call eat the saving at 1.3B / 480p (32760 tokens).
+- SPARGE50: same subject and rough layout, but recomposed (PSNR 13.3 dB); nt2002 changes the jar mid-clip (f20->f40),
+  nt2003 drifts into overexposure by f60-f80.
+- SPARGE80: different composition from frame 0; nt2002 has a hard scene change (jar -> honeycomb dish) at f20-f40,
+  nt2003 degrades into mush by f80. Not usable as an operating point.
+- SPARGE65: hung in 3 of 5 attempts (SpargeAttn topk 0.35 kernel stall at random steps); dropped.
+Decision proposal: formal attention arms = SVG2 + SPARGE50, scored against the platform FULL50.
