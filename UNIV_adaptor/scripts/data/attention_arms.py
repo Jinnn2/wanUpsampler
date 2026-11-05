@@ -14,9 +14,10 @@ Arms (see ACCELERATOR_EVAL_SURVEY.md section 4 for the choice):
   FULL50_LX  flash_attn2                 dense reference on this path
   SAGE2      sage_attn2                  quantized attention (INT8 QK / FP8 PV), content-independent
   RADIAL     radial_attn                 static O(n log n) spatio-temporal decay mask (needs magi_attention)
-  NBHD       nbhd_attn                   static neighbourhood mask (fallback static arm; needs magi_attention)
   SVG2       svg2_attn                   dynamic semantic (k-means) sparse attention (needs flashinfer)
-  DRAFT      draft_attn                  dynamic mask from a low-resolution draft attention map
+  SPARGE     spas_sage_attn2, sparge_mode  SpargeAttn: dynamic block mask from mean-similarity of Q/K blocks, run with
+                                         the SageAttention2 block-sparse kernel, fixed 80% sparsity (LightX2V default);
+                                         training-free, no tuned sparge checkpoint
 LightX2V applies the sparse backends at every step and layer. The SVG2 paper keeps the first 30% of steps dense, so
 SVG2 here is "LightX2V's SVG2", not the authors' exact recipe; the probe decides whether that matters for quality.
 """
@@ -43,9 +44,9 @@ ARMS = {
     "FULL50_LX": {},
     "SAGE2": {"self_attn_1_type": "sage_attn2"},
     "RADIAL": {"self_attn_1_type": "radial_attn"},
-    "NBHD": {"self_attn_1_type": "nbhd_attn"},
     "SVG2": {"self_attn_1_type": "svg2_attn"},
-    "DRAFT": {"self_attn_1_type": "draft_attn", "draft_attn_sparsity_ratio": 0.75},
+    "SPARGE": {"self_attn_1_type": "spas_sage_attn2",
+               "spas_sage_attn2_setting": {"sparsity_ratio": 0.8, "sparse_mode": "sparge_mode"}},
 }
 PROBE_PROMPT = ("A red sports car drifts around a sharp corner on a wet mountain road at dusk, spraying water, "
                 "while the camera tracks alongside it.")
