@@ -1,5 +1,7 @@
 """Attention-level accelerator arms for Wan2.1-T2V-1.3B through LightX2V's attention backends.
 
+Machine (2026-11-05): 4x A800 (sm_80). RADIAL was dropped: its MagiAttention kernel needs Hopper.
+
 Every arm, including its own dense reference FULL50_LX, runs on the same LightX2V code path with the same sampling as
 the platform (832x480, 81 frames, 50 steps, shift 8, CFG 6, Wan's default negative prompt). Only the video
 self-attention backend changes; cross-attention stays FlashAttention-2 in every arm. Platform v1 showed that two code
@@ -13,7 +15,6 @@ paths give different FULL clips (like two seeds), so these arms are scored only 
 Arms (see ACCELERATOR_EVAL_SURVEY.md section 4 for the choice):
   FULL50_LX  flash_attn2                 dense reference on this path
   SAGE2      sage_attn2                  quantized attention (INT8 QK / FP8 PV), content-independent
-  RADIAL     radial_attn                 static O(n log n) spatio-temporal decay mask (needs magi_attention)
   SVG2       svg2_attn                   dynamic semantic (k-means) sparse attention (needs flashinfer)
   SPARGE     spas_sage_attn2, sparge_mode  SpargeAttn: dynamic block mask from mean-similarity of Q/K blocks, run with
                                          the SageAttention2 block-sparse kernel, fixed 80% sparsity (LightX2V default);
@@ -43,7 +44,6 @@ BASE = {"infer_steps": 50, "target_video_length": 81, "text_len": 512, "target_h
 ARMS = {
     "FULL50_LX": {},
     "SAGE2": {"self_attn_1_type": "sage_attn2"},
-    "RADIAL": {"self_attn_1_type": "radial_attn"},
     "SVG2": {"self_attn_1_type": "svg2_attn"},
     "SPARGE": {"self_attn_1_type": "spas_sage_attn2",
                "spas_sage_attn2_setting": {"sparsity_ratio": 0.8, "sparse_mode": "sparge_mode"}},
@@ -148,7 +148,7 @@ def main(argv=None):
     p.add_argument("--python", default=sys.executable, help="interpreter with the attention kernels (ATTN_PYTHON from install_attention_env.sh)")
     p.add_argument("--prompt", default=PROBE_PROMPT)
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--gpus", default="0,1,2,3,4,5,6,7")
+    p.add_argument("--gpus", default="0,1,2,3")
     args = parser.parse_args(argv)
     {"configs": configs, "probe": probe}[args.mode](args)
 

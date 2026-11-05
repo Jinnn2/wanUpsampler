@@ -149,7 +149,7 @@ gives them. End-to-end gain is capped by attention's share of DiT time (Amdahl).
 | Arm | Family | Settings |
 | --- | --- | --- |
 | SAGE2 | quantized | SageAttention2 8-bit |
-| RADIAL | static sparse | Radial Attention, default settings |
+| ~~RADIAL~~ | static sparse | dropped 2026-11-05: the run machine is 4x A800 (sm_80), and LightX2V's radial_attn needs MagiAttention (Hopper only) |
 | SVG2 | dynamic sparse | SVG2, authors' default top-p, 30% dense warm-up |
 | SPARGE | dynamic sparse | SpargeAttn block selection (`spas_sage_attn2`, `sparge_mode`, 80% sparsity), no tuned checkpoint |
 

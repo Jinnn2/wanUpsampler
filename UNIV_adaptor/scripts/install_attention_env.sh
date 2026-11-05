@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# One-time build of the attention-backend environment for attention_arms.py (SAGE2, SPARGE, SVG2, RADIAL).
+# One-time build of the attention-backend environment for attention_arms.py (SAGE2, SPARGE, SVG2).
 #
 #   bash UNIV_adaptor/scripts/install_attention_env.sh            # all steps
 #   bash UNIV_adaptor/scripts/install_attention_env.sh <step>     # one step
-#   steps: preflight venv sage sparge flashinfer magi verify probe
+#   steps: preflight venv sage sparge flashinfer verify probe
 #
 # The venv lives on the shared afs repo and is built once per GPU type (.venv_attn_<gpu-tag>), inheriting the base
 # image's torch / flash-attn / LightX2V dependencies (--system-site-packages); the compiled kernels go only into
@@ -18,7 +18,6 @@ BASE_PYTHON="${BASE_PYTHON:-/opt/conda/bin/python}"
 LIGHTX2V="${LIGHTX2V:-/mnt/afs_2/houze/LightX2V}"
 MODEL_ROOT="${MODEL_ROOT:-/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B}"
 EXT="${REPO_ROOT}/UNIV_adaptor/external"
-MAGI_SRC="${MAGI_SRC:-}"  # default: /app/MagiAttention when the image ships it, else a fresh clone
 MAX_JOBS="${MAX_JOBS:-32}"
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 MAX_JOBS
 cd "${REPO_ROOT}"
@@ -60,8 +59,6 @@ QKV='import torch
 q, k, v = (torch.randn(1, 4096, 12, 128, device="cuda", dtype=torch.bfloat16) for _ in range(3))'
 SAGE_OK="${QKV}
 from sageattention import sageattn
-from sageattention._qattn_sm90 import qk_int8_sv_f8_accum_f32_fuse_v_scale_attn_inst_buf
-from sageattention.triton.quant_per_thread import quant_query_per_thread_int8_kernel
 o = sageattn(q, k, v, tensor_layout=\"NHD\"); ref = torch.nn.functional.scaled_dot_product_attention(*(t.transpose(1, 2) for t in (q, k, v))).transpose(1, 2)
 print('sageattention', __import__('sageattention').__file__, 'max err', float((o - ref).abs().max()))"
 SPARGE_OK='import spas_sage_attn._fused, spas_sage_attn._qattn
@@ -70,16 +67,13 @@ print("spas_sage_attn", spas_sage_attn._fused.__file__)'
 FLASHINFER_OK='import flashinfer
 assert hasattr(flashinfer.sparse, "VariableBlockSparseAttentionWrapper")
 print("flashinfer", flashinfer.__version__)'
-MAGI_OK='from magi_attention.functional import flex_flash_attn_func
-import magi_attention
-print("magi_attention", magi_attention.__file__)'
 
 preflight() {
   say "preflight (read-only)"
   command -v nvidia-smi >/dev/null || die "nvidia-smi not found"
   nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv,noheader
   echo "GPU tag ${TAG}, compute capability $(arch)"
-  [[ "$(arch)" == "9.0" ]] || echo "  NOTE  not Hopper: SageAttention2's sm90 kernel and MagiAttention (RADIAL) need sm_90; SAGE2 falls back, RADIAL will not build"
+  case "$(arch)" in 8.0|8.6|8.9|9.0) ;; *) echo "  NOTE  untested compute capability $(arch): SageAttention2 / SpargeAttn kernels exist for sm80/86/89/90" ;; esac
   "${BASE_PYTHON}" -c 'import torch, sys; assert torch.cuda.is_available(); print("base python", sys.version.split()[0], "torch", torch.__version__, "cuda", torch.version.cuda)' \
     || die "BASE_PYTHON must be the CUDA PyTorch image: ${BASE_PYTHON}"
   "${BASE_PYTHON}" -c 'import flash_attn; print("flash_attn", flash_attn.__version__)' || die "flash_attn missing in the base image (FULL50_LX uses it)"
@@ -130,40 +124,20 @@ see github.com/svg-project/Sparse-VideoGen for the flashinfer build SVG2 expects
   record_env FLASHINFER_VERSION "$("${PY}" -c 'import flashinfer; print(flashinfer.__version__)')"
 }
 
-magi() {
-  say "MagiAttention (RADIAL's flex flash attention; Hopper only, slowest build)"
-  check magi "${MAGI_OK}" && return 0
-  [[ "$(arch)" == "9.0" ]] || die "MagiAttention needs sm_90 (Hopper); RADIAL cannot run on this GPU"
-  local src="${MAGI_SRC}" commit
-  if [[ -z "${src}" ]]; then
-    if [[ -d /app/MagiAttention ]]; then src=/app/MagiAttention; else src="${EXT}/MagiAttention"; fi
-  fi
-  if [[ "${src}" == "${EXT}/MagiAttention" ]]; then
-    commit="$(clone https://github.com/SandAI-org/MagiAttention "${src}" | tail -1)"
-  else
-    commit="$(git -C "${src}" rev-parse HEAD 2>/dev/null || echo "image copy at ${src}")"
-  fi
-  echo "building from ${src} (${commit}); this can take 20+ minutes"
-  ( cd "${src}" && "${PY}" -m pip install -v --no-build-isolation . )
-  check magi "${MAGI_OK}" || die "MagiAttention built but does not import (log /tmp/attn_check_magi.log)"
-  record_env MAGIATTENTION_COMMIT "${commit}"
-}
-
 verify() {
   say "verify: every backend in the venv"
   local bad=0
   check sage "${SAGE_OK}" || bad=1
   check sparge "${SPARGE_OK}" || bad=1
   check flashinfer "${FLASHINFER_OK}" || bad=1
-  check magi "${MAGI_OK}" || bad=1
-  (( bad == 0 )) && echo "All four backends work. Next: bash $0 probe" || echo "Some backends are missing; rerun their step to see the build error."
+  (( bad == 0 )) && echo "All three backends work. Next: bash $0 probe" || echo "Some backends are missing; rerun their step to see the build error."
   return "${bad}"
 }
 
 probe() {
-  say "probe: one 832x480x81 50-step video per arm through LightX2V (~5 min, 6 GPUs)"
+  say "probe: one 832x480x81 50-step video per arm through LightX2V (~10 min on 4 GPUs)"
   "${BASE_PYTHON}" UNIV_adaptor/scripts/data/attention_arms.py probe --out outputs/attention_probe --python "${PY}" \
-    --lightx2v "${LIGHTX2V}" --model "${MODEL_ROOT}"
+    --lightx2v "${LIGHTX2V}" --model "${MODEL_ROOT}" --gpus "${GPUS:-0,1,2,3}"
   cp "${ENV_FILE}" outputs/attention_probe/ 2>/dev/null || true
   tar czf outputs/attention_probe.tgz -C outputs attention_probe
   echo "SEND THIS: ${REPO_ROOT}/outputs/attention_probe.tgz"
@@ -173,9 +147,9 @@ case "${STEP}" in
   all)
     preflight; venv
     # A failed build stops only its own step (subshell); the probe then reports that arm as failed.
-    for s in sage sparge flashinfer magi; do ( "${s}" ) || echo "STEP FAILED: ${s} (rerun: bash $0 ${s})"; done
+    for s in sage sparge flashinfer; do ( "${s}" ) || echo "STEP FAILED: ${s} (rerun: bash $0 ${s})"; done
     verify || true
     probe ;;
-  preflight|venv|sage|sparge|flashinfer|magi|verify|probe) "${STEP}" ;;
+  preflight|venv|sage|sparge|flashinfer|verify|probe) "${STEP}" ;;
   *) die "Unknown step: ${STEP}" ;;
 esac
