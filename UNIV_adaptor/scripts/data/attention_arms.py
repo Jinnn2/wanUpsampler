@@ -145,7 +145,7 @@ def main(argv=None):
     p.add_argument("--arms", nargs="+", default=list(ARMS))
     p.add_argument("--model", default="/mnt/afs_2/houze/Wan-AI/Wan2.1-T2V-1.3B")
     p.add_argument("--lightx2v", default="/mnt/afs_2/houze/LightX2V")
-    p.add_argument("--python", default=sys.executable)
+    p.add_argument("--python", default=sys.executable, help="interpreter with the attention kernels (ATTN_PYTHON from install_attention_env.sh)")
     p.add_argument("--prompt", default=PROBE_PROMPT)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--gpus", default="0,1,2,3,4,5,6,7")
