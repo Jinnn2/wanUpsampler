@@ -47,6 +47,9 @@ ARMS = {
     "SPARGE50": {"kind": "sparge", "sparsity": 0.50},
     "SPARGE65": {"kind": "sparge", "sparsity": 0.65},
     "SPARGE80": {"kind": "sparge", "sparsity": 0.80},
+    # pvthreshd=1e30 never skips a PV block, which avoids the sm90 kernel race of thu-ml/SpargeAttn#127 (GPU hangs).
+    # With the default 50 only blocks weighted below e^-50 are skipped, so the output should be unchanged: `compare`.
+    "SPARGE50_NOPV": {"kind": "sparge", "sparsity": 0.50, "pvthreshd": 1e30},
     "SVG2": {"kind": "svg2", **SVG2_OFFICIAL},
 }
 STEPS = 50
@@ -172,8 +175,8 @@ class SelfAttentionPatch:
         qh, kh, vh = (t.to(torch.bfloat16).transpose(1, 2).contiguous() for t in (q, k, v))  # [1, H, S, D]
         if kind == "sparge":
             fn, params = self.sparge
-            extra = {key: value for key, value in (("tensor_layout", "HND"), ("is_causal", False), ("return_sparsity", True))
-                     if key in params}
+            extra = {key: value for key, value in (("tensor_layout", "HND"), ("is_causal", False), ("return_sparsity", True),
+                                                   ("pvthreshd", self.arm.get("pvthreshd", 50))) if key in params}
             res = fn(qh, kh, vh, topk=1 - self.arm["sparsity"], **extra)
             o, sparsity = res if isinstance(res, tuple) else (res, None)
             self.stats.append(1 - float(sparsity) if sparsity is not None else 1 - self.arm["sparsity"])
@@ -360,6 +363,21 @@ def run(args):
     print(f"{len(jobs) - len(missing)}/{len(jobs)} done; restarts {restarts}; hung jobs skipped: {skipped}; "
           f"crashed GPUs: {failed}", flush=True)
     sys.exit(1 if missing else 0)
+
+
+def compare(args):
+    """Same (prompt, seed) under two arms: identical sha256, else PSNR."""
+    by = {}
+    for r in records(args.out).values():
+        by.setdefault(r["job"]["arm"], {})[(r["job"]["prompt_id"], r["job"]["seed"])] = r
+    a, b = by.get(args.a, {}), by.get(args.b, {})
+    same = 0
+    for key in sorted(set(a) & set(b)):
+        ident = a[key]["video_sha256"] == b[key]["video_sha256"]
+        same += ident
+        print(key, "IDENTICAL" if ident else f"DIFFERENT psnr={video_psnr(a[key]['video_path'], b[key]['video_path'])}",
+              f"{a[key]['runtime']['pipeline_seconds']:.1f}s vs {b[key]['runtime']['pipeline_seconds']:.1f}s")
+    print(f"{same}/{len(set(a) & set(b))} identical between {args.a} and {args.b}")
 
 
 def records(out):
@@ -593,8 +611,12 @@ def main(argv=None):
     s.add_argument("--vbench-python", default="/opt/conda/bin/python")
     s.add_argument("--expected-vbench-commit", default="fd18b3d055cb0fc6f066ca90fe2c3c8cbb698490")
     s.add_argument("--ngpus", type=int, default=4)
+    c = sub.add_parser("compare")
+    c.add_argument("--out", required=True)
+    c.add_argument("--a", required=True)
+    c.add_argument("--b", required=True)
     args = p.parse_args(argv)
-    {"run": run, "worker": worker, "gate": gate, "report": report, "finalize": finalize, "score": score}[args.mode](args)
+    {"run": run, "worker": worker, "gate": gate, "report": report, "finalize": finalize, "score": score, "compare": compare}[args.mode](args)
 
 
 if __name__ == "__main__":
