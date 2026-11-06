@@ -609,7 +609,7 @@ def main(argv=None):
     f.add_argument("--arms", nargs="+", required=True, choices=[a for a in ARMS if a != "DENSE"])
     s = sub.add_parser("score")
     s.add_argument("--out", required=True)
-    s.add_argument("--vbench-root", default="/mnt/afs_2/houze/VBench")
+    s.add_argument("--vbench-root", type=Path, default=Path("/mnt/afs_2/houze/VBench"))
     s.add_argument("--vbench-python", default="/opt/conda/bin/python")
     s.add_argument("--expected-vbench-commit", default="fd18b3d055cb0fc6f066ca90fe2c3c8cbb698490")
     s.add_argument("--ngpus", type=int, default=4)
