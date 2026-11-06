@@ -44,7 +44,9 @@ SVG2_OFFICIAL = {"num_q_centroids": 300, "num_k_centroids": 1000, "top_p_kmeans"
                  "kmeans_iter_init": 50, "kmeans_iter_step": 2, "first_times_fp": 0.2, "first_layers_fp": 0.03}
 ARMS = {
     "DENSE": {"kind": "dense"},
-    "SPARGE50": {"kind": "sparge", "sparsity": 0.50},
+    # pvthreshd=1e30: never skip a PV block. Avoids the sm90 kernel race of thu-ml/SpargeAttn#127 (random GPU hangs);
+    # bitwise identical to the default pvthreshd=50 (4/4 natural_ext clips, `compare` SPARGE50 vs SPARGE50_NOPV, H100).
+    "SPARGE50": {"kind": "sparge", "sparsity": 0.50, "pvthreshd": 1e30},
     "SPARGE65": {"kind": "sparge", "sparsity": 0.65},
     "SPARGE80": {"kind": "sparge", "sparsity": 0.80},
     # pvthreshd=1e30 never skips a PV block, which avoids the sm90 kernel race of thu-ml/SpargeAttn#127 (GPU hangs).

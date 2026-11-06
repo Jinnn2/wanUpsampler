@@ -16,6 +16,11 @@ Written 2026-11-05, before any v1/dev2 attention video exists. Runner: `UNIV_ada
   - Same three layers as the dev analyses: fixed, dynamic retention and quality v2. They are computed on a combined
     root holding every dev source plus the two attention roots. Old clips come from the cache.
   - VBench: five quality dimensions plus two diagnostics.
+- **SpargeAttn hang workaround** (2026-11-06, during generation, before any scoring). The sm90 SpargeAttn kernel
+  stalls at random on H100. This matches thu-ml/SpargeAttn#127, a race when a PV block is skipped. From then on,
+  SPARGE50 runs with `pvthreshd=1e30`, so no PV block is skipped. Checked on the same 4 natural_ext clips: the output
+  is bitwise identical to the default `pvthreshd=50`, and the time is the same. So clips made before and after the
+  switch are the same arm. Each receipt records the setting it ran with.
 - **Speed.** `pipeline_seconds` relative to the platform FULL50 on the same H100.
 
 ## Why these two arms
