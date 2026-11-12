@@ -1,3 +1,4 @@
+import collections
 import csv
 import io
 import json
@@ -45,7 +46,7 @@ class FakeJudge:
 def video(prompt, seed, case, motion, value):
     return {"source": "s", "group_id": f"g{prompt}_{seed}", "prompt_id": prompt, "base_seed": seed, "case_id": case,
             "motion_level": motion, "detail_level": "low", "family_id": f"f{prompt}", "video_path": "unused",
-            "video_sha256": f"v{value}"}
+            "video_sha256": f"v{value}", "stem": f"{case}_{prompt}_{seed}"}
 
 
 class TriTest(unittest.TestCase):
@@ -109,6 +110,33 @@ class TriTest(unittest.TestCase):
             self.assertIn("s2024 +0.700", text)
             self.assertIn("s100 -0.700", text)
             self.assertIn("cycles 0.00", text)
+
+    def test_plan_all_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            videos = []
+            for p in range(2):
+                for s, d in ((42, 0), (100, 1), (2024, 2)):
+                    base = 30 + 50 * p + 10 * d
+                    videos += [video(p, s, "FULL_NATIVE_50", "high", base), video(p, s, "BAD", "high", base - 8)]
+            # the same BAD clip listed under a second source: judged once, exported twice
+            twin = dict(videos[1], source="s2")
+            videos += [twin, dict(videos[0], source="s2")]
+            (tmp / "q").mkdir()
+            (tmp / "q" / "plan.json").write_text(json.dumps({"videos": videos}))
+            out = tmp / "all"
+            buf = io.StringIO()
+            with mock.patch.object(qt, "sq", fake_sq), mock.patch.object(qt, "tri_judge", lambda *a: FakeJudge()),                     redirect_stdout(buf):
+                qt.plan_all(types.SimpleNamespace(quality_root=str(tmp / "q"), out=str(out), arms=[]))
+                plan = json.loads((out / "plan.json").read_text())
+                self.assertEqual(collections.Counter(r["kind"] for r in plan["pairs"]), {"arm": 6, "seed": 6})
+                qt.pair(types.SimpleNamespace(out=str(out), model="m", device="cpu", shard_index=0, shard_count=1))
+                qt.export(types.SimpleNamespace(out=str(out)))
+            rows = list(csv.DictReader(open(out / "quality_tri_by_video.csv")))
+            self.assertEqual(len(rows), 7)
+            self.assertEqual({r["source"] for r in rows if r["stem"] == "BAD_0_42"}, {"s", "s2"})
+            self.assertAlmostEqual(float(rows[0]["quality_tri"]), 0.3, places=4)
+            self.assertIn("s2024 +0.700", buf.getvalue())
 
 
 if __name__ == "__main__":

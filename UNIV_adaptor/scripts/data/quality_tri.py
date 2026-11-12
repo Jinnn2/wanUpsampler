@@ -214,25 +214,93 @@ def kept(a):
     return int(a["p_full_first"] >= 0.5 and a["p_accel_first"] >= 0.5)
 
 
+def pair_row(out, r, aspects):
+    path = Path(out) / "pair" / f"{r['key']}.json"
+    if not path.exists():
+        raise ValueError(f"missing judge call {r['kind']} {r['arm']} {r['key']}; run pair first")
+    ans = json.loads(path.read_text(encoding="utf-8"))["answers"]
+    v = r["x"] if r["kind"] == "arm" else r["y"]
+    row = {"kind": r["kind"], "arm": r["arm"], "prompt_id": v["prompt_id"], "base_seed": v["base_seed"],
+           "motion_level": v["motion_level"], "detail_level": v["detail_level"], "family_id": v["family_id"]}
+    for a in aspects:
+        px, py, ps, bias, mass = resolve(ans[a])
+        row.update({f"px_{a}": round(px, 4), f"py_{a}": round(py, 4), f"ps_{a}": round(ps, 4),
+                    f"net_{a}": round(px - py, 4), f"bias_{a}": round(bias, 4), f"mass_{a}": round(mass, 4),
+                    f"out_{a}": ("x", "y", "same")[int(np.argmax([px, py, ps]))]})
+    row["net"] = float(np.mean([row[f"net_{a}"] for a in aspects]))
+    return row
+
+
+# ---------------------------------------------------------------- quality layer v3 (all arms)
+
+SEED_PAIRS = (("100", "42"), ("2024", "42"), ("2024", "100"))
+
+
+def plan_all(args):
+    """Every accelerated clip of the quality plan against its same-seed FULL, plus the three FULL seed pairs of
+    every prompt (the null: its mean is ~0 when seeds are balanced, its spread is the judge's noise for two
+    different clips). Clips shared by several sources are judged once; every (source, stem) is kept for export."""
+    quality_root = Path(args.quality_root)
+    videos = json.loads((quality_root / "plan.json").read_text(encoding="utf-8"))["videos"]
+    full_by_group = {(v["source"], v["group_id"]): v for v in videos if v["case_id"] == FULL}
+    full = {}
+    for v in videos:
+        if v["case_id"] == FULL:
+            full.setdefault((str(v["prompt_id"]), str(v["base_seed"])), v)
+    pairs = {}
+    for v in videos:
+        if v["case_id"] == FULL or (args.arms and v["case_id"] not in args.arms):
+            continue
+        f = full_by_group[(v["source"], v["group_id"])]
+        r = pairs.setdefault(key(v, f), {"kind": "arm", "arm": v["case_id"], "key": key(v, f), "x": v, "y": f,
+                                         "videos": []})
+        r["videos"].append({k: v[k] for k in ("source", "stem", "group_id")})
+    for p in sorted({p for p, _ in full}, key=int):
+        for sx, sy in SEED_PAIRS:
+            if (p, sx) in full and (p, sy) in full:
+                x, y = full[(p, sx)], full[(p, sy)]
+                pairs.setdefault(key(x, y), {"kind": "seed", "arm": seed_label(sx, sy), "key": key(x, y), "x": x, "y": y})
+    rows = list(pairs.values())
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    write_json_atomic(out / "plan.json", {"schema": PLAN_SCHEMA, "protocol": PROTOCOL, "scope": "all", "tri_prompt": TRI,
+                                          "quality_root": str(quality_root.resolve()), "pairs": rows})
+    print(f"planned {len(rows)} judge calls {dict(collections.Counter(r['kind'] for r in rows))}; "
+          f"{sum(len(r.get('videos', [])) for r in rows)} accelerated (source, stem) rows")
+
+
+def export(args):
+    """quality_tri_by_video.csv: one row per accelerated (source, stem), with net per aspect and
+    quality_tri = 1 + net (FULL = 1; below 1 = judged worse than FULL on average; above 1 = better)."""
+    value = load(args.out)
+    out = Path(args.out)
+    aspects = sq().ASPECTS
+    pair_rows, video_rows = [], []
+    for r in value["pairs"]:
+        row = pair_row(out, r, aspects)
+        pair_rows.append(row)
+        for v in r.get("videos", []):
+            video_rows.append({**v, "prompt_id": row["prompt_id"], "base_seed": row["base_seed"], "case_id": r["arm"],
+                               "motion_level": row["motion_level"], "detail_level": row["detail_level"],
+                               "family_id": row["family_id"],
+                               **{f"net_{a}": row[f"net_{a}"] for a in aspects}, "net": round(row["net"], 5),
+                               "quality_tri": round(1 + row["net"], 5)})
+    for name, rows in (("quality_tri_by_video.csv", video_rows), ("tri_by_pair.csv", pair_rows)):
+        with (out / name).open("w", encoding="utf-8", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(dict.fromkeys(k for x in rows for k in x)))
+            w.writeheader()
+            w.writerows(rows)
+    print(f"wrote {len(video_rows)} video rows, {len(pair_rows)} pair rows")
+    summarize(pair_rows, aspects)
+
+
 def report(args):
     value = load(args.out)
     out = Path(args.out)
     aspects = sq().ASPECTS
     rows = []
     for r in value["pairs"]:
-        path = out / "pair" / f"{r['key']}.json"
-        if not path.exists():
-            raise ValueError(f"missing judge call {r['kind']} {r['arm']} {r['key']}; run pair first")
-        ans = json.loads(path.read_text(encoding="utf-8"))["answers"]
-        v = r["x"] if r["kind"] == "arm" else r["y"]
-        row = {"kind": r["kind"], "arm": r["arm"], "prompt_id": v["prompt_id"], "motion_level": v["motion_level"],
-               "detail_level": v["detail_level"], "family_id": v["family_id"]}
-        for a in aspects:
-            px, py, ps, bias, mass = resolve(ans[a])
-            row.update({f"px_{a}": round(px, 4), f"py_{a}": round(py, 4), f"ps_{a}": round(ps, 4),
-                        f"net_{a}": round(px - py, 4), f"bias_{a}": round(bias, 4), f"mass_{a}": round(mass, 4),
-                        f"out_{a}": ("x", "y", "same")[int(np.argmax([px, py, ps]))]})
-        row["net"] = float(np.mean([row[f"net_{a}"] for a in aspects]))
+        row = pair_row(out, r, aspects)
         fwd = old_answers(args.old_cache, r["key"])                                   # old: X >= Y
         rev = old_answers(args.old_cache, f"{r['y']['video_sha256']}__{r['x']['video_sha256']}")  # old: Y >= X
         if fwd and r["kind"] != "identity":
@@ -333,8 +401,14 @@ def main(argv=None):
     a = sub.add_parser("report")
     a.add_argument("--out", required=True)
     a.add_argument("--old-cache", nargs="*", default=[])
+    a = sub.add_parser("plan-all")
+    a.add_argument("--quality-root", required=True)
+    a.add_argument("--out", required=True)
+    a.add_argument("--arms", nargs="*", default=[], help="default: every non-FULL case in the quality plan")
+    a = sub.add_parser("export")
+    a.add_argument("--out", required=True)
     args = p.parse_args(argv)
-    {"plan": plan, "pair": pair, "report": report}[args.mode](args)
+    {"plan": plan, "pair": pair, "report": report, "plan-all": plan_all, "export": export}[args.mode](args)
 
 
 if __name__ == "__main__":
