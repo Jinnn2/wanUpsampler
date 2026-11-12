@@ -68,3 +68,24 @@ Written 2026-11-05, before any v1/dev2 attention video exists. Runner: `UNIV_ada
 
 - The frozen v1 driver and worker, `sample.json`, the checklist and the quality protocol stay as they are.
 - The test split stays locked.
+
+## Follow-up: null controls for the quality layer (written 2026-11-12, before running)
+
+**Why.** `quality_kept` only asks whether arm ≥ FULL, never whether FULL ≥ arm. The attention arms lost mostly on
+it. SVG2 lost even where its clips are close to FULL (dev2 mean PSNR 29.5 dB). So the question is whether the
+layer measures "worse" or only "different".
+
+**How.** Run by `run_quality_null.sh` / `quality_null.py`, on the same judge, the same protocol and the same cache.
+- **Identity pairs.** The same clip on both sides; 32 prompts.
+- **Seed null.** FULL at seed 42 against FULL at seed 100, both directions; all prompts.
+- **Reverse question.** FULL ≥ arm, for SVG2, SPARGE50, SCALING10 and TEA008.
+- **PSNR.** Per-clip PSNR of the arm against FULL.
+
+**Decision rules.**
+- **N1.** If the seed null keeps quality_kept ≤ 0.80, merely being different costs at least 0.2. The layer then
+  conflates "different" with "worse". From then on the primary quality score is `not_worse`: an aspect counts as lost
+  only when the judge says arm < FULL and FULL ≥ arm. All arms are rescored with it.
+- **N2.** SVG2's high-motion loss counts as real only if its share of `worse` outcomes exceeds the seed null's share
+  by at least 0.10, with the 95% family-bootstrap CI above 0.
+- **Ceiling.** Identity pairs must be kept on at least 0.95 of aspects. If not, the judge is unusable for
+  near-identical clips, and that is reported first.
