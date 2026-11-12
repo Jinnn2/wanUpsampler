@@ -1,0 +1,2926 @@
+{
+  "schema": "univ_annotation_tri_v1",
+  "seed": 20261112,
+  "tri_csv": "results/attention/quality_tri_seeds/tri_by_pair.csv",
+  "tri_csv_sha256": "50331750b5372ecd18bfc36e3e5b74ecb0e4f35fefdc2790622775da879263a8",
+  "pairs": [
+    {
+      "pair": "p01",
+      "set": "seed100",
+      "kind": "seed",
+      "arm": "FULL_S2024_vs_S100",
+      "prompt_id": 4,
+      "motion_level": "high",
+      "x_seed": 2024,
+      "y_seed": 100,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Single continuous shot with a locked camera. One very large matte red rubber ball fills most of the frame and bounces rapidly from left to right across a plain light-gray studio floor, with large displacement on every bounce. The background is smooth and empty, with no texture and no small objects. Motion is fast and continuous, lighting is constant, and the camera does not move.",
+      "prompt_zh": "锁定镜头的单个连续长镜头。一个很大的哑光红色橡胶球占据画面大部分，在素净的浅灰色影棚地面上从左向右快速弹跳，每次弹跳位移都很大。背景光滑空旷，没有纹理和小物体。运动快速连续，光照恒定，镜头不动。",
+      "judge": {
+        "overall": {
+          "px": 0.9805,
+          "py": 0.0146,
+          "ps": 0.0049,
+          "net": 0.9658,
+          "out": "x"
+        },
+        "overall3": {
+          "px": 0.9862,
+          "py": 0.0076,
+          "ps": 0.0062,
+          "net": 0.9786,
+          "out": "x"
+        },
+        "sharp": {
+          "px": 1.0,
+          "py": 0.0,
+          "ps": 0.0,
+          "net": 1.0,
+          "out": "x"
+        },
+        "artifact": {
+          "px": 0.985,
+          "py": 0.0017,
+          "ps": 0.0134,
+          "net": 0.9833,
+          "out": "x"
+        },
+        "aesthetic": {
+          "px": 0.9525,
+          "py": 0.0473,
+          "ps": 0.0002,
+          "net": 0.9052,
+          "out": "x"
+        },
+        "temporal": {
+          "px": 0.9737,
+          "py": 0.0212,
+          "ps": 0.0051,
+          "net": 0.9525,
+          "out": "x"
+        },
+        "acceptable": {
+          "px": 0.9912,
+          "py": 0.003,
+          "ps": 0.0057,
+          "net": 0.9882,
+          "out": "x"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p02",
+      "set": "seed100",
+      "kind": "seed",
+      "arm": "FULL_SEED",
+      "prompt_id": 9,
+      "motion_level": "high",
+      "x_seed": 100,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "A fixed camera watches one oversized plain silver pocket watch swing quickly like a pendulum across an empty dark backdrop. The large watch has smooth unmarked surfaces, crosses a wide arc every second, and stays sharply visible under constant light. No small tools or decorative textures appear.",
+      "prompt_zh": "固定镜头下，一只超大的素面银色怀表像钟摆一样在空荡的深色背景前快速摆动。怀表表面光滑无标记，每秒划过一大段弧线，在恒定光线下始终清晰可见。画面中没有小工具或装饰纹理。",
+      "judge": {
+        "overall": {
+          "px": 0.038,
+          "py": 0.739,
+          "ps": 0.223,
+          "net": -0.701,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.0342,
+          "py": 0.6883,
+          "ps": 0.2775,
+          "net": -0.6541,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0089,
+          "py": 0.987,
+          "ps": 0.0041,
+          "net": -0.9781,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0224,
+          "py": 0.961,
+          "ps": 0.0166,
+          "net": -0.9386,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0048,
+          "py": 0.9951,
+          "ps": 0.0001,
+          "net": -0.9903,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0713,
+          "py": 0.1168,
+          "ps": 0.8118,
+          "net": -0.0455,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.0824,
+          "py": 0.635,
+          "ps": 0.2826,
+          "net": -0.5526,
+          "out": "y"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p03",
+      "set": "seed100",
+      "kind": "seed",
+      "arm": "FULL_SEED",
+      "prompt_id": 15,
+      "motion_level": "high",
+      "x_seed": 100,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "A fixed overhead camera records one large smooth inspection robot sweeping rapidly back and forth over a plain green electronics panel. The robot makes broad turns and covers most of the frame, while the panel has no tiny components, labels, or visible circuit traces.",
+      "prompt_zh": "固定俯拍镜头记录一台大型、表面光滑的巡检机器人在一块素色绿色电子面板上快速来回扫动。机器人大幅转弯，覆盖画面大部分区域；面板上没有细小元件、标签或可见的电路走线。",
+      "judge": {
+        "overall": {
+          "px": 0.3107,
+          "py": 0.6848,
+          "ps": 0.0045,
+          "net": -0.3741,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.2615,
+          "py": 0.7348,
+          "ps": 0.0037,
+          "net": -0.4733,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.3426,
+          "py": 0.6573,
+          "ps": 0.0001,
+          "net": -0.3147,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.2168,
+          "py": 0.7831,
+          "ps": 0.0001,
+          "net": -0.5663,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0035,
+          "py": 0.9965,
+          "ps": 0.0,
+          "net": -0.993,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.2251,
+          "py": 0.7639,
+          "ps": 0.011,
+          "net": -0.5388,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.7655,
+          "py": 0.2234,
+          "ps": 0.0111,
+          "net": 0.5421,
+          "out": "x"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p04",
+      "set": "seed100",
+      "kind": "seed",
+      "arm": "FULL_SEED",
+      "prompt_id": 25,
+      "motion_level": "high",
+      "x_seed": 100,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Dozens of tiny blue model cars race rapidly through an intricate tabletop city while the camera stays locked. They weave across narrow marked lanes, turn around miniature traffic lights, and repeatedly occlude fine storefronts, wheel spokes, and dense street furniture.",
+      "prompt_zh": "几十辆蓝色小模型车在精致的桌面城市中快速飞驰，镜头保持锁定。它们在画有标线的窄车道间穿梭，绕过微型红绿灯转弯，反复遮挡精细的店面、车轮辐条和密集的街道设施。",
+      "judge": {
+        "overall": {
+          "px": 0.1114,
+          "py": 0.8562,
+          "ps": 0.0324,
+          "net": -0.7448,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.1,
+          "py": 0.8468,
+          "ps": 0.0531,
+          "net": -0.7468,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0908,
+          "py": 0.7553,
+          "ps": 0.1539,
+          "net": -0.6645,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.1618,
+          "py": 0.8356,
+          "ps": 0.0025,
+          "net": -0.6738,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.2268,
+          "py": 0.7732,
+          "ps": 0.0001,
+          "net": -0.5464,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0474,
+          "py": 0.9495,
+          "ps": 0.003,
+          "net": -0.9021,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0301,
+          "py": 0.9673,
+          "ps": 0.0027,
+          "net": -0.9372,
+          "out": "y"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p05",
+      "set": "seed100",
+      "kind": "seed",
+      "arm": "FULL_S2024_vs_S100",
+      "prompt_id": 35,
+      "motion_level": "high",
+      "x_seed": 2024,
+      "y_seed": 100,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Dozens of tiny patterned origami boats race through intersecting currents beneath a locked overhead camera. Their sharp miniature folds, printed motifs, slender reeds, and dense reflections shift rapidly as boats spin, collide, and pass behind one another.",
+      "prompt_zh": "锁定的俯拍镜头下，几十只带花纹的小折纸船在交错的水流中疾驰。随着小船旋转、碰撞、从彼此后方穿过，它们锐利的细小折痕、印花图案、细长的芦苇和密集的倒影快速变化。",
+      "judge": {
+        "overall": {
+          "px": 0.9668,
+          "py": 0.0332,
+          "ps": 0.0,
+          "net": 0.9336,
+          "out": "x"
+        },
+        "overall3": {
+          "px": 0.9816,
+          "py": 0.0183,
+          "ps": 0.0,
+          "net": 0.9633,
+          "out": "x"
+        },
+        "sharp": {
+          "px": 0.9999,
+          "py": 0.0001,
+          "ps": 0.0,
+          "net": 0.9998,
+          "out": "x"
+        },
+        "artifact": {
+          "px": 0.9718,
+          "py": 0.0282,
+          "ps": 0.0,
+          "net": 0.9436,
+          "out": "x"
+        },
+        "aesthetic": {
+          "px": 0.8899,
+          "py": 0.1101,
+          "ps": 0.0,
+          "net": 0.7798,
+          "out": "x"
+        },
+        "temporal": {
+          "px": 0.9731,
+          "py": 0.0267,
+          "ps": 0.0001,
+          "net": 0.9464,
+          "out": "x"
+        },
+        "acceptable": {
+          "px": 0.9992,
+          "py": 0.0008,
+          "ps": 0.0,
+          "net": 0.9984,
+          "out": "x"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p06",
+      "set": "seed100",
+      "kind": "seed",
+      "arm": "FULL_SEED",
+      "prompt_id": 51,
+      "motion_level": "high",
+      "x_seed": 100,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "A detailed snow globe spins rapidly beneath a fixed macro camera, sending hundreds of tiny glitter flakes around miniature fences, roof tiles, pine branches, and narrow windows. Fine objects rotate at different depths and repeatedly occlude one another.",
+      "prompt_zh": "一个细节丰富的水晶球在固定的微距镜头下快速旋转，数百片细小的亮片绕着微缩的栅栏、屋瓦、松枝和窄窗飞舞。细小物体在不同深度上旋转，反复相互遮挡。",
+      "judge": {
+        "overall": {
+          "px": 0.5985,
+          "py": 0.3879,
+          "ps": 0.0136,
+          "net": 0.2106,
+          "out": "x"
+        },
+        "overall3": {
+          "px": 0.585,
+          "py": 0.4067,
+          "ps": 0.0083,
+          "net": 0.1783,
+          "out": "x"
+        },
+        "sharp": {
+          "px": 0.5897,
+          "py": 0.397,
+          "ps": 0.0133,
+          "net": 0.1927,
+          "out": "x"
+        },
+        "artifact": {
+          "px": 0.6338,
+          "py": 0.3655,
+          "ps": 0.0007,
+          "net": 0.2683,
+          "out": "x"
+        },
+        "aesthetic": {
+          "px": 0.5593,
+          "py": 0.4407,
+          "ps": 0.0,
+          "net": 0.1186,
+          "out": "x"
+        },
+        "temporal": {
+          "px": 0.5314,
+          "py": 0.4576,
+          "ps": 0.011,
+          "net": 0.0738,
+          "out": "x"
+        },
+        "acceptable": {
+          "px": 0.6784,
+          "py": 0.2787,
+          "ps": 0.0429,
+          "net": 0.3997,
+          "out": "x"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p07",
+      "set": "seed100",
+      "kind": "seed",
+      "arm": "FULL_SEED",
+      "prompt_id": 59,
+      "motion_level": "high",
+      "x_seed": 100,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Many tiny satellites tumble rapidly through a dense star field while a fixed camera observes. Delicate antenna grids, patterned solar cells, exposed cables, thruster flashes, and drifting fragments cross at different depths with frequent occlusion.",
+      "prompt_zh": "固定镜头下，许多小卫星在密集的星空中快速翻滚。纤细的天线网格、带纹路的太阳能电池板、外露线缆、推进器闪光和漂浮的碎片在不同深度上交错，频繁相互遮挡。",
+      "judge": {
+        "overall": {
+          "px": 0.7615,
+          "py": 0.2349,
+          "ps": 0.0036,
+          "net": 0.5266,
+          "out": "x"
+        },
+        "overall3": {
+          "px": 0.7289,
+          "py": 0.2685,
+          "ps": 0.0027,
+          "net": 0.4604,
+          "out": "x"
+        },
+        "sharp": {
+          "px": 0.5721,
+          "py": 0.4207,
+          "ps": 0.0072,
+          "net": 0.1514,
+          "out": "x"
+        },
+        "artifact": {
+          "px": 0.6687,
+          "py": 0.3313,
+          "ps": 0.0,
+          "net": 0.3374,
+          "out": "x"
+        },
+        "aesthetic": {
+          "px": 0.7001,
+          "py": 0.2999,
+          "ps": 0.0001,
+          "net": 0.4002,
+          "out": "x"
+        },
+        "temporal": {
+          "px": 0.9458,
+          "py": 0.0534,
+          "ps": 0.0008,
+          "net": 0.8924,
+          "out": "x"
+        },
+        "acceptable": {
+          "px": 0.9209,
+          "py": 0.0693,
+          "ps": 0.0098,
+          "net": 0.8516,
+          "out": "x"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p08",
+      "set": "seed100",
+      "kind": "seed",
+      "arm": "FULL_SEED",
+      "prompt_id": 114,
+      "motion_level": "high",
+      "x_seed": 100,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One large smooth orange maple leaf is blown violently across a plain gray concrete floor, flipping and skidding quickly from side to side. Nothing else is in the frame and the camera does not move.",
+      "prompt_zh": "一片光滑的大橙色枫叶被狂风吹过素灰色的水泥地面，左右快速翻滚、滑动。画面中没有其他东西，镜头不动。",
+      "judge": {
+        "overall": {
+          "px": 0.1718,
+          "py": 0.6434,
+          "ps": 0.1849,
+          "net": -0.4716,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.2136,
+          "py": 0.6454,
+          "ps": 0.1409,
+          "net": -0.4318,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.2126,
+          "py": 0.7813,
+          "ps": 0.0061,
+          "net": -0.5687,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.2677,
+          "py": 0.6831,
+          "ps": 0.0492,
+          "net": -0.4154,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.1996,
+          "py": 0.8004,
+          "ps": 0.0,
+          "net": -0.6008,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.1606,
+          "py": 0.4719,
+          "ps": 0.3675,
+          "net": -0.3113,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0184,
+          "py": 0.4801,
+          "ps": 0.5016,
+          "net": -0.4617,
+          "out": "same"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p09",
+      "set": "seed100",
+      "kind": "seed",
+      "arm": "FULL_S2024_vs_S100",
+      "prompt_id": 130,
+      "motion_level": "high",
+      "x_seed": 2024,
+      "y_seed": 100,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One large plain red hot air balloon is pushed rapidly across an empty pale sky by a strong wind, swinging and swaying quickly from one side of the frame to the other. Fixed camera.",
+      "prompt_zh": "一个大的素红色热气球被强风推着快速掠过空无一物的淡色天空，从画面一侧快速摇摆晃动到另一侧。镜头固定。",
+      "judge": {
+        "overall": {
+          "px": 0.9549,
+          "py": 0.0015,
+          "ps": 0.0436,
+          "net": 0.9534,
+          "out": "x"
+        },
+        "overall3": {
+          "px": 0.9292,
+          "py": 0.0023,
+          "ps": 0.0685,
+          "net": 0.927,
+          "out": "x"
+        },
+        "sharp": {
+          "px": 0.9954,
+          "py": 0.0,
+          "ps": 0.0046,
+          "net": 0.9954,
+          "out": "x"
+        },
+        "artifact": {
+          "px": 0.9808,
+          "py": 0.0005,
+          "ps": 0.0187,
+          "net": 0.9803,
+          "out": "x"
+        },
+        "aesthetic": {
+          "px": 0.9999,
+          "py": 0.0,
+          "ps": 0.0,
+          "net": 0.9999,
+          "out": "x"
+        },
+        "temporal": {
+          "px": 0.8115,
+          "py": 0.0063,
+          "ps": 0.1822,
+          "net": 0.8052,
+          "out": "x"
+        },
+        "acceptable": {
+          "px": 0.9868,
+          "py": 0.0005,
+          "ps": 0.0127,
+          "net": 0.9863,
+          "out": "x"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p10",
+      "set": "seed100",
+      "kind": "seed",
+      "arm": "FULL_SEED",
+      "prompt_id": 147,
+      "motion_level": "high",
+      "x_seed": 100,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Several silver balls ricochet rapidly around a detailed vintage pinball playfield, flippers snapping, bumpers flashing, and balls crossing over illustrated artwork, thin rails, and small inserts. Fixed overhead camera.",
+      "prompt_zh": "几颗银色钢珠在细节丰富的复古弹珠台上快速弹来弹去，挡板啪地击打，弹射柱闪烁，钢珠滚过插画图案、细轨道和小灯片。俯视固定镜头。",
+      "judge": {
+        "overall": {
+          "px": 0.1304,
+          "py": 0.842,
+          "ps": 0.0275,
+          "net": -0.7116,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.1471,
+          "py": 0.8255,
+          "ps": 0.0274,
+          "net": -0.6784,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.1162,
+          "py": 0.8829,
+          "ps": 0.001,
+          "net": -0.7667,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.1117,
+          "py": 0.8874,
+          "ps": 0.0009,
+          "net": -0.7757,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.1005,
+          "py": 0.8995,
+          "ps": 0.0,
+          "net": -0.799,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.2134,
+          "py": 0.7063,
+          "ps": 0.0803,
+          "net": -0.4929,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.1103,
+          "py": 0.8341,
+          "ps": 0.0555,
+          "net": -0.7238,
+          "out": "y"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p11",
+      "set": "seed100",
+      "kind": "seed",
+      "arm": "FULL_SEED",
+      "prompt_id": 155,
+      "motion_level": "high",
+      "x_seed": 100,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "In a cluttered workshop, a bicycle on a stand has its wheel spun very fast while the chain races over gears; thin spokes blur, tiny chain links whirl, and hanging tools sway in front of a fixed camera.",
+      "prompt_zh": "杂乱的工作间里，一辆架在支架上的自行车车轮飞速旋转，链条在齿轮上疾驰；细辐条变得模糊，细小的链节飞转，挂着的工具在固定镜头前摇晃。",
+      "judge": {
+        "overall": {
+          "px": 0.0645,
+          "py": 0.8964,
+          "ps": 0.0391,
+          "net": -0.8319,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.1015,
+          "py": 0.8425,
+          "ps": 0.056,
+          "net": -0.7409,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0614,
+          "py": 0.9386,
+          "ps": 0.0,
+          "net": -0.8772,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0263,
+          "py": 0.9736,
+          "ps": 0.0,
+          "net": -0.9473,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0004,
+          "py": 0.9996,
+          "ps": 0.0,
+          "net": -0.9992,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.2169,
+          "py": 0.6152,
+          "ps": 0.1679,
+          "net": -0.3983,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0175,
+          "py": 0.955,
+          "ps": 0.0275,
+          "net": -0.9375,
+          "out": "y"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p12",
+      "set": "seed100",
+      "kind": "seed",
+      "arm": "FULL_SEED",
+      "prompt_id": 163,
+      "motion_level": "high",
+      "x_seed": 100,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Hundreds of old books with gilded spines tumble rapidly off tall library shelves, pages fluttering open, books colliding and occluding one another as they fall past brass rails and ornate wood carvings. Fixed camera.",
+      "prompt_zh": "数百本书脊烫金的旧书从高高的图书馆书架上快速滚落，书页翻飞，书本相互碰撞、遮挡，掠过黄铜栏杆和华丽的木雕落下。固定镜头。",
+      "judge": {
+        "overall": {
+          "px": 0.07,
+          "py": 0.9271,
+          "ps": 0.0029,
+          "net": -0.8571,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.0808,
+          "py": 0.9176,
+          "ps": 0.0016,
+          "net": -0.8368,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.1008,
+          "py": 0.8978,
+          "ps": 0.0014,
+          "net": -0.797,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.1149,
+          "py": 0.8848,
+          "ps": 0.0002,
+          "net": -0.7699,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0986,
+          "py": 0.9014,
+          "ps": 0.0,
+          "net": -0.8028,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0266,
+          "py": 0.9702,
+          "ps": 0.0032,
+          "net": -0.9436,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0091,
+          "py": 0.9813,
+          "ps": 0.0095,
+          "net": -0.9722,
+          "out": "y"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p13",
+      "set": "null",
+      "kind": "seed",
+      "arm": "FULL_S2024_vs_S42",
+      "prompt_id": 43,
+      "motion_level": "high",
+      "x_seed": 2024,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "The camera sweeps rapidly through an intricate miniature harbor around a lighthouse, passing tiny boats, taut ropes, narrow railings, tiled roofs, and splashing rocks. Dense small structures slide across the frame at different depths during the continuous fast orbit.",
+      "prompt_zh": "镜头快速掠过灯塔周围一座精致的微缩港口，经过小船、绷紧的绳索、窄栏杆、瓦屋顶和浪花拍打的岩石。在连续快速的环绕中，密集的小结构在不同深度上滑过画面。",
+      "judge": {
+        "overall": {
+          "px": 0.8596,
+          "py": 0.1402,
+          "ps": 0.0002,
+          "net": 0.7193,
+          "out": "x"
+        },
+        "overall3": {
+          "px": 0.8501,
+          "py": 0.1496,
+          "ps": 0.0003,
+          "net": 0.7004,
+          "out": "x"
+        },
+        "sharp": {
+          "px": 0.7704,
+          "py": 0.2289,
+          "ps": 0.0007,
+          "net": 0.5415,
+          "out": "x"
+        },
+        "artifact": {
+          "px": 0.7817,
+          "py": 0.2182,
+          "ps": 0.0001,
+          "net": 0.5635,
+          "out": "x"
+        },
+        "aesthetic": {
+          "px": 0.7496,
+          "py": 0.2504,
+          "ps": 0.0,
+          "net": 0.4992,
+          "out": "x"
+        },
+        "temporal": {
+          "px": 0.9981,
+          "py": 0.0018,
+          "ps": 0.0001,
+          "net": 0.9963,
+          "out": "x"
+        },
+        "acceptable": {
+          "px": 0.998,
+          "py": 0.0018,
+          "ps": 0.0002,
+          "net": 0.9962,
+          "out": "x"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p14",
+      "set": "null",
+      "kind": "seed",
+      "arm": "FULL_S2024_vs_S42",
+      "prompt_id": 106,
+      "motion_level": "high",
+      "x_seed": 2024,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One oversized plain black chess king slides and spins rapidly back and forth across an empty white surface, wobbling and changing direction quickly. The background stays blank and the camera does not move.",
+      "prompt_zh": "一枚超大的素黑色国际象棋国王在空无一物的白色表面上快速来回滑动、旋转，摇晃并快速改变方向。背景保持空白，镜头不动。",
+      "judge": {
+        "overall": {
+          "px": 0.0187,
+          "py": 0.9808,
+          "ps": 0.0005,
+          "net": -0.9621,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.0187,
+          "py": 0.9809,
+          "ps": 0.0004,
+          "net": -0.9623,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0004,
+          "py": 0.9996,
+          "ps": 0.0,
+          "net": -0.9992,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0465,
+          "py": 0.9532,
+          "ps": 0.0002,
+          "net": -0.9067,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0328,
+          "py": 0.9672,
+          "ps": 0.0,
+          "net": -0.9344,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0091,
+          "py": 0.99,
+          "ps": 0.0009,
+          "net": -0.9809,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0045,
+          "py": 0.994,
+          "ps": 0.0014,
+          "net": -0.9895,
+          "out": "y"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p15",
+      "set": "null",
+      "kind": "seed",
+      "arm": "FULL_S2024_vs_S42",
+      "prompt_id": 122,
+      "motion_level": "high",
+      "x_seed": 2024,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One large plain white windmill spins its four broad blank sails extremely fast in a storm against an empty pale sky. The sails sweep large distances each moment, and the camera is fixed.",
+      "prompt_zh": "一座大的素白色风车在暴风中以极快速度转动四片宽大的空白叶片，背景是空无一物的淡色天空。叶片每一刻都扫过很大的距离，镜头固定。",
+      "judge": {
+        "overall": {
+          "px": 0.0316,
+          "py": 0.9647,
+          "ps": 0.0037,
+          "net": -0.9331,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.0487,
+          "py": 0.9484,
+          "ps": 0.0029,
+          "net": -0.8998,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0563,
+          "py": 0.9414,
+          "ps": 0.0023,
+          "net": -0.8851,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0659,
+          "py": 0.9335,
+          "ps": 0.0006,
+          "net": -0.8676,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0036,
+          "py": 0.9964,
+          "ps": 0.0,
+          "net": -0.9928,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0238,
+          "py": 0.9704,
+          "ps": 0.0058,
+          "net": -0.9466,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0086,
+          "py": 0.9818,
+          "ps": 0.0097,
+          "net": -0.9732,
+          "out": "y"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p16",
+      "set": "null",
+      "kind": "seed",
+      "arm": "FULL_S2024_vs_S42",
+      "prompt_id": 138,
+      "motion_level": "high",
+      "x_seed": 2024,
+      "y_seed": 42,
+      "x_case": "FULL_NATIVE_50",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One large plain green spinning top spins extremely fast and wanders erratically across an empty white table, wobbling and sliding quickly. The background is blank and the camera does not move.",
+      "prompt_zh": "一个大的素色绿色陀螺极快地旋转，在空无一物的白色桌面上无规律地游走，摇晃并快速滑动。背景空白，镜头不动。",
+      "judge": {
+        "overall": {
+          "px": 0.4846,
+          "py": 0.4525,
+          "ps": 0.0629,
+          "net": 0.0321,
+          "out": "x"
+        },
+        "overall3": {
+          "px": 0.4353,
+          "py": 0.528,
+          "ps": 0.0367,
+          "net": -0.0927,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0766,
+          "py": 0.8563,
+          "ps": 0.0671,
+          "net": -0.7797,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.3713,
+          "py": 0.6261,
+          "ps": 0.0026,
+          "net": -0.2548,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.4235,
+          "py": 0.5755,
+          "ps": 0.001,
+          "net": -0.152,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.8581,
+          "py": 0.1016,
+          "ps": 0.0403,
+          "net": 0.7565,
+          "out": "x"
+        },
+        "acceptable": {
+          "px": 0.6935,
+          "py": 0.1029,
+          "ps": 0.2036,
+          "net": 0.5906,
+          "out": "x"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p17",
+      "set": "svg2",
+      "kind": "arm",
+      "arm": "SVG2",
+      "prompt_id": 4,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SVG2",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Single continuous shot with a locked camera. One very large matte red rubber ball fills most of the frame and bounces rapidly from left to right across a plain light-gray studio floor, with large displacement on every bounce. The background is smooth and empty, with no texture and no small objects. Motion is fast and continuous, lighting is constant, and the camera does not move.",
+      "prompt_zh": "锁定镜头的单个连续长镜头。一个很大的哑光红色橡胶球占据画面大部分，在素净的浅灰色影棚地面上从左向右快速弹跳，每次弹跳位移都很大。背景光滑空旷，没有纹理和小物体。运动快速连续，光照恒定，镜头不动。",
+      "judge": {
+        "overall": {
+          "px": 0.0003,
+          "py": 0.7585,
+          "ps": 0.2411,
+          "net": -0.7582,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.0001,
+          "py": 0.7337,
+          "ps": 0.2662,
+          "net": -0.7336,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0,
+          "py": 0.6007,
+          "ps": 0.3993,
+          "net": -0.6007,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0,
+          "py": 0.6009,
+          "ps": 0.3991,
+          "net": -0.6009,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0,
+          "py": 0.6,
+          "ps": 0.4,
+          "net": -0.6,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0004,
+          "py": 0.9995,
+          "ps": 0.0002,
+          "net": -0.9991,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0013,
+          "py": 0.9916,
+          "ps": 0.0071,
+          "net": -0.9903,
+          "out": "y"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p18",
+      "set": "svg2",
+      "kind": "arm",
+      "arm": "SVG2",
+      "prompt_id": 15,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SVG2",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "A fixed overhead camera records one large smooth inspection robot sweeping rapidly back and forth over a plain green electronics panel. The robot makes broad turns and covers most of the frame, while the panel has no tiny components, labels, or visible circuit traces.",
+      "prompt_zh": "固定俯拍镜头记录一台大型、表面光滑的巡检机器人在一块素色绿色电子面板上快速来回扫动。机器人大幅转弯，覆盖画面大部分区域；面板上没有细小元件、标签或可见的电路走线。",
+      "judge": {
+        "overall": {
+          "px": 0.0081,
+          "py": 0.3001,
+          "ps": 0.6918,
+          "net": -0.292,
+          "out": "same"
+        },
+        "overall3": {
+          "px": 0.0112,
+          "py": 0.4252,
+          "ps": 0.5635,
+          "net": -0.414,
+          "out": "same"
+        },
+        "sharp": {
+          "px": 0.0067,
+          "py": 0.5537,
+          "ps": 0.4396,
+          "net": -0.547,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0208,
+          "py": 0.6697,
+          "ps": 0.3094,
+          "net": -0.6489,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0027,
+          "py": 0.2122,
+          "ps": 0.785,
+          "net": -0.2095,
+          "out": "same"
+        },
+        "temporal": {
+          "px": 0.0062,
+          "py": 0.0523,
+          "ps": 0.9415,
+          "net": -0.0461,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.004,
+          "py": 0.0124,
+          "ps": 0.9835,
+          "net": -0.0084,
+          "out": "same"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p19",
+      "set": "svg2",
+      "kind": "arm",
+      "arm": "SVG2",
+      "prompt_id": 25,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SVG2",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Dozens of tiny blue model cars race rapidly through an intricate tabletop city while the camera stays locked. They weave across narrow marked lanes, turn around miniature traffic lights, and repeatedly occlude fine storefronts, wheel spokes, and dense street furniture.",
+      "prompt_zh": "几十辆蓝色小模型车在精致的桌面城市中快速飞驰，镜头保持锁定。它们在画有标线的窄车道间穿梭，绕过微型红绿灯转弯，反复遮挡精细的店面、车轮辐条和密集的街道设施。",
+      "judge": {
+        "overall": {
+          "px": 0.0396,
+          "py": 0.522,
+          "ps": 0.4384,
+          "net": -0.4824,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.0209,
+          "py": 0.4526,
+          "ps": 0.5265,
+          "net": -0.4317,
+          "out": "same"
+        },
+        "sharp": {
+          "px": 0.0021,
+          "py": 0.4666,
+          "ps": 0.5313,
+          "net": -0.4645,
+          "out": "same"
+        },
+        "artifact": {
+          "px": 0.0507,
+          "py": 0.8139,
+          "ps": 0.1354,
+          "net": -0.7632,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0269,
+          "py": 0.8753,
+          "ps": 0.0977,
+          "net": -0.8484,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0099,
+          "py": 0.0774,
+          "ps": 0.9128,
+          "net": -0.0675,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.1082,
+          "py": 0.3768,
+          "ps": 0.515,
+          "net": -0.2686,
+          "out": "same"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p20",
+      "set": "svg2",
+      "kind": "arm",
+      "arm": "SVG2",
+      "prompt_id": 35,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SVG2",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Dozens of tiny patterned origami boats race through intersecting currents beneath a locked overhead camera. Their sharp miniature folds, printed motifs, slender reeds, and dense reflections shift rapidly as boats spin, collide, and pass behind one another.",
+      "prompt_zh": "锁定的俯拍镜头下，几十只带花纹的小折纸船在交错的水流中疾驰。随着小船旋转、碰撞、从彼此后方穿过，它们锐利的细小折痕、印花图案、细长的芦苇和密集的倒影快速变化。",
+      "judge": {
+        "overall": {
+          "px": 0.1536,
+          "py": 0.4933,
+          "ps": 0.3532,
+          "net": -0.3397,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.1344,
+          "py": 0.4539,
+          "ps": 0.4117,
+          "net": -0.3196,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0806,
+          "py": 0.1569,
+          "ps": 0.7626,
+          "net": -0.0763,
+          "out": "same"
+        },
+        "artifact": {
+          "px": 0.2958,
+          "py": 0.476,
+          "ps": 0.2282,
+          "net": -0.1802,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.3547,
+          "py": 0.6063,
+          "ps": 0.0391,
+          "net": -0.2516,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0267,
+          "py": 0.7289,
+          "ps": 0.2444,
+          "net": -0.7022,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0101,
+          "py": 0.4984,
+          "ps": 0.4915,
+          "net": -0.4883,
+          "out": "y"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p21",
+      "set": "svg2",
+      "kind": "arm",
+      "arm": "SVG2",
+      "prompt_id": 51,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SVG2",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "A detailed snow globe spins rapidly beneath a fixed macro camera, sending hundreds of tiny glitter flakes around miniature fences, roof tiles, pine branches, and narrow windows. Fine objects rotate at different depths and repeatedly occlude one another.",
+      "prompt_zh": "一个细节丰富的水晶球在固定的微距镜头下快速旋转，数百片细小的亮片绕着微缩的栅栏、屋瓦、松枝和窄窗飞舞。细小物体在不同深度上旋转，反复相互遮挡。",
+      "judge": {
+        "overall": {
+          "px": 0.7915,
+          "py": 0.1845,
+          "ps": 0.0239,
+          "net": 0.607,
+          "out": "x"
+        },
+        "overall3": {
+          "px": 0.7279,
+          "py": 0.2546,
+          "ps": 0.0175,
+          "net": 0.4734,
+          "out": "x"
+        },
+        "sharp": {
+          "px": 0.8959,
+          "py": 0.0873,
+          "ps": 0.0168,
+          "net": 0.8086,
+          "out": "x"
+        },
+        "artifact": {
+          "px": 0.7835,
+          "py": 0.2157,
+          "ps": 0.0009,
+          "net": 0.5678,
+          "out": "x"
+        },
+        "aesthetic": {
+          "px": 0.8889,
+          "py": 0.1094,
+          "ps": 0.0017,
+          "net": 0.7795,
+          "out": "x"
+        },
+        "temporal": {
+          "px": 0.5044,
+          "py": 0.4607,
+          "ps": 0.0349,
+          "net": 0.0437,
+          "out": "x"
+        },
+        "acceptable": {
+          "px": 0.885,
+          "py": 0.0496,
+          "ps": 0.0654,
+          "net": 0.8354,
+          "out": "x"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p22",
+      "set": "svg2",
+      "kind": "arm",
+      "arm": "SVG2",
+      "prompt_id": 59,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SVG2",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Many tiny satellites tumble rapidly through a dense star field while a fixed camera observes. Delicate antenna grids, patterned solar cells, exposed cables, thruster flashes, and drifting fragments cross at different depths with frequent occlusion.",
+      "prompt_zh": "固定镜头下，许多小卫星在密集的星空中快速翻滚。纤细的天线网格、带纹路的太阳能电池板、外露线缆、推进器闪光和漂浮的碎片在不同深度上交错，频繁相互遮挡。",
+      "judge": {
+        "overall": {
+          "px": 0.1958,
+          "py": 0.6779,
+          "ps": 0.1263,
+          "net": -0.482,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.1822,
+          "py": 0.6517,
+          "ps": 0.1661,
+          "net": -0.4695,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.081,
+          "py": 0.5261,
+          "ps": 0.3929,
+          "net": -0.4451,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.2353,
+          "py": 0.6993,
+          "ps": 0.0654,
+          "net": -0.464,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.3387,
+          "py": 0.602,
+          "ps": 0.0593,
+          "net": -0.2633,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.2302,
+          "py": 0.7297,
+          "ps": 0.0401,
+          "net": -0.4995,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0939,
+          "py": 0.8322,
+          "ps": 0.0739,
+          "net": -0.7383,
+          "out": "y"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p23",
+      "set": "svg2",
+      "kind": "arm",
+      "arm": "SVG2",
+      "prompt_id": 106,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SVG2",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One oversized plain black chess king slides and spins rapidly back and forth across an empty white surface, wobbling and changing direction quickly. The background stays blank and the camera does not move.",
+      "prompt_zh": "一枚超大的素黑色国际象棋国王在空无一物的白色表面上快速来回滑动、旋转，摇晃并快速改变方向。背景保持空白，镜头不动。",
+      "judge": {
+        "overall": {
+          "px": 0.0033,
+          "py": 0.2408,
+          "ps": 0.756,
+          "net": -0.2375,
+          "out": "same"
+        },
+        "overall3": {
+          "px": 0.0047,
+          "py": 0.3123,
+          "ps": 0.683,
+          "net": -0.3076,
+          "out": "same"
+        },
+        "sharp": {
+          "px": 0.0016,
+          "py": 0.2119,
+          "ps": 0.7864,
+          "net": -0.2103,
+          "out": "same"
+        },
+        "artifact": {
+          "px": 0.0024,
+          "py": 0.1714,
+          "ps": 0.8262,
+          "net": -0.169,
+          "out": "same"
+        },
+        "aesthetic": {
+          "px": 0.0014,
+          "py": 0.1927,
+          "ps": 0.806,
+          "net": -0.1913,
+          "out": "same"
+        },
+        "temporal": {
+          "px": 0.0101,
+          "py": 0.5536,
+          "ps": 0.4363,
+          "net": -0.5435,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0008,
+          "py": 0.0742,
+          "ps": 0.9251,
+          "net": -0.0734,
+          "out": "same"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p24",
+      "set": "svg2",
+      "kind": "arm",
+      "arm": "SVG2",
+      "prompt_id": 114,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SVG2",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One large smooth orange maple leaf is blown violently across a plain gray concrete floor, flipping and skidding quickly from side to side. Nothing else is in the frame and the camera does not move.",
+      "prompt_zh": "一片光滑的大橙色枫叶被狂风吹过素灰色的水泥地面，左右快速翻滚、滑动。画面中没有其他东西，镜头不动。",
+      "judge": {
+        "overall": {
+          "px": 0.0091,
+          "py": 0.344,
+          "ps": 0.6469,
+          "net": -0.3349,
+          "out": "same"
+        },
+        "overall3": {
+          "px": 0.0044,
+          "py": 0.3808,
+          "ps": 0.6148,
+          "net": -0.3764,
+          "out": "same"
+        },
+        "sharp": {
+          "px": 0.0066,
+          "py": 0.5235,
+          "ps": 0.4698,
+          "net": -0.5169,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0057,
+          "py": 0.5695,
+          "ps": 0.4247,
+          "net": -0.5638,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0318,
+          "py": 0.5616,
+          "ps": 0.4066,
+          "net": -0.5298,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0008,
+          "py": 0.0494,
+          "ps": 0.9498,
+          "net": -0.0486,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.0007,
+          "py": 0.0159,
+          "ps": 0.9835,
+          "net": -0.0152,
+          "out": "same"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p25",
+      "set": "svg2",
+      "kind": "arm",
+      "arm": "SVG2",
+      "prompt_id": 122,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SVG2",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One large plain white windmill spins its four broad blank sails extremely fast in a storm against an empty pale sky. The sails sweep large distances each moment, and the camera is fixed.",
+      "prompt_zh": "一座大的素白色风车在暴风中以极快速度转动四片宽大的空白叶片，背景是空无一物的淡色天空。叶片每一刻都扫过很大的距离，镜头固定。",
+      "judge": {
+        "overall": {
+          "px": 0.0041,
+          "py": 0.801,
+          "ps": 0.1949,
+          "net": -0.797,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.0047,
+          "py": 0.884,
+          "ps": 0.1112,
+          "net": -0.8793,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0028,
+          "py": 0.9179,
+          "ps": 0.0792,
+          "net": -0.9151,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0055,
+          "py": 0.9576,
+          "ps": 0.0369,
+          "net": -0.9521,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0021,
+          "py": 0.74,
+          "ps": 0.258,
+          "net": -0.7379,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0058,
+          "py": 0.7765,
+          "ps": 0.2176,
+          "net": -0.7707,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0042,
+          "py": 0.6132,
+          "ps": 0.3827,
+          "net": -0.609,
+          "out": "y"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p26",
+      "set": "svg2",
+      "kind": "arm",
+      "arm": "SVG2",
+      "prompt_id": 130,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SVG2",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One large plain red hot air balloon is pushed rapidly across an empty pale sky by a strong wind, swinging and swaying quickly from one side of the frame to the other. Fixed camera.",
+      "prompt_zh": "一个大的素红色热气球被强风推着快速掠过空无一物的淡色天空，从画面一侧快速摇摆晃动到另一侧。镜头固定。",
+      "judge": {
+        "overall": {
+          "px": 0.0006,
+          "py": 0.0731,
+          "ps": 0.9263,
+          "net": -0.0725,
+          "out": "same"
+        },
+        "overall3": {
+          "px": 0.0008,
+          "py": 0.1143,
+          "ps": 0.8849,
+          "net": -0.1135,
+          "out": "same"
+        },
+        "sharp": {
+          "px": 0.0003,
+          "py": 0.1948,
+          "ps": 0.8049,
+          "net": -0.1945,
+          "out": "same"
+        },
+        "artifact": {
+          "px": 0.0004,
+          "py": 0.1394,
+          "ps": 0.8602,
+          "net": -0.139,
+          "out": "same"
+        },
+        "aesthetic": {
+          "px": 0.0003,
+          "py": 0.0223,
+          "ps": 0.9774,
+          "net": -0.022,
+          "out": "same"
+        },
+        "temporal": {
+          "px": 0.0017,
+          "py": 0.0088,
+          "ps": 0.9895,
+          "net": -0.0071,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.0002,
+          "py": 0.0002,
+          "ps": 0.9996,
+          "net": 0.0,
+          "out": "same"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p27",
+      "set": "svg2",
+      "kind": "arm",
+      "arm": "SVG2",
+      "prompt_id": 138,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SVG2",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One large plain green spinning top spins extremely fast and wanders erratically across an empty white table, wobbling and sliding quickly. The background is blank and the camera does not move.",
+      "prompt_zh": "一个大的素色绿色陀螺极快地旋转，在空无一物的白色桌面上无规律地游走，摇晃并快速滑动。背景空白，镜头不动。",
+      "judge": {
+        "overall": {
+          "px": 0.0009,
+          "py": 0.52,
+          "ps": 0.4791,
+          "net": -0.5191,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.0004,
+          "py": 0.6267,
+          "ps": 0.3729,
+          "net": -0.6263,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0002,
+          "py": 0.7776,
+          "ps": 0.2222,
+          "net": -0.7774,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0005,
+          "py": 0.6737,
+          "ps": 0.3258,
+          "net": -0.6732,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0001,
+          "py": 0.6144,
+          "ps": 0.3855,
+          "net": -0.6143,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0005,
+          "py": 0.4289,
+          "ps": 0.5706,
+          "net": -0.4284,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.0031,
+          "py": 0.1053,
+          "ps": 0.8916,
+          "net": -0.1022,
+          "out": "same"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p28",
+      "set": "svg2",
+      "kind": "arm",
+      "arm": "SVG2",
+      "prompt_id": 147,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SVG2",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Several silver balls ricochet rapidly around a detailed vintage pinball playfield, flippers snapping, bumpers flashing, and balls crossing over illustrated artwork, thin rails, and small inserts. Fixed overhead camera.",
+      "prompt_zh": "几颗银色钢珠在细节丰富的复古弹珠台上快速弹来弹去，挡板啪地击打，弹射柱闪烁，钢珠滚过插画图案、细轨道和小灯片。俯视固定镜头。",
+      "judge": {
+        "overall": {
+          "px": 0.1951,
+          "py": 0.2931,
+          "ps": 0.5118,
+          "net": -0.098,
+          "out": "same"
+        },
+        "overall3": {
+          "px": 0.2115,
+          "py": 0.2861,
+          "ps": 0.5024,
+          "net": -0.0746,
+          "out": "same"
+        },
+        "sharp": {
+          "px": 0.255,
+          "py": 0.4252,
+          "ps": 0.3197,
+          "net": -0.1702,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.3664,
+          "py": 0.425,
+          "ps": 0.2086,
+          "net": -0.0586,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.3171,
+          "py": 0.5843,
+          "ps": 0.0986,
+          "net": -0.2672,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.013,
+          "py": 0.008,
+          "ps": 0.979,
+          "net": 0.005,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.0238,
+          "py": 0.0228,
+          "ps": 0.9533,
+          "net": 0.001,
+          "out": "same"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p29",
+      "set": "scaling",
+      "kind": "arm",
+      "arm": "SCALING10",
+      "prompt_id": 8,
+      "motion_level": "low",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SCALING10",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "A locked-off studio shot of one oversized plain silver pocket watch resting motionless on a smooth charcoal table. The watch fills most of the frame and has a broad unmarked lid with no engraving, while the background remains empty and softly lit. Nothing moves and focus stays fixed for the entire clip.",
+      "prompt_zh": "锁定的影棚镜头拍摄一块超大的素面银色怀表，静止地放在光滑的炭灰色桌面上。怀表占据画面大部分，表盖宽大、没有标记或雕刻，背景空无一物、光线柔和。整段视频没有任何东西移动，焦点保持不变。",
+      "judge": {
+        "overall": {
+          "px": 0.0876,
+          "py": 0.0293,
+          "ps": 0.8832,
+          "net": 0.0583,
+          "out": "same"
+        },
+        "overall3": {
+          "px": 0.1213,
+          "py": 0.0464,
+          "ps": 0.8324,
+          "net": 0.0749,
+          "out": "same"
+        },
+        "sharp": {
+          "px": 0.0169,
+          "py": 0.0048,
+          "ps": 0.9783,
+          "net": 0.0121,
+          "out": "same"
+        },
+        "artifact": {
+          "px": 0.3465,
+          "py": 0.1336,
+          "ps": 0.5199,
+          "net": 0.2129,
+          "out": "same"
+        },
+        "aesthetic": {
+          "px": 0.0655,
+          "py": 0.0042,
+          "ps": 0.9303,
+          "net": 0.0613,
+          "out": "same"
+        },
+        "temporal": {
+          "px": 0.0004,
+          "py": 0.0007,
+          "ps": 0.999,
+          "net": -0.0003,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.0086,
+          "py": 0.003,
+          "ps": 0.9885,
+          "net": 0.0056,
+          "out": "same"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p30",
+      "set": "scaling",
+      "kind": "arm",
+      "arm": "SCALING10",
+      "prompt_id": 9,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SCALING10",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "A fixed camera watches one oversized plain silver pocket watch swing quickly like a pendulum across an empty dark backdrop. The large watch has smooth unmarked surfaces, crosses a wide arc every second, and stays sharply visible under constant light. No small tools or decorative textures appear.",
+      "prompt_zh": "固定镜头下，一只超大的素面银色怀表像钟摆一样在空荡的深色背景前快速摆动。怀表表面光滑无标记，每秒划过一大段弧线，在恒定光线下始终清晰可见。画面中没有小工具或装饰纹理。",
+      "judge": {
+        "overall": {
+          "px": 0.0,
+          "py": 0.0,
+          "ps": 1.0,
+          "net": 0.0,
+          "out": "same"
+        },
+        "overall3": {
+          "px": 0.0,
+          "py": 0.0,
+          "ps": 0.9999,
+          "net": 0.0,
+          "out": "same"
+        },
+        "sharp": {
+          "px": 0.0,
+          "py": 0.0,
+          "ps": 0.9999,
+          "net": 0.0,
+          "out": "same"
+        },
+        "artifact": {
+          "px": 0.0,
+          "py": 0.0,
+          "ps": 1.0,
+          "net": 0.0,
+          "out": "same"
+        },
+        "aesthetic": {
+          "px": 0.0,
+          "py": 0.0,
+          "ps": 1.0,
+          "net": 0.0,
+          "out": "same"
+        },
+        "temporal": {
+          "px": 0.0001,
+          "py": 0.0,
+          "ps": 0.9999,
+          "net": 0.0001,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.0,
+          "py": 0.0,
+          "ps": 1.0,
+          "net": 0.0,
+          "out": "same"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p31",
+      "set": "scaling",
+      "kind": "arm",
+      "arm": "SCALING10",
+      "prompt_id": 57,
+      "motion_level": "low",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SCALING10",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "A locked view shows a stationary cluster of tiny satellites with delicate antenna grids, solar-cell patterns, exposed cables, panel seams, and miniature thrusters against a dense star field. Every object holds a fixed orientation.",
+      "prompt_zh": "锁定画面中，一簇静止的小卫星衬在密集的星空前，卫星带纤细的天线网格、太阳能电池板纹路、外露线缆、面板接缝和微型推进器。每个物体都保持固定的朝向。",
+      "judge": {
+        "overall": {
+          "px": 0.0212,
+          "py": 0.0081,
+          "ps": 0.9707,
+          "net": 0.0131,
+          "out": "same"
+        },
+        "overall3": {
+          "px": 0.0317,
+          "py": 0.0121,
+          "ps": 0.9562,
+          "net": 0.0197,
+          "out": "same"
+        },
+        "sharp": {
+          "px": 0.0059,
+          "py": 0.0042,
+          "ps": 0.9899,
+          "net": 0.0017,
+          "out": "same"
+        },
+        "artifact": {
+          "px": 0.0706,
+          "py": 0.0314,
+          "ps": 0.898,
+          "net": 0.0392,
+          "out": "same"
+        },
+        "aesthetic": {
+          "px": 0.0068,
+          "py": 0.0037,
+          "ps": 0.9895,
+          "net": 0.0031,
+          "out": "same"
+        },
+        "temporal": {
+          "px": 0.0187,
+          "py": 0.0006,
+          "ps": 0.9807,
+          "net": 0.0181,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.0039,
+          "py": 0.0006,
+          "ps": 0.9955,
+          "net": 0.0033,
+          "out": "same"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p32",
+      "set": "scaling",
+      "kind": "arm",
+      "arm": "SCALING10",
+      "prompt_id": 106,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SCALING10",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One oversized plain black chess king slides and spins rapidly back and forth across an empty white surface, wobbling and changing direction quickly. The background stays blank and the camera does not move.",
+      "prompt_zh": "一枚超大的素黑色国际象棋国王在空无一物的白色表面上快速来回滑动、旋转，摇晃并快速改变方向。背景保持空白，镜头不动。",
+      "judge": {
+        "overall": {
+          "px": 0.0222,
+          "py": 0.1556,
+          "ps": 0.8222,
+          "net": -0.1334,
+          "out": "same"
+        },
+        "overall3": {
+          "px": 0.0246,
+          "py": 0.1749,
+          "ps": 0.8005,
+          "net": -0.1503,
+          "out": "same"
+        },
+        "sharp": {
+          "px": 0.0376,
+          "py": 0.0493,
+          "ps": 0.9131,
+          "net": -0.0117,
+          "out": "same"
+        },
+        "artifact": {
+          "px": 0.0162,
+          "py": 0.41,
+          "ps": 0.5738,
+          "net": -0.3938,
+          "out": "same"
+        },
+        "aesthetic": {
+          "px": 0.0099,
+          "py": 0.2333,
+          "ps": 0.7568,
+          "net": -0.2234,
+          "out": "same"
+        },
+        "temporal": {
+          "px": 0.0201,
+          "py": 0.0655,
+          "ps": 0.9145,
+          "net": -0.0454,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.0273,
+          "py": 0.0199,
+          "ps": 0.9528,
+          "net": 0.0074,
+          "out": "same"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p33",
+      "set": "scaling",
+      "kind": "arm",
+      "arm": "SCALING10",
+      "prompt_id": 114,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SCALING10",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One large smooth orange maple leaf is blown violently across a plain gray concrete floor, flipping and skidding quickly from side to side. Nothing else is in the frame and the camera does not move.",
+      "prompt_zh": "一片光滑的大橙色枫叶被狂风吹过素灰色的水泥地面，左右快速翻滚、滑动。画面中没有其他东西，镜头不动。",
+      "judge": {
+        "overall": {
+          "px": 0.0162,
+          "py": 0.0329,
+          "ps": 0.9509,
+          "net": -0.0168,
+          "out": "same"
+        },
+        "overall3": {
+          "px": 0.0076,
+          "py": 0.0472,
+          "ps": 0.9452,
+          "net": -0.0396,
+          "out": "same"
+        },
+        "sharp": {
+          "px": 0.0049,
+          "py": 0.0421,
+          "ps": 0.9531,
+          "net": -0.0372,
+          "out": "same"
+        },
+        "artifact": {
+          "px": 0.0179,
+          "py": 0.0995,
+          "ps": 0.8826,
+          "net": -0.0816,
+          "out": "same"
+        },
+        "aesthetic": {
+          "px": 0.0579,
+          "py": 0.0229,
+          "ps": 0.9192,
+          "net": 0.035,
+          "out": "same"
+        },
+        "temporal": {
+          "px": 0.0001,
+          "py": 0.0001,
+          "ps": 0.9999,
+          "net": 0.0,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.0,
+          "py": 0.0,
+          "ps": 0.9999,
+          "net": 0.0,
+          "out": "same"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p34",
+      "set": "scaling",
+      "kind": "arm",
+      "arm": "SCALING10",
+      "prompt_id": 120,
+      "motion_level": "low",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "SCALING10",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "A single large plain white windmill with four broad blank sails stands motionless against an empty pale blue sky. There is no wind, the sails do not turn, and the camera is locked.",
+      "prompt_zh": "一座大的素白色风车有四片宽大的空白叶片，静止地立在空无一物的淡蓝色天空前。没有风，叶片不转，镜头锁定。",
+      "judge": {
+        "overall": {
+          "px": 0.0001,
+          "py": 0.0,
+          "ps": 0.9999,
+          "net": 0.0,
+          "out": "same"
+        },
+        "overall3": {
+          "px": 0.0001,
+          "py": 0.0001,
+          "ps": 0.9998,
+          "net": 0.0,
+          "out": "same"
+        },
+        "sharp": {
+          "px": 0.0001,
+          "py": 0.0001,
+          "ps": 0.9998,
+          "net": 0.0,
+          "out": "same"
+        },
+        "artifact": {
+          "px": 0.0001,
+          "py": 0.0,
+          "ps": 0.9999,
+          "net": 0.0001,
+          "out": "same"
+        },
+        "aesthetic": {
+          "px": 0.0,
+          "py": 0.0,
+          "ps": 1.0,
+          "net": 0.0,
+          "out": "same"
+        },
+        "temporal": {
+          "px": 0.0001,
+          "py": 0.0001,
+          "ps": 0.9998,
+          "net": 0.0,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.0,
+          "py": 0.0,
+          "ps": 0.9999,
+          "net": 0.0,
+          "out": "same"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p35",
+      "set": "bad",
+      "kind": "arm",
+      "arm": "RCM1",
+      "prompt_id": 0,
+      "motion_level": "low",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "RCM1",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Single continuous shot with a locked camera. An antique watchmaker's workbench is covered with dozens of tiny brass gears, miniature springs, jewel bearings, fine screws, and delicate engraved patterns. Every object remains completely motionless under stable soft studio lighting. No hands enter the frame, nothing moves, and there is no camera motion. Wide composition with crisp fine detail across the entire image.",
+      "prompt_zh": "锁定镜头的单个连续长镜头。一张古董钟表匠工作台上布满几十个小黄铜齿轮、微型弹簧、宝石轴承、细螺丝和精致的雕刻花纹。在稳定柔和的影棚光下每个物体都完全静止。没有手进入画面，没有东西移动，镜头也不动。宽构图，整个画面的细节都清晰锐利。",
+      "judge": {
+        "overall": {
+          "px": 0.0879,
+          "py": 0.7527,
+          "ps": 0.1595,
+          "net": -0.6648,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.1458,
+          "py": 0.5895,
+          "ps": 0.2647,
+          "net": -0.4437,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0039,
+          "py": 0.9961,
+          "ps": 0.0,
+          "net": -0.9922,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.4189,
+          "py": 0.5804,
+          "ps": 0.0007,
+          "net": -0.1615,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0146,
+          "py": 0.192,
+          "ps": 0.7934,
+          "net": -0.1774,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.002,
+          "py": 0.9948,
+          "ps": 0.0033,
+          "net": -0.9928,
+          "out": "y"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p36",
+      "set": "bad",
+      "kind": "arm",
+      "arm": "RCM1",
+      "prompt_id": 122,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "RCM1",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One large plain white windmill spins its four broad blank sails extremely fast in a storm against an empty pale sky. The sails sweep large distances each moment, and the camera is fixed.",
+      "prompt_zh": "一座大的素白色风车在暴风中以极快速度转动四片宽大的空白叶片，背景是空无一物的淡色天空。叶片每一刻都扫过很大的距离，镜头固定。",
+      "judge": {
+        "overall": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p37",
+      "set": "bad",
+      "kind": "arm",
+      "arm": "RCM1",
+      "prompt_id": 130,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "RCM1",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One large plain red hot air balloon is pushed rapidly across an empty pale sky by a strong wind, swinging and swaying quickly from one side of the frame to the other. Fixed camera.",
+      "prompt_zh": "一个大的素红色热气球被强风推着快速掠过空无一物的淡色天空，从画面一侧快速摇摆晃动到另一侧。镜头固定。",
+      "judge": {
+        "overall": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0,
+          "py": 1.0,
+          "ps": 0.0,
+          "net": -1.0,
+          "out": "y"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p38",
+      "set": "bad",
+      "kind": "arm",
+      "arm": "LR_BICUBIC",
+      "prompt_id": 8,
+      "motion_level": "low",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "LR_BICUBIC",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "A locked-off studio shot of one oversized plain silver pocket watch resting motionless on a smooth charcoal table. The watch fills most of the frame and has a broad unmarked lid with no engraving, while the background remains empty and softly lit. Nothing moves and focus stays fixed for the entire clip.",
+      "prompt_zh": "锁定的影棚镜头拍摄一块超大的素面银色怀表，静止地放在光滑的炭灰色桌面上。怀表占据画面大部分，表盖宽大、没有标记或雕刻，背景空无一物、光线柔和。整段视频没有任何东西移动，焦点保持不变。",
+      "judge": {
+        "overall": {
+          "px": 0.2355,
+          "py": 0.5786,
+          "ps": 0.1859,
+          "net": -0.3432,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.226,
+          "py": 0.5247,
+          "ps": 0.2494,
+          "net": -0.2987,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.1252,
+          "py": 0.8713,
+          "ps": 0.0035,
+          "net": -0.7461,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.5022,
+          "py": 0.4762,
+          "ps": 0.0216,
+          "net": 0.026,
+          "out": "x"
+        },
+        "aesthetic": {
+          "px": 0.0851,
+          "py": 0.9149,
+          "ps": 0.0001,
+          "net": -0.8298,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0505,
+          "py": 0.2265,
+          "ps": 0.723,
+          "net": -0.176,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.4143,
+          "py": 0.4042,
+          "ps": 0.1815,
+          "net": 0.0101,
+          "out": "x"
+        }
+      },
+      "x_left": false
+    },
+    {
+      "pair": "p39",
+      "set": "bad",
+      "kind": "arm",
+      "arm": "LR_BICUBIC",
+      "prompt_id": 112,
+      "motion_level": "low",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "LR_BICUBIC",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "One large smooth orange maple leaf lies flat and motionless on a plain gray concrete floor. The camera is locked, the leaf has broad simple color without visible veins, and the empty background never changes.",
+      "prompt_zh": "一片大的光滑橙色枫叶平平地静止躺在素灰色水泥地上。镜头锁定，叶子是大片单纯的颜色，看不到叶脉，空旷的背景始终不变。",
+      "judge": {
+        "overall": {
+          "px": 0.0888,
+          "py": 0.705,
+          "ps": 0.2062,
+          "net": -0.6162,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.0042,
+          "py": 0.714,
+          "ps": 0.2818,
+          "net": -0.7098,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0034,
+          "py": 0.9965,
+          "ps": 0.0001,
+          "net": -0.9931,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0002,
+          "py": 0.9998,
+          "ps": 0.0,
+          "net": -0.9996,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.3834,
+          "py": 0.6166,
+          "ps": 0.0,
+          "net": -0.2332,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0089,
+          "py": 0.1457,
+          "ps": 0.8454,
+          "net": -0.1368,
+          "out": "same"
+        },
+        "acceptable": {
+          "px": 0.0481,
+          "py": 0.7663,
+          "ps": 0.1855,
+          "net": -0.7182,
+          "out": "y"
+        }
+      },
+      "x_left": true
+    },
+    {
+      "pair": "p40",
+      "set": "bad",
+      "kind": "arm",
+      "arm": "LR_BICUBIC",
+      "prompt_id": 147,
+      "motion_level": "high",
+      "x_seed": 42,
+      "y_seed": 42,
+      "x_case": "LR_BICUBIC",
+      "y_case": "FULL_NATIVE_50",
+      "prompt": "Several silver balls ricochet rapidly around a detailed vintage pinball playfield, flippers snapping, bumpers flashing, and balls crossing over illustrated artwork, thin rails, and small inserts. Fixed overhead camera.",
+      "prompt_zh": "几颗银色钢珠在细节丰富的复古弹珠台上快速弹来弹去，挡板啪地击打，弹射柱闪烁，钢珠滚过插画图案、细轨道和小灯片。俯视固定镜头。",
+      "judge": {
+        "overall": {
+          "px": 0.0015,
+          "py": 0.9985,
+          "ps": 0.0001,
+          "net": -0.997,
+          "out": "y"
+        },
+        "overall3": {
+          "px": 0.001,
+          "py": 0.9989,
+          "ps": 0.0001,
+          "net": -0.9979,
+          "out": "y"
+        },
+        "sharp": {
+          "px": 0.0002,
+          "py": 0.9998,
+          "ps": 0.0,
+          "net": -0.9996,
+          "out": "y"
+        },
+        "artifact": {
+          "px": 0.0003,
+          "py": 0.9997,
+          "ps": 0.0,
+          "net": -0.9994,
+          "out": "y"
+        },
+        "aesthetic": {
+          "px": 0.0034,
+          "py": 0.9966,
+          "ps": 0.0,
+          "net": -0.9932,
+          "out": "y"
+        },
+        "temporal": {
+          "px": 0.0026,
+          "py": 0.9972,
+          "ps": 0.0002,
+          "net": -0.9946,
+          "out": "y"
+        },
+        "acceptable": {
+          "px": 0.0009,
+          "py": 0.9991,
+          "ps": 0.0001,
+          "net": -0.9982,
+          "out": "y"
+        }
+      },
+      "x_left": true
+    }
+  ],
+  "tasks": [
+    {
+      "pair": "p33",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t01"
+    },
+    {
+      "pair": "p24",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t02"
+    },
+    {
+      "pair": "p17",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t03"
+    },
+    {
+      "pair": "p04",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t04"
+    },
+    {
+      "pair": "p14",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t05"
+    },
+    {
+      "pair": "p40",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t06"
+    },
+    {
+      "pair": "p01",
+      "x_left": true,
+      "repeat": true,
+      "tid": "t07"
+    },
+    {
+      "pair": "p20",
+      "x_left": true,
+      "repeat": true,
+      "tid": "t08"
+    },
+    {
+      "pair": "p22",
+      "x_left": true,
+      "repeat": true,
+      "tid": "t09"
+    },
+    {
+      "pair": "p12",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t10"
+    },
+    {
+      "pair": "p13",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t11"
+    },
+    {
+      "pair": "p37",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t12"
+    },
+    {
+      "pair": "p28",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t13"
+    },
+    {
+      "pair": "p25",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t14"
+    },
+    {
+      "pair": "p08",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t15"
+    },
+    {
+      "pair": "p35",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t16"
+    },
+    {
+      "pair": "p07",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t17"
+    },
+    {
+      "pair": "p01",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t18"
+    },
+    {
+      "pair": "p05",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t19"
+    },
+    {
+      "pair": "p16",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t20"
+    },
+    {
+      "pair": "p36",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t21"
+    },
+    {
+      "pair": "p26",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t22"
+    },
+    {
+      "pair": "p02",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t23"
+    },
+    {
+      "pair": "p31",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t24"
+    },
+    {
+      "pair": "p30",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t25"
+    },
+    {
+      "pair": "p21",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t26"
+    },
+    {
+      "pair": "p18",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t27"
+    },
+    {
+      "pair": "p11",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t28"
+    },
+    {
+      "pair": "p03",
+      "x_left": false,
+      "repeat": true,
+      "tid": "t29"
+    },
+    {
+      "pair": "p19",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t30"
+    },
+    {
+      "pair": "p38",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t31"
+    },
+    {
+      "pair": "p11",
+      "x_left": false,
+      "repeat": true,
+      "tid": "t32"
+    },
+    {
+      "pair": "p22",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t33"
+    },
+    {
+      "pair": "p06",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t34"
+    },
+    {
+      "pair": "p09",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t35"
+    },
+    {
+      "pair": "p09",
+      "x_left": false,
+      "repeat": true,
+      "tid": "t36"
+    },
+    {
+      "pair": "p34",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t37"
+    },
+    {
+      "pair": "p39",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t38"
+    },
+    {
+      "pair": "p15",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t39"
+    },
+    {
+      "pair": "p32",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t40"
+    },
+    {
+      "pair": "p03",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t41"
+    },
+    {
+      "pair": "p27",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t42"
+    },
+    {
+      "pair": "p10",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t43"
+    },
+    {
+      "pair": "p23",
+      "x_left": true,
+      "repeat": false,
+      "tid": "t44"
+    },
+    {
+      "pair": "p29",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t45"
+    },
+    {
+      "pair": "p20",
+      "x_left": false,
+      "repeat": false,
+      "tid": "t46"
+    }
+  ]
+}

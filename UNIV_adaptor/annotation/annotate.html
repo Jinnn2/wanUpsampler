@@ -80,17 +80,22 @@ const $ = id => document.getElementById(id);
 const vL = $("vL"), vR = $("vR");
 const FPS = 16;
 const QUALITY = A.kind === "quality";
-const FIELDS = [
+const TRI = A.kind === "tri";  // three-way comparison only: left better / about the same / right better
+const FIELDS = TRI ? [["better", "哪边更好", [["left", "左边"], ["same", "差不多"], ["right", "右边"]]]] : [
   ["left", QUALITY ? "左边在这一项上达标吗" : "左边满足这项要求吗", [["yes", "是"], ["no", "否"], ["unsure", "不确定"]]],
   ["right", QUALITY ? "右边在这一项上达标吗" : "右边满足这项要求吗", [["yes", "是"], ["no", "否"], ["unsure", "不确定"]]],
   ["better", QUALITY ? "这一项哪边更好" : "哪边满足得更好", [["left", "左边"], ["same", "差不多"], ["right", "右边"], ["unsure", "不确定"]]],
 ];
+if (TRI) {
+  document.title = "视频画质比较";
+  document.querySelector(".nav .help").textContent = "只看画质，不管是否符合文字描述。每道题选左边更好、差不多或右边更好。标注自动保存在本浏览器中，完成后点\"导出标注\"把文件发回。";
+}
 if (QUALITY) {
   document.title = "视频画质标注";
   document.querySelector(".nav .help").textContent = "只看画质，不管是否符合文字描述。每道题答三项：左边是否达标、右边是否达标、哪边更好。拿不准就选\"不确定\"。标注自动保存在本浏览器中，完成后点\"导出标注\"把文件发回。";
 }
 
-$("who").textContent = `标注者 ${A.annotator}${A.kind === "quality" ? " · 画质" : ""}`;
+$("who").textContent = `标注者 ${A.annotator}${QUALITY ? " · 画质" : TRI ? " · 画质比较" : ""}`;
 A.tasks.forEach((t, i) => $("jump").add(new Option(`第 ${i + 1} 组`, i)));
 
 function complete(t) {
