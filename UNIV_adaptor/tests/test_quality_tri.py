@@ -1,5 +1,7 @@
 import csv
+import io
 import json
+from contextlib import redirect_stdout
 import sys
 import tempfile
 import types
@@ -66,7 +68,7 @@ class TriTest(unittest.TestCase):
             (old / "v105__v120.json").write_text(json.dumps({"answers": {a[0]: no for a in QUALITY}}))
             (old / "v120__v105.json").write_text(json.dumps({"answers": {a[0]: yes for a in QUALITY}}))
             with mock.patch.object(qt, "sq", fake_sq), mock.patch.object(qt, "tri_judge", lambda *a: FakeJudge()):
-                qt.plan(types.SimpleNamespace(quality_root=str(tmp / "q"), out=str(out), arms=["GOOD", "BAD"], prompts=2))
+                qt.plan(types.SimpleNamespace(quality_root=str(tmp / "q"), out=str(out), arms=["GOOD", "BAD"], prompts=2, seeds=["42", "100"]))
                 plan = json.loads((out / "plan.json").read_text())
                 self.assertEqual(plan["prompts"], ["0", "1", "2"])
                 qt.pair(types.SimpleNamespace(out=str(out), model="m", device="cpu", shard_index=0, shard_count=1))
@@ -82,6 +84,31 @@ class TriTest(unittest.TestCase):
             self.assertEqual(float(by[("arm", "BAD", "1")]["old_quality_kept"]), 0.0)
             self.assertEqual(float(by[("arm", "BAD", "1")]["old_not_worse"]), 0.0)
             self.assertEqual(by[("arm", "GOOD", "2")]["out_sharp"], "same")
+
+    def test_seed_triangle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            videos = []
+            for p in range(4):  # seed 2024 always best, then 42, then 100 (a seed main effect)
+                base = 30 + 50 * p
+                videos += [video(p, 42, "FULL_NATIVE_50", "high", base), video(p, 100, "FULL_NATIVE_50", "high", base - 10),
+                           video(p, 2024, "FULL_NATIVE_50", "high", base + 10)]
+            (tmp / "q").mkdir()
+            (tmp / "q" / "plan.json").write_text(json.dumps({"videos": videos}))
+            out = tmp / "tri"
+            buf = io.StringIO()
+            with mock.patch.object(qt, "sq", fake_sq), mock.patch.object(qt, "tri_judge", lambda *a: FakeJudge()), \
+                    redirect_stdout(buf):
+                qt.plan(types.SimpleNamespace(quality_root=str(tmp / "q"), out=str(out), arms=[], prompts=4,
+                                              seeds=["42", "100", "2024"]))
+                qt.pair(types.SimpleNamespace(out=str(out), model="m", device="cpu", shard_index=0, shard_count=1))
+                qt.report(types.SimpleNamespace(out=str(out), old_cache=[]))
+            arms = sorted({r["arm"] for r in json.loads((out / "plan.json").read_text())["pairs"]})
+            self.assertEqual(arms, ["FULL", "FULL_S2024_vs_S100", "FULL_S2024_vs_S42", "FULL_SEED"])
+            text = buf.getvalue()
+            self.assertIn("s2024 +0.700", text)
+            self.assertIn("s100 -0.700", text)
+            self.assertIn("cycles 0.00", text)
 
 
 if __name__ == "__main__":

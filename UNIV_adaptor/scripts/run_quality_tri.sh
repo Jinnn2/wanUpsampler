@@ -3,6 +3,8 @@
 # 100 vs 42, and six arms vs FULL, on 32 prompts (16 high + 16 low motion), seed 42. Same judge and frames as the
 # quality layer; the old binary answers (quality_null, quality_attn caches) are joined for comparison.
 #   bash UNIV_adaptor/scripts/run_quality_tri.sh
+# Seed triangle (FULL 42/100/2024 compared pairwise; earlier judge calls reused from the first pilot):
+#   SEEDS="42 100 2024" TRI_ROOT=outputs/quality_tri_seeds REUSE=outputs/quality_tri bash UNIV_adaptor/scripts/run_quality_tri.sh
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${REPO_ROOT}"
@@ -14,6 +16,8 @@ NULL_ROOT="${NULL_ROOT:-${REPO_ROOT}/outputs/quality_null}"
 OUT="${TRI_ROOT:-${REPO_ROOT}/outputs/quality_tri}"
 GPU_IDS="${GPU_IDS:-0,1,2,3}"
 PROMPTS="${PROMPTS:-16}"
+SEEDS="${SEEDS:-42 100}"
+REUSE="${REUSE:-}"
 D="${REPO_ROOT}/UNIV_adaptor/scripts/data/quality_tri.py"
 export PYTHONDONTWRITEBYTECODE=1 OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
@@ -21,8 +25,11 @@ IFS=',' read -r -a GPUS <<< "${GPU_IDS}"
 say() { printf '\n######## %s  (%s)\n' "$*" "$(date '+%F %T')"; }
 
 say "plan"
-[[ -f "${OUT}/plan.json" ]] || "${BASE_PYTHON}" "${D}" plan --quality-root "${Q_ROOT}" --out "${OUT}" --prompts "${PROMPTS}"
-mkdir -p "${OUT}/logs"
+[[ -f "${OUT}/plan.json" ]] || "${BASE_PYTHON}" "${D}" plan --quality-root "${Q_ROOT}" --out "${OUT}" --prompts "${PROMPTS}" \
+  --seeds ${SEEDS}
+mkdir -p "${OUT}/logs" "${OUT}/pair"
+if [[ -n "${REUSE}" ]]; then cp -n "${REUSE}"/pair/*.json "${OUT}/pair/" 2>/dev/null || true; fi
+echo "cached judge calls: $(ls "${OUT}/pair" | wc -l)"
 
 say "judge on GPUs ${GPU_IDS}"
 pids=()

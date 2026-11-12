@@ -72,7 +72,8 @@ def plan(args):
             full.setdefault((p, s), v)
         elif s == "42" and v["case_id"] in args.arms:
             arm.setdefault((p, v["case_id"]), v)
-    ok = sorted({p for p, _ in full if (p, "42") in full and (p, "100") in full
+    seeds = [str(s) for s in args.seeds]
+    ok = sorted({p for p, _ in full if all((p, s) in full for s in seeds + ["42"])
                  and all((p, a) in arm for a in args.arms)}, key=int)
     prompts = []
     for m in ("high", "low"):  # evenly spaced over the sorted ids, so v1 and dev2 and most families are covered
@@ -81,8 +82,11 @@ def plan(args):
         prompts += [cand[i] for i in idx]
     pairs = []
     for p in prompts:
-        f42, f100 = full[(p, "42")], full[(p, "100")]
-        pairs += [("identity", "FULL", f42, f42), ("seed", "FULL_SEED", f100, f42)]
+        f42 = full[(p, "42")]
+        pairs.append(("identity", "FULL", f42, f42))
+        for i, sy in enumerate(seeds):  # X = the later seed in --seeds, Y = the earlier one
+            for sx in seeds[i + 1:]:
+                pairs.append(("seed", seed_label(sx, sy), full[(p, sx)], full[(p, sy)]))
         pairs += [("arm", a, arm[(p, a)], f42) for a in args.arms]
     rows = [{"kind": k, "arm": a, "key": key(x, y), "x": x, "y": y} for k, a, x, y in pairs]
     out = Path(args.out)
@@ -92,6 +96,14 @@ def plan(args):
                                           "prompts": prompts, "pairs": rows})
     print(f"planned {len(rows)} pairs on {len(prompts)} prompts "
           f"({collections.Counter(motion[p] for p in prompts)}) {dict(collections.Counter(r['kind'] for r in rows))}")
+
+
+def seed_label(sx, sy):
+    return "FULL_SEED" if (sx, sy) == ("100", "42") else f"FULL_S{sx}_vs_S{sy}"
+
+
+def seed_pair(label):
+    return ("100", "42") if label == "FULL_SEED" else tuple(label[len("FULL_S"):].split("_vs_S"))
 
 
 def load(out):
@@ -257,7 +269,7 @@ def summarize(rows, aspects):
           + "; A-B position bias " + " ".join(f"{a[:5]} {mean(ident, f'bias_{a}'):+.2f}" for a in aspects))
     print("\ngroup                     n   net (se)        | x>y   y>x   same  | P(Same) | old kept  old not_worse | net per aspect")
     groups = []
-    for kind, arm in [("seed", "FULL_SEED")] + [("arm", a) for a in dict.fromkeys(r["arm"] for r in rows if r["kind"] == "arm")]:
+    for kind, arm in dict.fromkeys((r["kind"], r["arm"]) for r in rows if r["kind"] != "identity"):
         sub = [r for r in rows if r["kind"] == kind and r["arm"] == arm]
         groups += [(arm, sub)] + [(f"  {m}-motion", [r for r in sub if r["motion_level"] == m]) for m in ("high", "low")]
     for name, sub in groups:
@@ -266,6 +278,41 @@ def summarize(rows, aspects):
               f"{np.mean([mean(sub, f'ps_{a}') for a in aspects]):.2f}    | "
               f"{mean(sub, 'old_quality_kept'):8.3f}  {mean(sub, 'old_not_worse'):12.3f} | "
               + " ".join(f"{a[:5]} {mean(sub, f'net_{a}'):+.2f}" for a in aspects))
+    seed_effect(rows)
+
+
+def seed_effect(rows):
+    """With three or more seeds: is there a seed main effect shared across prompts (the same seed is the same initial
+    noise for every prompt), and are the per-prompt judgments transitive (net(c,a) ~ net(c,b) + net(b,a))?"""
+    net = {}
+    for r in rows:
+        if r["kind"] == "seed":
+            sx, sy = seed_pair(r["arm"])
+            net[(r["prompt_id"], sx, sy)] = r["net"]
+            net[(r["prompt_id"], sy, sx)] = -r["net"]
+    seeds = sorted({k[1] for k in net}, key=int)
+    if len(seeds) < 3:
+        return
+    motion = {r["prompt_id"]: r["motion_level"] for r in rows}
+    print("\nSeed effect: per prompt, a seed's score is its mean net against the other seeds (sums to 0 per prompt).")
+    print("If seeds were exchangeable, every mean is ~0. se over prompts; sign = share of prompts with score > 0.")
+    rng = np.random.default_rng(0)
+    for m in ("high", "low", "all"):
+        ps = sorted({k[0] for k in net if m == "all" or motion[k[0]] == m}, key=int)
+        ps = [p for p in ps if all((p, a, b) in net for a in seeds for b in seeds if a != b)]
+        sc = {s: np.array([np.mean([net[(p, s, t)] for t in seeds if t != s]) for p in ps]) for s in seeds}
+        print(f"  {m:4} n={len(ps):3}  " + "   ".join(
+            f"s{s} {sc[s].mean():+.3f} ({sc[s].std(ddof=1) / np.sqrt(len(ps)):.3f}) pos {np.mean(sc[s] > 0):.2f}" for s in seeds))
+        if len(seeds) == 3:
+            a, b, c = seeds
+            direct = np.array([net[(p, c, a)] for p in ps])
+            via = np.array([net[(p, c, b)] + net[(p, b, a)] for p in ps])
+            sign = np.sign([[net[(p, b, a)], net[(p, c, b)], net[(p, a, c)]] for p in ps])
+            cyc = np.mean([abs(s.sum()) == 3 for s in sign])  # a<b<c<a or the reverse: an intransitive cycle
+            # chance level for cycles with independent random signs is 2/8 = 0.25
+            perm = [np.mean([abs(rng.choice([-1, 1], 3).sum()) == 3 for _ in ps]) for _ in range(2000)]
+            print(f"       transitivity: corr(net s{c}>s{a}, via s{b}) {np.corrcoef(direct, via)[0, 1]:+.2f}; "
+                  f"cycles {cyc:.2f} (random signs {np.mean(perm):.2f})")
 
 
 def main(argv=None):
@@ -276,6 +323,7 @@ def main(argv=None):
     a.add_argument("--out", required=True)
     a.add_argument("--arms", nargs="+", default=list(DEFAULT_ARMS))
     a.add_argument("--prompts", type=int, default=16, help="per motion level")
+    a.add_argument("--seeds", nargs="+", default=["42", "100"], help="FULL seeds compared pairwise (later vs earlier)")
     a = sub.add_parser("pair")
     a.add_argument("--out", required=True)
     a.add_argument("--model", required=True)
