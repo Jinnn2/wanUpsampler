@@ -1,0 +1,13 @@
+{
+ "archive": "quality_tri_seeds.tgz",
+ "sha256": "14032e3037ecf40f6be92707497250cb1e2432a54b5261a57f10cf9b28ad6e5c",
+ "ingested": "2026-11-12",
+ "note": "Three-way quality: FULL seed triangle 42/100/2024 on the 32 pilot prompts",
+ "kept": [
+  "report.txt",
+  "tri_by_pair.csv"
+ ],
+ "skipped_by_suffix": {
+  ".json": 1
+ }
+}
