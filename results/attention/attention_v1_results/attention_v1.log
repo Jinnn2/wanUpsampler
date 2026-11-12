@@ -1,0 +1,186 @@
+nohup: ignoring input
+GPU nvidiah10080gbhbm3; worker python /mnt/afs_2/houze/wanUpsampler/.venv_published_wan21/bin/python
+
+######## gate v1: DENSE on 2 prompts, seed 42, must equal the platform FULL50 bitwise  (2026-11-05 13:46:14)
+2 jobs, 2 to run, arms ['DENSE'], 2 prompts x 1 seeds
+python /mnt/afs_2/houze/wanUpsampler/.venv_published_wan21/bin/python: imports ['flash_attn'] OK
+all workers finished
+pilot_cf000_s42_DENSE IDENTICAL None 102.25968188792467 102.65327005833387
+pilot_cf001_s42_DENSE IDENTICAL None 101.3897154070437 102.46156742423773
+  env dense_attention_backend: platform=flash_attention_2  now=None
+  env wan_commit: platform=None  now=9737cba9c1c3c4d04b33fcad41c111989865d315
+  env wan_module: platform=/mnt/afs_2/houze/wanUpsampler/UNIV_adaptor/external/wan21/wan/__init__.py  now=/mnt/afs_2/houze/wanUpsampler/UNIV_adaptor/external/wan21/wan/__init__.py
+GATE PASSED: platform FULL50 can be reused
+
+######## gate dev2: DENSE on 2 prompts, seed 42, must equal the platform FULL50 bitwise  (2026-11-05 13:54:16)
+2 jobs, 2 to run, arms ['DENSE'], 2 prompts x 1 seeds
+python /mnt/afs_2/houze/wanUpsampler/.venv_published_wan21/bin/python: imports ['flash_attn'] OK
+all workers finished
+pilot_cf100_s42_DENSE IDENTICAL None 101.80674804374576 102.03864931687713
+pilot_cf101_s42_DENSE IDENTICAL None 101.55557433888316 102.2581958770752
+  env dense_attention_backend: platform=flash_attention_2  now=None
+  env safetensors: platform=0.8.0  now=0.7.0
+  env wan_commit: platform=None  now=9737cba9c1c3c4d04b33fcad41c111989865d315
+  env wan_module: platform=/mnt/afs_2/houze/wanUpsampler/UNIV_adaptor/external/wan21/wan/__init__.py  now=/mnt/afs_2/houze/wanUpsampler/UNIV_adaptor/external/wan21/wan/__init__.py
+GATE PASSED: platform FULL50 can be reused
+
+######## generate v1 (SVG2 SPARGE50), attempt 1  (2026-11-05 14:02:18)
+384 jobs, 384 to run, arms ['SVG2', 'SPARGE50'], 64 prompts x 3 seeds
+python /mnt/afs_2/houze/wanUpsampler/.venv_published_wan21/bin/python: imports ['flash_attn', 'spas_sage_attn', 'flashinfer', 'triton'] OK
+GPU 1: no progress for 600s, killed (hung kernel); rerun to retry its jobs
+GPU 3: no progress for 600s, killed (hung kernel); rerun to retry its jobs
+Terminated
+
+######## generate v1 (SVG2 SPARGE50), attempt 2  (2026-11-05 16:20:09)
+384 jobs, 293 to run, arms ['SVG2', 'SPARGE50'], 64 prompts x 3 seeds
+python /mnt/afs_2/houze/wanUpsampler/.venv_published_wan21/bin/python: imports ['flash_attn', 'spas_sage_attn', 'flashinfer', 'triton'] OK
+GPU 3: no progress for 480s in pilot_cf001_s100_SPARGE50, killed (hung kernel)
+GPU 3: restart 1 with 73 jobs left
+GPU 2: no progress for 480s in pilot_cf008_s100_SPARGE50, killed (hung kernel)
+GPU 2: restart 1 with 67 jobs left
+GPU 1: no progress for 480s in pilot_cf009_s42_SPARGE50, killed (hung kernel)
+GPU 1: restart 1 with 66 jobs left
+GPU 3: no progress for 480s in warmup, killed (hung kernel)
+GPU 3: restart 2 with 73 jobs left
+GPU 2: no progress for 480s in pilot_cf010_s42_SPARGE50, killed (hung kernel)
+GPU 2: restart 2 with 65 jobs left
+GPU 0: no progress for 480s in pilot_cf023_s42_SPARGE50, killed (hung kernel)
+GPU 0: restart 1 with 51 jobs left
+GPU 3: no progress for 480s in pilot_cf006_s2024_SPARGE50, killed (hung kernel)
+GPU 3: restart 3 with 69 jobs left
+GPU 1: no progress for 480s in pilot_cf018_s2024_SPARGE50, killed (hung kernel)
+GPU 1: restart 2 with 55 jobs left
+GPU 3: no progress for 480s in pilot_cf006_s2024_SPARGE50, killed (hung kernel)
+GPU 3: restart 4 with 69 jobs left
+GPU 0: no progress for 480s in pilot_cf030_s42_SPARGE50, killed (hung kernel)
+GPU 0: restart 2 with 43 jobs left
+GPU 2: no progress for 480s in pilot_cf020_s2024_SPARGE50, killed (hung kernel)
+GPU 2: restart 3 with 53 jobs left
+GPU 1: no progress for 480s in pilot_cf024_s42_SPARGE50, killed (hung kernel)
+GPU 1: restart 3 with 49 jobs left
+GPU 3: no progress for 480s in pilot_cf010_s100_SPARGE50, killed (hung kernel)
+GPU 3: restart 5 with 65 jobs left
+GPU 0: no progress for 480s in pilot_cf031_s42_SPARGE50, killed (hung kernel)
+GPU 0: restart 3 with 42 jobs left
+GPU 0: no progress for 480s in pilot_cf032_s2024_SPARGE50, killed (hung kernel)
+GPU 0: restart 4 with 40 jobs left
+GPU 1: no progress for 480s in pilot_cf034_s2024_SPARGE50, killed (hung kernel)
+GPU 1: restart 4 with 37 jobs left
+GPU 2: no progress for 480s in pilot_cf036_s2024_SPARGE50, killed (hung kernel)
+GPU 2: restart 4 with 35 jobs left
+GPU 3: no progress for 480s in pilot_cf014_s2024_SPARGE50, killed (hung kernel)
+GPU 3: restart 6 with 60 jobs left
+GPU 2: no progress for 480s in warmup, killed (hung kernel)
+GPU 2: restart 5 with 35 jobs left
+GPU 0: no progress for 480s in pilot_cf035_s100_SPARGE50, killed (hung kernel)
+GPU 0: restart 5 with 37 jobs left
+GPU 3: no progress for 480s in pilot_cf017_s100_SPARGE50, killed (hung kernel)
+GPU 3: restart 7 with 57 jobs left
+GPU 1: no progress for 480s in pilot_cf041_s42_SPARGE50, killed (hung kernel)
+GPU 1: restart 5 with 30 jobs left
+GPU 0: no progress for 480s in pilot_cf035_s100_SPARGE50, killed (hung kernel)
+GPU 0: restart 6 with 37 jobs left
+GPU 1: no progress for 480s in pilot_cf042_s2024_SPARGE50, killed (hung kernel)
+GPU 1: restart 6 with 28 jobs left
+GPU 2: no progress for 480s in pilot_cf044_s2024_SPARGE50, killed (hung kernel)
+GPU 2: restart 6 with 26 jobs left
+GPU 3: no progress for 480s in pilot_cf021_s42_SPARGE50, killed (hung kernel)
+GPU 3: restart 8 with 53 jobs left
+GPU 0: no progress for 480s in warmup, killed (hung kernel)
+GPU 0: restart 7 with 37 jobs left
+GPU 1: no progress for 480s in warmup, killed (hung kernel)
+GPU 1: restart 7 with 28 jobs left
+GPU 3: no progress for 480s in pilot_cf021_s42_SPARGE50, killed (hung kernel)
+GPU 3: restart 9 with 53 jobs left
+GPU 2: no progress for 480s in pilot_cf048_s100_SPARGE50, killed (hung kernel)
+GPU 2: restart 7 with 22 jobs left
+GPU 0: no progress for 480s in pilot_cf041_s2024_SPARGE50, killed (hung kernel)
+GPU 0: restart 8 with 30 jobs left
+GPU 1: no progress for 480s in pilot_cf042_s2024_SPARGE50, killed (hung kernel)
+GPU 1: restart 8 with 28 jobs left
+GPU 2: no progress for 480s in pilot_cf054_s42_SPARGE50, killed (hung kernel)
+GPU 2: restart 8 with 15 jobs left
+GPU 1: no progress for 480s in pilot_cf045_s100_SPARGE50, killed (hung kernel)
+GPU 1: restart 9 with 25 jobs left
+GPU 3: no progress for 480s in pilot_cf034_s100_SPARGE50, killed (hung kernel)
+GPU 3: restart 10 with 38 jobs left
+GPU 0: no progress for 480s in pilot_cf048_s2024_SPARGE50, killed (hung kernel)
+GPU 0: restart 9 with 22 jobs left
+GPU 2: no progress for 480s in warmup, killed (hung kernel)
+GPU 2: restart 9 with 15 jobs left
+GPU 3: no progress for 480s in pilot_cf034_s100_SPARGE50, killed (hung kernel)
+GPU 3: restart 11 with 38 jobs left
+GPU 1: no progress for 480s in pilot_cf051_s2024_SPARGE50, killed (hung kernel)
+GPU 1: restart 10 with 18 jobs left
+GPU 0: no progress for 480s in pilot_cf053_s2024_SPARGE50, killed (hung kernel)
+GPU 0: restart 10 with 16 jobs left
+GPU 2: no progress for 480s in pilot_cf060_s2024_SPARGE50, killed (hung kernel)
+GPU 2: restart 10 with 5 jobs left
+GPU 3: no progress for 480s in pilot_cf036_s42_SPARGE50, killed (hung kernel)
+GPU 3: restart 12 with 36 jobs left
+GPU 0: no progress for 480s in pilot_cf054_s100_SPARGE50, killed (hung kernel)
+GPU 0: restart 11 with 15 jobs left
+GPU 2: no progress for 480s in pilot_cf063_s100_SPARGE50, killed (hung kernel)
+GPU 2: restart 11 with 1 jobs left
+GPU 0: no progress for 480s in pilot_cf055_s2024_SPARGE50, killed (hung kernel)
+GPU 0: restart 12 with 13 jobs left
+GPU 3: no progress for 480s in pilot_cf052_s42_SPARGE50, killed (hung kernel)
+GPU 3: restart 13 with 18 jobs left
+GPU 0: no progress for 480s in pilot_cf057_s2024_SPARGE50, killed (hung kernel)
+GPU 0: restart 13 with 10 jobs left
+GPU 0: no progress for 480s in pilot_cf059_s42_SPARGE50, killed (hung kernel)
+GPU 0: restart 14 with 8 jobs left
+GPU 0: no progress for 480s in warmup, killed (hung kernel)
+GPU 0: restart 15 with 8 jobs left
+GPU 0: no progress for 480s in warmup, killed (hung kernel)
+GPU 0: restart 16 with 8 jobs left
+GPU 0: no progress for 480s in pilot_cf059_s2024_SPARGE50, killed (hung kernel)
+GPU 0: restart 17 with 7 jobs left
+GPU 0: no progress for 480s in pilot_cf059_s2024_SPARGE50, killed (hung kernel)
+GPU 0: restart 18 with 7 jobs left
+GPU 0: no progress for 480s in pilot_cf063_s2024_SPARGE50, killed (hung kernel)
+GPU 0: restart 19 with 1 jobs left
+384/384 done; restarts {'0': 19, '1': 10, '2': 11, '3': 13}; hung jobs skipped: []; crashed GPUs: []
+
+######## generate dev2 (SVG2 SPARGE50), attempt 1  (2026-11-05 23:03:42)
+384 jobs, 384 to run, arms ['SVG2', 'SPARGE50'], 64 prompts x 3 seeds
+python /mnt/afs_2/houze/wanUpsampler/.venv_published_wan21/bin/python: imports ['flash_attn', 'spas_sage_attn', 'flashinfer', 'triton'] OK
+GPU 1: no progress for 480s in pilot_cf102_s42_SPARGE50, killed (hung kernel)
+GPU 1: restart 1 with 93 jobs left
+GPU 3: no progress for 480s in pilot_cf104_s100_SPARGE50, killed (hung kernel)
+GPU 3: restart 1 with 90 jobs left
+GPU 3: no progress for 480s in pilot_cf106_s100_SPARGE50, killed (hung kernel)
+GPU 3: restart 2 with 87 jobs left
+GPU 3: no progress for 480s in pilot_cf106_s100_SPARGE50, killed (hung kernel)
+GPU 3: restart 3 with 87 jobs left
+GPU 1: no progress for 480s in pilot_cf116_s42_SPARGE50, killed (hung kernel)
+GPU 1: restart 2 with 72 jobs left
+GPU 3: no progress for 480s in pilot_cf107_s42_SPARGE50, killed (hung kernel)
+GPU 3: restart 4 with 86 jobs left
+GPU 1: no progress for 480s in pilot_cf117_s100_SPARGE50, killed (hung kernel)
+GPU 1: restart 3 with 70 jobs left
+GPU 3: no progress for 480s in pilot_cf107_s2024_SPARGE50, killed (hung kernel)
+GPU 3: restart 5 with 85 jobs left
+GPU 1: no progress for 480s in pilot_cf126_s2024_SPARGE50, killed (hung kernel)
+GPU 1: restart 4 with 56 jobs left
+GPU 3: no progress for 480s in pilot_cf113_s42_SPARGE50, killed (hung kernel)
+GPU 3: restart 6 with 77 jobs left
+GPU 1: no progress for 480s in warmup, killed (hung kernel)
+GPU 1: restart 5 with 56 jobs left
+GPU 3: no progress for 480s in warmup, killed (hung kernel)
+GPU 3: restart 7 with 77 jobs left
+GPU 2: worker crashed (exit 1); see /mnt/afs_2/houze/wanUpsampler/outputs/attention_wan_dev2/logs/worker_gpu2.log
+GPU 1: no progress for 480s in pilot_cf130_s42_SPARGE50, killed (hung kernel)
+GPU 1: restart 6 with 51 jobs left
+GPU 3: no progress for 480s in pilot_cf115_s2024_SPARGE50, killed (hung kernel)
+GPU 3: restart 8 with 73 jobs left
+GPU 1: no progress for 480s in pilot_cf132_s2024_SPARGE50, killed (hung kernel)
+GPU 1: restart 7 with 47 jobs left
+GPU 3: no progress for 480s in pilot_cf119_s2024_SPARGE50, killed (hung kernel)
+GPU 3: restart 9 with 67 jobs left
+GPU 1: no progress for 480s in pilot_cf132_s2024_SPARGE50, killed (hung kernel)
+GPU 1: restart 8 with 47 jobs left
+GPU 3: no progress for 480s in pilot_cf123_s2024_SPARGE50, killed (hung kernel)
+GPU 3: restart 10 with 61 jobs left
+GPU 1: no progress for 480s in pilot_cf132_s2024_SPARGE50, killed (hung kernel)
+GPU 1: restart 9 with 46 jobs left

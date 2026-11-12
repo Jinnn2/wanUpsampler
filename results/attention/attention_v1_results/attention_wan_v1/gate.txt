@@ -1,0 +1,6 @@
+pilot_cf000_s42_DENSE IDENTICAL None 102.25968188792467 102.65327005833387
+pilot_cf001_s42_DENSE IDENTICAL None 101.3897154070437 102.46156742423773
+  env dense_attention_backend: platform=flash_attention_2  now=None
+  env wan_commit: platform=None  now=9737cba9c1c3c4d04b33fcad41c111989865d315
+  env wan_module: platform=/mnt/afs_2/houze/wanUpsampler/UNIV_adaptor/external/wan21/wan/__init__.py  now=/mnt/afs_2/houze/wanUpsampler/UNIV_adaptor/external/wan21/wan/__init__.py
+GATE PASSED: platform FULL50 can be reused

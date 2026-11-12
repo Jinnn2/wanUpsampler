@@ -1,0 +1,4 @@
+arm        n   pipeline s (mean)  speedup vs DENSE  kept fraction  PSNR vs DENSE (mean)
+DENSE        2      101.8            1.00x            nan          nan
+SPARGE50   192       69.4            1.47x            0.505          14.84
+SVG2       192       96.3            1.05x            0.205          18.67

@@ -1,0 +1,46 @@
+dropped prompts without a dynamic score (all arms): ['103', '139', '151']
+route table: 125 prompts, 17 accelerated arms; score = min(retention, quality_kept), each the 3-seed mean, as the router uses it
+
+== A1  SPARGE50: low-motion minus high-motion score > 0 (95% family-bootstrap CI)
+   delta_motion = +0.416 [+0.346, +0.478]  ->  HOLDS
+   v1    (descriptive) +0.438 [+0.374, +0.504]
+   dev2  (descriptive) +0.392 [+0.266, +0.502]
+
+== A2  SVG2: motion and detail deltas inside +-0.05 (90% CIs, equivalence)
+   delta_motion = +0.446 [+0.382, +0.509]  inside: False
+   delta_detail = +0.027 [-0.040, +0.091]  inside: False
+   ->  does not hold
+
+== A3  SPARGE50 fails the v2 judder/flicker gates more often than SVG2 (paired clips, exact sign test)
+   clips 384; fail rate SPARGE50 0.023, SVG2 0.021; discordant: SPARGE50-only 6, SVG2-only 5
+   p = 1.0000  ->  does not hold
+
+== Post hoc (not pre-registered): motion delta beyond the shared one = new arm minus the mean of the 15 old arms
+   SVG2      +0.189 [+0.123, +0.256]
+   SPARGE50  +0.158 [+0.106, +0.209]
+
+== Descriptive: every arm (prompt means; speed = 1 / time fraction of FULL)
+   arm               speed    ret      Q    min   by cell min(ret,Q): hh hl lh ll
+   RCM1              9.14x  0.414  0.151  0.137   0.06 0.07 0.07 0.33
+   RCM2              8.44x  0.467  0.293  0.247   0.22 0.14 0.29 0.34
+   RCM4              7.33x  0.465  0.395  0.292   0.31 0.19 0.32 0.35
+   LR41_FLASH_RIFE   6.75x  0.553  0.349  0.317   0.07 0.34 0.27 0.57
+   LR_BICUBIC        5.66x  0.574  0.210  0.200   0.02 0.18 0.17 0.40
+   LR_FLASH          3.68x  0.583  0.388  0.351   0.07 0.37 0.30 0.63
+   F41_DUP           2.44x  0.703  0.610  0.540   0.22 0.39 0.73 0.79
+   F41_RIFE          2.42x  0.675  0.683  0.570   0.27 0.45 0.76 0.77
+   TEA015            2.34x  0.876  0.741  0.708   0.36 0.69 0.81 0.94
+   DVG_D050          2.21x  0.584  0.533  0.435   0.23 0.36 0.56 0.58
+   STEP20            2.17x  0.827  0.710  0.665   0.44 0.54 0.81 0.84
+   TEA008            1.87x  0.926  0.832  0.812   0.52 0.81 0.91 0.97
+   STEP25            1.82x  0.858  0.778  0.734   0.47 0.64 0.90 0.90
+   SCALING10         1.76x  0.957  0.898  0.876   0.66 0.90 0.93 0.99
+   DVG_D070          1.50x  0.600  0.362  0.338   0.14 0.24 0.47 0.49
+   SPARGE50          1.47x  0.854  0.703  0.673   0.30 0.61 0.82 0.93 <-
+   SVG2              1.06x  0.930  0.675  0.666   0.42 0.45 0.86 0.90 <-
+
+== Descriptive: VBench5 vs the layered score for the new arms (per clip, against the same-seed FULL50)
+   v1    SVG2      d_vbench5 -0.0077 (clips worse than FULL: 153/192)  subject -0.0117 motion -0.0019 aesthetic -0.0091 imaging -0.0097 dynamic +0.0000
+   v1    SPARGE50  d_vbench5 -0.0080 (clips worse than FULL: 122/192)  subject -0.0119 motion -0.0035 aesthetic -0.0073 imaging -0.0119 dynamic +0.0417
+   dev2  SVG2      d_vbench5 -0.0070 (clips worse than FULL: 153/192)  subject -0.0122 motion -0.0013 aesthetic -0.0051 imaging -0.0097 dynamic +0.0000
+   dev2  SPARGE50  d_vbench5 -0.0059 (clips worse than FULL: 117/192)  subject -0.0067 motion -0.0012 aesthetic -0.0037 imaging -0.0144 dynamic -0.0104

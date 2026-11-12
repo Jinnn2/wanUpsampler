@@ -1,0 +1,32 @@
+{
+ "archive": "attention_v1_results.tgz",
+ "sha256": "fb3a0026e2fe4145665326513baef2aedd7ad234f047554afa220c44af7fa9b1",
+ "ingested": "2026-11-12",
+ "note": "attention v1: SVG2 + SPARGE50 on v1+dev2 (128 prompts x 3 seeds), H100 official-Wan path, FULL50 reused; VBench + three layers + routing",
+ "kept": [
+  "attention_v1.log",
+  "attention_wan_dev2/gate.txt",
+  "attention_wan_dev2/metrics/quality_by_video.csv",
+  "attention_wan_dev2/report.txt",
+  "attention_wan_v1/gate.txt",
+  "attention_wan_v1/metrics/quality_by_video.csv",
+  "attention_wan_v1/report.txt",
+  "dynamic_attn/dynamic_by_video.csv",
+  "dynamic_attn/report.txt",
+  "fixed_metrics_attn/fixed_by_video.csv",
+  "fixed_metrics_attn/report.txt",
+  "quality_attn/quality_by_video.csv",
+  "quality_attn/report.txt",
+  "quality_attn_v2/quality_by_video.csv",
+  "quality_attn_v2/report.txt",
+  "route_attn/route_eval.csv",
+  "route_attn/route_report.md",
+  "route_attn/route_rules.json",
+  "route_attn/route_table.csv",
+  "route_attn/table_inputs.json"
+ ],
+ "skipped_by_suffix": {
+  ".json": 13,
+  ".log": 8
+ }
+}
