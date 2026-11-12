@@ -52,6 +52,7 @@ Cells: motion x detail, written `hl` = high motion, low detail.
 | `attention/attention_v1_results` | attention v1: SVG2 + SPARGE50 on v1+dev2 (128 prompts x 3 seeds), H100, FULL50 reused; per-set VBench, fixed / dynamic / quality v2 layers on the combined root, route table + dev->dev2 eval | attention_v1_results.tgz |
 | `derived/attention_v1` | attention v1 verdict against ATTENTION_V1.md (A1 holds, A2/A3 do not; both arms dominated, never routed) | computed locally |
 | `attention/quality_null` | quality-layer null controls: identity pairs, FULL seed 42 vs 100 (both directions), reverse question for SVG2/SPARGE50/SCALING10/TEA008, per-clip PSNR | quality_null.tgz |
+| `attention/quality_tri` | pilot of a three-way pairwise quality question (A better / B better / Same): identity, FULL seed 100 vs 42, SVG2/SPARGE50/SCALING10/RCM1/LR_BICUBIC/F41_DUP vs FULL on 32 prompts (16 high + 16 low motion), seed 42; old binary answers joined | quality_tri.tgz |
 | `misc/official_check` | official Wan sample check log | official_check.tgz |
 | `misc/batch_dev2.log`, `misc/batch_dev2_SOURCE.json` | dev2 batch log; source record of the batch tgz split into the folders above | batch_dev2_results.tgz |
 

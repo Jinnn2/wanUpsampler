@@ -1,0 +1,13 @@
+{
+ "archive": "quality_tri.tgz",
+ "sha256": "e6619cd7707dbcc92089b734e94ac89d24f57b8829252e7dc307d658a94bb949",
+ "ingested": "2026-11-12",
+ "note": "Three-way pairwise quality pilot (A/B/Same): identity, FULL seed null, 6 arms on 32 prompts, seed 42",
+ "kept": [
+  "report.txt",
+  "tri_by_pair.csv"
+ ],
+ "skipped_by_suffix": {
+  ".json": 1
+ }
+}
