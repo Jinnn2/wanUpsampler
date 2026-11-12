@@ -1,0 +1,13 @@
+{
+ "archive": "quality_null.tgz",
+ "sha256": "e712c9da3ef8d0e25be68248720372a03217fb615b674c4b9f59db1c363f3605",
+ "ingested": "2026-11-12",
+ "note": "quality-layer null controls: identity, FULL seed 42 vs 100, reverse question for SVG2/SPARGE50/SCALING10/TEA008, per-clip PSNR",
+ "kept": [
+  "null_by_pair.csv",
+  "report.txt"
+ ],
+ "skipped_by_suffix": {
+  ".json": 1
+ }
+}

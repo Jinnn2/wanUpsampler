@@ -69,3 +69,36 @@
   - With `pvthreshd=1e30` there were no hangs, and the output is bitwise identical (4/4 clips).
 - **One SVG2 worker crashed** with a CUDA illegal memory access in dev2. Its job was rerun successfully; all 768
   clips exist.
+
+## Follow-up: quality-layer null controls (`results/attention/quality_null`)
+
+The decision rules were pre-registered in ATTENTION_V1.md before the run.
+
+**Ceiling.** Identity pairs are kept on 0.97–1.00 of aspects. The judge works on identical clips.
+
+**N1 is triggered.** Two FULL clips of the same prompt, seeds 42 and 100, are equally good by construction, but
+their `quality_kept` is only 0.711.
+
+| | quality_kept | `worse` share |
+| --- | --- | --- |
+| seed null, low motion | 0.916 | 0.07 |
+| seed null, high motion | 0.506 | 0.32 |
+
+So the layer charges for "different", and much more on high-motion clips. Under N1, `not_worse` becomes the
+primary quality score, and all arms must be rescored with the reverse question.
+
+**Arm minus seed null, `worse` share** (family bootstrap, 95% CI):
+
+| arm | high motion | low motion | reading |
+| --- | --- | --- | --- |
+| SVG2 | +0.102 [+0.020, +0.183] | +0.028 [−0.010, +0.068] | **N2 holds, barely**: a real excess loss on high motion of about 10 pp beyond being different; SVG2 is closer to FULL (PSNR 23) than a reseed (10) |
+| SPARGE50 | +0.000 [−0.090, +0.089] | +0.011 [−0.025, +0.045] | indistinguishable from a reseed: its "loss" is that it makes a different video |
+| TEA008 | −0.162 [−0.243, −0.082] | −0.039 [−0.080, +0.001] | better than a reseed (closer to FULL) |
+| SCALING10 | −0.258 [−0.333, −0.184] | −0.047 [−0.089, −0.008] | better than a reseed (closer to FULL) |
+
+**What this means.** The judge alone already produces most of the shared high-vs-low motion gap in `quality_kept`.
+The seed null's own gap is 0.41.
+- So the cell × arm pattern of every arm partly reflects how far the arm's clip drifts from FULL on high-motion
+  prompts, where the judge cannot confirm "at least as good" for two different clips.
+- How much of the dev/dev2 routing result survives with `not_worse` has to be checked by rescoring the old arms.
+  The retention layer has the same one-directional pairwise design and needs the same null.

@@ -1,0 +1,24 @@
+identity (same clip both sides, n=32): kept per aspect sharp 0.97 artifact 1.00 aesthetic 1.00 temporal 1.00 acceptable 1.00
+
+group                      n  psnr   quality_kept  not_worse | equal worse better undecided | kept per aspect
+seed null (FULL vs FULL)   128  10.4        0.711      0.806 |  0.59  0.19   0.12      0.10 | sharp 0.55 artif 0.69 aesth 0.79 tempo 0.75 accep 0.78
+SCALING10                  384  25.5        0.890      0.959 |  0.87  0.04   0.02      0.07 | sharp 0.72 artif 0.87 aesth 0.96 tempo 0.93 accep 0.97
+  SCALING10 high-motion    192  23.5        0.807      0.940 |  0.78  0.06   0.03      0.13 | sharp 0.49 artif 0.77 aesth 0.92 tempo 0.88 accep 0.97
+  SCALING10 low-motion     192  27.5        0.972      0.978 |  0.96  0.02   0.02      0.01 | sharp 0.94 artif 0.96 aesth 0.99 tempo 0.98 accep 0.97
+SPARGE50                   384  15.6        0.691      0.801 |  0.65  0.20   0.05      0.11 | sharp 0.55 artif 0.65 aesth 0.78 tempo 0.71 accep 0.77
+  SPARGE50 high-motion     192  14.5        0.470      0.681 |  0.41  0.32   0.06      0.21 | sharp 0.29 artif 0.43 aesth 0.64 tempo 0.43 accep 0.56
+  SPARGE50 low-motion      192  16.7        0.913      0.920 |  0.88  0.08   0.03      0.01 | sharp 0.81 artif 0.86 aesth 0.93 tempo 0.99 accep 0.97
+SVG2                       384  23.1        0.663      0.741 |  0.65  0.26   0.01      0.08 | sharp 0.51 artif 0.62 aesth 0.82 tempo 0.62 accep 0.75
+  SVG2 high-motion         192  20.6        0.432      0.579 |  0.42  0.42   0.01      0.15 | sharp 0.16 artif 0.34 aesth 0.65 tempo 0.42 accep 0.59
+  SVG2 low-motion          192  25.6        0.894      0.903 |  0.88  0.10   0.01      0.01 | sharp 0.86 artif 0.89 aesth 0.98 tempo 0.83 accep 0.91
+TEA008                     384  20.9        0.820      0.907 |  0.80  0.09   0.02      0.09 | sharp 0.62 artif 0.79 aesth 0.90 tempo 0.86 accep 0.92
+  TEA008 high-motion       192  19.1        0.677      0.844 |  0.64  0.16   0.04      0.17 | sharp 0.36 artif 0.63 aesth 0.80 tempo 0.73 accep 0.85
+  TEA008 low-motion        192  22.7        0.963      0.970 |  0.95  0.03   0.01      0.01 | sharp 0.88 artif 0.96 aesth 0.99 tempo 0.99 accep 0.99
+  seed null high-motion     64  10.7        0.506      0.681 |  0.36  0.32   0.15      0.17 | sharp 0.25 artif 0.47 aesth 0.66 tempo 0.52 accep 0.64
+  seed null low-motion      64  10.2        0.916      0.931 |  0.82  0.07   0.10      0.02 | sharp 0.84 artif 0.91 aesth 0.92 tempo 0.98 accep 0.92
+
+PSNR vs judged quality per arm (Spearman over clips): quality_kept, not_worse
+   SCALING10  n=384  +0.37  +0.16
+   SPARGE50   n=384  +0.45  +0.33
+   SVG2       n=384  +0.31  +0.13
+   TEA008     n=384  +0.39  +0.26

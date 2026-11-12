@@ -51,6 +51,7 @@ Cells: motion x detail, written `hl` = high motion, low detail.
 | `attention/attention_wan_h100` | attention arms on the official-Wan path, H100 (DENSE gate = platform FULL50 bitwise; SpargeAttn sweep; SVG2): records, report.txt, gate.txt, visual_check.txt | attention_wan_nvidiah10080gbhbm3.tgz |
 | `attention/attention_v1_results` | attention v1: SVG2 + SPARGE50 on v1+dev2 (128 prompts x 3 seeds), H100, FULL50 reused; per-set VBench, fixed / dynamic / quality v2 layers on the combined root, route table + dev->dev2 eval | attention_v1_results.tgz |
 | `derived/attention_v1` | attention v1 verdict against ATTENTION_V1.md (A1 holds, A2/A3 do not; both arms dominated, never routed) | computed locally |
+| `attention/quality_null` | quality-layer null controls: identity pairs, FULL seed 42 vs 100 (both directions), reverse question for SVG2/SPARGE50/SCALING10/TEA008, per-clip PSNR | quality_null.tgz |
 | `misc/official_check` | official Wan sample check log | official_check.tgz |
 | `misc/batch_dev2.log`, `misc/batch_dev2_SOURCE.json` | dev2 batch log; source record of the batch tgz split into the folders above | batch_dev2_results.tgz |
 
